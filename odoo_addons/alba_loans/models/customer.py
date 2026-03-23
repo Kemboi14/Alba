@@ -144,6 +144,11 @@ class AlbaCustomer(models.Model):
         default=False,
         tracking=True,
     )
+    active = fields.Boolean(
+        string="Active",
+        default=True,
+        tracking=True,
+    )
 
     # ── Banking ───────────────────────────────────────────────────────────────
     bank_name = fields.Char(string="Bank Name")
