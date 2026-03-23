@@ -273,16 +273,72 @@
         </record>
 
         <!-- ================================================================
-             alba.loan — Search View (simplified for installation)
+             alba.loan — Search View
              ================================================================ -->
         <record id="view_alba_loan_search" model="ir.ui.view">
             <field name="name">alba.loan.search</field>
             <field name="model">alba.loan</field>
             <field name="arch" type="xml">
                 <search string="Search Loans">
-                    <field name="loan_number" string="Loan #"/>
-                    <field name="customer_id" string="Customer"/>
+                    <field name="loan_number"    string="Loan #"/>
+                    <field name="customer_id"    string="Customer"/>
                     <field name="loan_product_id" string="Product"/>
+                    <separator/>
+                    <filter string="Active"
+                            name="active"
+                            domain="[('state','=','active')]"/>
+                    <filter string="Closed"
+                            name="closed"
+                            domain="[('state','=','closed')]"/>
+                    <filter string="NPL"
+                            name="npl"
+                            domain="[('state','=','npl')]"/>
+                    <filter string="Written Off"
+                            name="written_off"
+                            domain="[('state','=','written_off')]"/>
+                    <separator/>
+                    <filter string="Current (No Arrears)"
+                            name="current"
+                            domain="[('par_bucket','=','current')]"/>
+                    <filter string="1-30 Days in Arrears"
+                            name="par_1_30"
+                            domain="[('par_bucket','=','1_30')]"/>
+                    <filter string="31-60 Days in Arrears"
+                            name="par_31_60"
+                            domain="[('par_bucket','=','31_60')]"/>
+                    <filter string="61-90 Days in Arrears"
+                            name="par_61_90"
+                            domain="[('par_bucket','=','61_90')]"/>
+                    <filter string="Over 90 Days in Arrears"
+                            name="par_over_90"
+                            domain="[('par_bucket','in',['91_180','over_180'])]"/>
+                    <separator/>
+                    <filter string="Disbursed This Month"
+                            name="this_month"
+                            domain="[('disbursement_date','&gt;=',(context_today().replace(day=1)).strftime('%Y-%m-%d'))]"/>
+                    <filter string="Maturing This Month"
+                            name="maturing"
+                            domain="[
+                                ('maturity_date','&gt;=',context_today().strftime('%Y-%m-%d')),
+                                ('maturity_date','&lt;=',(context_today().replace(day=28)).strftime('%Y-%m-%d'))
+                            ]"/>
+                    <group expand="0" string="Group By">
+                        <filter string="Status"
+                                name="grp_state"
+                                context="{'group_by':'state'}"/>
+                        <filter string="PAR Bucket"
+                                name="grp_par"
+                                context="{'group_by':'par_bucket'}"/>
+                        <filter string="Loan Product"
+                                name="grp_product"
+                                context="{'group_by':'loan_product_id'}"/>
+                        <filter string="Interest Method"
+                                name="grp_method"
+                                context="{'group_by':'interest_method'}"/>
+                        <filter string="Disbursement Month"
+                                name="grp_disb_month"
+                                context="{'group_by':'disbursement_date:month'}"/>
+                    </group>
                 </search>
             </field>
         </record>
