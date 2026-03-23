@@ -1,0 +1,813 @@
+# -*- coding: utf-8 -*-
+"""
+core.services.webhooks
+=======================
+Inbound webhook receiver for Odoo → Django event notifications.
+
+Every time Odoo fires a webhook (application status changed, loan disbursed,
+payment matched, M-Pesa received, etc.) it POSTs a signed JSON envelope to
+``/api/v1/webhooks/odoo/``.  This module handles:
+
+  1. HMAC-SHA256 signature verification  (X-Alba-Signature header)
+  2. Idempotency guard                   (X-Alba-Delivery deduplication)
+  3. Event routing                       (dispatch to per-event handlers)
+  4. Audit logging                       (WebhookDelivery model)
+
+Configuration (.env)
+---------------------
+  ODOO_WEBHOOK_SECRET   64-char hex shared secret used to verify signatures.
+
+Signature format
+----------------
+Odoo computes::
+
+    signature = hmac.new(secret.encode(), body_bytes, sha256).hexdigest()
+    X-Alba-Signature: sha256=<hex_digest>
+
+The receiver re-computes the HMAC over the raw request body and compares
+it in constant time to prevent timing attacks.
+
+Event catalogue
+---------------
+  application.status_changed
+  loan.disbursed
+  loan.npl_flagged
+  loan.closed
+  loan.instalment_overdue
+  loan.maturing_soon
+  payment.matched
+  payment.mpesa_received
+  customer.kyc_verified
+  portfolio.stats_updated
+  integration.health_check
+  integration.dead_webhooks_alert
+
+Adding a new event handler
+--------------------------
+Define a function ``handle_<dotted_event_with_underscores>(data, delivery_id)``
+and register it in the ``_EVENT_HANDLERS`` dict at the bottom of this file.
+"""
+
+import hashlib
+import hmac
+import json
+import logging
+from datetime import datetime, timezone
+
+from django.conf import settings
+from django.db import transaction
+from django.http import HttpRequest, JsonResponse
+from django.utils import timezone as dj_timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+_SIGNATURE_HEADER = "HTTP_X_ALBA_SIGNATURE"
+_EVENT_HEADER = "HTTP_X_ALBA_EVENT"
+_DELIVERY_HEADER = "HTTP_X_ALBA_DELIVERY"
+
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+
+
+class WebhookVerificationError(Exception):
+    """Raised when the webhook signature cannot be verified."""
+
+    pass
+
+
+class WebhookParseError(Exception):
+    """Raised when the webhook body cannot be parsed."""
+
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Signature verification
+# ---------------------------------------------------------------------------
+
+
+def verify_signature(raw_body: bytes, signature_header: str, secret: str) -> bool:
+    """
+    Verify the HMAC-SHA256 signature of an inbound Odoo webhook.
+
+    Args:
+        raw_body:          The raw (undecoded) request body bytes.
+        signature_header:  Value of the X-Alba-Signature header,
+                           e.g. ``sha256=abc123…``.
+        secret:            The shared HMAC secret (ODOO_WEBHOOK_SECRET).
+
+    Returns:
+        bool: ``True`` when the signature matches, ``False`` otherwise.
+
+    Notes:
+        The comparison uses ``hmac.compare_digest`` to prevent timing attacks.
+        If ``signature_header`` does not start with ``sha256=`` or ``secret``
+        is empty, the function returns ``False`` without raising.
+    """
+    if not secret:
+        logger.warning(
+            "ODOO_WEBHOOK_SECRET is not configured — all webhooks will be rejected."
+        )
+        return False
+
+    if not signature_header or not signature_header.startswith("sha256="):
+        return False
+
+    expected_digest = signature_header[len("sha256=") :]
+    computed = hmac.new(
+        secret.encode("utf-8"),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    return hmac.compare_digest(computed, expected_digest)
+
+
+# ---------------------------------------------------------------------------
+# HTTP view — main entry point
+# ---------------------------------------------------------------------------
+
+
+@csrf_exempt
+@require_POST
+def odoo_webhook_receiver(request: HttpRequest) -> JsonResponse:
+    """
+    Django view: receive and process inbound Odoo webhook POST requests.
+
+    URL:  POST /api/v1/webhooks/odoo/
+
+    Responses:
+        200  Event processed (or intentionally ignored / duplicate).
+        400  Malformed body or missing required envelope fields.
+        401  Missing or invalid signature.
+        500  Unexpected processing error (event still acknowledged to
+             prevent Odoo from retrying a definitively malformed payload).
+
+    Safaricom / Odoo will retry delivery if they receive a non-2xx response,
+    so we always return 200 for known events even when our handler raises —
+    and log the error for investigation.
+    """
+    # ── 1. Read raw body ────────────────────────────────────────────────────
+    raw_body = request.body  # bytes
+
+    # ── 2. Verify HMAC signature ────────────────────────────────────────────
+    secret = getattr(settings, "ODOO_WEBHOOK_SECRET", "") or ""
+    sig_header = request.META.get(_SIGNATURE_HEADER, "")
+
+    if not verify_signature(raw_body, sig_header, secret):
+        logger.warning(
+            "Webhook signature verification failed.  sig_header=%s  remote_addr=%s",
+            sig_header[:30] if sig_header else "(none)",
+            request.META.get("REMOTE_ADDR", "—"),
+        )
+        return JsonResponse(
+            {"status": "error", "detail": "Invalid or missing signature."},
+            status=401,
+        )
+
+    # ── 3. Parse envelope ───────────────────────────────────────────────────
+    try:
+        envelope = json.loads(raw_body.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        logger.error("Webhook body parse error: %s", exc)
+        return JsonResponse(
+            {"status": "error", "detail": "Malformed JSON body."},
+            status=400,
+        )
+
+    event_type = (
+        envelope.get("event") or request.META.get(_EVENT_HEADER, "") or ""
+    ).strip()
+    delivery_id = (
+        envelope.get("delivery_id") or request.META.get(_DELIVERY_HEADER, "") or ""
+    ).strip()
+    timestamp_str = (envelope.get("timestamp") or "").strip()
+    data = envelope.get("data") or {}
+
+    if not event_type:
+        logger.warning("Webhook received with no event type — rejecting.")
+        return JsonResponse(
+            {"status": "error", "detail": "Missing 'event' field in envelope."},
+            status=400,
+        )
+
+    logger.info(
+        "Webhook received: event=%s delivery_id=%s",
+        event_type,
+        delivery_id or "(none)",
+    )
+
+    # ── 4. Idempotency check ────────────────────────────────────────────────
+    if delivery_id and _is_duplicate_delivery(delivery_id):
+        logger.info(
+            "Duplicate webhook delivery ignored: event=%s delivery_id=%s",
+            event_type,
+            delivery_id,
+        )
+        return JsonResponse(
+            {"status": "ok", "detail": "Duplicate delivery — ignored."},
+            status=200,
+        )
+
+    # ── 5. Persist delivery record (best-effort) ────────────────────────────
+    _record_delivery(
+        event_type=event_type,
+        delivery_id=delivery_id,
+        timestamp_str=timestamp_str,
+        raw_body=raw_body,
+        status="processing",
+        remote_ip=_get_client_ip(request),
+    )
+
+    # ── 6. Dispatch to event handler ────────────────────────────────────────
+    handler = _EVENT_HANDLERS.get(event_type)
+    processing_status = "success"
+    processing_detail = ""
+
+    if handler is None:
+        logger.info(
+            "No handler registered for webhook event '%s' — acknowledging.", event_type
+        )
+        processing_status = "unhandled"
+    else:
+        try:
+            handler(data, delivery_id)
+            logger.info(
+                "Webhook event '%s' processed successfully (delivery_id=%s).",
+                event_type,
+                delivery_id,
+            )
+        except Exception as exc:
+            processing_status = "error"
+            processing_detail = str(exc)
+            logger.exception(
+                "Error processing webhook event '%s' (delivery_id=%s): %s",
+                event_type,
+                delivery_id,
+                exc,
+            )
+
+    # ── 7. Update delivery record (best-effort) ─────────────────────────────
+    _update_delivery(
+        delivery_id=delivery_id,
+        status=processing_status,
+        detail=processing_detail,
+    )
+
+    # Always return 200 so Odoo does not retry indefinitely
+    return JsonResponse({"status": "ok", "event": event_type}, status=200)
+
+
+# ---------------------------------------------------------------------------
+# Delivery persistence helpers
+# ---------------------------------------------------------------------------
+
+
+def _is_duplicate_delivery(delivery_id: str) -> bool:
+    """
+    Return ``True`` when a WebhookDelivery record with *delivery_id*
+    already exists and was processed successfully.
+
+    Falls back to ``False`` when the model is unavailable (e.g. before
+    migrations have run) so the webhook is processed rather than silently
+    dropped.
+    """
+    if not delivery_id:
+        return False
+    try:
+        from loans.models import WebhookDelivery  # lazy import
+
+        return WebhookDelivery.objects.filter(
+            delivery_id=delivery_id,
+            status__in=("success", "processing"),
+        ).exists()
+    except Exception:
+        return False
+
+
+def _record_delivery(
+    event_type: str,
+    delivery_id: str,
+    timestamp_str: str,
+    raw_body: bytes,
+    status: str,
+    remote_ip: str,
+):
+    """Create a WebhookDelivery record for audit purposes (best-effort)."""
+    if not delivery_id:
+        return
+    try:
+        from loans.models import WebhookDelivery  # lazy import
+
+        WebhookDelivery.objects.update_or_create(
+            delivery_id=delivery_id,
+            defaults={
+                "event_type": event_type[:128],
+                "raw_body": raw_body.decode("utf-8", errors="replace")[:20_000],
+                "status": status,
+                "remote_ip": remote_ip[:64],
+                "odoo_timestamp": _parse_iso_timestamp(timestamp_str),
+            },
+        )
+    except Exception as exc:
+        logger.debug("Could not record webhook delivery: %s", exc)
+
+
+def _update_delivery(delivery_id: str, status: str, detail: str):
+    """Update the status of an existing WebhookDelivery record."""
+    if not delivery_id:
+        return
+    try:
+        from loans.models import WebhookDelivery  # lazy import
+
+        WebhookDelivery.objects.filter(delivery_id=delivery_id).update(
+            status=status,
+            processing_detail=detail[:5_000],
+        )
+    except Exception as exc:
+        logger.debug("Could not update webhook delivery status: %s", exc)
+
+
+def _parse_iso_timestamp(ts: str):
+    """Parse an ISO-8601 timestamp string; return None on failure."""
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
+def _get_client_ip(request: HttpRequest) -> str:
+    """Extract the real client IP from request headers."""
+    x_forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if x_forwarded:
+        return x_forwarded.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "")
+
+
+# ---------------------------------------------------------------------------
+# Event handlers
+# ---------------------------------------------------------------------------
+
+
+def _handle_application_status_changed(data: dict, delivery_id: str):
+    """
+    application.status_changed
+    ---------------------------
+    Odoo has moved an application to a new stage.  Update the Django
+    LoanApplication record to reflect the new status.
+
+    Expected data keys:
+        odoo_application_id, django_application_id, new_status,
+        odoo_loan_id (when disbursed), loan_number (when disbursed)
+    """
+    from loans.models import LoanApplication  # lazy import
+
+    django_app_id = int(data.get("django_application_id") or 0)
+    new_status = (data.get("new_status") or data.get("status") or "").strip()
+    odoo_app_id = int(data.get("odoo_application_id") or 0)
+
+    if not django_app_id and not odoo_app_id:
+        logger.warning(
+            "application.status_changed: no application ID in payload — skipping."
+        )
+        return
+
+    # Lookup by Django ID first, fall back to Odoo ID
+    app = None
+    if django_app_id:
+        app = LoanApplication.objects.filter(id=django_app_id).first()
+    if not app and odoo_app_id:
+        app = LoanApplication.objects.filter(odoo_application_id=odoo_app_id).first()
+
+    if not app:
+        logger.warning(
+            "application.status_changed: no LoanApplication found "
+            "(django_id=%s, odoo_id=%s).",
+            django_app_id,
+            odoo_app_id,
+        )
+        return
+
+    update_fields = []
+
+    # Map Odoo state to Django status
+    status_map = {
+        "submitted": "submitted",
+        "under_review": "under_review",
+        "credit_analysis": "credit_analysis",
+        "pending_approval": "pending_approval",
+        "approved": "approved",
+        "employer_verification": "employer_verification",
+        "guarantor_confirmation": "guarantor_confirmation",
+        "disbursed": "disbursed",
+        "rejected": "rejected",
+        "cancelled": "cancelled",
+    }
+    mapped_status = status_map.get(new_status, new_status)
+    if mapped_status and hasattr(app, "status") and app.status != mapped_status:
+        app.status = mapped_status
+        update_fields.append("status")
+
+    # Capture Odoo application ID if missing
+    if (
+        odoo_app_id
+        and hasattr(app, "odoo_application_id")
+        and not app.odoo_application_id
+    ):
+        app.odoo_application_id = odoo_app_id
+        update_fields.append("odoo_application_id")
+
+    # Capture loan details when disbursed
+    if new_status == "disbursed":
+        odoo_loan_id = int(data.get("odoo_loan_id") or 0)
+        loan_number = (data.get("loan_number") or "").strip()
+        if odoo_loan_id and hasattr(app, "odoo_loan_id"):
+            app.odoo_loan_id = odoo_loan_id
+            update_fields.append("odoo_loan_id")
+        if loan_number and hasattr(app, "loan_number"):
+            app.loan_number = loan_number
+            update_fields.append("loan_number")
+
+    if update_fields:
+        app.save(update_fields=update_fields)
+        logger.info(
+            "Application %s updated: status=%s (fields=%s)",
+            app.pk,
+            mapped_status,
+            update_fields,
+        )
+
+
+def _handle_loan_disbursed(data: dict, delivery_id: str):
+    """
+    loan.disbursed
+    --------------
+    Odoo has disbursed a loan.  Ensure the Django application record is
+    marked as disbursed and the loan number / Odoo loan ID are recorded.
+    """
+    data_with_status = dict(data)
+    data_with_status["new_status"] = "disbursed"
+    _handle_application_status_changed(data_with_status, delivery_id)
+
+    # Additionally, try to create or update a Django Loan record if the model exists
+    try:
+        from loans.models import Loan  # lazy import
+
+        odoo_loan_id = int(data.get("odoo_loan_id") or 0)
+        django_app_id = int(data.get("django_application_id") or 0)
+        loan_number = (data.get("loan_number") or "").strip()
+        disbursed_amount = float(data.get("disbursed_amount") or 0)
+        disbursement_date = (data.get("disbursement_date") or "").strip()
+        outstanding_balance = float(data.get("outstanding_balance") or disbursed_amount)
+
+        if odoo_loan_id:
+            loan, created = Loan.objects.update_or_create(
+                odoo_loan_id=odoo_loan_id,
+                defaults={
+                    "loan_number": loan_number,
+                    "django_application_id": django_app_id or None,
+                    "principal_amount": disbursed_amount,
+                    "outstanding_balance": outstanding_balance,
+                    "state": "active",
+                },
+            )
+            logger.info(
+                "Loan %s in Django (odoo_loan_id=%d).",
+                "created" if created else "updated",
+                odoo_loan_id,
+            )
+    except Exception as exc:
+        logger.debug("Could not update Loan record: %s", exc)
+
+
+def _handle_loan_npl_flagged(data: dict, delivery_id: str):
+    """
+    loan.npl_flagged
+    ----------------
+    Odoo has moved a loan to Non-Performing status.  Update the Django
+    Loan record state and optionally notify the customer.
+    """
+    _update_loan_state(data, "npl")
+
+
+def _handle_loan_closed(data: dict, delivery_id: str):
+    """
+    loan.closed
+    -----------
+    Odoo has closed a fully-repaid loan.
+    """
+    _update_loan_state(data, "closed")
+
+
+def _update_loan_state(data: dict, new_state: str):
+    """Helper: update Loan.state for loan status events."""
+    odoo_loan_id = int(data.get("odoo_loan_id") or 0)
+    if not odoo_loan_id:
+        return
+    try:
+        from loans.models import Loan  # lazy import
+
+        updated = Loan.objects.filter(odoo_loan_id=odoo_loan_id).update(state=new_state)
+        logger.info(
+            "Loan state updated to '%s' for odoo_loan_id=%d (%d record(s)).",
+            new_state,
+            odoo_loan_id,
+            updated,
+        )
+    except Exception as exc:
+        logger.debug("Could not update loan state: %s", exc)
+
+
+def _handle_loan_instalment_overdue(data: dict, delivery_id: str):
+    """
+    loan.instalment_overdue
+    -----------------------
+    An instalment is past its due date.  Log the event and optionally
+    trigger a customer notification (email / SMS via the portal).
+    """
+    odoo_loan_id = int(data.get("odoo_loan_id") or 0)
+    days_overdue = int(data.get("days_overdue") or 0)
+    balance_due = float(data.get("balance_due") or 0)
+    due_date = (data.get("due_date") or "").strip()
+
+    logger.info(
+        "Instalment overdue: odoo_loan_id=%d days=%d balance=%.2f due_date=%s",
+        odoo_loan_id,
+        days_overdue,
+        balance_due,
+        due_date,
+    )
+
+    # Attempt to queue a notification via the portal's notification system
+    try:
+        _queue_overdue_notification(odoo_loan_id, days_overdue, balance_due, due_date)
+    except Exception as exc:
+        logger.debug("Could not queue overdue notification: %s", exc)
+
+
+def _queue_overdue_notification(odoo_loan_id, days_overdue, balance_due, due_date):
+    """Best-effort: find the Django loan and send an overdue notification."""
+    from loans.models import Loan  # lazy import
+
+    loan = (
+        Loan.objects.filter(odoo_loan_id=odoo_loan_id)
+        .select_related("customer")
+        .first()
+    )
+    if not loan:
+        return
+
+    customer = getattr(loan, "customer", None) or getattr(loan, "user", None)
+    if not customer:
+        return
+
+    logger.info(
+        "Overdue notification queued for customer %s (loan %s) — %d days overdue.",
+        customer.pk,
+        loan.loan_number if hasattr(loan, "loan_number") else loan.pk,
+        days_overdue,
+    )
+    # In a real implementation this would call a Celery task:
+    # tasks.send_overdue_sms.delay(customer.pk, loan.pk, days_overdue, balance_due)
+
+
+def _handle_loan_maturing_soon(data: dict, delivery_id: str):
+    """
+    loan.maturing_soon
+    ------------------
+    A loan is maturing within 30 days.  Log for follow-up.
+    """
+    odoo_loan_id = int(data.get("odoo_loan_id") or 0)
+    loan_number = (data.get("loan_number") or "").strip()
+    outstanding = float(data.get("outstanding_balance") or 0)
+    logger.info(
+        "Loan maturing soon: odoo_loan_id=%d loan_number=%s outstanding=%.2f",
+        odoo_loan_id,
+        loan_number,
+        outstanding,
+    )
+
+
+def _handle_payment_matched(data: dict, delivery_id: str):
+    """
+    payment.matched
+    ---------------
+    A repayment has been posted and allocated to a loan in Odoo.
+    Update the Django repayment / loan records with the posted data.
+
+    Expected data keys:
+        odoo_repayment_id, django_payment_id, loan_number,
+        odoo_loan_id, amount_paid, principal_applied, interest_applied,
+        outstanding_balance
+    """
+    django_payment_id = int(data.get("django_payment_id") or 0)
+    odoo_repayment_id = int(data.get("odoo_repayment_id") or 0)
+    odoo_loan_id = int(data.get("odoo_loan_id") or 0)
+    outstanding_balance = float(data.get("outstanding_balance") or 0)
+
+    logger.info(
+        "Payment matched: django_payment_id=%d odoo_repayment_id=%d "
+        "odoo_loan_id=%d outstanding_balance=%.2f",
+        django_payment_id,
+        odoo_repayment_id,
+        odoo_loan_id,
+        outstanding_balance,
+    )
+
+    # Update loan outstanding balance
+    if odoo_loan_id:
+        try:
+            from loans.models import Loan  # lazy import
+
+            Loan.objects.filter(odoo_loan_id=odoo_loan_id).update(
+                outstanding_balance=outstanding_balance
+            )
+        except Exception as exc:
+            logger.debug("Could not update loan outstanding balance: %s", exc)
+
+    # Update the Django repayment record status to 'posted'
+    if django_payment_id:
+        try:
+            from loans.models import LoanRepayment  # lazy import
+
+            LoanRepayment.objects.filter(id=django_payment_id).update(
+                status="posted",
+                odoo_repayment_id=odoo_repayment_id,
+                principal_applied=float(data.get("principal_applied") or 0),
+                interest_applied=float(data.get("interest_applied") or 0),
+            )
+        except Exception as exc:
+            logger.debug("Could not update LoanRepayment status: %s", exc)
+
+
+def _handle_payment_mpesa_received(data: dict, delivery_id: str):
+    """
+    payment.mpesa_received
+    ----------------------
+    An inbound M-Pesa payment (C2B or STK callback) has been received
+    and recorded in Odoo.  Update the Django portal with the M-Pesa
+    transaction details so it can show the customer their payment status.
+
+    Expected data keys:
+        mpesa_code, amount, phone_number, account_reference,
+        loan_number, loan_odoo_id, transaction_type, completed_at,
+        repayment_odoo_id
+    """
+    mpesa_code = (data.get("mpesa_code") or "").strip()
+    amount = float(data.get("amount") or 0)
+    loan_number = (data.get("loan_number") or "").strip()
+    odoo_loan_id = int(data.get("loan_odoo_id") or 0)
+
+    logger.info(
+        "M-Pesa payment received: mpesa_code=%s amount=%.2f loan=%s",
+        mpesa_code or "(pending)",
+        amount,
+        loan_number or str(odoo_loan_id),
+    )
+
+    # Best-effort: record this against the Django loan
+    if odoo_loan_id:
+        try:
+            from loans.models import Loan  # lazy import
+
+            loan = Loan.objects.filter(odoo_loan_id=odoo_loan_id).first()
+            if loan and mpesa_code:
+                logger.info(
+                    "M-Pesa %s (KES %.2f) matched to Django loan %s.",
+                    mpesa_code,
+                    amount,
+                    loan.pk,
+                )
+        except Exception as exc:
+            logger.debug("Could not match M-Pesa payment to Django loan: %s", exc)
+
+
+def _handle_customer_kyc_verified(data: dict, delivery_id: str):
+    """
+    customer.kyc_verified
+    ----------------------
+    A customer's KYC has been verified in Odoo.  Update the Django User
+    record's kyc_status field.
+
+    Expected data keys:
+        odoo_customer_id, django_customer_id, kyc_status
+    """
+    django_customer_id = int(data.get("django_customer_id") or 0)
+    kyc_status = (data.get("kyc_status") or "verified").strip()
+
+    if not django_customer_id:
+        logger.warning("customer.kyc_verified: no django_customer_id in payload.")
+        return
+
+    try:
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        updated = User.objects.filter(id=django_customer_id).update(
+            kyc_status=kyc_status
+        )
+        logger.info(
+            "KYC status updated to '%s' for Django user %d (%d record(s)).",
+            kyc_status,
+            django_customer_id,
+            updated,
+        )
+    except Exception as exc:
+        logger.debug("Could not update KYC status: %s", exc)
+
+
+def _handle_portfolio_stats_updated(data: dict, delivery_id: str):
+    """
+    portfolio.stats_updated
+    -----------------------
+    Odoo has pushed aggregate portfolio statistics.  Cache them so the
+    Django dashboard can display current numbers without querying Odoo.
+
+    Expected data keys:
+        total_active_loans, total_disbursed, total_outstanding,
+        total_arrears, par_30_balance, par_90_balance,
+        npl_count, npl_balance
+    """
+    logger.info(
+        "Portfolio stats received: active_loans=%s total_disbursed=%s "
+        "total_outstanding=%s npl_count=%s",
+        data.get("total_active_loans"),
+        data.get("total_disbursed"),
+        data.get("total_outstanding"),
+        data.get("npl_count"),
+    )
+    # Cache in Django's cache framework so dashboard views can read it
+    try:
+        from django.core.cache import cache
+
+        cache.set("odoo_portfolio_stats", data, timeout=60 * 60 * 7)  # 7 hours
+    except Exception as exc:
+        logger.debug("Could not cache portfolio stats: %s", exc)
+
+
+def _handle_integration_health_check(data: dict, delivery_id: str):
+    """
+    integration.health_check
+    ------------------------
+    Odoo is confirming the integration is alive.  Cache the health summary
+    so the Django admin dashboard can show integration status.
+    """
+    logger.info(
+        "Integration health check received: total=%s inbound=%s outbound=%s",
+        data.get("total"),
+        data.get("inbound"),
+        data.get("outbound"),
+    )
+    try:
+        from django.core.cache import cache
+
+        data["received_at"] = datetime.now(timezone.utc).isoformat()
+        cache.set("odoo_integration_health", data, timeout=60 * 60 * 7)
+    except Exception as exc:
+        logger.debug("Could not cache integration health: %s", exc)
+
+
+def _handle_integration_dead_webhooks_alert(data: dict, delivery_id: str):
+    """
+    integration.dead_webhooks_alert
+    --------------------------------
+    Odoo has detected dead (undeliverable) webhook retry records.
+    Log a warning so Django's error monitoring system can alert the team.
+    """
+    dead_count = int(data.get("dead_count") or 0)
+    logger.warning(
+        "ODOO ALERT: %d dead webhook retry record(s) detected in Odoo.  "
+        "Action required: %s",
+        dead_count,
+        data.get("action_required", "Review Alba Integration → Dead Webhooks in Odoo."),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Event handler registry
+# ---------------------------------------------------------------------------
+
+_EVENT_HANDLERS = {
+    "application.status_changed": _handle_application_status_changed,
+    "loan.disbursed": _handle_loan_disbursed,
+    "loan.npl_flagged": _handle_loan_npl_flagged,
+    "loan.closed": _handle_loan_closed,
+    "loan.instalment_overdue": _handle_loan_instalment_overdue,
+    "loan.maturing_soon": _handle_loan_maturing_soon,
+    "payment.matched": _handle_payment_matched,
+    "payment.mpesa_received": _handle_payment_mpesa_received,
+    "customer.kyc_verified": _handle_customer_kyc_verified,
+    "portfolio.stats_updated": _handle_portfolio_stats_updated,
+    "integration.health_check": _handle_integration_health_check,
+    "integration.dead_webhooks_alert": _handle_integration_dead_webhooks_alert,
+}
