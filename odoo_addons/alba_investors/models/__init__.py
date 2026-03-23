@@ -5,4 +5,5 @@ from . import (
     investment,
     investment_statement,
     investor,
+    mpesa_transaction_investor,
 )
