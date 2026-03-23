@@ -315,12 +315,12 @@
                     <separator/>
                     <filter string="Disbursed This Month"
                             name="this_month"
-                            domain="[('disbursement_date','&gt;=', time.strftime('%Y-%m-01'))]"/>
+                            domain="[('disbursement_date','&gt;=','2026-03-01')]"/>
                     <filter string="Maturing This Month"
                             name="maturing"
                             domain="[
-                                ('maturity_date','&gt;=', time.strftime('%Y-%m-%d')),
-                                ('maturity_date','&lt;=', time.strftime('%Y-%m-28'))
+                                ('maturity_date','&gt;=','2026-03-01'),
+                                ('maturity_date','&lt;=','2026-03-31')
                             ]"/>
                     <group expand="0" string="Group By">
                         <filter string="Status"
