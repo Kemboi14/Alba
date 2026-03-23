@@ -304,7 +304,7 @@
         </record>
 
         <!-- ================================================================
-             alba.loan.application — Search View (simplified for installation)
+             alba.loan.application — Search View
              ================================================================ -->
         <record id="view_alba_loan_application_search" model="ir.ui.view">
             <field name="name">alba.loan.application.search</field>
@@ -312,8 +312,57 @@
             <field name="arch" type="xml">
                 <search string="Search Applications">
                     <field name="application_number" string="Application #"/>
-                    <field name="customer_id" string="Customer"/>
-                    <field name="loan_product_id" string="Loan Product"/>
+                    <field name="customer_id"        string="Customer"/>
+                    <field name="loan_product_id"    string="Loan Product"/>
+                    <separator/>
+                    <filter string="Draft"
+                            name="draft"
+                            domain="[('state','=','draft')]"/>
+                    <filter string="Submitted"
+                            name="submitted"
+                            domain="[('state','=','submitted')]"/>
+                    <filter string="Under Review"
+                            name="under_review"
+                            domain="[('state','=','under_review')]"/>
+                    <filter string="Credit Analysis"
+                            name="credit_analysis"
+                            domain="[('state','=','credit_analysis')]"/>
+                    <filter string="Pending Approval"
+                            name="pending_approval"
+                            domain="[('state','=','pending_approval')]"/>
+                    <filter string="Approved"
+                            name="approved"
+                            domain="[('state','=','approved')]"/>
+                    <filter string="Disbursed"
+                            name="disbursed"
+                            domain="[('state','=','disbursed')]"/>
+                    <filter string="Rejected"
+                            name="rejected"
+                            domain="[('state','=','rejected')]"/>
+                    <filter string="Cancelled"
+                            name="cancelled"
+                            domain="[('state','=','cancelled')]"/>
+                    <separator/>
+                    <filter string="In Progress"
+                            name="in_progress"
+                            domain="[('state','not in',['disbursed','rejected','cancelled'])]"/>
+                    <filter string="Submitted This Month"
+                            name="this_month"
+                            domain="[('submitted_date','&gt;=', (context_today().replace(day=1)).strftime('%Y-%m-%d'))]"/>
+                    <group expand="0" string="Group By">
+                        <filter string="Status"
+                                name="grp_state"
+                                context="{'group_by':'state'}"/>
+                        <filter string="Loan Product"
+                                name="grp_product"
+                                context="{'group_by':'loan_product_id'}"/>
+                        <filter string="Approved By"
+                                name="grp_approved_by"
+                                context="{'group_by':'approved_by'}"/>
+                        <filter string="Submission Date"
+                                name="grp_submitted"
+                                context="{'group_by':'submitted_date:month'}"/>
+                    </group>
                 </search>
             </field>
         </record>
