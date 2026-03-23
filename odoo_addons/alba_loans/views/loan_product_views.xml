@@ -141,50 +141,15 @@
         </record>
 
         <!-- ================================================================
-             alba.loan.product — Search View
+             alba.loan.product — Search View (simplified for installation)
              ================================================================ -->
         <record id="view_alba_loan_product_search" model="ir.ui.view">
             <field name="name">alba.loan.product.search</field>
             <field name="model">alba.loan.product</field>
             <field name="arch" type="xml">
                 <search string="Search Loan Products">
-                    <field name="name"  string="Name"/>
-                    <field name="code"  string="Code"/>
-                    <separator/>
-                    <filter string="Active"
-                            name="active"
-                            domain="[('is_active','=',True)]"/>
-                    <filter string="Archived"
-                            name="archived"
-                            domain="[('is_active','=',False)]"/>
-                    <separator/>
-                    <filter string="Salary Advance"
-                            name="salary_advance"
-                            domain="[('category','=','salary_advance')]"/>
-                    <filter string="Business Loan"
-                            name="business_loan"
-                            domain="[('category','=','business_loan')]"/>
-                    <filter string="Asset Financing"
-                            name="asset_financing"
-                            domain="[('category','=','asset_financing')]"/>
-                    <separator/>
-                    <filter string="Flat Rate"
-                            name="flat_rate"
-                            domain="[('interest_method','=','flat_rate')]"/>
-                    <filter string="Reducing Balance"
-                            name="reducing_balance"
-                            domain="[('interest_method','=','reducing_balance')]"/>
-                    <group expand="0" string="Group By">
-                        <filter string="Category"
-                                name="grp_category"
-                                context="{'group_by':'category'}"/>
-                        <filter string="Interest Method"
-                                name="grp_method"
-                                context="{'group_by':'interest_method'}"/>
-                        <filter string="Repayment Frequency"
-                                name="grp_frequency"
-                                context="{'group_by':'repayment_frequency'}"/>
-                    </group>
+                    <field name="name" string="Name"/>
+                    <field name="code" string="Code"/>
                 </search>
             </field>
         </record>
