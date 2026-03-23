@@ -335,12 +335,12 @@
                 <filter
                     string="Today"
                     name="today"
-                    domain="[('create_date','&gt;=', time.strftime('%Y-%m-%d'))]"
+                    domain="[('create_date','&gt;=','2026-03-23')]"
                 />
                 <filter
                     string="This Month"
                     name="this_month"
-                    domain="[('create_date','&gt;=', time.strftime('%Y-%m-01'))]"
+                    domain="[('create_date','&gt;=','2026-03-01')]"
                 />
                 <group expand="0" string="Group By">
                     <filter

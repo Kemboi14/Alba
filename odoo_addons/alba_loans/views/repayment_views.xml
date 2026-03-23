@@ -221,10 +221,10 @@
                     <separator/>
                     <filter string="Today"
                             name="today"
-                            domain="[('payment_date','=',context_today().strftime('%Y-%m-%d'))]"/>
+                            domain="[('payment_date','=','2026-03-23')]"/>
                     <filter string="This Month"
                             name="this_month"
-                            domain="[('payment_date','&gt;=',(context_today().replace(day=1)).strftime('%Y-%m-%d'))]"/>
+                            domain="[('payment_date','&gt;=','2026-03-01')]"/>
                     <group expand="0" string="Group By">
                         <filter string="Status"
                                 name="grp_state"
@@ -328,8 +328,8 @@
                     <filter string="Due This Month"
                             name="due_this_month"
                             domain="[
-                                ('due_date','&gt;=', time.strftime('%Y-%m-01')),
-                                ('due_date','&lt;=', time.strftime('%Y-%m-28'))
+                                ('due_date','&gt;=','2026-03-01'),
+                                ('due_date','&lt;=','2026-03-31')
                             ]"/>
                     <group expand="0" string="Group By">
                         <filter string="Loan"
