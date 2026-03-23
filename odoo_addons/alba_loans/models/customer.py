@@ -211,7 +211,6 @@ class AlbaCustomer(models.Model):
     )
 
     # ── Audit ─────────────────────────────────────────────────────────────────
-    active = fields.Boolean(default=True)
     notes = fields.Text(string="Internal Notes")
 
     # ── SQL constraints ───────────────────────────────────────────────────────
