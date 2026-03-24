@@ -270,7 +270,7 @@
                     <field name="county"/>
                     <separator/>
                     <filter string="KYC Pending"   name="kyc_pending"   domain="[('kyc_status','=','pending')]"/>
-                    <filter string="KYC Complete"  name="kyc_complete"  domain="[('kyc_status','=','complete')]"/>
+                    <filter string="KYC Complete"  name="kyc_complete"  domain="[('kyc_status','=','partial')]"/>
                     <filter string="KYC Verified"  name="kyc_verified"  domain="[('kyc_status','=','verified')]"/>
                     <filter string="KYC Rejected"  name="kyc_rejected"  domain="[('kyc_status','=','rejected')]"/>
                     <separator/>
