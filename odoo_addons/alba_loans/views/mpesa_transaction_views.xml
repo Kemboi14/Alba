@@ -335,12 +335,20 @@
                 <filter
                     string="Today"
                     name="today"
+<<<<<<< HEAD
                     domain="[('create_date','&gt;=',(context_today()).strftime('%Y-%m-%d'))]"
+=======
+                    domain="[('create_date','&gt;=','2026-03-23')]"
+>>>>>>> a7df70a4411c97de30685c694753ad7f6b2b7e78
                 />
                 <filter
                     string="This Month"
                     name="this_month"
+<<<<<<< HEAD
                     domain="[('create_date','&gt;=',(context_today().replace(day=1)).strftime('%Y-%m-%d'))]"
+=======
+                    domain="[('create_date','&gt;=','2026-03-01')]"
+>>>>>>> a7df70a4411c97de30685c694753ad7f6b2b7e78
                 />
                 <group expand="0" string="Group By">
                     <filter
@@ -373,6 +381,7 @@
         </field>
     </record>
 
+<<<<<<< HEAD
     <!-- ================================================================
          alba.mpesa.transaction — Action Window
          ================================================================ -->
@@ -411,5 +420,7 @@
         </field>
     </record>
 
+=======
+>>>>>>> a7df70a4411c97de30685c694753ad7f6b2b7e78
 </data>
 </odoo>

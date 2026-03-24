@@ -57,7 +57,9 @@ Accounting
         "data/sequence_data.xml",
         # ── Scheduled actions (crons) ────────────────────────────────────────
         "data/cron_data.xml",
-        # ── Loan management views ────────────────────────────────────────────
+        # ── Actions — must load before views that reference them ─────────────
+        "views/actions.xml",
+        # ── Loan management views (load basic views first) ───────────────────
         "views/customer_views.xml",
         "views/loan_product_views.xml",
         "views/loan_application_views.xml",
@@ -66,6 +68,11 @@ Accounting
         # ── M-Pesa views ────────────────────────────────────────────────────
         "views/mpesa_config_views.xml",
         "views/mpesa_transaction_views.xml",
+<<<<<<< HEAD
+=======
+        # ── Loan views with computed fields (load last to ensure models ready) ─
+        "views/loan_views.xml",
+>>>>>>> a7df70a4411c97de30685c694753ad7f6b2b7e78
         # ── Menus (after all actions are defined) ────────────────────────────
         "views/menus.xml",
         # ── Wizards ──────────────────────────────────────────────────────────
