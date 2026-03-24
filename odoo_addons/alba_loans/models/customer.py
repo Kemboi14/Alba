@@ -144,9 +144,11 @@ class AlbaCustomer(models.Model):
         default=False,
         tracking=True,
     )
-
-    # ── System ───────────────────────────────────────────────────────────────
-    active = fields.Boolean(default=True)
+    active = fields.Boolean(
+        string="Active",
+        default=True,
+        tracking=True,
+    )
     # ── Banking ───────────────────────────────────────────────────────────────
     bank_name = fields.Char(string="Bank Name")
     bank_account_number = fields.Char(string="Bank Account Number")
@@ -208,7 +210,7 @@ class AlbaCustomer(models.Model):
     )
 
     # ── Audit ─────────────────────────────────────────────────────────────────
-    active = fields.Boolean(default=True)
+    # ...existing code...
     notes = fields.Text(string="Internal Notes")
 
     # ── SQL constraints ───────────────────────────────────────────────────────

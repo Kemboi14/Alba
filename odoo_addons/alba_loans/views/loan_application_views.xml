@@ -348,7 +348,11 @@
                             domain="[('state','not in',['disbursed','rejected','cancelled'])]"/>
                     <filter string="Submitted This Month"
                             name="this_month"
+<<<<<<< HEAD
                             domain="[('submitted_date','&gt;=', (context_today().replace(day=1)).strftime('%Y-%m-%d'))]"/>
+=======
+                            domain="[('submitted_date','&gt;=','2026-03-01')]"/>
+>>>>>>> a7df70a4411c97de30685c694753ad7f6b2b7e78
                     <group expand="0" string="Group By">
                         <filter string="Status"
                                 name="grp_state"
@@ -367,6 +371,7 @@
             </field>
         </record>
 
+<<<<<<< HEAD
         <!-- ================================================================
              alba.loan.application — Action Window
              ================================================================ -->
@@ -397,5 +402,7 @@
             <field name="context">{}</field>
         </record>
 
+=======
+>>>>>>> a7df70a4411c97de30685c694753ad7f6b2b7e78
     </data>
 </odoo>
