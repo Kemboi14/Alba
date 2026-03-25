@@ -2,6 +2,7 @@
 
 from . import (
     customer,
+    investor,
     loan,
     loan_application,
     loan_product,
