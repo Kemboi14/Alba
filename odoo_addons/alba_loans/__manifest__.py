@@ -55,6 +55,7 @@ Accounting
         "security/ir.model.access.csv",
         # ── Master data / sequences ──────────────────────────────────────────
         "data/sequence_data.xml",
+        "data/loan_product_data.xml",
         # ── Scheduled actions (crons) ────────────────────────────────────────
         "data/cron_data.xml",
         # ── Actions — must load before views that reference them ─────────────

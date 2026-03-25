@@ -27,6 +27,12 @@ class AlbaLoanProduct(models.Model):
         selection=[
             ("salary_advance", "Salary Advance"),
             ("business_loan", "Business Loan"),
+            ("personal_loan", "Personal Loan"),
+            ("ipf_loan", "IPF Loan"),
+            ("bid_bond", "Bid Bond"),
+            ("performance_bond", "Performance Bond"),
+            ("staff_loan", "Staff Loan"),
+            ("investor_loan", "Investor Loan"),
             ("asset_financing", "Asset Financing"),
         ],
         string="Category",
@@ -99,7 +105,26 @@ class AlbaLoanProduct(models.Model):
         default="monthly",
     )
 
-    # ─── Fees ─────────────────────────────────────────────────────────────────
+    # ─── Penalties & Grace Period ───────────────────────────────────────────
+    penalty_rate = fields.Float(
+        string="Penalty Rate (% per day)",
+        digits=(5, 2),
+        default=0.0,
+        help="Daily penalty rate charged on overdue amounts.",
+    )
+    grace_period_days = fields.Integer(
+        string="Grace Period (Days)",
+        default=0,
+        help="Number of days after due date before penalties apply.",
+    )
+    
+    # ─── Other Charges ────────────────────────────────────────────────────────
+    other_charges_percentage = fields.Float(
+        string="Other Charges (%)",
+        digits=(5, 2),
+        default=0.0,
+        help="Additional charges as percentage of principal.",
+    )
     origination_fee_percentage = fields.Float(
         string="Origination Fee (%)",
         digits=(5, 2),
