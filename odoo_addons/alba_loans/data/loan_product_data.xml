@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- ================================================================
+             Alba Capital Loan Products Configuration
+             Based on Business Requirements Questionnaire
+             ================================================================ -->
+
+        <!-- 1. Salary Advance Loan -->
+        <record id="loan_product_salary_advance" model="alba.loan.product">
+            <field name="name">Salary Advance</field>
+            <field name="code">SAL-ADV</field>
+            <field name="category">salary_advance</field>
+            <field name="description">Short-term loan for salaried employees, repaid from next paycheck</field>
+            <field name="min_amount">5000</field>
+            <field name="max_amount">100000</field>
+            <field name="min_tenure_months">1</field>
+            <field name="max_tenure_months">1</field>
+            <field name="interest_rate">10</field>
+            <field name="interest_method">flat_rate</field>
+            <field name="repayment_frequency">monthly</field>
+            <field name="processing_fee_percentage">3.5</field>
+            <field name="insurance_fee_percentage">1.5</field>
+            <field name="origination_fee_percentage">10</field>
+            <field name="penalty_rate">15</field>
+            <field name="grace_period_days">30</field>
+            <field name="is_active">True</field>
+        </record>
+
+        <!-- 2. Business Loan -->
+        <record id="loan_product_business" model="alba.loan.product">
+            <field name="name">Business Loan</field>
+            <field name="code">BUS-LOAN</field>
+            <field name="category">business_loan</field>
+            <field name="description">Working capital and expansion loans for SMEs and businesses</field>
+            <field name="min_amount">100000</field>
+            <field name="max_amount">500000</field>
+            <field name="min_tenure_months">1</field>
+            <field name="max_tenure_months">12</field>
+            <field name="interest_rate">10</field>
+            <field name="interest_method">flat_rate</field>
+            <field name="repayment_frequency">monthly</field>
+            <field name="processing_fee_percentage">0</field>
+            <field name="insurance_fee_percentage">0</field>
+            <field name="origination_fee_percentage">10</field>
+            <field name="penalty_rate">15</field>
+            <field name="grace_period_days">30</field>
+            <field name="is_active">True</field>
+        </record>
+
+        <!-- 3. Personal Loan (Consumer) -->
+        <record id="loan_product_personal" model="alba.loan.product">
+            <field name="name">Personal Loan</field>
+            <field name="code">PER-LOAN</field>
+            <field name="category">personal_loan</field>
+            <field name="description">Consumer loans for personal expenses like school fees, medical, etc.</field>
+            <field name="min_amount">10000</field>
+            <field name="max_amount">100000</field>
+            <field name="min_tenure_months">1</field>
+            <field name="max_tenure_months">12</field>
+            <field name="interest_rate">10</field>
+            <field name="interest_method">flat_rate</field>
+            <field name="repayment_frequency">monthly</field>
+            <field name="processing_fee_percentage">3.5</field>
+            <field name="insurance_fee_percentage">1.5</field>
+            <field name="origination_fee_percentage">10</field>
+            <field name="penalty_rate">15</field>
+            <field name="grace_period_days">30</field>
+            <field name="is_active">True</field>
+        </record>
+
+        <!-- 4. IPF Loan -->
+        <record id="loan_product_ipf" model="alba.loan.product">
+            <field name="name">IPF Loan</field>
+            <field name="code">IPF-LOAN</field>
+            <field name="category">ipf_loan</field>
+            <field name="description">Invoice Purchase Financing for businesses</field>
+            <field name="min_amount">50000</field>
+            <field name="max_amount">2000000</field>
+            <field name="min_tenure_months">1</field>
+            <field name="max_tenure_months">6</field>
+            <field name="interest_rate">10</field>
+            <field name="interest_method">flat_rate</field>
+            <field name="repayment_frequency">monthly</field>
+            <field name="processing_fee_percentage">0</field>
+            <field name="insurance_fee_percentage">0</field>
+            <field name="origination_fee_percentage">0</field>
+            <field name="penalty_rate">15</field>
+            <field name="grace_period_days">30</field>
+            <field name="is_active">True</field>
+        </record>
+
+        <!-- 5. Bid Bond -->
+        <record id="loan_product_bid_bond" model="alba.loan.product">
+            <field name="name">Bid Bond</field>
+            <field name="code">BID-BOND</field>
+            <field name="category">bid_bond</field>
+            <field name="description">Bid bond financing for contractors and tender participants</field>
+            <field name="min_amount">100000</field>
+            <field name="max_amount">10000000</field>
+            <field name="min_tenure_months">1</field>
+            <field name="max_tenure_months">12</field>
+            <field name="interest_rate">1.5</field>
+            <field name="interest_method">flat_rate</field>
+            <field name="repayment_frequency">monthly</field>
+            <field name="processing_fee_percentage">0</field>
+            <field name="insurance_fee_percentage">0</field>
+            <field name="origination_fee_percentage">1.5</field>
+            <field name="penalty_rate">0</field>
+            <field name="grace_period_days">0</field>
+            <field name="is_active">True</field>
+        </record>
+
+        <!-- 6. Performance Bond -->
+        <record id="loan_product_performance_bond" model="alba.loan.product">
+            <field name="name">Performance Bond</field>
+            <field name="code">PERF-BOND</field>
+            <field name="category">performance_bond</field>
+            <field name="description">Performance bond financing for contract execution</field>
+            <field name="min_amount">100000</field>
+            <field name="max_amount">5000000</field>
+            <field name="min_tenure_months">1</field>
+            <field name="max_tenure_months">12</field>
+            <field name="interest_rate">1</field>
+            <field name="interest_method">flat_rate</field>
+            <field name="repayment_frequency">monthly</field>
+            <field name="processing_fee_percentage">0</field>
+            <field name="insurance_fee_percentage">0</field>
+            <field name="origination_fee_percentage">1</field>
+            <field name="penalty_rate">0</field>
+            <field name="grace_period_days">0</field>
+            <field name="is_active">True</field>
+        </record>
+
+        <!-- 7. Staff Loan -->
+        <record id="loan_product_staff" model="alba.loan.product">
+            <field name="name">Staff Loan</field>
+            <field name="code">STAFF-LOAN</field>
+            <field name="category">staff_loan</field>
+            <field name="description">Internal staff loans with preferential rates</field>
+            <field name="min_amount">10000</field>
+            <field name="max_amount">500000</field>
+            <field name="min_tenure_months">3</field>
+            <field name="max_tenure_months">36</field>
+            <field name="interest_rate">5</field>
+            <field name="interest_method">reducing_balance</field>
+            <field name="repayment_frequency">monthly</field>
+            <field name="processing_fee_percentage">0</field>
+            <field name="insurance_fee_percentage">0</field>
+            <field name="origination_fee_percentage">0</field>
+            <field name="penalty_rate">5</field>
+            <field name="grace_period_days">30</field>
+            <field name="is_active">True</field>
+        </record>
+
+        <!-- 8. Investor Loan -->
+        <record id="loan_product_investor" model="alba.loan.product">
+            <field name="name">Investor Loan</field>
+            <field name="code">INV-LOAN</field>
+            <field name="category">investor_loan</field>
+            <field name="description">Loans for investors using their investment as collateral</field>
+            <field name="min_amount">50000</field>
+            <field name="max_amount">2000000</field>
+            <field name="min_tenure_months">1</field>
+            <field name="max_tenure_months">24</field>
+            <field name="interest_rate">12</field>
+            <field name="interest_method">reducing_balance</field>
+            <field name="repayment_frequency">monthly</field>
+            <field name="processing_fee_percentage">0</field>
+            <field name="insurance_fee_percentage">0</field>
+            <field name="origination_fee_percentage">0</field>
+            <field name="penalty_rate">10</field>
+            <field name="grace_period_days">30</field>
+            <field name="is_active">True</field>
+        </record>
+
+        <!-- 9. Asset Financing -->
+        <record id="loan_product_asset" model="alba.loan.product">
+            <field name="name">Asset Financing</field>
+            <field name="code">ASSET-FIN</field>
+            <field name="category">asset_financing</field>
+            <field name="description">Financing for vehicle and equipment purchases</field>
+            <field name="min_amount">50000</field>
+            <field name="max_amount">2000000</field>
+            <field name="min_tenure_months">6</field>
+            <field name="max_tenure_months">48</field>
+            <field name="interest_rate">10</field>
+            <field name="interest_method">flat_rate</field>
+            <field name="repayment_frequency">monthly</field>
+            <field name="processing_fee_percentage">0</field>
+            <field name="insurance_fee_percentage">0</field>
+            <field name="origination_fee_percentage">0</field>
+            <field name="penalty_rate">15</field>
+            <field name="grace_period_days">30</field>
+            <field name="is_active">True</field>
+        </record>
+
+    </data>
+</odoo>

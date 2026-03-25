@@ -314,9 +314,10 @@ class AlbaLoanRepayment(models.Model):
     def _auto_allocate_components(self):
         """
         Auto-allocate payment amount to components in priority order:
-        1. Fees & penalties (oldest overdue first)
-        2. Interest
-        3. Principal
+        1. Other charges (oldest overdue first)
+        2. Penalties (oldest overdue first)
+        3. Interest
+        4. Principal
         Uses the linked repayment schedule to drive allocation.
         """
         self.ensure_one()
@@ -335,18 +336,54 @@ class AlbaLoanRepayment(models.Model):
             order="due_date asc",
         )
 
+        # Calculate other charges and penalties first (based on overdue days)
         for entry in schedule:
             if remaining <= 0:
                 break
-            # Interest first within each instalment
+            
+            # 1. Allocate to other charges/fees first
+            # Fees are typically one-time charges, not per instalment
+            # We'll calculate based on loan product fee structure
+            if fees == 0:  # Only allocate fees once
+                loan_product = self.loan_id.loan_product_id
+                if loan_product:
+                    fee_amount = loan_product.calculate_total_fees(self.loan_id.principal_amount)
+                    # Only pay unpaid portion
+                    total_fees_paid = sum(self.loan_id.repayment_ids.mapped('fees_component'))
+                    unpaid_fees = max(0, fee_amount - total_fees_paid)
+                    pay_fees = min(remaining, unpaid_fees)
+                    fees += pay_fees
+                    remaining -= pay_fees
+            
+            # 2. Allocate to penalties
+            # Calculate penalty based on overdue days and penalty rate
+            if entry.due_date and entry.due_date < fields.Date.today():
+                loan_product = self.loan_id.loan_product_id
+                if loan_product and loan_product.penalty_rate > 0:
+                    days_overdue = (fields.Date.today() - entry.due_date).days
+                    overdue_amount = entry.balance_due
+                    daily_penalty = loan_product.penalty_rate / 100
+                    penalty_owed = overdue_amount * daily_penalty * days_overdue
+                    pay_penalty = min(remaining, penalty_owed)
+                    penalty += pay_penalty
+                    remaining -= pay_penalty
+        
+        # 3. Allocate to interest across all instalments
+        for entry in schedule:
+            if remaining <= 0:
+                break
             interest_owed = entry.interest_due - entry.interest_paid
             if interest_owed > 0:
                 pay_interest = min(remaining, interest_owed)
                 interest += pay_interest
                 remaining -= pay_interest
-            # Then principal
+        
+        # 4. Allocate to principal across all instalments
+        for entry in schedule:
+            if remaining <= 0:
+                break
             principal_owed = entry.principal_due - entry.principal_paid
-            if principal_owed > 0 and remaining > 0:
+            if principal_owed > 0:
                 pay_principal = min(remaining, principal_owed)
                 principal += pay_principal
                 remaining -= pay_principal
