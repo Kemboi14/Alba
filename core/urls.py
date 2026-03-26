@@ -49,14 +49,9 @@ urlpatterns = [
     ),
     # Dashboards
     path("dashboard/", views.DashboardView.as_view(), name="dashboard"),
-    path("admin-panel/", views.AdminDashboardView.as_view(), name="admin_dashboard"),
     path(
         "customer/dashboard/",
         views.CustomerDashboardView.as_view(),
         name="customer_dashboard",
     ),
-    # User approval (admin only)
-    path("users/approval/", views.user_approval_list, name="user_approval_list"),
-    path("users/approve/<int:user_id>/", views.approve_user, name="approve_user"),
-    path("users/reject/<int:user_id>/", views.reject_user, name="reject_user"),
 ]

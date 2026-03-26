@@ -1,13 +1,12 @@
 """
 Core views for Alba Capital ERP System
-Handles: landing page, authentication, customer dashboard, user approval
+Handles: landing page, authentication, customer dashboard
 """
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.views.generic import TemplateView
 
 from .forms import LoginForm, UserRegistrationForm
@@ -95,13 +94,6 @@ class LoginView(TemplateView):
                     )
                     return render(request, self.template_name, {"form": form})
 
-                if not user.is_approved and user.role == User.CUSTOMER:
-                    messages.warning(
-                        request,
-                        "Your account is pending approval. You will be notified once approved.",
-                    )
-                    return render(request, self.template_name, {"form": form})
-
                 login(request, user)
 
                 if not form.cleaned_data.get("remember_me"):
@@ -142,7 +134,7 @@ class RegisterView(TemplateView):
         if form.is_valid():
             user = form.save(commit=False)
             user.role = User.CUSTOMER
-            user.is_approved = False
+            user.is_approved = True
             user.save()
             create_audit_log(
                 user,
@@ -155,8 +147,8 @@ class RegisterView(TemplateView):
             messages.success(
                 request,
                 (
-                    "Registration successful! Your account is pending approval. "
-                    "You will receive a notification once approved."
+                    "Registration successful! Welcome to Alba Capital. "
+                    "You can now log in to access your account."
                 ),
             )
             return redirect("login")
@@ -185,7 +177,7 @@ def logout_view(request):
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
-    """Entry-point dashboard — routes by role"""
+    """Entry-point dashboard - routes customers to customer portal"""
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -196,85 +188,16 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         if user.role == User.CUSTOMER:
             return redirect("customer_dashboard")
 
-        # All staff/admin roles go to admin dashboard
-        if user.is_superuser or user.role in [
-            User.ADMIN,
-            User.CREDIT_OFFICER,
-            User.FINANCE_OFFICER,
-            User.HR_OFFICER,
-            User.MANAGEMENT,
-        ]:
-            return redirect("admin_dashboard")
-
-        return super().dispatch(request, *args, **kwargs)
+        # Non-customer users (staff) should use Odoo admin
+        messages.warning(
+            request,
+            "Staff access is through Odoo. Please use the Odoo portal for administrative functions."
+        )
+        logout(request)
+        return redirect("login")
 
     def get(self, request, *args, **kwargs):
         return redirect("login")
-
-
-class AdminDashboardView(LoginRequiredMixin, TemplateView):
-    """Admin / staff overview dashboard"""
-
-    template_name = "core/admin_dashboard.html"
-
-    def dispatch(self, request, *args, **kwargs):
-        if not (
-            request.user.is_superuser
-            or request.user.role
-            in [
-                User.ADMIN,
-                User.CREDIT_OFFICER,
-                User.FINANCE_OFFICER,
-                User.HR_OFFICER,
-                User.MANAGEMENT,
-            ]
-        ):
-            messages.error(request, "Access denied.")
-            return redirect("dashboard")
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["total_users"] = User.objects.count()
-        context["customer_count"] = User.objects.filter(role=User.CUSTOMER).count()
-        context["pending_approvals"] = User.objects.filter(
-            is_approved=False, role=User.CUSTOMER
-        ).count()
-        context["staff_count"] = User.objects.exclude(role=User.CUSTOMER).count()
-        context["recent_audit_logs"] = AuditLog.objects.select_related("user").order_by(
-            "-timestamp"
-        )[:10]
-
-        from datetime import timedelta
-
-        from django.utils import timezone
-
-        this_month = timezone.now().replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
-        )
-        last_month_end = this_month - timedelta(seconds=1)
-        last_month_start = last_month_end.replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
-        )
-
-        context["this_month_users"] = User.objects.filter(
-            date_joined__gte=this_month
-        ).count()
-        context["last_month_users"] = User.objects.filter(
-            date_joined__gte=last_month_start, date_joined__lt=this_month
-        ).count()
-
-        last_month_count = context["last_month_users"]
-        this_month_count = context["this_month_users"]
-        if last_month_count > 0:
-            context["growth_rate"] = round(
-                ((this_month_count - last_month_count) / last_month_count) * 100, 1
-            )
-        else:
-            context["growth_rate"] = 100 if this_month_count > 0 else 0
-
-        context["recent_registrations"] = User.objects.order_by("-date_joined")[:5]
-        return context
 
 
 class CustomerDashboardView(LoginRequiredMixin, TemplateView):
@@ -374,83 +297,6 @@ class CustomerDashboardView(LoginRequiredMixin, TemplateView):
             )
 
         return context
-
-
-# ---------------------------------------------------------------------------
-# User approval (admin only)
-# ---------------------------------------------------------------------------
-
-
-def _is_admin(user):
-    return user.is_superuser or user.role == User.ADMIN
-
-
-@login_required
-def user_approval_list(request):
-    """List customers pending approval"""
-    if not _is_admin(request.user):
-        messages.error(request, "You do not have permission to access user approval.")
-        return redirect("dashboard")
-
-    pending_users = User.objects.filter(is_approved=False, role=User.CUSTOMER).order_by(
-        "-date_joined"
-    )
-    approved_users = User.objects.filter(is_approved=True, role=User.CUSTOMER).order_by(
-        "-date_joined"
-    )[:20]
-
-    return render(
-        request,
-        "core/user_approval.html",
-        {
-            "pending_users": pending_users,
-            "approved_users": approved_users,
-        },
-    )
-
-
-@login_required
-def approve_user(request, user_id):
-    """Approve a customer account"""
-    if not _is_admin(request.user):
-        messages.error(request, "Permission denied.")
-        return redirect("dashboard")
-
-    user = get_object_or_404(User, pk=user_id)
-    user.is_approved = True
-    user.save()
-    create_audit_log(
-        request.user,
-        "APPROVE",
-        "User",
-        user.pk,
-        f"Approved user account: {user.email}",
-        request,
-    )
-    messages.success(request, f"{user.get_full_name()} has been approved.")
-    return redirect("user_approval_list")
-
-
-@login_required
-def reject_user(request, user_id):
-    """Reject / deactivate a customer account"""
-    if not _is_admin(request.user):
-        messages.error(request, "Permission denied.")
-        return redirect("dashboard")
-
-    user = get_object_or_404(User, pk=user_id)
-    user.is_active = False
-    user.save()
-    create_audit_log(
-        request.user,
-        "REJECT",
-        "User",
-        user.pk,
-        f"Rejected user account: {user.email}",
-        request,
-    )
-    messages.success(request, f"{user.get_full_name()} has been rejected.")
-    return redirect("user_approval_list")
 
 
 # ---------------------------------------------------------------------------
