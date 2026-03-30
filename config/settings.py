@@ -19,7 +19,9 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = str(config("ALLOWED_HOSTS", default="localhost,127.0.0.1")).split(",")
+ALLOWED_HOSTS = str(
+    config("ALLOWED_HOSTS", default="localhost,127.0.0.1,0.0.0.0")
+).split(",")
 
 
 # Application definition
@@ -170,6 +172,17 @@ CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'")
 CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
 CSP_IMG_SRC = ("'self'", "data:")
 CSP_FONT_SRC = ("'self'",)
+
+if DEBUG:
+    CSP_SCRIPT_SRC = CSP_SCRIPT_SRC + (
+        "https://cdn.tailwindcss.com",
+    )
+    CSP_STYLE_SRC = CSP_STYLE_SRC + (
+        "https://fonts.googleapis.com",
+    )
+    CSP_FONT_SRC = CSP_FONT_SRC + (
+        "https://fonts.gstatic.com",
+    )
 
 # REST Framework Settings
 REST_FRAMEWORK = {
