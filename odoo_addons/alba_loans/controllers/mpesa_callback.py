@@ -32,6 +32,7 @@ import json
 import logging
 
 from odoo import http
+from odoo import exceptions as odoo_exceptions
 from odoo.http import request
 
 _logger = logging.getLogger(__name__)
@@ -226,10 +227,18 @@ class AlbaMpesaCallbackController(http.Controller):
             )
             return _json_response({"ResultCode": 0, "ResultDesc": "Accepted"})
 
+        except (odoo_exceptions.UserError, odoo_exceptions.ValidationError) as exc:
+            # Reject on validation errors
+            _logger.warning("C2B validation rejected: %s", exc)
+            return _json_response(
+                {"ResultCode": 1, "ResultDesc": f"Validation failed: {str(exc)[:200]}"}
+            )
         except Exception as exc:
-            _logger.exception("C2B validation error: %s", exc)
-            # Accept on error to avoid blocking a real payment
-            return _json_response({"ResultCode": 0, "ResultDesc": "Accepted"})
+            # On unexpected errors, reject to prevent fraud
+            _logger.exception("C2B validation system error: %s", exc)
+            return _json_response(
+                {"ResultCode": 1, "ResultDesc": "System error — payment rejected"}
+            )
 
     @http.route(
         "/alba/mpesa/c2b/confirmation",

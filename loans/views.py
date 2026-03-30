@@ -5,12 +5,13 @@ Handles: customer dashboard, profile, loan application, documents, guarantors,
 Staff/admin processing is handled in Odoo.
 """
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from io import BytesIO
 
 from core.views import create_audit_log  # noqa: PLC0415
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -125,12 +126,32 @@ def apply_for_loan(request):
     """Customer loan application form"""
     customer, _ = Customer.objects.get_or_create(user=request.user)
 
-    # Require minimal profile before applying
-    if not all(
-        [customer.id_number, customer.monthly_income, customer.employment_status]
-    ):
+    # Require minimal profile before applying - check all KYC fields
+    required_fields = [
+        customer.id_number,
+        customer.date_of_birth,
+        customer.address,
+        customer.monthly_income,
+        customer.employment_status,
+        customer.employer_name,
+    ]
+    if not all(required_fields):
+        missing = []
+        if not customer.id_number:
+            missing.append("ID Number")
+        if not customer.date_of_birth:
+            missing.append("Date of Birth")
+        if not customer.address:
+            missing.append("Address")
+        if not customer.monthly_income:
+            missing.append("Monthly Income")
+        if not customer.employment_status:
+            missing.append("Employment Status")
+        if not customer.employer_name:
+            missing.append("Employer Name")
         messages.warning(
-            request, "Please complete your profile before applying for a loan."
+            request,
+            f"Please complete your profile before applying for a loan. Missing: {', '.join(missing)}"
         )
         return redirect("loans:customer_profile")
 
@@ -183,7 +204,7 @@ def application_detail(request, pk):
     application = get_object_or_404(LoanApplication, pk=pk, customer=customer)
 
     documents = LoanDocument.objects.filter(application=application)
-    guarantors = GuarantorVerification.objects.filter(loan_application=application)
+    guarantors = GuarantorVerification.objects.filter(application=application)
 
     return render(
         request,
@@ -344,16 +365,40 @@ def add_guarantor(request, application_pk):
 # ---------------------------------------------------------------------------
 
 
+@login_required
 def calculate_loan(request):
-    """AJAX endpoint — returns loan cost breakdown for the calculator widget"""
+    """AJAX endpoint — returns loan cost breakdown for the calculator widget
+    
+    Requires authentication to prevent abuse.
+    """
     if request.method != "GET":
         return JsonResponse({"error": "GET required"}, status=405)
+    
+    # Validate inputs
+    product_id = request.GET.get("product_id")
+    amount_str = request.GET.get("amount", "0")
+    tenure_str = request.GET.get("tenure", "12")
+    
+    if not product_id:
+        return JsonResponse({"error": "product_id is required"}, status=400)
+    
+    # Validate amount is a positive decimal
+    try:
+        amount = Decimal(amount_str)
+        if amount <= 0:
+            return JsonResponse({"error": "Amount must be positive"}, status=400)
+    except (ValueError, TypeError, InvalidOperation):
+        return JsonResponse({"error": "Invalid amount format"}, status=400)
+    
+    # Validate tenure is a positive integer
+    try:
+        tenure = int(tenure_str)
+        if tenure <= 0:
+            return JsonResponse({"error": "Tenure must be positive"}, status=400)
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "Invalid tenure format"}, status=400)
 
     try:
-        product_id = request.GET.get("product_id")
-        amount = Decimal(request.GET.get("amount", "0"))
-        tenure = int(request.GET.get("tenure", 12))
-
         product = LoanProduct.objects.get(pk=product_id, is_active=True)
 
         interest = product.calculate_total_interest(amount, tenure)
@@ -372,8 +417,14 @@ def calculate_loan(request):
         )
     except LoanProduct.DoesNotExist:
         return JsonResponse({"error": "Loan product not found"}, status=404)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    except (ValidationError, ValueError) as e:
+        return JsonResponse({"error": f"Invalid input: {str(e)}"}, status=400)
+    except Exception:
+        # Log the full error for debugging but return generic message
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception("Error in calculate_loan")
+        return JsonResponse({"error": "An internal error occurred"}, status=500)
 
 
 # ---------------------------------------------------------------------------
@@ -441,10 +492,12 @@ def mark_notification_read(request, pk):
 @login_required
 def mark_all_notifications_read(request):
     """Mark every unread notification as read for the current user (POST only)"""
-    if request.method == "POST":
-        Notification.objects.filter(user=request.user, is_read=False).update(
-            is_read=True, read_at=timezone.now()
-        )
+    if request.method != "POST":
+        return JsonResponse({"error": "POST method required"}, status=405)
+    
+    Notification.objects.filter(user=request.user, is_read=False).update(
+        is_read=True, read_at=timezone.now()
+    )
     return redirect("loans:notifications")
 
 
@@ -613,15 +666,12 @@ def download_statement(request, loan_pk):
                     f"{row.total_due:,.2f}",
                     f"{row.amount_paid:,.2f}",
                     f"{row.balance:,.2f}",
-                    "Paid"
-                    if row.is_paid
-                    else (
-                        "Overdue" if row.due_date < timezone.now().date() else "Pending"
-                    ),
-                ]
+                    "Overdue"
+                    if row.due_date < timezone.now().date()
+                    else "Pending"
+                ],
             )
-        col_w = [10 * mm, 25 * mm, 22 * mm, 22 * mm, 22 * mm, 22 * mm, 22 * mm, 20 * mm]
-        sched_table = Table(sched_rows, colWidths=col_w, repeatRows=1)
+        sched_table = Table(sched_rows, colWidths=[15 * mm, 25 * mm, 25 * mm, 25 * mm, 25 * mm, 25 * mm, 25 * mm, 25 * mm])
         sched_table.setStyle(
             TableStyle(
                 [
