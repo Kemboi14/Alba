@@ -168,6 +168,29 @@ def apply_for_loan(request):
             application.submitted_at = timezone.now()
             application.save()
 
+            # Sync to Odoo
+            try:
+                from core.services.odoo_sync import OdooSyncService
+                odoo_service = OdooSyncService()
+                if odoo_service.is_reachable():
+                    result = odoo_service.create_loan_application(application)
+                    application.odoo_application_id = result.get("odoo_application_id")
+                    application.save()
+                    messages.info(
+                        request,
+                        "Application synced to Odoo successfully."
+                    )
+                else:
+                    messages.warning(
+                        request,
+                        "Application saved locally but could not sync to Odoo. Will sync later."
+                    )
+            except Exception as e:
+                messages.warning(
+                    request,
+                    f"Application saved but Odoo sync failed: {str(e)}"
+                )
+
             messages.success(
                 request,
                 (

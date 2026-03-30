@@ -649,6 +649,11 @@ class LoanApplication(models.Model):
 
     # Notes
     internal_notes = models.TextField("Internal Notes", blank=True)
+    
+    # Odoo Integration
+    odoo_application_id = models.PositiveIntegerField(
+        "Odoo Application ID", null=True, blank=True
+    )
 
     # Timestamps
     created_at = models.DateTimeField("Created At", auto_now_add=True)
