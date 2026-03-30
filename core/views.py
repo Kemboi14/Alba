@@ -8,9 +8,12 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.views.generic import TemplateView
+import logging
 
 from .forms import LoginForm, UserRegistrationForm
 from .models import AuditLog, User
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -275,7 +278,31 @@ class CustomerDashboardView(LoginRequiredMixin, TemplateView):
                 is_active=True
             )[:3]
 
-        except Exception:
+        except ImportError as exc:
+            logger.error("Failed to import loan models: %s", exc, exc_info=True)
+            # Set default values when models are not available
+            context.update(
+                {
+                    "customer_profile": None,
+                    "kyc_verified": False,
+                    "kyc_completion": 0,
+                    "monthly_income": 0,
+                    "employment_status": "Not Set",
+                    "employer_name": "",
+                    "has_national_id": False,
+                    "has_bank_statement": False,
+                    "has_face_photo": False,
+                    "applications_count": 0,
+                    "recent_applications": [],
+                    "active_loans_count": 0,
+                    "recent_loans": [],
+                    "total_borrowed": 0,
+                    "available_products": [],
+                }
+            )
+        except Exception as exc:
+            logger.error("Error loading loan data for dashboard: %s", exc, exc_info=True)
+            # Set safe default values
             context.update(
                 {
                     "customer_profile": None,

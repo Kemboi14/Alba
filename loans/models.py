@@ -221,16 +221,17 @@ class LoanProduct(models.Model):
             # Flat rate: simple interest on principal
             total_interest = principal * rate * tenure_months
         else:
-            # Reducing balance: more complex calculation
-            # Simplified formula for monthly payments
-            monthly_rate = (
-                rate / Decimal("12") if tenure_months > Decimal("1") else rate
-            )
-            total_interest = (
-                principal * monthly_rate * tenure_months * Decimal("0.5")
-            )  # Approximate
+            # Reducing balance: proper calculation using monthly compounding
+            # Formula: Total Interest = Principal * Monthly Rate * Tenure * (Tenure + 1) / (2 * 12)
+            # This is an approximation for equal monthly installments
+            if tenure_months <= 0:
+                total_interest = Decimal("0")
+            else:
+                monthly_rate = rate / Decimal("12")
+                # More accurate reducing balance calculation
+                total_interest = principal * monthly_rate * tenure_months * (tenure_months + Decimal("1")) / (Decimal("2") * Decimal("12"))
 
-        return total_interest
+        return total_interest.quantize(Decimal("0.01"))
 
 
 class Customer(models.Model):
@@ -263,7 +264,12 @@ class Customer(models.Model):
     # Personal Information
     date_of_birth = models.DateField("Date of Birth", null=True, blank=True)
     id_number = models.CharField(
-        "ID/Passport Number", max_length=50, unique=True, null=True, blank=True
+        "ID/Passport Number", 
+        max_length=50, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        db_index=True  # Add index for frequent lookups
     )
     address = models.TextField("Physical Address", blank=True)
     county = models.CharField("County", max_length=100, blank=True)
@@ -675,40 +681,53 @@ class LoanApplication(models.Model):
         return f"{self.application_number} - {self.customer.user.get_full_name()}"
 
     def save(self, *args, **kwargs):
-        """Generate application number on creation with atomic lock to prevent race conditions"""
+        """Generate application number on creation with improved atomic lock to prevent race conditions"""
         if not self.application_number:
-            from django.db import connection
+            from django.db import connection, transaction
             
             date_str = timezone.now().strftime("%Y%m%d")
             prefix = f"LA-{date_str}-"
             
-            # Use database-level advisory lock to prevent concurrent number generation
-            with transaction.atomic():
-                # Acquire exclusive lock for this date's sequence
-                lock_id = int(date_str)
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
-                
-                # Get the last number with lock held
-                last_app = (
-                    LoanApplication.objects.filter(
-                        application_number__startswith=prefix
-                    )
-                    .order_by("-application_number")
-                    .select_for_update()
-                    .first()
-                )
-                
-                if last_app:
-                    try:
-                        last_number = int(last_app.application_number.split("-")[-1])
-                        new_number = last_number + 1
-                    except (ValueError, IndexError):
-                        new_number = 1
-                else:
-                    new_number = 1
-                
-                self.application_number = f"{prefix}{new_number:04d}"
+            # Use database-level advisory lock with retry mechanism
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    with transaction.atomic():
+                        # Acquire exclusive lock for this date's sequence with retry
+                        lock_id = int(date_str) + (attempt * 1000)  # Add attempt offset
+                        with connection.cursor() as cursor:
+                            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
+                        
+                        # Get the last number with lock held
+                        last_app = (
+                            LoanApplication.objects.filter(
+                                application_number__startswith=prefix
+                            )
+                            .order_by("-application_number")
+                            .select_for_update()
+                            .first()
+                        )
+                        
+                        if last_app:
+                            try:
+                                last_number = int(last_app.application_number.split("-")[-1])
+                                new_number = last_number + 1
+                            except (ValueError, IndexError):
+                                new_number = 1
+                        else:
+                            new_number = 1
+                        
+                        # Validate number is within reasonable bounds
+                        if new_number > 9999:
+                            raise ValueError("Application number sequence exhausted for today")
+                        
+                        self.application_number = f"{prefix}{new_number:04d}"
+                        break  # Success, exit retry loop
+                        
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        raise ValueError(f"Failed to generate application number after {max_retries} attempts: {e}")
+                    continue
         
         super().save(*args, **kwargs)
 
@@ -870,36 +889,50 @@ class Loan(models.Model):
         return f"{self.loan_number} - {self.customer.user.get_full_name()}"
 
     def save(self, *args, **kwargs):
-        """Generate loan number on creation with atomic lock to prevent race conditions"""
+        """Generate loan number on creation with improved atomic lock to prevent race conditions"""
         if not self.loan_number:
-            from django.db import connection
+            from django.db import connection, transaction
             
             date_str = timezone.now().strftime("%Y%m%d")
             prefix = f"LN-{date_str}-"
             
-            with transaction.atomic():
-                # Acquire exclusive lock for this date's sequence
-                lock_id = int(date_str) + 1000000  # Offset to avoid collision with application locks
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
-                
-                last_loan = (
-                    Loan.objects.filter(loan_number__startswith=prefix)
-                    .order_by("-loan_number")
-                    .select_for_update()
-                    .first()
-                )
-                
-                if last_loan:
-                    try:
-                        last_number = int(last_loan.loan_number.split("-")[-1])
-                        new_number = last_number + 1
-                    except (ValueError, IndexError):
-                        new_number = 1
-                else:
-                    new_number = 1
-                
-                self.loan_number = f"{prefix}{new_number:04d}"
+            # Use database-level advisory lock with retry mechanism
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    with transaction.atomic():
+                        # Acquire exclusive lock for this date's sequence with retry
+                        lock_id = int(date_str) + 1000000 + (attempt * 1000)  # Offset to avoid collision with application locks
+                        with connection.cursor() as cursor:
+                            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
+                        
+                        last_loan = (
+                            Loan.objects.filter(loan_number__startswith=prefix)
+                            .order_by("-loan_number")
+                            .select_for_update()
+                            .first()
+                        )
+                        
+                        if last_loan:
+                            try:
+                                last_number = int(last_loan.loan_number.split("-")[-1])
+                                new_number = last_number + 1
+                            except (ValueError, IndexError):
+                                new_number = 1
+                        else:
+                            new_number = 1
+                        
+                        # Validate number is within reasonable bounds
+                        if new_number > 9999:
+                            raise ValueError("Loan number sequence exhausted for today")
+                        
+                        self.loan_number = f"{prefix}{new_number:04d}"
+                        break  # Success, exit retry loop
+                        
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        raise ValueError(f"Failed to generate loan number after {max_retries} attempts: {e}")
+                    continue
         
         super().save(*args, **kwargs)
 

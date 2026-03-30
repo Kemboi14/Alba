@@ -354,9 +354,38 @@ def _get_client_ip(request: HttpRequest) -> str:
     return request.META.get("REMOTE_ADDR", "")
 
 
-# ---------------------------------------------------------------------------
 # Event handlers
 # ---------------------------------------------------------------------------
+
+
+def _safe_int(value, field_name="value", default=0):
+    """Safely convert value to int with validation"""
+    try:
+        if value is None or value == "":
+            return default
+        int_value = int(value)
+        if int_value < 0:
+            logger.warning("Negative value received for %s: %s", field_name, int_value)
+            return default
+        return int_value
+    except (ValueError, TypeError) as exc:
+        logger.warning("Invalid integer value for %s: %s - %s", field_name, value, exc)
+        return default
+
+
+def _safe_float(value, field_name="value", default=0.0):
+    """Safely convert value to float with validation"""
+    try:
+        if value is None or value == "":
+            return default
+        float_value = float(value)
+        if float_value < 0:
+            logger.warning("Negative value received for %s: %s", field_name, float_value)
+            return default
+        return float_value
+    except (ValueError, TypeError) as exc:
+        logger.warning("Invalid float value for %s: %s - %s", field_name, value, exc)
+        return default
 
 
 def _handle_application_status_changed(data: dict, delivery_id: str):
@@ -372,9 +401,9 @@ def _handle_application_status_changed(data: dict, delivery_id: str):
     """
     from loans.models import LoanApplication  # lazy import
 
-    django_app_id = int(data.get("django_application_id") or 0)
+    django_app_id = _safe_int(data.get("django_application_id"), "django_application_id")
     new_status = (data.get("new_status") or data.get("status") or "").strip()
-    odoo_app_id = int(data.get("odoo_application_id") or 0)
+    odoo_app_id = _safe_int(data.get("odoo_application_id"), "odoo_application_id")
 
     if not django_app_id and not odoo_app_id:
         logger.warning(
@@ -429,8 +458,12 @@ def _handle_application_status_changed(data: dict, delivery_id: str):
 
     # Capture loan details when disbursed
     if new_status == "disbursed":
-        odoo_loan_id = int(data.get("odoo_loan_id") or 0)
+        odoo_loan_id = _safe_int(data.get("odoo_loan_id"), "odoo_loan_id")
         loan_number = (data.get("loan_number") or "").strip()
+        # Validate loan number format
+        if loan_number and not (len(loan_number) >= 3 and loan_number.replace("-", "").replace("_", "").isalnum()):
+            logger.warning("Invalid loan number format: %s", loan_number)
+            loan_number = ""
         if odoo_loan_id and hasattr(app, "odoo_loan_id"):
             app.odoo_loan_id = odoo_loan_id
             update_fields.append("odoo_loan_id")
@@ -453,7 +486,7 @@ def _handle_loan_disbursed(data: dict, delivery_id: str):
     loan.disbursed
     --------------
     Odoo has disbursed a loan.  Ensure the Django application record is
-    marked as disbursed and the loan number / Odoo loan ID are recorded.
+    marked as disbursed and loan number / Odoo loan ID are recorded.
     """
     data_with_status = dict(data)
     data_with_status["new_status"] = "disbursed"
@@ -463,12 +496,26 @@ def _handle_loan_disbursed(data: dict, delivery_id: str):
     try:
         from loans.models import Loan  # lazy import
 
-        odoo_loan_id = int(data.get("odoo_loan_id") or 0)
-        django_app_id = int(data.get("django_application_id") or 0)
+        odoo_loan_id = _safe_int(data.get("odoo_loan_id"), "odoo_loan_id")
+        django_app_id = _safe_int(data.get("django_application_id"), "django_application_id")
         loan_number = (data.get("loan_number") or "").strip()
-        disbursed_amount = float(data.get("disbursed_amount") or 0)
+        disbursed_amount = _safe_float(data.get("disbursed_amount"), "disbursed_amount")
         disbursement_date = (data.get("disbursement_date") or "").strip()
-        outstanding_balance = float(data.get("outstanding_balance") or disbursed_amount)
+        outstanding_balance = _safe_float(data.get("outstanding_balance"), "outstanding_balance", disbursed_amount)
+
+        # Validate required fields
+        if odoo_loan_id <= 0:
+            logger.warning("Invalid odoo_loan_id in loan.disbursed webhook: %s", odoo_loan_id)
+            return
+        
+        if disbursed_amount <= 0:
+            logger.warning("Invalid disbursed_amount in loan.disbursed webhook: %s", disbursed_amount)
+            return
+
+        # Validate loan number format
+        if loan_number and not (len(loan_number) >= 3 and loan_number.replace("-", "").replace("_", "").isalnum()):
+            logger.warning("Invalid loan number format: %s", loan_number)
+            loan_number = ""
 
         if odoo_loan_id:
             loan, created = Loan.objects.update_or_create(
@@ -487,7 +534,7 @@ def _handle_loan_disbursed(data: dict, delivery_id: str):
                 odoo_loan_id,
             )
     except Exception as exc:
-        logger.debug("Could not update Loan record: %s", exc)
+        logger.error("Could not update Loan record: %s", exc, exc_info=True)
 
 
 def _handle_loan_npl_flagged(data: dict, delivery_id: str):
@@ -497,23 +544,18 @@ def _handle_loan_npl_flagged(data: dict, delivery_id: str):
     Odoo has moved a loan to Non-Performing status.  Update the Django
     Loan record state and optionally notify the customer.
     """
-    _update_loan_state(data, "npl")
-
-
-def _handle_loan_closed(data: dict, delivery_id: str):
-    """
-    loan.closed
-    -----------
-    Odoo has closed a fully-repaid loan.
-    """
-    _update_loan_state(data, "closed")
-
-
-def _update_loan_state(data: dict, new_state: str):
-    """Helper: update Loan.state for loan status events."""
-    odoo_loan_id = int(data.get("odoo_loan_id") or 0)
-    if not odoo_loan_id:
+    odoo_loan_id = _safe_int(data.get("odoo_loan_id"), "odoo_loan_id")
+    if odoo_loan_id <= 0:
+        logger.warning("Invalid odoo_loan_id in loan.npl_flagged webhook: %s", odoo_loan_id)
         return
+    
+    # Validate state value
+    valid_states = ["active", "npl", "closed", "written_off", "restructured"]
+    new_state = (data.get("new_state") or "").strip()
+    if new_state not in valid_states:
+        logger.warning("Invalid loan state '%s' for odoo_loan_id=%d", new_state, odoo_loan_id)
+        return
+    
     try:
         from loans.models import Loan  # lazy import
 
@@ -525,7 +567,7 @@ def _update_loan_state(data: dict, new_state: str):
             updated,
         )
     except Exception as exc:
-        logger.debug("Could not update loan state: %s", exc)
+        logger.error("Could not update loan state: %s", exc, exc_info=True)
 
 
 def _handle_loan_instalment_overdue(data: dict, delivery_id: str):
@@ -535,10 +577,22 @@ def _handle_loan_instalment_overdue(data: dict, delivery_id: str):
     An instalment is past its due date.  Log the event and optionally
     trigger a customer notification (email / SMS via the portal).
     """
-    odoo_loan_id = int(data.get("odoo_loan_id") or 0)
-    days_overdue = int(data.get("days_overdue") or 0)
-    balance_due = float(data.get("balance_due") or 0)
+    odoo_loan_id = _safe_int(data.get("odoo_loan_id"), "odoo_loan_id")
+    days_overdue = _safe_int(data.get("days_overdue"), "days_overdue")
+    balance_due = _safe_float(data.get("balance_due"), "balance_due")
     due_date = (data.get("due_date") or "").strip()
+
+    if odoo_loan_id <= 0:
+        logger.warning("Invalid odoo_loan_id in instalment_overdue webhook: %s", odoo_loan_id)
+        return
+    
+    if days_overdue < 0:
+        logger.warning("Invalid days_overdue in instalment_overdue webhook: %s", days_overdue)
+        return
+    
+    if balance_due < 0:
+        logger.warning("Invalid balance_due in instalment_overdue webhook: %s", balance_due)
+        return
 
     logger.info(
         "Instalment overdue: odoo_loan_id=%d days=%d balance=%.2f due_date=%s",
@@ -552,7 +606,7 @@ def _handle_loan_instalment_overdue(data: dict, delivery_id: str):
     try:
         _queue_overdue_notification(odoo_loan_id, days_overdue, balance_due, due_date)
     except Exception as exc:
-        logger.debug("Could not queue overdue notification: %s", exc)
+        logger.error("Could not queue overdue notification: %s", exc, exc_info=True)
 
 
 def _queue_overdue_notification(odoo_loan_id, days_overdue, balance_due, due_date):
@@ -581,23 +635,6 @@ def _queue_overdue_notification(odoo_loan_id, days_overdue, balance_due, due_dat
     # tasks.send_overdue_sms.delay(customer.pk, loan.pk, days_overdue, balance_due)
 
 
-def _handle_loan_maturing_soon(data: dict, delivery_id: str):
-    """
-    loan.maturing_soon
-    ------------------
-    A loan is maturing within 30 days.  Log for follow-up.
-    """
-    odoo_loan_id = int(data.get("odoo_loan_id") or 0)
-    loan_number = (data.get("loan_number") or "").strip()
-    outstanding = float(data.get("outstanding_balance") or 0)
-    logger.info(
-        "Loan maturing soon: odoo_loan_id=%d loan_number=%s outstanding=%.2f",
-        odoo_loan_id,
-        loan_number,
-        outstanding,
-    )
-
-
 def _handle_payment_matched(data: dict, delivery_id: str):
     """
     payment.matched
@@ -610,10 +647,12 @@ def _handle_payment_matched(data: dict, delivery_id: str):
         odoo_loan_id, amount_paid, principal_applied, interest_applied,
         outstanding_balance
     """
-    django_payment_id = int(data.get("django_payment_id") or 0)
-    odoo_repayment_id = int(data.get("odoo_repayment_id") or 0)
-    odoo_loan_id = int(data.get("odoo_loan_id") or 0)
-    outstanding_balance = float(data.get("outstanding_balance") or 0)
+    django_payment_id = _safe_int(data.get("django_payment_id"), "django_payment_id")
+    odoo_repayment_id = _safe_int(data.get("odoo_repayment_id"), "odoo_repayment_id")
+    odoo_loan_id = _safe_int(data.get("odoo_loan_id"), "odoo_loan_id")
+    outstanding_balance = _safe_float(data.get("outstanding_balance"), "outstanding_balance")
+    principal_applied = _safe_float(data.get("principal_applied"), "principal_applied")
+    interest_applied = _safe_float(data.get("interest_applied"), "interest_applied")
 
     logger.info(
         "Payment matched: django_payment_id=%d odoo_repayment_id=%d "
@@ -625,7 +664,7 @@ def _handle_payment_matched(data: dict, delivery_id: str):
     )
 
     # Update loan outstanding balance
-    if odoo_loan_id:
+    if odoo_loan_id > 0:
         try:
             from loans.models import Loan  # lazy import
 
@@ -633,21 +672,21 @@ def _handle_payment_matched(data: dict, delivery_id: str):
                 outstanding_balance=outstanding_balance
             )
         except Exception as exc:
-            logger.debug("Could not update loan outstanding balance: %s", exc)
+            logger.error("Could not update loan outstanding balance: %s", exc, exc_info=True)
 
-    # Update the Django repayment record status to 'posted'
-    if django_payment_id:
+    # Update Django repayment record status to 'posted'
+    if django_payment_id > 0:
         try:
             from loans.models import LoanRepayment  # lazy import
 
             LoanRepayment.objects.filter(id=django_payment_id).update(
                 status="posted",
                 odoo_repayment_id=odoo_repayment_id,
-                principal_applied=float(data.get("principal_applied") or 0),
-                interest_applied=float(data.get("interest_applied") or 0),
+                principal_applied=principal_applied,
+                interest_applied=interest_applied,
             )
         except Exception as exc:
-            logger.debug("Could not update LoanRepayment status: %s", exc)
+            logger.error("Could not update LoanRepayment status: %s", exc, exc_info=True)
 
 
 def _handle_payment_mpesa_received(data: dict, delivery_id: str):
@@ -655,7 +694,7 @@ def _handle_payment_mpesa_received(data: dict, delivery_id: str):
     payment.mpesa_received
     ----------------------
     An inbound M-Pesa payment (C2B or STK callback) has been received
-    and recorded in Odoo.  Update the Django portal with the M-Pesa
+    and recorded in Odoo.  Update the Django portal with M-Pesa
     transaction details so it can show the customer their payment status.
 
     Expected data keys:
@@ -664,9 +703,18 @@ def _handle_payment_mpesa_received(data: dict, delivery_id: str):
         repayment_odoo_id
     """
     mpesa_code = (data.get("mpesa_code") or "").strip()
-    amount = float(data.get("amount") or 0)
+    amount = _safe_float(data.get("amount"), "amount")
     loan_number = (data.get("loan_number") or "").strip()
-    odoo_loan_id = int(data.get("loan_odoo_id") or 0)
+    odoo_loan_id = _safe_int(data.get("loan_odoo_id"), "loan_odoo_id")
+
+    if amount <= 0:
+        logger.warning("Invalid amount in M-Pesa payment webhook: %s", amount)
+        return
+    
+    # Validate M-Pesa code format
+    if mpesa_code and not (len(mpesa_code) >= 8 and mpesa_code.replace(" ", "").isalnum()):
+        logger.warning("Invalid M-Pesa code format: %s", mpesa_code)
+        mpesa_code = ""
 
     logger.info(
         "M-Pesa payment received: mpesa_code=%s amount=%.2f loan=%s",
@@ -676,7 +724,7 @@ def _handle_payment_mpesa_received(data: dict, delivery_id: str):
     )
 
     # Best-effort: record this against the Django loan
-    if odoo_loan_id:
+    if odoo_loan_id > 0:
         try:
             from loans.models import Loan  # lazy import
 
@@ -689,7 +737,7 @@ def _handle_payment_mpesa_received(data: dict, delivery_id: str):
                     loan.pk,
                 )
         except Exception as exc:
-            logger.debug("Could not match M-Pesa payment to Django loan: %s", exc)
+            logger.error("Could not match M-Pesa payment to Django loan: %s", exc, exc_info=True)
 
 
 def _handle_customer_kyc_verified(data: dict, delivery_id: str):
@@ -702,12 +750,18 @@ def _handle_customer_kyc_verified(data: dict, delivery_id: str):
     Expected data keys:
         odoo_customer_id, django_customer_id, kyc_status
     """
-    django_customer_id = int(data.get("django_customer_id") or 0)
+    django_customer_id = _safe_int(data.get("django_customer_id"), "django_customer_id")
     kyc_status = (data.get("kyc_status") or "verified").strip()
 
-    if not django_customer_id:
-        logger.warning("customer.kyc_verified: no django_customer_id in payload.")
+    if django_customer_id <= 0:
+        logger.warning("customer.kyc_verified: invalid django_customer_id in payload: %s", django_customer_id)
         return
+    
+    # Validate KYC status
+    valid_statuses = ["pending", "verified", "rejected", "requires_additional_info"]
+    if kyc_status not in valid_statuses:
+        logger.warning("Invalid kyc_status '%s' for django_customer_id=%d", kyc_status, django_customer_id)
+        kyc_status = "pending"
 
     try:
         from django.contrib.auth import get_user_model
@@ -723,7 +777,38 @@ def _handle_customer_kyc_verified(data: dict, delivery_id: str):
             updated,
         )
     except Exception as exc:
-        logger.debug("Could not update KYC status: %s", exc)
+        logger.error("Could not update KYC status: %s", exc, exc_info=True)
+
+
+def _handle_loan_closed(data: dict, delivery_id: str):
+    """
+    loan.closed
+    -----------
+    Odoo has closed a fully-repaid loan.
+    """
+    _update_loan_state(data, "closed")
+
+
+def _handle_loan_maturing_soon(data: dict, delivery_id: str):
+    """
+    loan.maturing_soon
+    ------------------
+    A loan is maturing within 30 days.  Log for follow-up.
+    """
+    odoo_loan_id = _safe_int(data.get("odoo_loan_id"), "odoo_loan_id")
+    loan_number = (data.get("loan_number") or "").strip()
+    outstanding = _safe_float(data.get("outstanding_balance"), "outstanding_balance")
+    
+    if odoo_loan_id <= 0:
+        logger.warning("Invalid odoo_loan_id in loan.maturing_soon webhook: %s", odoo_loan_id)
+        return
+    
+    logger.info(
+        "Loan maturing soon: odoo_loan_id=%d loan_number=%s outstanding=%.2f",
+        odoo_loan_id,
+        loan_number,
+        outstanding,
+    )
 
 
 def _handle_portfolio_stats_updated(data: dict, delivery_id: str):

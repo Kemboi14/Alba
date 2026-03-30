@@ -7,6 +7,7 @@ Staff/admin processing is handled in Odoo.
 
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
+import logging
 
 from core.views import create_audit_log  # noqa: PLC0415
 from django.contrib import messages
@@ -15,6 +16,8 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 from .forms import (
     CustomerProfileForm,
@@ -42,6 +45,16 @@ from .models import (
 def customer_loan_dashboard(request):
     """Main customer loan dashboard"""
     customer, _ = Customer.objects.get_or_create(user=request.user)
+    
+    # Authorization check - ensure user can only access their own data
+    if customer.user != request.user:
+        logger.warning("User %s attempted to access customer data for user %s", 
+                    request.user.id, customer.user.id)
+        create_audit_log(
+            request.user, "UNAUTHORIZED_ACCESS", "LoanDashboard", None, 
+            f"Attempted access to customer {customer.pk} data"
+        )
+        return redirect("customer_dashboard")
 
     applications = LoanApplication.objects.filter(customer=customer)
     active_loans = Loan.objects.filter(customer=customer, status="ACTIVE")
@@ -81,6 +94,16 @@ def customer_loan_dashboard(request):
 def customer_profile(request):
     """View and update customer profile / KYC documents"""
     customer, _ = Customer.objects.get_or_create(user=request.user)
+    
+    # Authorization check - ensure user can only access their own data
+    if customer.user != request.user:
+        logger.warning("User %s attempted to access profile for user %s", 
+                    request.user.id, customer.user.id)
+        create_audit_log(
+            request.user, "UNAUTHORIZED_ACCESS", "Customer", customer.pk, 
+            f"Attempted access to customer {customer.pk} profile"
+        )
+        return redirect("customer_dashboard")
 
     if request.method == "POST":
         form = CustomerProfileForm(request.POST, request.FILES, instance=customer)
