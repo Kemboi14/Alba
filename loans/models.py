@@ -14,11 +14,13 @@ Models include:
 - LoanDocument: Document management
 """
 
+import secrets
+import string
 from decimal import Decimal
 
 from core.models import User
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 
@@ -668,28 +670,41 @@ class LoanApplication(models.Model):
         return f"{self.application_number} - {self.customer.user.get_full_name()}"
 
     def save(self, *args, **kwargs):
-        """Generate application number on creation"""
+        """Generate application number on creation with atomic lock to prevent race conditions"""
         if not self.application_number:
-            # Generate unique application number: LA-YYYYMMDD-XXXX
-            from django.utils import timezone
-
+            from django.db import connection
+            
             date_str = timezone.now().strftime("%Y%m%d")
-            last_app = (
-                LoanApplication.objects.filter(
-                    application_number__startswith=f"LA-{date_str}"
+            prefix = f"LA-{date_str}-"
+            
+            # Use database-level advisory lock to prevent concurrent number generation
+            with transaction.atomic():
+                # Acquire exclusive lock for this date's sequence
+                lock_id = int(date_str)
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
+                
+                # Get the last number with lock held
+                last_app = (
+                    LoanApplication.objects.filter(
+                        application_number__startswith=prefix
+                    )
+                    .order_by("-application_number")
+                    .select_for_update()
+                    .first()
                 )
-                .order_by("-application_number")
-                .first()
-            )
-
-            if last_app:
-                last_number = int(last_app.application_number.split("-")[-1])
-                new_number = last_number + 1
-            else:
-                new_number = 1
-
-            self.application_number = f"LA-{date_str}-{new_number:04d}"
-
+                
+                if last_app:
+                    try:
+                        last_number = int(last_app.application_number.split("-")[-1])
+                        new_number = last_number + 1
+                    except (ValueError, IndexError):
+                        new_number = 1
+                else:
+                    new_number = 1
+                
+                self.application_number = f"{prefix}{new_number:04d}"
+        
         super().save(*args, **kwargs)
 
     def can_transition_to(self, new_status):
@@ -850,25 +865,37 @@ class Loan(models.Model):
         return f"{self.loan_number} - {self.customer.user.get_full_name()}"
 
     def save(self, *args, **kwargs):
-        """Generate loan number on creation"""
+        """Generate loan number on creation with atomic lock to prevent race conditions"""
         if not self.loan_number:
-            from django.utils import timezone
-
+            from django.db import connection
+            
             date_str = timezone.now().strftime("%Y%m%d")
-            last_loan = (
-                Loan.objects.filter(loan_number__startswith=f"LN-{date_str}")
-                .order_by("-loan_number")
-                .first()
-            )
-
-            if last_loan:
-                last_number = int(last_loan.loan_number.split("-")[-1])
-                new_number = last_number + 1
-            else:
-                new_number = 1
-
-            self.loan_number = f"LN-{date_str}-{new_number:04d}"
-
+            prefix = f"LN-{date_str}-"
+            
+            with transaction.atomic():
+                # Acquire exclusive lock for this date's sequence
+                lock_id = int(date_str) + 1000000  # Offset to avoid collision with application locks
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
+                
+                last_loan = (
+                    Loan.objects.filter(loan_number__startswith=prefix)
+                    .order_by("-loan_number")
+                    .select_for_update()
+                    .first()
+                )
+                
+                if last_loan:
+                    try:
+                        last_number = int(last_loan.loan_number.split("-")[-1])
+                        new_number = last_number + 1
+                    except (ValueError, IndexError):
+                        new_number = 1
+                else:
+                    new_number = 1
+                
+                self.loan_number = f"{prefix}{new_number:04d}"
+        
         super().save(*args, **kwargs)
 
     def get_payment_progress_percentage(self):
@@ -990,27 +1017,39 @@ class LoanRepayment(models.Model):
         return f"{self.receipt_number} - {self.loan.loan_number} - KES {self.amount}"
 
     def save(self, *args, **kwargs):
-        """Generate receipt number on creation"""
+        """Generate receipt number on creation with atomic lock to prevent race conditions"""
         if not self.receipt_number:
-            from django.utils import timezone
-
+            from django.db import connection
+            
             date_str = timezone.now().strftime("%Y%m%d")
-            last_receipt = (
-                LoanRepayment.objects.filter(
-                    receipt_number__startswith=f"RCP-{date_str}"
+            prefix = f"RCP-{date_str}-"
+            
+            with transaction.atomic():
+                # Acquire exclusive lock for this date's sequence
+                lock_id = int(date_str) + 2000000  # Offset to avoid collision with other locks
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
+                
+                last_receipt = (
+                    LoanRepayment.objects.filter(
+                        receipt_number__startswith=prefix
+                    )
+                    .order_by("-receipt_number")
+                    .select_for_update()
+                    .first()
                 )
-                .order_by("-receipt_number")
-                .first()
-            )
-
-            if last_receipt:
-                last_number = int(last_receipt.receipt_number.split("-")[-1])
-                new_number = last_number + 1
-            else:
-                new_number = 1
-
-            self.receipt_number = f"RCP-{date_str}-{new_number:04d}"
-
+                
+                if last_receipt:
+                    try:
+                        last_number = int(last_receipt.receipt_number.split("-")[-1])
+                        new_number = last_number + 1
+                    except (ValueError, IndexError):
+                        new_number = 1
+                else:
+                    new_number = 1
+                
+                self.receipt_number = f"{prefix}{new_number:04d}"
+        
         super().save(*args, **kwargs)
 
 
@@ -1174,13 +1213,11 @@ class GuarantorVerification(models.Model):
         return f"Guarantor: {self.full_name} for {self.application.application_number}"
 
     def save(self, *args, **kwargs):
-        """Generate confirmation code on creation"""
+        """Generate confirmation code on creation using cryptographically secure random"""
         if not self.confirmation_code:
-            import random
-            import string
-
+            # Use secrets for cryptographically secure random generation
             self.confirmation_code = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=8)
+                secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8)
             )
         super().save(*args, **kwargs)
 

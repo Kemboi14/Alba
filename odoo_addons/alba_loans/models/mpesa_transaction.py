@@ -576,8 +576,13 @@ class AlbaMpesaTransaction(models.Model):
         last_name = str(data.get("LastName") or "").strip()
         sender_name = " ".join(filter(None, [first_name, middle_name, last_name]))
 
-        # ── Deduplicate ────────────────────────────────────────────────────
+        # ── Deduplicate with advisory lock to prevent race conditions ─────────
         if mpesa_code:
+            # Use advisory lock based on hash of mpesa_code for atomic check-and-create
+            import hashlib
+            lock_id = int(hashlib.md5(mpesa_code.encode()).hexdigest()[:8], 16)
+            self.env.cr.execute("SELECT pg_advisory_xact_lock(%s)", (lock_id,))
+            
             existing = self.sudo().search([("mpesa_code", "=", mpesa_code)], limit=1)
             if existing:
                 _logger.info(

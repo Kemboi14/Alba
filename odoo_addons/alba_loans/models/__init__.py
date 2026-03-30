@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 
 from . import (
-    approval_workflow,
-    collections,
-    customer,
-    investor,
-    loan,
-    loan_application,
+    # Base models first (no dependencies)
     loan_product,
-    loan_repayment,
-    loan_rules,
+    customer,
     mpesa_config,
-    mpesa_transaction,
+    # Models with dependencies
+    loan_application,
+    loan,
+    loan_repayment,
     repayment_schedule,
+    loan_rules,
+    collections,
+    approval_workflow,
+    investor,
+    mpesa_transaction,
 )

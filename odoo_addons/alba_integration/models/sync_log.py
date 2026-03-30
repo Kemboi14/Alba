@@ -418,6 +418,10 @@ class AlbaSyncLog(models.Model):
         try:
             record = self.sudo().create(vals)
             return record
+        except (odoo_exceptions.UserError, odoo_exceptions.ValidationError) as exc:
+            # Never let logging errors crash the main request
+            _logger.error("AlbaSyncLog._create_log validation failed: %s | vals=%s", exc, vals)
+            return self.browse()
         except Exception as exc:
             # Never let logging errors crash the main request
             _logger.error("AlbaSyncLog._create_log failed: %s | vals=%s", exc, vals)

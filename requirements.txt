@@ -10,6 +10,10 @@ python-dateutil==2.8.2
 
 # API
 djangorestframework==3.14.0
+requests==2.31.0
+
+# Security
+django-csp==3.8
 
 # Development
 django-extensions==3.2.3

@@ -72,6 +72,7 @@ class AlbaApiKey(models.Model):
         string="Webhook Secret",
         readonly=True,
         copy=False,
+        groups="alba_loans.group_loan_manager",
         help=(
             "Auto-generated 64-char hex secret used for HMAC-SHA256 signing of "
             "outbound webhook payloads. The X-Alba-Signature header will contain "

@@ -140,16 +140,16 @@ class AlbaLoan(models.Model):
         ("over_180", "180+ Days"),
     ], string="PAR Bucket", compute="_compute_par", store=True)
     
-    @api.depends("days_overdue")
+    @api.depends("days_in_arrears")
     def _compute_collection_stage(self):
         """Auto-assign collection stage based on days overdue"""
         for rec in self:
-            if rec.days_overdue <= 0:
+            if rec.days_in_arrears <= 0:
                 rec.collection_stage_id = False
             else:
                 stage = self.env["alba.loan.collection.stage"].search([
-                    ("min_days_overdue", "<=", rec.days_overdue),
-                    ("max_days_overdue", ">=", rec.days_overdue),
+                    ("min_days_overdue", "<=", rec.days_in_arrears),
+                    ("max_days_overdue", ">=", rec.days_in_arrears),
                     ("active", "=", True),
                 ], limit=1, order="stage_number asc")
                 rec.collection_stage_id = stage.id if stage else False
@@ -205,7 +205,7 @@ class AlbaLoan(models.Model):
         """Escalate loan to legal department"""
         self.ensure_one()
         
-        if self.days_overdue < 90:
+        if self.days_in_arrears < 90:
             raise UserError(_("Loans can only be escalated to legal after 90 days overdue."))
         
         self.write({

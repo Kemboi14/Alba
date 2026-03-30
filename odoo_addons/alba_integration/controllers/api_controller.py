@@ -172,7 +172,7 @@ class AlbaApiController(http.Controller):
                 data = request.get_json_data()
                 if isinstance(data, dict):
                     return data
-            except Exception:
+            except (ValueError, TypeError, json.JSONDecodeError):
                 pass  # Fall through to manual parsing
 
         raw = request.httprequest.data
@@ -396,12 +396,15 @@ class AlbaApiController(http.Controller):
             }
         """
         try:
-            self._authenticate()
+            api_key = self._authenticate()
 
             products = (
                 request.env["alba.loan.product"]
                 .sudo()
-                .search([("is_active", "=", True)], order="name asc")
+                .search(
+                    [("is_active", "=", True), ("company_id", "=", api_key.company_id.id)],
+                    order="name asc"
+                )
             )
 
             result = []
@@ -490,31 +493,46 @@ class AlbaApiController(http.Controller):
             django_customer_id = str(data["django_customer_id"]).strip()
             Customer = request.env["alba.customer"].sudo()
 
-            # --- Locate existing record --------------------------------------
+            # --- Locate existing record (scoped to API key's company) -----------
             customer = Customer.search(
-                [("django_customer_id", "=", django_customer_id)], limit=1
+                [
+                    ("django_customer_id", "=", django_customer_id),
+                    ("company_id", "=", api_key.company_id.id),
+                ],
+                limit=1,
             )
 
-            # Fallback: search by partner email
+            # Fallback: search by partner email (scoped to company)
             if not customer and data.get("email"):
                 email_norm = data["email"].strip().lower()
                 partner_match = (
                     request.env["res.partner"]
                     .sudo()
-                    .search([("email", "=ilike", email_norm)], limit=1)
+                    .search(
+                        [
+                            ("email", "=ilike", email_norm),
+                            ("company_id", "in", [api_key.company_id.id, False]),
+                        ],
+                        limit=1,
+                    )
                 )
                 if partner_match:
                     customer = Customer.search(
-                        [("partner_id", "=", partner_match.id)], limit=1
+                        [
+                            ("partner_id", "=", partner_match.id),
+                            ("company_id", "=", api_key.company_id.id),
+                        ],
+                        limit=1,
                     )
 
             # --- Sync res.partner -------------------------------------------
             partner = self._get_or_create_partner(data)
 
-            # --- Build customer field dict ----------------------------------
+            # --- Build customer field dict (with company scoping) -----------
             customer_vals = {
                 "django_customer_id": django_customer_id,
                 "partner_id": partner.id,
+                "company_id": api_key.company_id.id,
             }
 
             # Optional KYC / personal fields — only write when supplied
@@ -628,7 +646,13 @@ class AlbaApiController(http.Controller):
                     400,
                 )
 
-            customer = request.env["alba.customer"].sudo().browse(customer_id)
+            customer = request.env["alba.customer"].sudo().search(
+                [
+                    ("id", "=", customer_id),
+                    ("company_id", "=", api_key.company_id.id),
+                ],
+                limit=1,
+            )
             if not customer.exists():
                 return self._error_response(
                     f"Customer with id={customer_id} not found.", 404
@@ -772,11 +796,17 @@ class AlbaApiController(http.Controller):
                     }
                 )
 
-            # --- Resolve customer -------------------------------------------
+            # --- Resolve customer (scoped to company) -----------------------
             customer = (
                 request.env["alba.customer"]
                 .sudo()
-                .search([("django_customer_id", "=", django_cust_id)], limit=1)
+                .search(
+                    [
+                        ("django_customer_id", "=", django_cust_id),
+                        ("company_id", "=", api_key.company_id.id),
+                    ],
+                    limit=1,
+                )
             )
             if not customer:
                 return self._error_response(
@@ -785,7 +815,7 @@ class AlbaApiController(http.Controller):
                     404,
                 )
 
-            # --- Resolve loan product ----------------------------------------
+            # --- Resolve loan product (scoped to company) -------------------
             product = (
                 request.env["alba.loan.product"]
                 .sudo()
@@ -793,6 +823,7 @@ class AlbaApiController(http.Controller):
                     [
                         ("code", "=", data["loan_product_code"]),
                         ("is_active", "=", True),
+                        ("company_id", "=", api_key.company_id.id),
                     ],
                     limit=1,
                 )
@@ -813,6 +844,7 @@ class AlbaApiController(http.Controller):
                 "django_application_id": django_app_id,
                 "customer_id": customer.id,
                 "product_id": product.id,
+                "company_id": api_key.company_id.id,
                 "requested_amount": self._safe_float(data["requested_amount"]),
                 "tenure_months": self._safe_int(data["tenure_months"], 1),
                 "repayment_frequency": repayment_freq,
@@ -956,7 +988,7 @@ class AlbaApiController(http.Controller):
                 )
                 try:
                     application.write({"state": odoo_state_value})
-                except Exception as exc:
+                except (odoo_exceptions.UserError, odoo_exceptions.ValidationError) as exc:
                     return self._error_response(
                         f"Cannot set state to '{new_status}': {exc}", 400
                     )
@@ -1091,9 +1123,13 @@ class AlbaApiController(http.Controller):
             django_payment_id = str(data["django_payment_id"]).strip()
             Repayment = request.env["alba.loan.repayment"].sudo()
 
-            # --- Idempotency: check for existing repayment ------------------
+            # --- Idempotency: check for existing repayment (scoped) ---------
             existing = Repayment.search(
-                [("django_payment_id", "=", django_payment_id)], limit=1
+                [
+                    ("django_payment_id", "=", django_payment_id),
+                    ("company_id", "=", api_key.company_id.id),
+                ],
+                limit=1,
             )
             if existing:
                 _logger.info(
@@ -1115,11 +1151,17 @@ class AlbaApiController(http.Controller):
                     }
                 )
 
-            # --- Resolve loan ------------------------------------------------
+            # --- Resolve loan (scoped to company) ---------------------------
             loan = (
                 request.env["alba.loan"]
                 .sudo()
-                .search([("loan_number", "=", data["loan_number"])], limit=1)
+                .search(
+                    [
+                        ("loan_number", "=", data["loan_number"]),
+                        ("company_id", "=", api_key.company_id.id),
+                    ],
+                    limit=1,
+                )
             )
             if not loan:
                 return self._error_response(
