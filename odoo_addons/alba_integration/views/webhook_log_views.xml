@@ -92,19 +92,19 @@
     </record>
 
     <!-- ================================================================== -->
-    <!--  Tree / list view — colour-coded by delivery status                -->
+    <!--  List view — colour-coded by delivery status                       -->
     <!-- ================================================================== -->
-    <record id="view_alba_webhook_log_tree" model="ir.ui.view">
-        <field name="name">alba.webhook.log.tree</field>
+    <record id="view_alba_webhook_log_list" model="ir.ui.view">
+        <field name="name">alba.webhook.log.list</field>
         <field name="model">alba.webhook.log</field>
         <field name="arch" type="xml">
             <!--
-                decoration-danger  → red row   for failed deliveries
+                decoration-danger    → red row    for failed deliveries
                 decoration-success → green row  for successful deliveries
                 decoration-warning → amber row  for pending / in-flight
                 decoration-muted   → grey text  for inbound log entries
             -->
-            <tree string="Webhook Logs"
+            <list string="Webhook Logs"
                   create="false"
                   edit="false"
                   decoration-danger="status == 'failed'"
@@ -142,7 +142,7 @@
 
                 <!-- Hidden fields required for decorations -->
                 <field name="response_code" column_invisible="True"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -251,8 +251,8 @@
     <record id="action_alba_webhook_log" model="ir.actions.act_window">
         <field name="name">Webhook Logs</field>
         <field name="res_model">alba.webhook.log</field>
-        <field name="view_mode">tree,form</field>
-        <field name="view_id" ref="view_alba_webhook_log_tree"/>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_alba_webhook_log_list"/>
         <field name="search_view_id" ref="view_alba_webhook_log_search"/>
         <field name="domain">[]</field>
         <field name="context">{

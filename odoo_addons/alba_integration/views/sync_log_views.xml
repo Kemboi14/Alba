@@ -147,13 +147,13 @@
     </record>
 
     <!-- ================================================================
-         alba.sync.log — Tree View
+         alba.sync.log — List View
          ================================================================ -->
-    <record id="view_alba_sync_log_tree" model="ir.ui.view">
-        <field name="name">alba.sync.log.tree</field>
+    <record id="view_alba_sync_log_list" model="ir.ui.view">
+        <field name="name">alba.sync.log.list</field>
         <field name="model">alba.sync.log</field>
         <field name="arch" type="xml">
-            <tree
+            <list
                 string="Sync Logs"
                 create="false"
                 edit="false"
@@ -186,7 +186,7 @@
                 <field name="remote_ip" optional="hide" />
                 <field name="company_id" optional="hide" />
                 <field name="detail" optional="hide" />
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -332,8 +332,8 @@
     <record id="action_alba_sync_log" model="ir.actions.act_window">
         <field name="name">Sync Logs</field>
         <field name="res_model">alba.sync.log</field>
-        <field name="view_mode">tree,form</field>
-        <field name="view_id" ref="view_alba_sync_log_tree"/>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_alba_sync_log_list"/>
         <field name="search_view_id" ref="view_alba_sync_log_search" />
         <field name="context">{}</field>
         <field name="help" type="html">
@@ -354,8 +354,8 @@
     <record id="action_alba_sync_log_failures" model="ir.actions.act_window">
         <field name="name">Sync Failures</field>
         <field name="res_model">alba.sync.log</field>
-        <field name="view_mode">tree,form</field>
-        <field name="view_id" ref="view_alba_sync_log_tree"/>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_alba_sync_log_list"/>
         <field name="domain">[('status','in',['failure','partial'])]</field>
         <field name="search_view_id" ref="view_alba_sync_log_search" />
         <field name="context">{'search_default_failures': 1}</field>
