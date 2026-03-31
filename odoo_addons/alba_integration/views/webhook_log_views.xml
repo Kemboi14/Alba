@@ -216,31 +216,6 @@
                         domain="[('timestamp', '>=',
                                   (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d 00:00:00'))]"/>
 
-                <!-- ── Group By ──────────────────────────────────────── -->
-                <group expand="0" string="Group By">
-                    <filter string="Event Type"
-                            name="group_event_type"
-                            context="{'group_by': 'event_type'}"/>
-                    <filter string="Status"
-                            name="group_status"
-                            context="{'group_by': 'status'}"/>
-                    <filter string="Direction"
-                            name="group_direction"
-                            context="{'group_by': 'direction'}"/>
-                    <filter string="API Key"
-                            name="group_api_key"
-                            context="{'group_by': 'api_key_id'}"/>
-                    <filter string="Date (Day)"
-                            name="group_day"
-                            context="{'group_by': 'timestamp:day'}"/>
-                    <filter string="Date (Week)"
-                            name="group_week"
-                            context="{'group_by': 'timestamp:week'}"/>
-                    <filter string="Date (Month)"
-                            name="group_month"
-                            context="{'group_by': 'timestamp:month'}"/>
-                </group>
-
             </search>
         </field>
     </record>
