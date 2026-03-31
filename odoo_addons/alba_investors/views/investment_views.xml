@@ -3,17 +3,6 @@
 <data>
 
     <!-- ================================================================
-         alba.interest.accrual — Action Window (defined first for reference)
-         ================================================================ -->
-    <record id="action_alba_interest_accrual" model="ir.actions.act_window">
-        <field name="name">Interest Accruals</field>
-        <field name="res_model">alba.interest.accrual</field>
-        <field name="view_mode">list,form</field>
-        <field name="search_view_id" ref="view_alba_interest_accrual_search"/>
-        <field name="context">{'search_default_posted': 1}</field>
-    </record>
-
-    <!-- ================================================================
          alba.investment — Form View
          ================================================================ -->
     <record id="view_alba_investment_form" model="ir.ui.view">
@@ -444,6 +433,17 @@
                 </group>
             </search>
         </field>
+    </record>
+
+    <!-- ================================================================
+         alba.interest.accrual — Action Window (defined after views for reference)
+         ================================================================ -->
+    <record id="action_alba_interest_accrual" model="ir.actions.act_window">
+        <field name="name">Interest Accruals</field>
+        <field name="res_model">alba.interest.accrual</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_alba_interest_accrual_search"/>
+        <field name="context">{'search_default_posted': 1}</field>
     </record>
 
 </data>
