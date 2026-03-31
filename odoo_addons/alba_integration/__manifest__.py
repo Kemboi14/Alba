@@ -26,18 +26,18 @@ Django → Odoo (inbound REST endpoints)
   POST  /alba/api/v1/payments                        Record a repayment
 
 Odoo → Django (outbound HMAC-signed webhooks)
-  application.status_changed     Application moved to a new stage
-  loan.disbursed                 Loan disbursed and active
-  loan.npl_flagged               Loan flagged as Non-Performing
-  loan.closed                    Loan fully repaid and closed
-  loan.instalment_overdue        Instalment past due date
-  loan.maturing_soon             Loan maturing within 30 days
-  payment.matched                Repayment posted and allocated
-  payment.mpesa_received         Inbound M-Pesa payment received
-  customer.kyc_verified          KYC status updated to verified
-  portfolio.stats_updated        Aggregate portfolio statistics
-  integration.health_check       Periodic sync health summary
-  integration.dead_webhooks_alert Dead retry records detected
+  application.status_changed       Application moved to a new stage
+  loan.disbursed                   Loan disbursed and active
+  loan.npl_flagged                 Loan flagged as Non-Performing
+  loan.closed                      Loan fully repaid and closed
+  loan.instalment_overdue          Instalment past due date
+  loan.maturing_soon               Loan maturing within 30 days
+  payment.matched                  Repayment posted and allocated
+  payment.mpesa_received           Inbound M-Pesa payment received
+  customer.kyc_verified            KYC status updated to verified
+  portfolio.stats_updated          Aggregate portfolio statistics
+  integration.health_check         Periodic sync health summary
+  integration.dead_webhooks_alert  Dead retry records detected
 
 Authentication
 --------------
