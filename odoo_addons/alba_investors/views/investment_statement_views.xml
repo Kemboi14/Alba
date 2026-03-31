@@ -228,34 +228,7 @@
                             ('period_start','&gt;=',(context_today() + relativedelta(months=-1, day=1)).strftime('%Y-%m-%d')),
                             ('period_end','&lt;=',(context_today().replace(day=1) - datetime.timedelta(days=1)).strftime('%Y-%m-%d'))
                         ]"
-                    />
-                <group expand="0" string="Group By">
-                    <filter
-                            string="Investor"
-                            name="grp_investor"
-                            context="{'group_by':'investor_id'}"
-                        />
-                    <filter
-                            string="Investment"
-                            name="grp_investment"
-                            context="{'group_by':'investment_id'}"
-                        />
-                    <filter
-                            string="Status"
-                            name="grp_state"
-                            context="{'group_by':'state'}"
-                        />
-                    <filter
-                            string="Statement Date"
-                            name="grp_date"
-                            context="{'group_by':'statement_date:month'}"
-                        />
-                    <filter
-                            string="Period"
-                            name="grp_period"
-                            context="{'group_by':'period_start:month'}"
-                        />
-                </group>
+                />
             </search>
         </field>
     </record>
