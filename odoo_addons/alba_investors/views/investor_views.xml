@@ -328,20 +328,6 @@
                 <filter string="Archived"
                         name="archived"
                         domain="[('active','=',False)]"/>
-                <group expand="0" string="Group By">
-                    <filter string="KYC Status"
-                            name="grp_kyc"
-                            context="{'group_by':'kyc_status'}"/>
-                    <filter string="Account Status"
-                            name="grp_state"
-                            context="{'group_by':'state'}"/>
-                    <filter string="Preferred Payout"
-                            name="grp_payout"
-                            context="{'group_by':'preferred_payment_method'}"/>
-                    <filter string="Nationality"
-                            name="grp_nationality"
-                            context="{'group_by':'nationality'}"/>
-                </group>
             </search>
         </field>
     </record>
