@@ -263,20 +263,6 @@
                     domain="[('last_used', '=', False)]"
                 />
 
-                <group expand="0" string="Group By">
-                    <filter
-                        string="Company"
-                        name="group_company"
-                        context="{'group_by': 'company_id'}"
-                        groups="base.group_multi_company"
-                    />
-                    <filter
-                        string="Active Status"
-                        name="group_active"
-                        context="{'group_by': 'is_active'}"
-                    />
-                </group>
-
             </search>
         </field>
     </record>
