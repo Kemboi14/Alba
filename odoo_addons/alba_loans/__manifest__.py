@@ -60,6 +60,8 @@ Accounting
         "data/approval_limit_data.xml",
         # ── Scheduled actions (crons) ────────────────────────────────────────
         "data/cron_data.xml",
+        # ── Paperformat ─────────────────────────────────────────────────────
+        "data/paperformat_data.xml",
         # ── Actions — must load before views that reference them ─────────────
         "views/actions.xml",
         # ── Loan management views (load basic views first) ───────────────────
