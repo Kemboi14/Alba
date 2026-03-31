@@ -156,7 +156,7 @@
                             <field
                                 name="log_ids"
                                 readonly="1"
-                                context="{'default_api_key_id': active_id}"
+                                context="{'default_api_key_id': id}"
                             >
                                 <list
                                     string="Webhook Logs"
