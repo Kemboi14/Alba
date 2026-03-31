@@ -225,23 +225,6 @@
                     <filter string="This Month"
                             name="this_month"
                             domain="[('payment_date','&gt;=','2026-03-01')]"/>
-                    <group expand="0" string="Group By">
-                        <filter string="Status"
-                                name="grp_state"
-                                context="{'group_by':'state'}"/>
-                        <filter string="Payment Method"
-                                name="grp_method"
-                                context="{'group_by':'payment_method'}"/>
-                        <filter string="Loan"
-                                name="grp_loan"
-                                context="{'group_by':'loan_id'}"/>
-                        <filter string="Customer"
-                                name="grp_customer"
-                                context="{'group_by':'customer_id'}"/>
-                        <filter string="Payment Date"
-                                name="grp_date"
-                                context="{'group_by':'payment_date:month'}"/>
-                    </group>
                 </search>
             </field>
         </record>
@@ -331,17 +314,6 @@
                                 ('due_date','&gt;=','2026-03-01'),
                                 ('due_date','&lt;=','2026-03-31')
                             ]"/>
-                    <group expand="0" string="Group By">
-                        <filter string="Loan"
-                                name="grp_loan"
-                                context="{'group_by':'loan_id'}"/>
-                        <filter string="Status"
-                                name="grp_status"
-                                context="{'group_by':'status'}"/>
-                        <filter string="Due Date"
-                                name="grp_due_date"
-                                context="{'group_by':'due_date:month'}"/>
-                    </group>
                 </search>
             </field>
         </record>

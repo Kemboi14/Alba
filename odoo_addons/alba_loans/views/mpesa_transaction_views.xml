@@ -342,33 +342,6 @@
                     name="this_month"
                     domain="[('create_date','&gt;=','2026-03-01')]"
                 />
-                <group expand="0" string="Group By">
-                    <filter
-                        string="Status"
-                        name="grp_status"
-                        context="{'group_by':'status'}"
-                    />
-                    <filter
-                        string="Transaction Type"
-                        name="grp_type"
-                        context="{'group_by':'transaction_type'}"
-                    />
-                    <filter
-                        string="Loan"
-                        name="grp_loan"
-                        context="{'group_by':'loan_id'}"
-                    />
-                    <filter
-                        string="Config"
-                        name="grp_config"
-                        context="{'group_by':'config_id'}"
-                    />
-                    <filter
-                        string="Date"
-                        name="grp_date"
-                        context="{'group_by':'create_date:day'}"
-                    />
-                </group>
             </search>
         </field>
     </record>

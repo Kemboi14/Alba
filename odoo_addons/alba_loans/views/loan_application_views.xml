@@ -349,20 +349,6 @@
                     <filter string="Submitted This Month"
                             name="this_month"
                             domain="[('submitted_date','&gt;=','2026-03-01')]"/>
-                    <group expand="0" string="Group By">
-                        <filter string="Status"
-                                name="grp_state"
-                                context="{'group_by':'state'}"/>
-                        <filter string="Loan Product"
-                                name="grp_product"
-                                context="{'group_by':'loan_product_id'}"/>
-                        <filter string="Approved By"
-                                name="grp_approved_by"
-                                context="{'group_by':'approved_by'}"/>
-                        <filter string="Submission Date"
-                                name="grp_submitted"
-                                context="{'group_by':'submitted_date:month'}"/>
-                    </group>
                 </search>
             </field>
         </record>
