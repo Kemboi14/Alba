@@ -21,13 +21,13 @@
         </record>
 
         <record id="module_category_alba_accounting" model="ir.module.category">
-            <field name="name">Alba Capital / Accounting & Finance</field>
+            <field name="name">Alba Capital / Accounting &amp; Finance</field>
             <field name="description">Financial operations and accounting</field>
             <field name="sequence">30</field>
         </record>
 
         <record id="module_category_alba_hr" model="ir.module.category">
-            <field name="name">Alba Capital / HR & Payroll</field>
+            <field name="name">Alba Capital / HR &amp; Payroll</field>
             <field name="description">Human resources and payroll management</field>
             <field name="sequence">40</field>
         </record>
