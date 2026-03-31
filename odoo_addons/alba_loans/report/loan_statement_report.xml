@@ -16,7 +16,7 @@
             </field>
             <field name="binding_model_id" ref="model_alba_loan"/>
             <field name="binding_type">report</field>
-            <field name="paperformat_id" ref="base.paperformat_a4"/>
+            <field name="paperformat_id" ref="alba_loans.paperformat_a4"/>
         </record>
 
         <!-- ================================================================
@@ -33,7 +33,7 @@
             </field>
             <field name="binding_model_id" ref="model_alba_loan_application"/>
             <field name="binding_type">report</field>
-            <field name="paperformat_id" ref="base.paperformat_a4"/>
+            <field name="paperformat_id" ref="alba_loans.paperformat_a4"/>
         </record>
 
     </data>
