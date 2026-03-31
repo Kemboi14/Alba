@@ -27,7 +27,6 @@
         ================================================================ -->
         <record id="group_integration_user" model="res.groups">
             <field name="name">Integration User</field>
-            <field name="category_id" ref="base.module_category_technical" />
             <field name="comment">
                 Read-only access to Alba Integration webhook logs.
                 Members can inspect inbound and outbound webhook activity
@@ -42,7 +41,6 @@
         ================================================================ -->
         <record id="group_integration_admin" model="res.groups">
             <field name="name">Integration Admin</field>
-            <field name="category_id" ref="base.module_category_technical" />
             <field
                 name="implied_ids"
                 eval="[
