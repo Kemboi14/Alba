@@ -47,13 +47,6 @@
                 (4, ref('alba_integration.group_integration_user'))
             ]"
             />
-            <field
-                name="users"
-                eval="[
-                (4, ref('base.user_root')),
-                (4, ref('base.user_admin'))
-            ]"
-            />
             <field name="comment">
                 Full administration rights for the Alba Capital Django
                 Integration Bridge.  Members can create, regenerate, and
