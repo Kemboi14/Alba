@@ -44,7 +44,7 @@
 
                     <!-- Related Odoo record (optional) -->
                     <group string="Related Record"
-                           attrs="{'invisible': [('related_model', '=', False)]}">
+                           invisible="not related_model">
                         <group>
                             <field name="related_model" readonly="1"
                                    string="Odoo Model"/>
@@ -55,7 +55,7 @@
 
                     <!-- Error message — only shown when present -->
                     <group string="Error Details"
-                           attrs="{'invisible': [('error_message', '=', False)]}">
+                           invisible="not error_message">
                         <field name="error_message"
                                readonly="1"
                                nolabel="1"
