@@ -279,12 +279,6 @@
                     <separator/>
                     <filter name="employed" string="Employed" domain="[('employment_status','=','employed')]"/>
                     <filter name="self_employed" string="Self-Employed" domain="[('employment_status','=','self_employed')]"/>
-                    <group expand="0" string="Group By">
-                        <filter name="grp_kyc" string="KYC Status" context="{'group_by':'kyc_status'}"/>
-                        <filter name="grp_risk" string="Risk Rating" context="{'group_by':'risk_rating'}"/>
-                        <filter name="grp_employment" string="Employment Status" context="{'group_by':'employment_status'}"/>
-                        <filter name="grp_county" string="County" context="{'group_by':'county'}"/>
-                    </group>
                 </search>
             </field>
         </record>
