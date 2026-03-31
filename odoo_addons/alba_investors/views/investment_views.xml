@@ -114,7 +114,7 @@
                         <page string="Interest Accruals" name="accruals">
                             <field name="accrual_ids"
                                    mode="list"
-                                   context="{'default_investment_id': active_id}">
+                                   context="{'default_investment_id': id}">
                                 <list string="Accruals"
                                       decoration-success="state == 'posted'"
                                       decoration-danger="state == 'reversed'"
@@ -140,7 +140,7 @@
                         <page string="Statements" name="statements">
                             <field name="statement_ids"
                                    mode="list"
-                                   context="{'default_investment_id': active_id}">
+                                   context="{'default_investment_id': id}">
                                 <list string="Statements"
                                       decoration-success="state == 'sent'"
                                       decoration-info="state == 'confirmed'"
