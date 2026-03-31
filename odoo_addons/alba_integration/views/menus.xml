@@ -99,15 +99,6 @@
         />
 
     <menuitem
-            id="menu_alba_integration_system_params"
-            name="System Parameters"
-            parent="menu_alba_integration_configuration"
-            sequence="10"
-            action="base.action_ir_config_parameter_form"
-            groups="alba_integration.group_integration_admin"
-        />
-
-    <menuitem
             id="menu_alba_integration_config_api_keys"
             name="Manage API Keys"
             parent="menu_alba_integration_configuration"
