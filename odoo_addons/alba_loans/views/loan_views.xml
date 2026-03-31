@@ -322,23 +322,6 @@
                                 ('maturity_date','&gt;=','2026-03-01'),
                                 ('maturity_date','&lt;=','2026-03-31')
                             ]"/>
-                    <group expand="0" string="Group By">
-                        <filter string="Status"
-                                name="grp_state"
-                                context="{'group_by':'state'}"/>
-                        <filter string="PAR Bucket"
-                                name="grp_par"
-                                context="{'group_by':'par_bucket'}"/>
-                        <filter string="Loan Product"
-                                name="grp_product"
-                                context="{'group_by':'loan_product_id'}"/>
-                        <filter string="Interest Method"
-                                name="grp_method"
-                                context="{'group_by':'interest_method'}"/>
-                        <filter string="Disbursement Month"
-                                name="grp_disb_month"
-                                context="{'group_by':'disbursement_date:month'}"/>
-                    </group>
                 </search>
             </field>
         </record>

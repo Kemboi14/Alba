@@ -233,18 +233,6 @@
                     name="production"
                     domain="[('environment','=','production')]"
                 />
-                <group expand="0" string="Group By">
-                    <filter
-                        string="Environment"
-                        name="grp_environment"
-                        context="{'group_by':'environment'}"
-                    />
-                    <filter
-                        string="Company"
-                        name="grp_company"
-                        context="{'group_by':'company_id'}"
-                    />
-                </group>
             </search>
         </field>
     </record>
