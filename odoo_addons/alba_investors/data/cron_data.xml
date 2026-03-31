@@ -21,7 +21,7 @@
             <field name="active">True</field>
             <field name="user_id" ref="base.user_root"/>
             <field name="priority">5</field>
-            <field name="nextcall" eval="(datetime.datetime.now().replace(day=1, hour=2, minute=0, second=0) + datetime.timedelta(days=32)).replace(day=1)"/>
+            <field name="nextcall" eval="(datetime.now().replace(day=1, hour=2, minute=0, second=0) + timedelta(days=32)).replace(day=1)"/>
         </record>
 
         <!-- ── 2. Monthly Statement Generation ──────────────────────────── -->
@@ -42,7 +42,7 @@
             <field name="active">True</field>
             <field name="user_id" ref="base.user_root"/>
             <field name="priority">10</field>
-            <field name="nextcall" eval="(datetime.datetime.now().replace(day=2, hour=3, minute=0, second=0) + datetime.timedelta(days=32)).replace(day=2)"/>
+            <field name="nextcall" eval="(datetime.now().replace(day=2, hour=3, minute=0, second=0) + timedelta(days=32)).replace(day=2)"/>
         </record>
 
     </data>
