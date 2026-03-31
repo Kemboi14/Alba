@@ -5,6 +5,7 @@ from . import (
     loan_product,
     customer,
     mpesa_config,
+    loan_document,
     # Models with dependencies
     loan_application,
     loan,

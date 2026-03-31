@@ -118,3 +118,12 @@ access_alba_mpesa_stk_push_wizard_manager,alba.mpesa.stk.push.wizard manager,mod
 access_alba_loan_disburse_wizard_officer,alba.loan.disburse.wizard officer,model_alba_loan_disburse_wizard,alba_loans.group_loan_officer,1,1,1,1
 access_alba_loan_disburse_wizard_manager,alba.loan.disburse.wizard manager,model_alba_loan_disburse_wizard,alba_loans.group_operations_manager,1,1,1,1
 access_alba_loan_disburse_wizard_director,alba.loan.disburse.wizard director,model_alba_loan_disburse_wizard,alba_loans.group_director,1,1,1,1
+
+# ================================================================
+# LOAN DOCUMENT ACCESS
+# ================================================================
+access_alba_loan_document_officer,alba.loan.document officer,model_alba_loan_document,alba_loans.group_loan_officer,1,1,1,0
+access_alba_loan_document_manager,alba.loan.document manager,model_alba_loan_document,alba_loans.group_operations_manager,1,1,1,1
+access_alba_loan_document_director,alba.loan.document director,model_alba_loan_document,alba_loans.group_director,1,1,1,1
+access_alba_loan_document_trade,alba.loan.document trade,model_alba_loan_document,alba_loans.group_trade_finance_officer,1,1,1,0
+access_alba_loan_document_business,alba.loan.document business,model_alba_loan_document,alba_loans.group_business_dev_officer,1,1,1,0
