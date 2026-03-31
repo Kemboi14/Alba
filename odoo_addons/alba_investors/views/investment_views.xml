@@ -320,23 +320,6 @@
                             ('maturity_date','&lt;=',(context_today().replace(day=28)).strftime('%Y-%m-%d')),
                             ('state','=','active')
                         ]"/>
-                <group expand="0" string="Group By">
-                    <filter string="Status"
-                            name="grp_state"
-                            context="{'group_by':'state'}"/>
-                    <filter string="Investor"
-                            name="grp_investor"
-                            context="{'group_by':'investor_id'}"/>
-                    <filter string="Investment Type"
-                            name="grp_type"
-                            context="{'group_by':'investment_type'}"/>
-                    <filter string="Compounding Frequency"
-                            name="grp_frequency"
-                            context="{'group_by':'compounding_frequency'}"/>
-                    <filter string="Start Date"
-                            name="grp_start"
-                            context="{'group_by':'start_date:month'}"/>
-                </group>
             </search>
         </field>
     </record>
@@ -409,12 +392,6 @@
                 <filter string="This Month"
                         name="this_month"
                         domain="[('accrual_date','&gt;=',(context_today().replace(day=1)).strftime('%Y-%m-%d'))]"/>
-                <group expand="0" string="Group By">
-                    <filter string="Investor"    name="grp_investor"   context="{'group_by':'investor_id'}"/>
-                    <filter string="Investment"  name="grp_investment" context="{'group_by':'investment_id'}"/>
-                    <filter string="Status"      name="grp_state"      context="{'group_by':'state'}"/>
-                    <filter string="Accrual Date" name="grp_date"      context="{'group_by':'accrual_date:month'}"/>
-                </group>
             </search>
         </field>
     </record>
