@@ -70,7 +70,7 @@
                         </h1>
                         <div class="o_field_widget oe_read_only">
                             <span class="badge badge-pill"
-                                  attrs="{'invisible': [('is_active', '=', True)]}">
+                                  invisible="is_active">
                                 Archived
                             </span>
                         </div>
@@ -143,7 +143,7 @@
                             colspan="2"
                         />
                         <div class="alert alert-info" role="alert"
-                             attrs="{'invisible': [('allowed_ips', '!=', False)]}">
+                             invisible="allowed_ips">
                             <i class="fa fa-info-circle"/> No IP restrictions are configured.
                             Requests from any IP address will be accepted.
                         </div>
