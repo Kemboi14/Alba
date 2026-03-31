@@ -51,22 +51,6 @@
                         <button type="object"
                                 name="action_accrue_monthly_interest"
                                 class="oe_stat_button"
-                                icon="fa-percent">
-                            <field name="accrual_count"
-                                   widget="statinfo"
-                                   string="Accruals"/>
-                        </button>
-                        <button type="object"
-                                name="action_view_statements"
-                                class="oe_stat_button"
-                                icon="fa-file-text-o">
-                            <field name="statement_count"
-                                   widget="statinfo"
-                                   string="Statements"/>
-                        </button>
-                        <button type="object"
-                                name="action_accrue_monthly_interest"
-                                class="oe_stat_button"
                                 icon="fa-line-chart"
                                 invisible="state != 'active'">
                             <div class="o_stat_info">
