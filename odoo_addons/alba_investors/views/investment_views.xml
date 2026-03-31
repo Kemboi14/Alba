@@ -48,16 +48,16 @@
                 <sheet>
                     <!-- Smart Buttons -->
                     <div class="oe_button_box" name="button_box">
-                        <button name="%(action_alba_interest_accrual)d"
-                                type="action"
+                        <button type="object"
+                                name="action_accrue_monthly_interest"
                                 class="oe_stat_button"
                                 icon="fa-percent">
                             <field name="accrual_count"
                                    widget="statinfo"
                                    string="Accruals"/>
                         </button>
-                        <button name="%(action_alba_investment_statement)d"
-                                type="action"
+                        <button type="object"
+                                name="action_view_statements"
                                 class="oe_stat_button"
                                 icon="fa-file-text-o">
                             <field name="statement_count"
