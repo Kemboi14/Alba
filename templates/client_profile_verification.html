@@ -1,0 +1,987 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Complete your client profile for loan application. Upload documents for verification.">
+    <title>Client Profile - Document Verification | Alba Capital</title>
+    
+    <!-- Tailwind CSS (built with React) -->
+    {% if debug %}
+        <!-- Development: Load from Vite dev server -->
+        <script type="module" src="http://localhost:5173/@vite/client"></script>
+        <script type="module" src="http://localhost:5173/src/main.tsx"></script>
+    {% else %}
+        <!-- Production: Load built files from Django static -->
+        <link rel="stylesheet" href="{% static 'verification/assets/main.css' %}">
+    {% endif %}
+    
+    <!-- Django CSRF Token for API calls -->
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    
+    <style>
+        /* Accessible Form Styles */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Skip Link for Keyboard Navigation */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #2563eb;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            z-index: 100;
+            border-radius: 0 0 4px 0;
+            font-weight: 600;
+        }
+        
+        .skip-link:focus {
+            top: 0;
+        }
+        
+        /* Focus Styles */
+        *:focus {
+            outline: 3px solid #2563eb;
+            outline-offset: 2px;
+        }
+        
+        *:focus:not(:focus-visible) {
+            outline: none;
+        }
+        
+        *:focus-visible {
+            outline: 3px solid #2563eb;
+            outline-offset: 2px;
+        }
+        
+        .form-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 3rem 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .page-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem 0;
+        }
+        
+        .page-header p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+        
+        .form-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .form-card-header {
+            padding: 2rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: #fafafa;
+        }
+        
+        .form-card-header h2 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+        }
+        
+        .form-card-body {
+            padding: 2.5rem;
+        }
+        
+        .form-section {
+            margin-bottom: 3rem;
+            border: none;
+            padding: 0;
+        }
+        
+        .form-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .section-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: #2563eb;
+            color: white;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 1.125rem;
+            flex-shrink: 0;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+        }
+        
+        .section-description {
+            font-size: 1rem;
+            color: #6b7280;
+            margin: 0.5rem 0 0 0;
+            margin-left: 3.5rem;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+        
+        @media (min-width: 1024px) {
+            .form-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        .form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .form-field.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .form-label {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .required-indicator {
+            color: #dc2626;
+            font-weight: 700;
+        }
+        
+        .optional-text {
+            font-size: 0.875rem;
+            color: #9ca3af;
+            font-weight: 400;
+        }
+        
+        .help-text {
+            font-size: 0.9375rem;
+            color: #6b7280;
+            margin: 0;
+            line-height: 1.5;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            font-size: 1.125rem;
+            line-height: 1.5;
+            color: #1f2937;
+            background-color: #ffffff;
+            border: 2px solid #d1d5db;
+            border-radius: 10px;
+            transition: all 0.2s ease-in-out;
+            min-height: 56px;
+        }
+        
+        .form-input:hover {
+            border-color: #9ca3af;
+        }
+        
+        .form-input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+        
+        .form-input.is-invalid {
+            border-color: #dc2626;
+            background-color: #fef2f2;
+        }
+        
+        select.form-input {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+            background-position: right 1rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 3rem;
+        }
+        
+        .error-message {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #dc2626;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+        
+        .verification-section {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .verification-section-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .verification-icon {
+            width: 56px;
+            height: 56px;
+            background: #2563eb;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .verification-icon svg {
+            width: 28px;
+            height: 28px;
+            color: white;
+        }
+        
+        .verification-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e40af;
+            margin: 0;
+        }
+        
+        .verification-description {
+            font-size: 1.0625rem;
+            color: #1e40af;
+            margin: 0.5rem 0 0 0;
+            opacity: 0.8;
+        }
+        
+        #verification-root {
+            min-height: 600px;
+            background: white;
+            border-radius: 12px;
+            border: 2px dashed #93c5fd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #dbeafe;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .form-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding-top: 2rem;
+            border-top: 2px solid #e5e7eb;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1rem 2rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            min-height: 56px;
+            min-width: 140px;
+        }
+        
+        .btn-secondary {
+            background-color: #f3f4f6;
+            color: #4b5563;
+            border: 2px solid #d1d5db;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #e5e7eb;
+            border-color: #9ca3af;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+            box-shadow: 0 6px 8px -1px rgba(37, 99, 235, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .success-banner {
+            display: none;
+            background: #dcfce7;
+            border: 2px solid #86efac;
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-bottom: 2rem;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .success-banner.show {
+            display: flex;
+        }
+        
+        .success-banner svg {
+            width: 24px;
+            height: 24px;
+            color: #16a34a;
+            flex-shrink: 0;
+        }
+        
+        .success-banner-text {
+            color: #166534;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .form-container {
+                padding: 1rem;
+            }
+            
+            .page-header {
+                padding: 2rem 1rem;
+            }
+            
+            .page-header h1 {
+                font-size: 1.875rem;
+            }
+            
+            .form-card-body {
+                padding: 1.5rem;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+            
+            .section-description {
+                margin-left: 0;
+                margin-top: 1rem;
+            }
+            
+            .form-actions {
+                flex-direction: column-reverse;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+        
+        @media (prefers-contrast: high) {
+            .form-input {
+                border-width: 3px;
+            }
+            
+            .btn-primary {
+                border: 3px solid #1e40af;
+            }
+            
+            .verification-section {
+                border-width: 3px;
+            }
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+            
+            .loading-spinner {
+                animation: none;
+                border-top-color: #2563eb;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Skip Link for Keyboard Navigation -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <!-- Page Header -->
+    <header class="page-header" role="banner">
+        <div class="form-container" style="padding: 0 2rem;">
+            <h1>Complete Your Profile</h1>
+            <p>Provide your information and upload documents for verification</p>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main id="main-content" class="form-container" role="main">
+        
+        <!-- Success Banner -->
+        <div id="success-banner" class="success-banner" role="status" aria-live="polite" aria-atomic="true">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="success-banner-text">Documents verified successfully! Form auto-filled.</span>
+        </div>
+        
+        <!-- Form Card -->
+        <div class="form-card">
+            <div class="form-card-header">
+                <h2>Client Profile Information</h2>
+            </div>
+            
+            <div class="form-card-body">
+                <form method="post" action="{% url 'client_profile' %}" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Personal Information -->
+                    <fieldset class="form-section">
+                        <legend class="section-header">
+                            <span class="section-number" aria-hidden="true">1</span>
+                            <div>
+                                <h3 class="section-title">Personal Information</h3>
+                                <p class="section-description">Enter details as they appear on your National ID</p>
+                            </div>
+                        </legend>
+                        
+                        <div class="form-grid">
+                            <div class="form-field full-width">
+                                <label for="id_full_name" class="form-label">
+                                    Full Name
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="id_full_name" 
+                                    name="full_name"
+                                    class="form-input {% if form.full_name.errors %}is-invalid{% endif %}"
+                                    value="{{ form.full_name.value|default:'' }}"
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="full-name-help"
+                                    autocomplete="name"
+                                    placeholder="Enter your full name as on ID"
+                                >
+                                <p id="full-name-help" class="help-text">First and last name exactly as shown on your National ID</p>
+                                {% if form.full_name.errors %}
+                                    <span class="error-message" role="alert">{{ form.full_name.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-field">
+                                <label for="id_id_number" class="form-label">
+                                    ID Number
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="id_id_number" 
+                                    name="id_number"
+                                    class="form-input {% if form.id_number.errors %}is-invalid{% endif %}"
+                                    value="{{ form.id_number.value|default:'' }}"
+                                    required
+                                    maxlength="8"
+                                    pattern="[0-9]{8}"
+                                    inputmode="numeric"
+                                    aria-required="true"
+                                    aria-describedby="id-number-help"
+                                    placeholder="8-digit ID number"
+                                >
+                                <p id="id-number-help" class="help-text">Your 8-digit Kenyan National ID number</p>
+                                {% if form.id_number.errors %}
+                                    <span class="error-message" role="alert">{{ form.id_number.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-field">
+                                <label for="id_date_of_birth" class="form-label">
+                                    Date of Birth
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="date" 
+                                    id="id_date_of_birth" 
+                                    name="date_of_birth"
+                                    class="form-input {% if form.date_of_birth.errors %}is-invalid{% endif %}"
+                                    value="{{ form.date_of_birth.value|default:'' }}"
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="dob-help"
+                                    autocomplete="bday"
+                                >
+                                <p id="dob-help" class="help-text">Select your date of birth from the calendar</p>
+                                {% if form.date_of_birth.errors %}
+                                    <span class="error-message" role="alert">{{ form.date_of_birth.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-field">
+                                <label for="id_gender" class="form-label">
+                                    Gender
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <select 
+                                    id="id_gender" 
+                                    name="gender"
+                                    class="form-input {% if form.gender.errors %}is-invalid{% endif %}"
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="gender-help"
+                                >
+                                    <option value="" {% if not form.gender.value %}selected{% endif %} disabled>Select your gender</option>
+                                    <option value="male" {% if form.gender.value == 'male' %}selected{% endif %}>Male</option>
+                                    <option value="female" {% if form.gender.value == 'female' %}selected{% endif %}>Female</option>
+                                </select>
+                                <p id="gender-help" class="help-text">Select as shown on your ID</p>
+                                {% if form.gender.errors %}
+                                    <span class="error-message" role="alert">{{ form.gender.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </fieldset>
+                    
+                    <!-- Contact Information -->
+                    <fieldset class="form-section">
+                        <legend class="section-header">
+                            <span class="section-number" aria-hidden="true">2</span>
+                            <div>
+                                <h3 class="section-title">Contact Information</h3>
+                                <p class="section-description">How we can reach you for updates</p>
+                            </div>
+                        </legend>
+                        
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="id_email" class="form-label">
+                                    Email Address
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="email" 
+                                    id="id_email" 
+                                    name="email"
+                                    class="form-input {% if form.email.errors %}is-invalid{% endif %}"
+                                    value="{{ form.email.value|default:'' }}"
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="email-help"
+                                    autocomplete="email"
+                                    placeholder="your.email@example.com"
+                                >
+                                <p id="email-help" class="help-text">We'll send important updates to this email</p>
+                                {% if form.email.errors %}
+                                    <span class="error-message" role="alert">{{ form.email.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-field">
+                                <label for="id_phone" class="form-label">
+                                    Phone Number
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="tel" 
+                                    id="id_phone" 
+                                    name="phone"
+                                    class="form-input {% if form.phone.errors %}is-invalid{% endif %}"
+                                    value="{{ form.phone.value|default:'' }}"
+                                    required
+                                    pattern="[0-9]{10,12}"
+                                    inputmode="tel"
+                                    aria-required="true"
+                                    aria-describedby="phone-help"
+                                    autocomplete="tel"
+                                    placeholder="07XX XXX XXX"
+                                >
+                                <p id="phone-help" class="help-text">10-digit mobile number starting with 07</p>
+                                {% if form.phone.errors %}
+                                    <span class="error-message" role="alert">{{ form.phone.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </fieldset>
+                    
+                    <!-- Employment Information -->
+                    <fieldset class="form-section">
+                        <legend class="section-header">
+                            <span class="section-number" aria-hidden="true">3</span>
+                            <div>
+                                <h3 class="section-title">Employment Information</h3>
+                                <p class="section-description">Details about your current employment</p>
+                            </div>
+                        </legend>
+                        
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="id_employer" class="form-label">
+                                    Employer Name
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="id_employer" 
+                                    name="employer"
+                                    class="form-input {% if form.employer.errors %}is-invalid{% endif %}"
+                                    value="{{ form.employer.value|default:'' }}"
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="employer-help"
+                                    autocomplete="organization"
+                                    placeholder="Company name"
+                                >
+                                <p id="employer-help" class="help-text">Company or organization you work for</p>
+                                {% if form.employer.errors %}
+                                    <span class="error-message" role="alert">{{ form.employer.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-field">
+                                <label for="id_job_title" class="form-label">
+                                    Job Title
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="id_job_title" 
+                                    name="job_title"
+                                    class="form-input {% if form.job_title.errors %}is-invalid{% endif %}"
+                                    value="{{ form.job_title.value|default:'' }}"
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="job-title-help"
+                                    autocomplete="organization-title"
+                                    placeholder="Your position"
+                                >
+                                <p id="job-title-help" class="help-text">Your current position or role</p>
+                                {% if form.job_title.errors %}
+                                    <span class="error-message" role="alert">{{ form.job_title.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-field">
+                                <label for="id_employment_type" class="form-label">
+                                    Employment Type
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <select 
+                                    id="id_employment_type" 
+                                    name="employment_type"
+                                    class="form-input {% if form.employment_type.errors %}is-invalid{% endif %}"
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="employment-type-help"
+                                >
+                                    <option value="" {% if not form.employment_type.value %}selected{% endif %} disabled>Select type</option>
+                                    <option value="permanent" {% if form.employment_type.value == 'permanent' %}selected{% endif %}>Permanent / Full-time</option>
+                                    <option value="contract" {% if form.employment_type.value == 'contract' %}selected{% endif %}>Contract</option>
+                                    <option value="self-employed" {% if form.employment_type.value == 'self-employed' %}selected{% endif %}>Self Employed</option>
+                                </select>
+                                <p id="employment-type-help" class="help-text">Your employment contract type</p>
+                                {% if form.employment_type.errors %}
+                                    <span class="error-message" role="alert">{{ form.employment_type.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-field">
+                                <label for="id_monthly_income" class="form-label">
+                                    Monthly Income (KSh)
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="number" 
+                                    id="id_monthly_income" 
+                                    name="monthly_income"
+                                    class="form-input {% if form.monthly_income.errors %}is-invalid{% endif %}"
+                                    value="{{ form.monthly_income.value|default:'' }}"
+                                    required
+                                    min="1000"
+                                    step="100"
+                                    inputmode="numeric"
+                                    aria-required="true"
+                                    aria-describedby="income-help"
+                                    placeholder="e.g., 45000"
+                                >
+                                <p id="income-help" class="help-text">Gross monthly income in Kenyan Shillings</p>
+                                {% if form.monthly_income.errors %}
+                                    <span class="error-message" role="alert">{{ form.monthly_income.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </fieldset>
+                    
+                    <!-- Address Information -->
+                    <fieldset class="form-section">
+                        <legend class="section-header">
+                            <span class="section-number" aria-hidden="true">4</span>
+                            <div>
+                                <h3 class="section-title">Address Information</h3>
+                                <p class="section-description">Your current residential address</p>
+                            </div>
+                        </legend>
+                        
+                        <div class="form-grid">
+                            <div class="form-field full-width">
+                                <label for="id_street" class="form-label">
+                                    Street Address
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="id_street" 
+                                    name="street"
+                                    class="form-input {% if form.street.errors %}is-invalid{% endif %}"
+                                    value="{{ form.street.value|default:'' }}"
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="street-help"
+                                    autocomplete="street-address"
+                                    placeholder="House number, street name, building"
+                                >
+                                <p id="street-help" class="help-text">House or building number and street name</p>
+                                {% if form.street.errors %}
+                                    <span class="error-message" role="alert">{{ form.street.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-field">
+                                <label for="id_city" class="form-label">
+                                    City / Town
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="id_city" 
+                                    name="city"
+                                    class="form-input {% if form.city.errors %}is-invalid{% endif %}"
+                                    value="{{ form.city.value|default:'' }}"
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="city-help"
+                                    autocomplete="address-level2"
+                                    placeholder="e.g., Nairobi"
+                                >
+                                <p id="city-help" class="help-text">City or town where you live</p>
+                                {% if form.city.errors %}
+                                    <span class="error-message" role="alert">{{ form.city.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-field">
+                                <label for="id_county" class="form-label">
+                                    County
+                                    <span class="required-indicator" aria-label="required">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="id_county" 
+                                    name="county"
+                                    class="form-input {% if form.county.errors %}is-invalid{% endif %}"
+                                    value="{{ form.county.value|default:'' }}"
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="county-help"
+                                    placeholder="e.g., Nairobi County"
+                                >
+                                <p id="county-help" class="help-text">County of residence</p>
+                                {% if form.county.errors %}
+                                    <span class="error-message" role="alert">{{ form.county.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-field">
+                                <label for="id_postal_code" class="form-label">
+                                    Postal Code
+                                    <span class="optional-text">(Optional)</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="id_postal_code" 
+                                    name="postal_code"
+                                    class="form-input {% if form.postal_code.errors %}is-invalid{% endif %}"
+                                    value="{{ form.postal_code.value|default:'' }}"
+                                    aria-describedby="postal-code-help"
+                                    autocomplete="postal-code"
+                                    placeholder="e.g., 00100"
+                                >
+                                <p id="postal-code-help" class="help-text">Your postal code if available</p>
+                                {% if form.postal_code.errors %}
+                                    <span class="error-message" role="alert">{{ form.postal_code.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </fieldset>
+                    
+                    <!-- Document Verification -->
+                    <fieldset class="form-section">
+                        <legend class="section-header">
+                            <span class="section-number" aria-hidden="true">5</span>
+                            <div>
+                                <h3 class="section-title">Document Verification</h3>
+                                <p class="section-description">Upload and verify your documents automatically</p>
+                            </div>
+                        </legend>
+                        
+                        <div class="verification-section" role="region" aria-labelledby="verification-heading">
+                            <div class="verification-section-header">
+                                <div class="verification-icon" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 id="verification-heading" class="verification-title">Secure Document Verification</h4>
+                                    <p class="verification-description">Upload your ID and payslips. We'll extract information automatically using AI.</p>
+                                </div>
+                            </div>
+                            
+                            <div 
+                                id="verification-root" 
+                                role="application" 
+                                aria-label="Document verification wizard"
+                                aria-live="polite"
+                            >
+                                <div class="loading-spinner" role="status">
+                                    <span class="sr-only">Loading verification component...</span>
+                                </div>
+                            </div>
+                            
+                            <input type="hidden" id="verification-data" name="verification_data" value="" aria-hidden="true">
+                        </div>
+                    </fieldset>
+                    
+                    <!-- Form Actions -->
+                    <div class="form-actions">
+                        <a href="{% url 'home' %}" class="btn btn-secondary" role="button">
+                            Cancel
+                        </a>
+                        
+                        <button type="submit" class="btn btn-primary" id="submit-button">
+                            Save Profile
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="form-container" style="padding: 2rem; text-align: center; color: #6b7280;">
+        <p>&copy; {% now "Y" %} Alba Capital. All rights reserved.</p>
+    </footer>
+    
+    <script>
+        window.VERIFICATION_CONTEXT = {
+            clientId: "{{ client.id|default:'' }}",
+            csrfToken: "{{ csrf_token }}",
+            apiBaseUrl: "/api",
+            existingDocuments: {
+                idFront: "{{ client.id_front_url|default:'' }}",
+                idBack: "{{ client.id_back_url|default:'' }}",
+                payslips: {{ client.payslip_urls|safe|default:'[]' }},
+                selfie: "{{ client.selfie_url|default:'' }}"
+            }
+        };
+        
+        window.addEventListener('verificationComplete', function(e) {
+            document.getElementById('verification-data').value = JSON.stringify(e.detail);
+            document.getElementById('success-banner').classList.add('show');
+            document.getElementById('main-content').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        
+        document.querySelector('form').addEventListener('submit', function() {
+            document.getElementById('submit-button').disabled = true;
+            document.getElementById('submit-button').textContent = 'Saving...';
+        });
+    </script>
+    
+    {% if not debug %}
+    <script type="module" src="{% static 'verification/js/main.js' %}"></script>
+    {% endif %}
+</body>
+</html>
