@@ -19,6 +19,8 @@ from core.verification_views import (
 urlpatterns = [
     # Admin
     path("admin/", admin.site.urls),
+    # Allauth (Google OAuth callbacks)
+    path("accounts/", include("allauth.urls")),
     # Core app (authentication, landing page, dashboards)
     path("", include("core.urls")),
     # Loans app (customer-facing loan portal)

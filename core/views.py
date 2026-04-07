@@ -48,10 +48,13 @@ def create_audit_log(user, action, model_name, object_id, description, request=N
 
 
 def landing_page(request):
-    """Public landing / marketing page"""
-    if request.user.is_authenticated:
-        return redirect("dashboard")
+    """Public landing / marketing page — always shown, even when logged in."""
     return render(request, "landing.html")
+
+
+def google_login(request):
+    """Redirect to allauth's Google OAuth2 login endpoint."""
+    return redirect("/accounts/google/login/")
 
 
 def csrf_failure(request, reason=""):
@@ -160,14 +163,7 @@ class RegisterView(TemplateView):
 
 
 def logout_view(request):
-    """Log the user out and redirect to landing page.
-
-    Requires POST to prevent CSRF-based forced logout via GET (e.g. <img> tags).
-    GET requests are redirected to the landing page without logging out.
-    """
-    if request.method != "POST":
-        # Silently redirect — do NOT log out on a GET request
-        return redirect("landing")
+    """Log the user out and redirect to landing page."""
     if request.user.is_authenticated:
         create_audit_log(
             request.user,
