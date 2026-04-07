@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { devtools, persist } from "zustand/middleware";
 
 export interface VerificationResult {
   isValid: boolean;
@@ -13,7 +13,7 @@ export interface DocumentFile {
   file: File;
   preview: string;
   verification: VerificationResult | null;
-  status: 'pending' | 'verifying' | 'verified' | 'error';
+  status: "pending" | "verifying" | "verified" | "error";
 }
 
 export interface IDCardState {
@@ -41,7 +41,7 @@ export interface PayslipState {
 export interface FaceState {
   image: DocumentFile | null;
   faceDetected: boolean;
-  quality: 'good' | 'poor' | 'multiple' | null;
+  quality: "good" | "poor" | "multiple" | null;
 }
 
 export interface ExtractedClientData {
@@ -58,30 +58,33 @@ interface VerificationState {
   idCard: IDCardState;
   payslips: PayslipState;
   faceImage: FaceState;
-  
+
   // Overall status
   currentStep: number;
-  overallStatus: 'incomplete' | 'verifying' | 'ready' | 'error';
+  overallStatus: "incomplete" | "verifying" | "ready" | "error";
   extractedClientData: ExtractedClientData;
-  
+
   // Actions
   setIDFront: (file: DocumentFile | null) => void;
   setIDBack: (file: DocumentFile | null) => void;
-  setIDVerification: (side: 'front' | 'back', result: VerificationResult) => void;
-  setIDExtractedData: (data: IDCardState['extractedData']) => void;
-  
+  setIDVerification: (
+    side: "front" | "back",
+    result: VerificationResult,
+  ) => void;
+  setIDExtractedData: (data: IDCardState["extractedData"]) => void;
+
   addPayslip: (file: DocumentFile) => void;
   removePayslip: (index: number) => void;
   setPayslipVerification: (index: number, result: VerificationResult) => void;
-  setPayslipExtractedData: (data: PayslipState['extractedData']) => void;
-  
+  setPayslipExtractedData: (data: PayslipState["extractedData"]) => void;
+
   setFaceImage: (file: DocumentFile | null) => void;
-  setFaceDetection: (detected: boolean, quality: FaceState['quality']) => void;
-  
+  setFaceDetection: (detected: boolean, quality: FaceState["quality"]) => void;
+
   setCurrentStep: (step: number) => void;
   updateClientData: (data: Partial<ExtractedClientData>) => void;
   resetVerification: () => void;
-  
+
   // Getters
   canProceedToStep: (step: number) => boolean;
   getVerificationOutput: () => VerificationOutput;
@@ -93,19 +96,19 @@ export interface VerificationOutput {
       verified: boolean;
       confidence: number;
       timestamp: string;
-      extractedData: IDCardState['extractedData'];
+      extractedData: IDCardState["extractedData"];
       warnings: string[];
     };
     payslips: {
       verified: boolean;
       count: number;
       confidence: number;
-      extractedData: PayslipState['extractedData'];
+      extractedData: PayslipState["extractedData"];
     };
     faceImage: {
       verified: boolean;
       faceDetected: boolean;
-      quality: FaceState['quality'];
+      quality: FaceState["quality"];
     };
   };
   clientData: ExtractedClientData & {
@@ -141,14 +144,14 @@ const initialState = {
     quality: null,
   },
   currentStep: 0,
-  overallStatus: 'incomplete' as const,
+  overallStatus: "incomplete" as const,
   extractedClientData: {
-    fullName: '',
-    idNumber: '',
-    dateOfBirth: '',
+    fullName: "",
+    idNumber: "",
+    dateOfBirth: "",
     monthlyIncome: 0,
-    employer: '',
-    gender: '',
+    employer: "",
+    gender: "",
   },
 };
 
@@ -173,7 +176,11 @@ export const useVerificationStore = create<VerificationState>()(
             idCard: {
               ...state.idCard,
               [side]: state.idCard[side]
-                ? { ...state.idCard[side], verification: result, status: result.isValid ? 'verified' : 'error' }
+                ? {
+                    ...state.idCard[side],
+                    verification: result,
+                    status: result.isValid ? "verified" : "error",
+                  }
                 : null,
             },
           })),
@@ -209,8 +216,12 @@ export const useVerificationStore = create<VerificationState>()(
               ...state.payslips,
               files: state.payslips.files.map((f, i) =>
                 i === index
-                  ? { ...f, verification: result, status: result.isValid ? 'verified' : 'error' }
-                  : f
+                  ? {
+                      ...f,
+                      verification: result,
+                      status: result.isValid ? "verified" : "error",
+                    }
+                  : f,
               ),
             },
           })),
@@ -220,7 +231,8 @@ export const useVerificationStore = create<VerificationState>()(
             payslips: { ...state.payslips, extractedData: data },
             extractedClientData: {
               ...state.extractedClientData,
-              monthlyIncome: data?.monthlyIncome || state.extractedClientData.monthlyIncome,
+              monthlyIncome:
+                data?.monthlyIncome || state.extractedClientData.monthlyIncome,
               employer: data?.employer || state.extractedClientData.employer,
             },
           })),
@@ -266,21 +278,32 @@ export const useVerificationStore = create<VerificationState>()(
 
         getVerificationOutput: () => {
           const state = get();
-          
-          const idVerified = state.idCard.front?.verification?.isValid && state.idCard.back?.verification?.isValid;
+
+          const idVerified =
+            state.idCard.front?.verification?.isValid &&
+            state.idCard.back?.verification?.isValid;
           const idConfidence = Math.min(
             state.idCard.front?.verification?.confidence || 0,
-            state.idCard.back?.verification?.confidence || 0
+            state.idCard.back?.verification?.confidence || 0,
           );
-          
-          const payslipVerified = state.payslips.files.every(f => f.verification?.isValid);
-          const payslipConfidence = state.payslips.files.length > 0
-            ? state.payslips.files.reduce((acc, f) => acc + (f.verification?.confidence || 0), 0) / state.payslips.files.length
-            : 0;
-          
-          const totalVerified = (idVerified ? 2 : 0) + state.payslips.files.filter(f => f.verification?.isValid).length + (state.faceImage.faceDetected ? 1 : 0);
+
+          const payslipVerified = state.payslips.files.every(
+            (f) => f.verification?.isValid,
+          );
+          const payslipConfidence =
+            state.payslips.files.length > 0
+              ? state.payslips.files.reduce(
+                  (acc, f) => acc + (f.verification?.confidence || 0),
+                  0,
+                ) / state.payslips.files.length
+              : 0;
+
+          const totalVerified =
+            (idVerified ? 2 : 0) +
+            state.payslips.files.filter((f) => f.verification?.isValid).length +
+            (state.faceImage.faceDetected ? 1 : 0);
           const totalDocs = 2 + state.payslips.files.length + 1;
-          
+
           return {
             verification: {
               idCard: {
@@ -308,31 +331,50 @@ export const useVerificationStore = create<VerificationState>()(
             clientData: {
               ...state.extractedClientData,
               documents: {
-                idFront: state.idCard.front?.file ? { file: state.idCard.front.file, verified: !!state.idCard.front.verification?.isValid } : undefined,
-                idBack: state.idCard.back?.file ? { file: state.idCard.back.file, verified: !!state.idCard.back.verification?.isValid } : undefined,
-                payslips: state.payslips.files.map(f => f.file),
+                idFront: state.idCard.front?.file
+                  ? {
+                      file: state.idCard.front.file,
+                      verified: !!state.idCard.front.verification?.isValid,
+                    }
+                  : undefined,
+                idBack: state.idCard.back?.file
+                  ? {
+                      file: state.idCard.back.file,
+                      verified: !!state.idCard.back.verification?.isValid,
+                    }
+                  : undefined,
+                payslips: state.payslips.files.map((f) => f.file),
                 selfie: state.faceImage.image?.file,
               },
             },
             summary: {
               totalDocuments: totalDocs,
               verifiedDocuments: totalVerified,
-              needsReview: !idVerified || !payslipVerified || state.faceImage.quality === 'poor',
-              confidenceScore: Math.round((idConfidence + payslipConfidence) / 2),
-              canSubmit: idVerified && state.payslips.files.length > 0 && state.faceImage.faceDetected,
+              needsReview:
+                !idVerified ||
+                !payslipVerified ||
+                state.faceImage.quality === "poor",
+              confidenceScore: Math.round(
+                (idConfidence + payslipConfidence) / 2,
+              ),
+              canSubmit: !!(
+                idVerified &&
+                state.payslips.files.length > 0 &&
+                state.faceImage.faceDetected
+              ),
             },
           };
         },
       }),
       {
-        name: 'verification-storage',
+        name: "verification-storage",
         partialize: (state) => ({
           idCard: state.idCard,
           payslips: state.payslips,
           faceImage: state.faceImage,
           extractedClientData: state.extractedClientData,
         }),
-      }
-    )
-  )
+      },
+    ),
+  ),
 );

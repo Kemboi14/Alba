@@ -3,41 +3,11 @@
 {% block title %}Repayment Schedule — {{ loan.loan_number }} | Alba Capital{% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-gray-50">
+<div class="page-wrapper">
 
-    <!-- Navigation -->
-    <nav class="bg-white shadow sticky top-0 z-10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center space-x-8">
-                    <span class="text-2xl font-bold text-alba-navy">Alba Capital</span>
-                    <div class="hidden md:flex space-x-4">
-                        <a href="{% url 'customer_dashboard' %}" class="text-sm font-medium text-gray-600 hover:text-alba-orange transition">Dashboard</a>
-                        <a href="{% url 'loans:customer_dashboard' %}" class="text-sm font-medium text-gray-600 hover:text-alba-orange transition">Loan Dashboard</a>
-                        <a href="{% url 'loans:my_loans' %}" class="text-sm font-medium text-gray-600 hover:text-alba-orange transition">My Loans</a>
-                        <a href="{% url 'loans:loan_detail' loan.pk %}" class="text-sm font-medium text-gray-600 hover:text-alba-orange transition">Loan Detail</a>
-                        <span class="text-sm font-medium text-alba-orange">Schedule</span>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <a href="{% url 'loans:notifications' %}" class="relative inline-flex items-center p-2 text-gray-600 hover:text-alba-orange transition" title="Notifications">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                        {% if unread_notification_count > 0 %}
-                        <span class="absolute top-1 right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full min-w-[1.1rem]">
-                            {{ unread_notification_count }}
-                        </span>
-                        {% endif %}
-                    </a>
-                    <span class="text-sm font-semibold text-gray-700">{{ user.get_full_name }}</span>
-                    <a href="{% url 'logout' %}" class="text-sm text-gray-500 hover:text-alba-orange transition">Logout</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+    {% include 'partials/navbar.html' with active_page='loans' %}
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main id="main-content" class="page-content">
 
         <!-- Page header -->
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">

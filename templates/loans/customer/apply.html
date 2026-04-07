@@ -1,4 +1,5 @@
-{% extends 'base.html' %} {% block title %}Apply for Loan - Alba Capital{% endblock%} {% block extra_css %}
+{% extends 'base.html' %} {% block title %}Apply for Loan - Alba Capital{%
+endblock%} {% block extra_css %}
 <style>
     /* ── Product card selection state ──────────────────────────────────────── */
     .loan-product-card {
@@ -157,69 +158,11 @@
     }
 </style>
 {% endblock %} {% block body %}
-<div class="min-h-screen bg-gray-50">
+<div class="page-wrapper">
     <!-- ═══════════════════════════ NAVIGATION ═══════════════════════════ -->
-    <nav class="bg-white shadow">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center space-x-8">
-                    <span class="text-2xl font-bold text-alba-navy"
-                        >Alba Capital</span
-                    >
-                    <div class="hidden md:flex space-x-4">
-                        <a
-                            href="{% url 'customer_dashboard' %}"
-                            class="text-sm font-medium text-gray-700 hover:text-alba-orange transition"
-                            >Dashboard</a
-                        >
-                        <a
-                            href="{% url 'loans:customer_dashboard' %}"
-                            class="text-sm font-medium text-gray-700 hover:text-alba-orange transition"
-                            >My Loans</a
-                        >
-                    </div>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-700 font-semibold"
-                        >{{ user.get_full_name }}</span
-                    >
-                    <a
-                        href="{% url 'loans:notifications' %}"
-                        class="relative inline-flex items-center p-2 text-gray-600 hover:text-alba-orange transition"
-                        title="Notifications"
-                    >
-                        <svg
-                            class="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                            />
-                        </svg>
-                        {% if unread_notification_count > 0 %}
-                        <span
-                            class="absolute top-1 right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full min-w-[1.1rem]"
-                        >
-                            {{ unread_notification_count }}
-                        </span>
-                        {% endif %}
-                    </a>
-                    <a
-                        href="{% url 'logout' %}"
-                        class="text-sm font-medium text-gray-600 hover:text-alba-orange transition"
-                        >Logout</a
-                    >
-                </div>
-            </div>
-        </div>
-    </nav>
+    {% include 'partials/navbar.html' with active_page='apply' %}
 
-    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main id="main-content" class="page-content" style="max-width: 64rem">
         <!-- Page header -->
         <div class="mb-6">
             <h1 class="text-3xl font-bold text-gray-900">Apply for a Loan</h1>
@@ -295,7 +238,8 @@
                                 class="calc-product-btn text-left p-3 rounded-xl border-2 border-gray-200 hover:border-alba-orange transition-all focus:outline-none"
                             >
                                 <div class="flex items-center gap-2 mb-1">
-                                    {% if product.category == 'SALARY_ADVANCE' %}
+                                    {% if product.category == 'SALARY_ADVANCE'
+                                    %}
                                     <span
                                         class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100"
                                     >
@@ -313,7 +257,8 @@
                                             />
                                         </svg>
                                     </span>
-                                    {% elif product.category == 'BUSINESS_LOAN' %}
+                                    {% elif product.category == 'BUSINESS_LOAN'
+                                    %}
                                     <span
                                         class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-100"
                                     >
@@ -331,7 +276,8 @@
                                             />
                                         </svg>
                                     </span>
-                                    {% elif product.category == 'ASSET_FINANCING'%}
+                                    {% elif product.category ==
+                                    'ASSET_FINANCING'%}
                                     <span
                                         class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-purple-100"
                                     >
@@ -374,10 +320,12 @@
                                     >
                                 </div>
                                 <p class="text-xs text-gray-400 mt-0.5">
-                                    KES {{ product.min_amount|floatformat:0 }}–{{ product.max_amount|floatformat:0 }}
+                                    KES {{ product.min_amount|floatformat:0
+                                    }}–{{ product.max_amount|floatformat:0 }}
                                 </p>
                                 <p class="text-xs text-gray-400">
-                                    {{ product.interest_rate }}% &bull; up to {{ product.max_tenure_months}}mo
+                                    {{ product.interest_rate }}% &bull; up to {{
+                                    product.max_tenure_months}}mo
                                 </p>
                             </button>
                             {% endfor %}
@@ -726,7 +674,8 @@
                                 >Amount Range:</span
                             >
                             <span class="text-sm font-medium text-gray-900"
-                                >KES {{ product.min_amount|floatformat:0 }}–{{ product.max_amount|floatformat:0}}</span
+                                >KES {{ product.min_amount|floatformat:0 }}–{{
+                                product.max_amount|floatformat:0}}</span
                             >
                         </div>
                         <div class="flex justify-between items-center">
@@ -734,13 +683,15 @@
                                 >Interest Rate:</span
                             >
                             <span class="text-sm font-medium text-gray-900"
-                                >{{ product.interest_rate }}% {{ product.get_interest_method_display}}</span
+                                >{{ product.interest_rate }}% {{
+                                product.get_interest_method_display}}</span
                             >
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-sm text-gray-600">Tenure:</span>
                             <span class="text-sm font-medium text-gray-900"
-                                >{{ product.min_tenure_months }}–{{ product.max_tenure_months}} months</span
+                                >{{ product.min_tenure_months }}–{{
+                                product.max_tenure_months}} months</span
                             >
                         </div>
                         {% if product.description %}
@@ -836,7 +787,8 @@
                                     class="block text-sm font-medium text-gray-700"
                                     >Requested Amount (KES) *</label
                                 >
-                                {{ form.requested_amount }} {% if form.requested_amount.errors%}
+                                {{ form.requested_amount }} {% if
+                                form.requested_amount.errors%}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.requested_amount.errors.0 }}
                                 </p>
@@ -854,7 +806,8 @@
                                     class="block text-sm font-medium text-gray-700"
                                     >Loan Tenure (Months) *</label
                                 >
-                                {{ form.tenure_months }} {% if form.tenure_months.errors%}
+                                {{ form.tenure_months }} {% if
+                                form.tenure_months.errors%}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.tenure_months.errors.0 }}
                                 </p>
@@ -872,7 +825,8 @@
                                     class="block text-sm font-medium text-gray-700"
                                     >Repayment Frequency *</label
                                 >
-                                {{ form.repayment_frequency }} {% if form.repayment_frequency.errors%}
+                                {{ form.repayment_frequency }} {% if
+                                form.repayment_frequency.errors%}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.repayment_frequency.errors.0 }}
                                 </p>

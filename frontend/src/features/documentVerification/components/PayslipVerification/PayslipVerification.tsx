@@ -1,10 +1,24 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { DocumentUploadCard } from '../DocumentUploadCard';
-import { VerificationBadge } from '../VerificationBadge';
-import { verifyPayslip, calculateAverageIncome, validateMinimumIncome, estimateLoanEligibility } from '../../utils/payslipVerifier';
-import { useVerificationStore } from '../../store/verificationStore';
-import { AlertCircle, CheckCircle, Building2, DollarSign, Calendar, TrendingUp, Edit2, Calculator } from 'lucide-react';
-import { cn } from '../DocumentUploadCard';
+import React, { useState, useCallback, useMemo } from "react";
+import { DocumentUploadCard } from "../DocumentUploadCard";
+import { VerificationBadge } from "../VerificationBadge";
+import {
+  verifyPayslip,
+  calculateAverageIncome,
+  validateMinimumIncome,
+  estimateLoanEligibility,
+} from "../../utils/payslipVerifier";
+import { useVerificationStore } from "../../store/verificationStore";
+import {
+  AlertCircle,
+  CheckCircle,
+  Building2,
+  DollarSign,
+  Calendar,
+  TrendingUp,
+  Edit2,
+  Calculator,
+} from "lucide-react";
+import { cn } from "../DocumentUploadCard";
 
 export interface PayslipVerificationProps {
   onComplete?: () => void;
@@ -29,17 +43,23 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
   const [manualEdit, setManualEdit] = useState(false);
   const [editedData, setEditedData] = useState({
     monthlyIncome: extractedClientData.monthlyIncome || 0,
-    employer: extractedClientData.employer || '',
+    employer: extractedClientData.employer || "",
   });
 
   const MAX_PAYSLIPS = 3;
 
   // Calculate summary statistics
   const summary = useMemo(() => {
-    const verifiedPayslips = payslips.files.filter(p => p.verification?.isValid);
-    const results = verifiedPayslips.map(p => p.verification).filter(Boolean) as NonNullable<typeof payslips.files[0]['verification']>[];
-    
-    return calculateAverageIncome(results);
+    const verifiedPayslips = payslips.files.filter(
+      (p) => p.verification?.isValid,
+    );
+    const results = verifiedPayslips
+      .map((p) => p.verification)
+      .filter(Boolean) as NonNullable<
+      (typeof payslips.files)[0]["verification"]
+    >[];
+
+    return calculateAverageIncome(results as any);
   }, [payslips.files]);
 
   const incomeValidation = useMemo(() => {
@@ -51,68 +71,86 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
   }, [summary.averageMonthly]);
 
   // Check if complete
-  const isComplete = payslips.files.length > 0 && payslips.files.every(p => p.status === 'verified');
+  const isComplete =
+    payslips.files.length > 0 &&
+    payslips.files.every((p) => p.status === "verified");
 
   React.useEffect(() => {
     onValidationChange?.(isComplete);
   }, [isComplete, onValidationChange]);
 
-  const handleUpload = useCallback(async (files: File[]) => {
-    if (payslips.files.length + files.length > MAX_PAYSLIPS) {
-      return; // Would exceed max
-    }
-
-    for (const file of files) {
-      // Create preview for images
-      let preview: string | undefined;
-      if (file.type.startsWith('image/')) {
-        preview = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+  const handleUpload = useCallback(
+    async (files: File[]) => {
+      if (payslips.files.length + files.length > MAX_PAYSLIPS) {
+        return; // Would exceed max
       }
 
-      const index = payslips.files.length;
-      
-      addPayslip({
-        file,
-        preview,
-        verification: null,
-        status: 'pending',
-      });
-
-      setVerifyingIndex(index);
-
-      try {
-        const result = await verifyPayslip(file);
-
-        setPayslipVerification(index, result);
-
-        // Update summary if this is the first successful verification
-        if (result.isValid && result.extractedData) {
-          const newData = {
-            monthlyIncome: result.extractedData.monthlyIncome || summary.averageMonthly,
-            employer: result.extractedData.employer || summary.employer,
-          };
-          
-          if (!payslips.extractedData) {
-            setPayslipExtractedData(newData);
-            setEditedData(newData);
-            updateClientData(newData);
-          }
+      for (const file of files) {
+        // Create preview for images
+        let preview: string | undefined;
+        if (file.type.startsWith("image/")) {
+          preview = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
         }
-      } catch (error) {
-        console.error('Payslip verification error:', error);
-      } finally {
-        setVerifyingIndex(null);
-      }
-    }
-  }, [payslips.files.length, payslips.extractedData, summary.averageMonthly, summary.employer, addPayslip, setPayslipVerification, setPayslipExtractedData, updateClientData]);
 
-  const handleRemove = useCallback((index: number) => {
-    removePayslip(index);
-  }, [removePayslip]);
+        const index = payslips.files.length;
+
+        addPayslip({
+          file,
+          preview: preview ?? "",
+          verification: null,
+          status: "pending",
+        });
+
+        setVerifyingIndex(index);
+
+        try {
+          const result = await verifyPayslip(file);
+
+          setPayslipVerification(index, result);
+
+          // Update summary if this is the first successful verification
+          if (result.isValid && result.extractedData) {
+            const newData = {
+              monthlyIncome:
+                result.extractedData.monthlyIncome || summary.averageMonthly,
+              employer: result.extractedData.employer || summary.employer,
+            };
+
+            if (!payslips.extractedData) {
+              setPayslipExtractedData(newData);
+              setEditedData(newData);
+              updateClientData(newData);
+            }
+          }
+        } catch (error) {
+          console.error("Payslip verification error:", error);
+        } finally {
+          setVerifyingIndex(null);
+        }
+      }
+    },
+    [
+      payslips.files.length,
+      payslips.extractedData,
+      summary.averageMonthly,
+      summary.employer,
+      addPayslip,
+      setPayslipVerification,
+      setPayslipExtractedData,
+      updateClientData,
+    ],
+  );
+
+  const handleRemove = useCallback(
+    (index: number) => {
+      removePayslip(index);
+    },
+    [removePayslip],
+  );
 
   const handleSaveManualEdit = useCallback(() => {
     const data = {
@@ -125,19 +163,20 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
   }, [editedData, setPayslipExtractedData, updateClientData]);
 
   const getOverallStatus = () => {
-    if (verifyingIndex !== null) return 'verifying';
-    if (isComplete) return 'verified';
-    if (payslips.files.some(p => p.status === 'error')) return 'warning';
-    if (payslips.files.length > 0) return 'pending';
-    return 'pending';
+    if (verifyingIndex !== null) return "verifying";
+    if (isComplete) return "verified";
+    if (payslips.files.some((p) => p.status === "error")) return "warning";
+    if (payslips.files.length > 0) return "pending";
+    return "pending";
   };
 
   const getStatusMessage = () => {
-    if (verifyingIndex !== null) return 'Analyzing payslip...';
-    if (isComplete) return 'Income verified';
-    if (payslips.files.length === 0) return 'Upload at least 1 payslip';
-    if (payslips.files.some(p => p.status === 'error')) return 'Some verifications failed';
-    return 'Verifying...';
+    if (verifyingIndex !== null) return "Analyzing payslip...";
+    if (isComplete) return "Income verified";
+    if (payslips.files.length === 0) return "Upload at least 1 payslip";
+    if (payslips.files.some((p) => p.status === "error"))
+      return "Some verifications failed";
+    return "Verifying...";
   };
 
   return (
@@ -145,7 +184,9 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Income Verification</h2>
+          <h2 className="text-xl font-bold text-gray-900">
+            Income Verification
+          </h2>
           <p className="text-sm text-gray-500">
             Upload your payslips to verify income (max {MAX_PAYSLIPS} files)
           </p>
@@ -166,7 +207,7 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
         uploadedFiles={payslips.files.map((f, i) => ({
           file: f.file,
           preview: f.preview,
-          status: i === verifyingIndex ? 'verifying' : f.status,
+          status: i === verifyingIndex ? "verifying" : f.status,
           verification: f.verification || undefined,
         }))}
         onRemove={handleRemove}
@@ -185,7 +226,7 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
               className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
             >
               <Edit2 className="w-4 h-4" />
-              {manualEdit ? 'Cancel' : 'Edit'}
+              {manualEdit ? "Cancel" : "Edit"}
             </button>
           </div>
 
@@ -199,7 +240,12 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
                   <input
                     type="number"
                     value={editedData.monthlyIncome}
-                    onChange={(e) => setEditedData(prev => ({ ...prev, monthlyIncome: Number(e.target.value) }))}
+                    onChange={(e) =>
+                      setEditedData((prev) => ({
+                        ...prev,
+                        monthlyIncome: Number(e.target.value),
+                      }))
+                    }
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter monthly income"
                   />
@@ -211,7 +257,12 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
                   <input
                     type="text"
                     value={editedData.employer}
-                    onChange={(e) => setEditedData(prev => ({ ...prev, employer: e.target.value }))}
+                    onChange={(e) =>
+                      setEditedData((prev) => ({
+                        ...prev,
+                        employer: e.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter employer name"
                   />
@@ -237,7 +288,12 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
                     KSh {summary.averageMonthly.toLocaleString()}
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
-                    from {payslips.files.filter(p => p.verification?.isValid).length} payslip(s)
+                    from{" "}
+                    {
+                      payslips.files.filter((p) => p.verification?.isValid)
+                        .length
+                    }{" "}
+                    payslip(s)
                   </p>
                 </div>
 
@@ -247,7 +303,7 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
                     <span className="text-xs font-medium">Employer</span>
                   </div>
                   <p className="text-lg font-semibold text-gray-900 truncate">
-                    {summary.employer || 'Not detected'}
+                    {summary.employer || "Not detected"}
                   </p>
                 </div>
 
@@ -273,12 +329,14 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
               </div>
 
               {/* Income Validation */}
-              <div className={cn(
-                'p-4 rounded-lg border',
-                incomeValidation.meetsRequirement
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-amber-50 border-amber-200'
-              )}>
+              <div
+                className={cn(
+                  "p-4 rounded-lg border",
+                  incomeValidation.meetsRequirement
+                    ? "bg-green-50 border-green-200"
+                    : "bg-amber-50 border-amber-200",
+                )}
+              >
                 <div className="flex items-start gap-3">
                   {incomeValidation.meetsRequirement ? (
                     <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
@@ -286,15 +344,20 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
                     <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
                   )}
                   <div>
-                    <p className={cn(
-                      'font-medium',
-                      incomeValidation.meetsRequirement ? 'text-green-800' : 'text-amber-800'
-                    )}>
+                    <p
+                      className={cn(
+                        "font-medium",
+                        incomeValidation.meetsRequirement
+                          ? "text-green-800"
+                          : "text-amber-800",
+                      )}
+                    >
                       {incomeValidation.message}
                     </p>
                     {!incomeValidation.meetsRequirement && (
                       <p className="text-sm text-amber-700 mt-1">
-                        Consider uploading additional income documents or contact support.
+                        Consider uploading additional income documents or
+                        contact support.
                       </p>
                     )}
                   </div>
@@ -305,7 +368,9 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
               <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                 <div className="flex items-center gap-2 text-purple-600 mb-3">
                   <TrendingUp className="w-5 h-5" />
-                  <span className="font-medium">Estimated Loan Eligibility</span>
+                  <span className="font-medium">
+                    Estimated Loan Eligibility
+                  </span>
                 </div>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
@@ -324,11 +389,17 @@ export const PayslipVerification: React.FC<PayslipVerificationProps> = ({
                     <p className="text-2xl font-bold text-purple-900">
                       KSh {loanEstimate.maxMonthlyPayment.toLocaleString()}
                     </p>
-                    <p className="text-xs text-purple-600">Max Monthly Payment</p>
+                    <p className="text-xs text-purple-600">
+                      Max Monthly Payment
+                    </p>
                   </div>
                 </div>
                 <p className="text-xs text-purple-600 mt-3 text-center">
-                  Based on {summary.averageMonthly > 0 ? `verified income of KSh ${summary.averageMonthly.toLocaleString()}` : 'provided income'} per month
+                  Based on{" "}
+                  {summary.averageMonthly > 0
+                    ? `verified income of KSh ${summary.averageMonthly.toLocaleString()}`
+                    : "provided income"}{" "}
+                  per month
                 </p>
               </div>
             </div>

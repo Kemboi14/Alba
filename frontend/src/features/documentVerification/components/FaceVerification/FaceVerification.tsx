@@ -1,10 +1,23 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import Webcam from 'react-webcam';
-import { VerificationBadge } from '../VerificationBadge';
-import { detectFace, detectFaceFromVideo, getFaceGuidance, checkCameraSupport, FaceDetectionResult } from '../../utils/faceDetector';
-import { useVerificationStore } from '../../store/verificationStore';
-import { Camera, Upload, RefreshCw, AlertCircle, CheckCircle, User } from 'lucide-react';
-import { cn } from '../DocumentUploadCard';
+import React, { useState, useRef, useCallback, useEffect } from "react";
+import Webcam from "react-webcam";
+import { VerificationBadge } from "../VerificationBadge";
+import {
+  detectFace,
+  detectFaceFromVideo,
+  getFaceGuidance,
+  checkCameraSupport,
+  FaceDetectionResult,
+} from "../../utils/faceDetector";
+import { useVerificationStore } from "../../store/verificationStore";
+import {
+  Camera,
+  Upload,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle,
+  User,
+} from "lucide-react";
+import { cn } from "../DocumentUploadCard";
 
 export interface FaceVerificationProps {
   onComplete?: () => void;
@@ -12,15 +25,15 @@ export interface FaceVerificationProps {
 }
 
 export const FaceVerification: React.FC<FaceVerificationProps> = ({
-  onComplete,
   onValidationChange,
 }) => {
   const { faceImage, setFaceImage, setFaceDetection } = useVerificationStore();
-  
+
   const webcamRef = useRef<Webcam>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [liveDetection, setLiveDetection] = useState<FaceDetectionResult | null>(null);
+  const [liveDetection, setLiveDetection] =
+    useState<FaceDetectionResult | null>(null);
   const [isModelsLoading, setIsModelsLoading] = useState(true);
 
   // Check camera support on mount
@@ -28,7 +41,7 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({
     const checkSupport = async () => {
       const { supported, error } = await checkCameraSupport();
       if (!supported) {
-        setCameraError(error || 'Camera not available');
+        setCameraError(error || "Camera not available");
       }
       setIsModelsLoading(false);
     };
@@ -52,7 +65,7 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({
     return () => cancelAnimationFrame(animationId);
   }, [isCapturing]);
 
-  const isComplete = faceImage.faceDetected && faceImage.quality === 'good';
+  const isComplete = faceImage.faceDetected && faceImage.quality === "good";
 
   useEffect(() => {
     onValidationChange?.(isComplete);
@@ -65,96 +78,111 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({
     if (!screenshot) return;
 
     // Convert base64 to file
-    const byteString = atob(screenshot.split(',')[1]);
-    const mimeString = screenshot.split(',')[0].split(':')[1].split(';')[0];
+    const byteString = atob(screenshot.split(",")[1]);
+    const mimeString = screenshot.split(",")[0].split(":")[1].split(";")[0];
     const arrayBuffer = new ArrayBuffer(byteString.length);
     const intArray = new Uint8Array(arrayBuffer);
-    
+
     for (let i = 0; i < byteString.length; i++) {
       intArray[i] = byteString.charCodeAt(i);
     }
-    
+
     const blob = new Blob([arrayBuffer], { type: mimeString });
-    const file = new File([blob], 'face-capture.jpg', { type: 'image/jpeg' });
+    const file = new File([blob], "face-capture.jpg", { type: "image/jpeg" });
 
     // Stop capturing
     setIsCapturing(false);
 
     // Run face detection
     const result = await detectFace(file);
-    
+
     setFaceImage({
       file,
       preview: screenshot,
-      verification: result.faceDetected ? {
-        isValid: true,
-        confidence: result.confidence,
-      } : null,
-      status: result.faceDetected ? 'verified' : 'error',
+      verification: result.faceDetected
+        ? {
+            isValid: true,
+            confidence: result.confidence,
+            extractedData: {},
+            errors: [],
+            warnings: result.warnings,
+          }
+        : null,
+      status: result.faceDetected ? "verified" : "error",
     });
-    
-    setFaceDetection(result.faceDetected, result.quality);
+
+    setFaceDetection(
+      result.faceDetected,
+      result.quality === "none" ? null : result.quality,
+    );
   }, [setFaceImage, setFaceDetection]);
 
-  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleFileUpload = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-    const preview = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
+      const preview = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
 
-    setFaceImage({
-      file,
-      preview,
-      verification: null,
-      status: 'pending',
-    });
+      setFaceImage({
+        file,
+        preview,
+        verification: null,
+        status: "pending",
+      });
 
-    // Run face detection
-    const result = await detectFace(file);
-    
-    setFaceImage({
-      file,
-      preview,
-      verification: result.faceDetected ? {
-        isValid: true,
-        confidence: result.confidence,
-      } : null,
-      status: result.faceDetected ? 'verified' : 'error',
-    });
-    
-    setFaceDetection(result.faceDetected, result.quality);
-  }, [setFaceImage, setFaceDetection]);
+      // Run face detection
+      const result = await detectFace(file);
+
+      setFaceImage({
+        file,
+        preview,
+        verification: result.faceDetected
+          ? {
+              isValid: true,
+              confidence: result.confidence,
+              extractedData: {},
+              errors: [],
+              warnings: result.warnings,
+            }
+          : null,
+        status: result.faceDetected ? "verified" : "error",
+      });
+
+      setFaceDetection(
+        result.faceDetected,
+        result.quality === "none" ? null : result.quality,
+      );
+    },
+    [setFaceImage, setFaceDetection],
+  );
 
   const handleRetake = useCallback(() => {
-    setFaceImage({
-      image: null,
-      faceDetected: false,
-      quality: null,
-    });
+    setFaceImage(null);
     setLiveDetection(null);
     setIsCapturing(true);
   }, [setFaceImage]);
 
   const getOverallStatus = () => {
-    if (isModelsLoading) return 'pending';
-    if (faceImage.quality === 'multiple') return 'warning';
-    if (isComplete) return 'verified';
-    if (faceImage.quality === 'poor') return 'warning';
-    if (faceImage.faceDetected) return 'pending';
-    return 'pending';
+    if (isModelsLoading) return "pending";
+    if (faceImage.quality === "multiple") return "warning";
+    if (isComplete) return "verified";
+    if (faceImage.quality === "poor") return "warning";
+    if (faceImage.faceDetected) return "pending";
+    return "pending";
   };
 
   const getStatusMessage = () => {
-    if (isModelsLoading) return 'Loading face detection...';
-    if (isComplete) return 'Face verified';
-    if (faceImage.quality === 'multiple') return 'Multiple faces detected';
-    if (faceImage.quality === 'poor') return 'Image quality low';
-    if (faceImage.faceDetected) return 'Face detected';
-    return 'Capture or upload selfie';
+    if (isModelsLoading) return "Loading face detection...";
+    if (isComplete) return "Face verified";
+    if (faceImage.quality === "multiple") return "Multiple faces detected";
+    if (faceImage.quality === "poor") return "Image quality low";
+    if (faceImage.faceDetected) return "Face detected";
+    return "Capture or upload selfie";
   };
 
   return (
@@ -201,43 +229,47 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({
                   screenshotFormat="image/jpeg"
                   screenshotQuality={0.95}
                   videoConstraints={{
-                    facingMode: 'user',
+                    facingMode: "user",
                     width: 1280,
                     height: 720,
                   }}
                   className="w-full h-full object-cover"
                   onUserMedia={() => setIsCapturing(true)}
-                  onUserMediaError={() => setCameraError('Could not access camera')}
+                  onUserMediaError={() =>
+                    setCameraError("Could not access camera")
+                  }
                 />
               )}
-              
+
               {/* Face guidance overlay */}
               {liveDetection && isCapturing && (
                 <div className="absolute inset-0 pointer-events-none">
                   {/* Face oval guide */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div 
+                    <div
                       className={cn(
-                        'w-48 h-64 border-4 rounded-full transition-colors',
-                        liveDetection.faceDetected 
-                          ? liveDetection.quality === 'good' 
-                            ? 'border-green-500 bg-green-500/10'
-                            : 'border-yellow-500 bg-yellow-500/10'
-                          : 'border-white/50'
+                        "w-48 h-64 border-4 rounded-full transition-colors",
+                        liveDetection.faceDetected
+                          ? liveDetection.quality === "good"
+                            ? "border-green-500 bg-green-500/10"
+                            : "border-yellow-500 bg-yellow-500/10"
+                          : "border-white/50",
                       )}
                     />
                   </div>
-                  
+
                   {/* Guidance text */}
                   <div className="absolute bottom-4 left-0 right-0 text-center">
-                    <p className={cn(
-                      'text-sm font-medium px-4 py-2 rounded-full inline-block',
-                      liveDetection.faceDetected 
-                        ? liveDetection.quality === 'good'
-                          ? 'bg-green-500 text-white'
-                          : 'bg-yellow-500 text-white'
-                        : 'bg-black/70 text-white'
-                    )}>
+                    <p
+                      className={cn(
+                        "text-sm font-medium px-4 py-2 rounded-full inline-block",
+                        liveDetection.faceDetected
+                          ? liveDetection.quality === "good"
+                            ? "bg-green-500 text-white"
+                            : "bg-yellow-500 text-white"
+                          : "bg-black/70 text-white",
+                      )}
+                    >
                       {getFaceGuidance(liveDetection)}
                     </p>
                   </div>
@@ -280,7 +312,7 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({
                 alt="Captured face"
                 className="w-full h-full object-cover"
               />
-              
+
               {/* Verification overlay */}
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                 <div className="text-center text-white p-6">
@@ -313,18 +345,20 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({
           {!faceImage.image && !cameraError && (
             <button
               onClick={handleCapture}
-              disabled={!liveDetection?.faceDetected || liveDetection.quality !== 'good'}
+              disabled={
+                !liveDetection?.faceDetected || liveDetection.quality !== "good"
+              }
               className={cn(
-                'w-full py-4 rounded-lg font-semibold text-lg transition-all flex items-center justify-center gap-2',
-                liveDetection?.faceDetected && liveDetection.quality === 'good'
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                "w-full py-4 rounded-lg font-semibold text-lg transition-all flex items-center justify-center gap-2",
+                liveDetection?.faceDetected && liveDetection.quality === "good"
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed",
               )}
             >
               <Camera className="w-6 h-6" />
-              {liveDetection?.faceDetected && liveDetection.quality === 'good'
-                ? 'Capture Photo'
-                : 'Position your face'}
+              {liveDetection?.faceDetected && liveDetection.quality === "good"
+                ? "Capture Photo"
+                : "Position your face"}
             </button>
           )}
 
@@ -373,12 +407,14 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({
           </div>
 
           {/* Quality Issues */}
-          {faceImage.quality === 'poor' && faceImage.faceDetected && (
+          {faceImage.quality === "poor" && faceImage.faceDetected && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-yellow-800">Image Quality Low</p>
+                  <p className="font-medium text-yellow-800">
+                    Image Quality Low
+                  </p>
                   <p className="text-sm text-yellow-700">
                     Consider retaking for better verification accuracy.
                   </p>
@@ -388,12 +424,14 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({
           )}
 
           {/* Multiple Faces Warning */}
-          {faceImage.quality === 'multiple' && (
+          {faceImage.quality === "multiple" && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-red-800">Multiple Faces Detected</p>
+                  <p className="font-medium text-red-800">
+                    Multiple Faces Detected
+                  </p>
                   <p className="text-sm text-red-700">
                     Please ensure only your face is visible in the photo.
                   </p>
