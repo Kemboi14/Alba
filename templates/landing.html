@@ -97,6 +97,20 @@
 
                     <!-- CTA Buttons -->
                     <div class="flex items-center space-x-3">
+                        {% if user.is_authenticated %}
+                        <a
+                            href="{% url 'dashboard' %}"
+                            class="px-5 py-2 text-sm font-medium text-white bg-alba-orange rounded-lg hover:bg-opacity-90 transition shadow-lg shadow-orange-500/30"
+                        >
+                            Dashboard
+                        </a>
+                        <a
+                            href="{% url 'logout' %}"
+                            class="px-5 py-2 text-sm font-medium text-alba-navy hover:text-alba-orange transition"
+                        >
+                            Sign Out
+                        </a>
+                        {% else %}
                         <a
                             href="{% url 'login' %}"
                             class="px-5 py-2 text-sm font-medium text-alba-navy hover:text-alba-orange transition"
@@ -109,6 +123,7 @@
                         >
                             Get Started
                         </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

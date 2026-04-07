@@ -34,13 +34,21 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sites",
     # Third-party apps
     "rest_framework",
     "django_extensions",
+    # Allauth (Google OAuth)
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
     # Alba Capital ERP apps
     "core.apps.CoreConfig",
     "loans.apps.LoansConfig",
 ]
+
+SITE_ID = 1
 
 # Custom CSRF failure view
 CSRF_FAILURE_VIEW = "core.views.csrf_failure"
@@ -53,6 +61,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     # "csp.middleware.CSPMiddleware",  # Temporarily disabled - install django-csp to enable
 ]
 
@@ -142,6 +151,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Custom User Model
 AUTH_USER_MODEL = "core.User"
 
+# Authentication Backends
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
 # Authentication URLs
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
@@ -198,4 +213,25 @@ ODOO_API_KEY = config("ODOO_API_KEY", default="")
 ODOO_WEBHOOK_SECRET = config("ODOO_WEBHOOK_SECRET", default="")
 ODOO_TIMEOUT = config("ODOO_TIMEOUT", default=30, cast=int)
 ODOO_MAX_RETRIES = config("ODOO_MAX_RETRIES", default=3, cast=int)
+
+# ── django-allauth / Google OAuth ────────────────────────────────────────
+ACCOUNT_LOGIN_BY_CODE_ENABLED = False
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "none"  # Change to "mandatory" in production
+ACCOUNT_ADAPTER = "core.adapters.AccountAdapter"
+SOCIALACCOUNT_ADAPTER = "core.adapters.SocialAccountAdapter"
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_LOGIN_ON_GET = True
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": config("GOOGLE_CLIENT_ID", default=""),
+            "secret": config("GOOGLE_CLIENT_SECRET", default=""),
+        },
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+    }
+}
 ODOO_RETRY_BACKOFF = config("ODOO_RETRY_BACKOFF", default=2, cast=float)

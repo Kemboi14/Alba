@@ -12,6 +12,9 @@ python-dateutil==2.8.2
 djangorestframework==3.14.0
 requests==2.31.0
 
+# Authentication (Google OAuth)
+django-allauth[socialaccount]==65.15.1
+
 # Security
 django-csp==3.8
 
