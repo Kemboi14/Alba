@@ -1,5 +1,4 @@
-{% extends 'base.html' %} {% block title %}Loan Dashboard — Alba Capital{%
-endblock %} {% block body %}
+{% extends 'base.html' %} {% block title %}Loan Dashboard — Alba Capital{% endblock %} {% block body %}
 <div class="page-wrapper">
     {% include 'partials/navbar.html' with active_page='loans' %}
 
@@ -144,8 +143,7 @@ endblock %} {% block body %}
                             >
                         </div>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            {{ loan.loan_product.name }} · Matures {{
-                            loan.maturity_date|date:"d M Y" }}
+                            {{ loan.loan_product.name }} · Matures {{ loan.maturity_date|date:"d M Y" }}
                         </p>
                         <div class="flex items-center gap-2 mt-2">
                             <div
@@ -158,9 +156,7 @@ endblock %} {% block body %}
                                 ></div>
                             </div>
                             <span class="text-xs text-gray-500"
-                                >{{
-                                loan.get_payment_progress_percentage|floatformat:0
-                                }}%</span
+                                >{{ loan.get_payment_progress_percentage|floatformat:0 }}%</span
                             >
                         </div>
                     </div>

@@ -1,5 +1,4 @@
-{% extends 'base.html' %} {% block title %}Create Account — Alba Capital{%
-endblock %} {% block body %}
+{% extends 'base.html' %} {% block title %}Create Account — Alba Capital{% endblock %} {% block body %}
 <div
     class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-alba-navy via-[#1a3456] to-[#0f2140] px-4 py-12"
 >
@@ -62,8 +61,7 @@ endblock %} {% block body %}
                                     >*</span
                                 ></label
                             >
-                            {{ form.first_name }} {% if form.first_name.errors
-                            %}
+                            {{ form.first_name }} {% if form.first_name.errors %}
                             <p class="error-text" role="alert">
                                 {{ form.first_name.errors.0 }}
                             </p>

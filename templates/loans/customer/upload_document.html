@@ -301,8 +301,7 @@
                         Upload Document
                     </h1>
                     <p class="mt-2 text-sm text-gray-600">
-                        Upload supporting documents for application {{
-                        application.application_number }}
+                        Upload supporting documents for application {{ application.application_number }}
                     </p>
                 </div>
                 <a
@@ -537,13 +536,10 @@
                                     </svg>
                                     <div class="doc-details">
                                         <span class="doc-type"
-                                            >{{ doc.get_document_type_display
-                                            }}</span
+                                            >{{ doc.get_document_type_display }}</span
                                         >
                                         <span class="doc-date"
-                                            >Uploaded: {{
-                                            doc.uploaded_at|date:"M d, Y H:i"
-                                            }}</span
+                                            >Uploaded: {{ doc.uploaded_at|date:"M d, Y H:i" }}</span
                                         >
                                     </div>
                                 </div>

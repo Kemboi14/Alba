@@ -1,5 +1,4 @@
-{% comment %} Shared responsive navbar — include on every authenticated page: {%
-include 'partials/navbar.html' with active_page='home' %} active_page values:
+{% comment %} Shared responsive navbar — include on every authenticated page: {% include 'partials/navbar.html' with active_page='home' %} active_page values:
 'home' | 'loans' | 'applications' | 'apply' | 'profile' | 'notifications'
 Context required: user, unread_notification_count {% endcomment %}
 <header
@@ -180,8 +179,7 @@ Context required: user, unread_notification_count {% endcomment %}
                     </svg>
                     {% if unread_notification_count > 0 %}
                     <span class="notif-badge" aria-hidden="true"
-                        >{% if unread_notification_count > 9 %}9+{% else %}{{
-                        unread_notification_count }}{% endif %}</span
+                        >{% if unread_notification_count > 9 %}9+{% else %}{{ unread_notification_count }}{% endif %}</span
                     >
                     {% endif %}
                 </a>
@@ -192,8 +190,7 @@ Context required: user, unread_notification_count {% endcomment %}
                         class="w-8 h-8 rounded-full bg-alba-navy text-white flex items-center justify-center text-sm font-bold flex-shrink-0 select-none"
                         aria-hidden="true"
                     >
-                        {{ user.first_name|first|upper }}{% if user.last_name
-                        %}{{ user.last_name|first|upper }}{% endif %}
+                        {{ user.first_name|first|upper }}{% if user.last_name %}{{ user.last_name|first|upper }}{% endif %}
                     </div>
                     <span
                         class="text-sm font-medium text-gray-700 max-w-[8rem] truncate hidden lg:block"
@@ -405,8 +402,7 @@ Context required: user, unread_notification_count {% endcomment %}
                 <div
                     class="w-8 h-8 rounded-full bg-alba-navy text-white flex items-center justify-center text-sm font-bold select-none"
                 >
-                    {{ user.first_name|first|upper }}{% if user.last_name %}{{
-                    user.last_name|first|upper }}{% endif %}
+                    {{ user.first_name|first|upper }}{% if user.last_name %}{{ user.last_name|first|upper }}{% endif %}
                 </div>
                 <div>
                     <p class="text-sm font-semibold text-gray-800">
