@@ -18,10 +18,11 @@ import secrets
 import string
 from decimal import Decimal
 
-from core.models import User
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.utils import timezone
+
+from core.models import User
 
 
 class LoanProduct(models.Model):
@@ -80,10 +81,13 @@ class LoanProduct(models.Model):
         "Category", max_length=30, choices=PRODUCT_CATEGORY_CHOICES
     )
     description = models.TextField("Description", blank=True)
-    
+
     # Fee-based products (Bid/Performance Bonds) - no interest
-    is_fee_based = models.BooleanField("Is Fee-based Product", default=False,
-        help_text="Bid bonds and performance bonds are fee-based, not interest-bearing")
+    is_fee_based = models.BooleanField(
+        "Is Fee-based Product",
+        default=False,
+        help_text="Bid bonds and performance bonds are fee-based, not interest-bearing",
+    )
 
     # Loan Amount Limits
     min_amount = models.DecimalField(
@@ -229,7 +233,13 @@ class LoanProduct(models.Model):
             else:
                 monthly_rate = rate / Decimal("12")
                 # More accurate reducing balance calculation
-                total_interest = principal * monthly_rate * tenure_months * (tenure_months + Decimal("1")) / (Decimal("2") * Decimal("12"))
+                total_interest = (
+                    principal
+                    * monthly_rate
+                    * tenure_months
+                    * (tenure_months + Decimal("1"))
+                    / (Decimal("2") * Decimal("12"))
+                )
 
         return total_interest.quantize(Decimal("0.01"))
 
@@ -264,12 +274,12 @@ class Customer(models.Model):
     # Personal Information
     date_of_birth = models.DateField("Date of Birth", null=True, blank=True)
     id_number = models.CharField(
-        "ID/Passport Number", 
-        max_length=50, 
-        unique=True, 
-        null=True, 
+        "ID/Passport Number",
+        max_length=50,
+        unique=True,
+        null=True,
         blank=True,
-        db_index=True  # Add index for frequent lookups
+        db_index=True,  # Add index for frequent lookups
     )
     address = models.TextField("Physical Address", blank=True)
     county = models.CharField("County", max_length=100, blank=True)
@@ -350,6 +360,61 @@ class Customer(models.Model):
     face_encoding_data = models.TextField("Face Encoding Data", null=True, blank=True)
     face_scan_date = models.DateTimeField("Face Scan Date", null=True, blank=True)
 
+    # ID back photo (verification wizard sends front and back separately)
+    id_back_file = models.FileField(
+        "National ID Back",
+        upload_to="kyc_documents/national_id_back/%Y/%m/%d/",
+        null=True,
+        blank=True,
+    )
+
+    # Additional payslips (JSON list of file paths)
+    additional_payslip_files = models.TextField(
+        "Additional Payslip File Paths",
+        blank=True,
+        default="[]",
+        help_text="JSON list of uploaded payslip file paths",
+    )
+
+    # Odoo customer ID (used by OdooSyncService)
+    odoo_customer_id = models.IntegerField(
+        "Odoo Customer ID",
+        null=True,
+        blank=True,
+        unique=True,
+        help_text="ID of the corresponding alba.customer record in Odoo",
+    )
+
+    # Verification status from the React wizard
+    VERIFICATION_STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("in_progress", "In Progress"),
+        ("verified", "Verified"),
+        ("rejected", "Rejected"),
+    ]
+    verification_status = models.CharField(
+        "Verification Status",
+        max_length=20,
+        choices=VERIFICATION_STATUS_CHOICES,
+        default="pending",
+        db_index=True,
+    )
+
+    # Raw JSON output from the React verification wizard
+    verification_results = models.TextField(
+        "Verification Results (JSON)",
+        blank=True,
+        default="{}",
+        help_text="Raw JSON output from the document verification wizard",
+    )
+
+    # Overall confidence score from the wizard (0-100)
+    verification_confidence = models.IntegerField(
+        "Verification Confidence Score",
+        default=0,
+        help_text="0-100 confidence score from the document verification wizard",
+    )
+
     # Status
     is_blacklisted = models.BooleanField("Blacklisted", default=False)
     blacklist_reason = models.TextField("Blacklist Reason", blank=True)
@@ -394,6 +459,11 @@ class Customer(models.Model):
     def active_loans_count(self):
         """Get count of active loans"""
         return self.loans.filter(status="ACTIVE").count()
+
+    @property
+    def is_fully_verified(self):
+        """Return True when KYC is verified AND the document wizard passed."""
+        return self.kyc_verified and self.verification_status == "verified"
 
     @property
     def total_loans_borrowed(self):
@@ -655,7 +725,7 @@ class LoanApplication(models.Model):
 
     # Notes
     internal_notes = models.TextField("Internal Notes", blank=True)
-    
+
     # Odoo Integration
     odoo_application_id = models.PositiveIntegerField(
         "Odoo Application ID", null=True, blank=True
@@ -684,10 +754,10 @@ class LoanApplication(models.Model):
         """Generate application number on creation with improved atomic lock to prevent race conditions"""
         if not self.application_number:
             from django.db import connection, transaction
-            
+
             date_str = timezone.now().strftime("%Y%m%d")
             prefix = f"LA-{date_str}-"
-            
+
             # Use database-level advisory lock with retry mechanism
             max_retries = 3
             for attempt in range(max_retries):
@@ -696,8 +766,10 @@ class LoanApplication(models.Model):
                         # Acquire exclusive lock for this date's sequence with retry
                         lock_id = int(date_str) + (attempt * 1000)  # Add attempt offset
                         with connection.cursor() as cursor:
-                            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
-                        
+                            cursor.execute(
+                                "SELECT pg_advisory_xact_lock(%s)", [lock_id]
+                            )
+
                         # Get the last number with lock held
                         last_app = (
                             LoanApplication.objects.filter(
@@ -707,28 +779,34 @@ class LoanApplication(models.Model):
                             .select_for_update()
                             .first()
                         )
-                        
+
                         if last_app:
                             try:
-                                last_number = int(last_app.application_number.split("-")[-1])
+                                last_number = int(
+                                    last_app.application_number.split("-")[-1]
+                                )
                                 new_number = last_number + 1
                             except (ValueError, IndexError):
                                 new_number = 1
                         else:
                             new_number = 1
-                        
+
                         # Validate number is within reasonable bounds
                         if new_number > 9999:
-                            raise ValueError("Application number sequence exhausted for today")
-                        
+                            raise ValueError(
+                                "Application number sequence exhausted for today"
+                            )
+
                         self.application_number = f"{prefix}{new_number:04d}"
                         break  # Success, exit retry loop
-                        
+
                 except Exception as e:
                     if attempt == max_retries - 1:
-                        raise ValueError(f"Failed to generate application number after {max_retries} attempts: {e}")
+                        raise ValueError(
+                            f"Failed to generate application number after {max_retries} attempts: {e}"
+                        )
                     continue
-        
+
         super().save(*args, **kwargs)
 
     def can_transition_to(self, new_status):
@@ -892,27 +970,31 @@ class Loan(models.Model):
         """Generate loan number on creation with improved atomic lock to prevent race conditions"""
         if not self.loan_number:
             from django.db import connection, transaction
-            
+
             date_str = timezone.now().strftime("%Y%m%d")
             prefix = f"LN-{date_str}-"
-            
+
             # Use database-level advisory lock with retry mechanism
             max_retries = 3
             for attempt in range(max_retries):
                 try:
                     with transaction.atomic():
                         # Acquire exclusive lock for this date's sequence with retry
-                        lock_id = int(date_str) + 1000000 + (attempt * 1000)  # Offset to avoid collision with application locks
+                        lock_id = (
+                            int(date_str) + 1000000 + (attempt * 1000)
+                        )  # Offset to avoid collision with application locks
                         with connection.cursor() as cursor:
-                            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
-                        
+                            cursor.execute(
+                                "SELECT pg_advisory_xact_lock(%s)", [lock_id]
+                            )
+
                         last_loan = (
                             Loan.objects.filter(loan_number__startswith=prefix)
                             .order_by("-loan_number")
                             .select_for_update()
                             .first()
                         )
-                        
+
                         if last_loan:
                             try:
                                 last_number = int(last_loan.loan_number.split("-")[-1])
@@ -921,19 +1003,21 @@ class Loan(models.Model):
                                 new_number = 1
                         else:
                             new_number = 1
-                        
+
                         # Validate number is within reasonable bounds
                         if new_number > 9999:
                             raise ValueError("Loan number sequence exhausted for today")
-                        
+
                         self.loan_number = f"{prefix}{new_number:04d}"
                         break  # Success, exit retry loop
-                        
+
                 except Exception as e:
                     if attempt == max_retries - 1:
-                        raise ValueError(f"Failed to generate loan number after {max_retries} attempts: {e}")
+                        raise ValueError(
+                            f"Failed to generate loan number after {max_retries} attempts: {e}"
+                        )
                     continue
-        
+
         super().save(*args, **kwargs)
 
     def get_payment_progress_percentage(self):
@@ -1058,25 +1142,25 @@ class LoanRepayment(models.Model):
         """Generate receipt number on creation with atomic lock to prevent race conditions"""
         if not self.receipt_number:
             from django.db import connection
-            
+
             date_str = timezone.now().strftime("%Y%m%d")
             prefix = f"RCP-{date_str}-"
-            
+
             with transaction.atomic():
                 # Acquire exclusive lock for this date's sequence
-                lock_id = int(date_str) + 2000000  # Offset to avoid collision with other locks
+                lock_id = (
+                    int(date_str) + 2000000
+                )  # Offset to avoid collision with other locks
                 with connection.cursor() as cursor:
                     cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
-                
+
                 last_receipt = (
-                    LoanRepayment.objects.filter(
-                        receipt_number__startswith=prefix
-                    )
+                    LoanRepayment.objects.filter(receipt_number__startswith=prefix)
                     .order_by("-receipt_number")
                     .select_for_update()
                     .first()
                 )
-                
+
                 if last_receipt:
                     try:
                         last_number = int(last_receipt.receipt_number.split("-")[-1])
@@ -1085,9 +1169,9 @@ class LoanRepayment(models.Model):
                         new_number = 1
                 else:
                     new_number = 1
-                
+
                 self.receipt_number = f"{prefix}{new_number:04d}"
-        
+
         super().save(*args, **kwargs)
 
 

@@ -1,118 +1,318 @@
-{% extends 'base.html' %}
-
-{% block title %}Register - Alba Capital ERP{% endblock %}
-
-{% block body %}
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-alba-navy via-gray-800 to-alba-navy px-4 py-12">
-    <div class="max-w-2xl w-full">
-        <!-- Logo / Header -->
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 bg-alba-orange rounded-2xl mb-4">
-                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-            </div>
-            <h1 class="text-3xl font-bold text-white">Create Customer Account</h1>
-            <p class="text-gray-300 mt-2">Join Alba Capital to apply for loans</p>
+{% extends 'base.html' %} {% block title %}Create Account — Alba Capital{%
+endblock %} {% block body %}
+<div
+    class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-alba-navy via-[#1a3456] to-[#0f2140] px-4 py-12"
+>
+    <div class="text-center mb-8">
+        <div
+            class="inline-flex items-center justify-center w-14 h-14 bg-alba-orange rounded-2xl mb-4 shadow-lg"
+        >
+            <svg
+                class="w-7 h-7 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                />
+            </svg>
         </div>
-        
-        <!-- Register Card -->
+        <h1 class="text-3xl font-bold text-white tracking-tight">
+            Alba Capital
+        </h1>
+        <p class="text-blue-200 mt-1.5 text-sm">Create your customer account</p>
+    </div>
+    <div class="w-full max-w-lg">
         <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
-            <div class="px-8 py-10">
-                <form method="post" action="{% url 'register' %}" class="space-y-6">
+            <div class="px-8 py-8">
+                <h2 class="text-2xl font-bold text-gray-900">Create Account</h2>
+                <p class="text-gray-500 mt-1 text-sm">
+                    Fill in your details to get started
+                </p>
+
+                {% if form.non_field_errors %}
+                <div class="mt-5 alert alert-error" role="alert">
+                    {% for error in form.non_field_errors %}<span
+                        class="text-sm"
+                        >{{ error }}</span
+                    >{% endfor %}
+                </div>
+                {% endif %}
+
+                <form
+                    method="post"
+                    action="{% url 'register' %}"
+                    class="mt-7 space-y-5"
+                    data-loading
+                    novalidate
+                >
                     {% csrf_token %}
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- First Name -->
+
+                    <!-- Name row -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label for="id_first_name" class="block text-sm font-semibold text-gray-700 mb-2">
-                                First Name *
-                            </label>
-                            {{ form.first_name }}
-                            {% if form.first_name.errors %}
-                            <p class="mt-1 text-sm text-red-600">{{ form.first_name.errors.0 }}</p>
+                            <label for="id_first_name" class="form-label"
+                                >First name
+                                <span class="required-star" aria-hidden="true"
+                                    >*</span
+                                ></label
+                            >
+                            {{ form.first_name }} {% if form.first_name.errors
+                            %}
+                            <p class="error-text" role="alert">
+                                {{ form.first_name.errors.0 }}
+                            </p>
                             {% endif %}
                         </div>
-                        
-                        <!-- Last Name -->
                         <div>
-                            <label for="id_last_name" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Last Name *
-                            </label>
-                            {{ form.last_name }}
-                            {% if form.last_name.errors %}
-                            <p class="mt-1 text-sm text-red-600">{{ form.last_name.errors.0 }}</p>
+                            <label for="id_last_name" class="form-label"
+                                >Last name
+                                <span class="required-star" aria-hidden="true"
+                                    >*</span
+                                ></label
+                            >
+                            {{ form.last_name }} {% if form.last_name.errors %}
+                            <p class="error-text" role="alert">
+                                {{ form.last_name.errors.0 }}
+                            </p>
                             {% endif %}
                         </div>
                     </div>
-                    
+
                     <!-- Email -->
-                    <div>
-                        <label for="id_email" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Email Address *
-                        </label>
-                        {{ form.email }}
-                        {% if form.email.errors %}
-                        <p class="mt-1 text-sm text-red-600">{{ form.email.errors.0 }}</p>
+                    <div class="form-field">
+                        <label for="id_email" class="form-label"
+                            >Email address
+                            <span class="required-star" aria-hidden="true"
+                                >*</span
+                            ></label
+                        >
+                        {{ form.email }} {% if form.email.errors %}
+                        <p class="error-text" role="alert">
+                            {{ form.email.errors.0 }}
+                        </p>
                         {% endif %}
                     </div>
-                    
+
                     <!-- Phone -->
-                    <div>
-                        <label for="id_phone" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Phone Number
-                        </label>
+                    <div class="form-field">
+                        <label for="id_phone" class="form-label"
+                            >Phone number</label
+                        >
                         {{ form.phone }}
+                        <p class="help-text">Format: +254 7XX XXX XXX</p>
                         {% if form.phone.errors %}
-                        <p class="mt-1 text-sm text-red-600">{{ form.phone.errors.0 }}</p>
+                        <p class="error-text" role="alert">
+                            {{ form.phone.errors.0 }}
+                        </p>
                         {% endif %}
                     </div>
-                    
+
                     <!-- Password -->
-                    <div>
-                        <label for="id_password1" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Password *
-                        </label>
-                        {{ form.password1 }}
+                    <div class="form-field">
+                        <label for="id_password1" class="form-label"
+                            >Password
+                            <span class="required-star" aria-hidden="true"
+                                >*</span
+                            ></label
+                        >
+                        <div class="input-wrapper">
+                            {{ form.password1 }}
+                            <button
+                                type="button"
+                                class="input-toggle-btn"
+                                onclick="togglePassword(this)"
+                                aria-label="Show password"
+                            >
+                                <svg
+                                    class="icon-eye w-5 h-5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                    />
+                                </svg>
+                                <svg
+                                    class="icon-eye-off w-5 h-5 hidden"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                                    />
+                                </svg>
+                            </button>
+                        </div>
+                        <!-- Strength meter -->
+                        <div id="pwd-strength" class="mt-2 hidden">
+                            <div class="flex gap-1 mb-1.5">
+                                <div
+                                    class="pwd-bar flex-1 h-1.5 rounded-full bg-gray-200 transition-colors"
+                                ></div>
+                                <div
+                                    class="pwd-bar flex-1 h-1.5 rounded-full bg-gray-200 transition-colors"
+                                ></div>
+                                <div
+                                    class="pwd-bar flex-1 h-1.5 rounded-full bg-gray-200 transition-colors"
+                                ></div>
+                                <div
+                                    class="pwd-bar flex-1 h-1.5 rounded-full bg-gray-200 transition-colors"
+                                ></div>
+                            </div>
+                            <p
+                                id="pwd-label"
+                                class="text-xs"
+                                style="color: #9ca3af"
+                            ></p>
+                        </div>
                         {% if form.password1.errors %}
-                        <p class="mt-1 text-sm text-red-600">{{ form.password1.errors.0 }}</p>
+                        <p class="error-text" role="alert">
+                            {{ form.password1.errors.0 }}
+                        </p>
                         {% endif %}
-                        <p class="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
+                        <p class="help-text">
+                            At least 8 characters, not entirely numeric.
+                        </p>
                     </div>
-                    
-                    <!-- Confirm Password -->
-                    <div>
-                        <label for="id_password2" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Confirm Password *
-                        </label>
-                        {{ form.password2 }}
+
+                    <!-- Confirm password -->
+                    <div class="form-field">
+                        <label for="id_password2" class="form-label"
+                            >Confirm password
+                            <span class="required-star" aria-hidden="true"
+                                >*</span
+                            ></label
+                        >
+                        <div class="input-wrapper">
+                            {{ form.password2 }}
+                            <button
+                                type="button"
+                                class="input-toggle-btn"
+                                onclick="togglePassword(this)"
+                                aria-label="Show confirm password"
+                            >
+                                <svg
+                                    class="icon-eye w-5 h-5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                    />
+                                </svg>
+                                <svg
+                                    class="icon-eye-off w-5 h-5 hidden"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                                    />
+                                </svg>
+                            </button>
+                        </div>
                         {% if form.password2.errors %}
-                        <p class="mt-1 text-sm text-red-600">{{ form.password2.errors.0 }}</p>
+                        <p class="error-text" role="alert">
+                            {{ form.password2.errors.0 }}
+                        </p>
                         {% endif %}
                     </div>
-                    
-                    <!-- Submit Button -->
-                    <button type="submit" class="w-full bg-alba-orange hover:bg-opacity-90 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-alba-orange focus:ring-offset-2">
+
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        By creating an account you agree to Alba Capital's terms
+                        of service.
+                    </p>
+                    <button
+                        type="submit"
+                        class="btn btn-primary btn-wide btn-lg"
+                        data-loading-text="Creating account..."
+                    >
                         Create Account
                     </button>
                 </form>
             </div>
-            
-            <!-- Login Link -->
-            <div class="px-8 py-4 bg-gray-50 border-t border-gray-200">
-                <p class="text-center text-sm text-gray-600">
-                    Already have an account?
-                    <a href="{% url 'login' %}" class="font-semibold text-alba-orange hover:text-alba-navy transition">
-                        Sign In
-                    </a>
-                </p>
+            <div
+                class="px-8 py-4 bg-gray-50 border-t border-gray-100 text-center text-sm text-gray-500"
+            >
+                Already have an account?
+                <a
+                    href="{% url 'login' %}"
+                    class="font-semibold text-alba-orange hover:text-alba-navy transition ml-1"
+                    >Sign in</a
+                >
             </div>
         </div>
-        
-        <!-- Footer -->
-        <p class="text-center text-sm text-gray-400 mt-8">
-            &copy; 2026 Alba Capital. All rights reserved.
+        <p class="text-center text-xs text-blue-200/70 mt-6">
+            &copy; {% now "Y" %} Alba Capital. All rights reserved.
         </p>
     </div>
 </div>
-{% endblock %}
+{% block extra_js %}
+<script>
+    const pwdInput = document.getElementById("id_password1");
+    const meter = document.getElementById("pwd-strength");
+    const bars = document.querySelectorAll(".pwd-bar");
+    const lbl = document.getElementById("pwd-label");
+    if (pwdInput) {
+        pwdInput.addEventListener("input", () => {
+            const v = pwdInput.value;
+            if (!v) {
+                meter.classList.add("hidden");
+                return;
+            }
+            meter.classList.remove("hidden");
+            let s = 0;
+            if (v.length >= 8) s++;
+            if (v.length >= 12) s++;
+            if (/[A-Z]/.test(v) && /[a-z]/.test(v)) s++;
+            if (/[0-9]/.test(v) && /[^A-Za-z0-9]/.test(v)) s++;
+            const cols = ["#ef4444", "#f97316", "#eab308", "#22c55e"];
+            const lbls = ["Weak", "Fair", "Good", "Strong"];
+            bars.forEach(
+                (b, i) =>
+                    (b.style.background = i < s ? cols[s - 1] : "#e5e7eb"),
+            );
+            lbl.textContent = lbls[s - 1] || "";
+            lbl.style.color = cols[s - 1] || "#9ca3af";
+        });
+    }
+</script>
+{% endblock %} {% endblock %}

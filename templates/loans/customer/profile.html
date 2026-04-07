@@ -1,4 +1,5 @@
-{% extends 'base.html' %} {% block title %}My Profile - Alba Capital{% endblock %} {% block extra_head %}
+{% extends 'base.html' %} {% block title %}My Profile - Alba Capital{% endblock
+%} {% block extra_head %}
 <style>
     /* KYC progress bar — starts at 0, JS animates to target width */
     .kyc-progress-bar {
@@ -45,80 +46,12 @@
     }
 </style>
 {% endblock %} {% block body %}
-<div class="min-h-screen bg-gray-50">
+<div class="page-wrapper">
     <!-- Navigation -->
-    <nav class="bg-white shadow">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center space-x-8">
-                    <div class="flex items-center">
-                        <span class="text-2xl font-bold text-alba-navy"
-                            >Alba Capital</span
-                        >
-                    </div>
-                    <div class="hidden md:flex space-x-4">
-                        <a
-                            href="{% url 'customer_dashboard' %}"
-                            class="text-sm font-medium text-gray-700 hover:text-alba-orange transition"
-                            >Dashboard</a
-                        >
-                        <a
-                            href="{% url 'loans:customer_dashboard' %}"
-                            class="text-sm font-medium text-gray-700 hover:text-alba-orange transition"
-                            >My Loans</a
-                        >
-                        <a
-                            href="{% url 'loans:customer_profile' %}"
-                            class="text-sm font-medium text-alba-orange"
-                            >Profile</a
-                        >
-                    </div>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-700">
-                        <span class="font-semibold"
-                            >{{ user.get_full_name }}</span
-                        >
-                    </span>
-                    <a
-                        href="{% url 'loans:notifications' %}"
-                        class="relative inline-flex items-center p-2 text-gray-600 hover:text-alba-orange transition"
-                        title="Notifications"
-                    >
-                        <svg
-                            class="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                            />
-                        </svg>
-                        {% if unread_notification_count > 0 %}
-                        <span
-                            class="absolute top-1 right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full min-w-[1.1rem]"
-                        >
-                            {{ unread_notification_count }}
-                        </span>
-                        {% endif %}
-                    </a>
-                    <a
-                        href="{% url 'logout' %}"
-                        class="text-sm font-medium text-gray-600 hover:text-alba-orange transition"
-                    >
-                        Logout
-                    </a>
-                </div>
-            </div>
-        </div>
-    </nav>
+    {% include 'partials/navbar.html' with active_page='profile' %}
 
     <!-- Main Content -->
-    <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main id="main-content" class="page-content" style="max-width: 56rem">
         <!-- Page Header -->
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-gray-900">My Profile</h1>
@@ -203,7 +136,8 @@
                         </h3>
                         <p class="text-xs text-gray-500 mt-0.5">
                             {% if kyc_verified %} Verified by {{
-                            customer.kyc_verified_by.get_full_name }} {% elif kyc_completion >= 80 %} Under review — our team will
+                            customer.kyc_verified_by.get_full_name }} {% elif
+                            kyc_completion >= 80 %} Under review — our team will
                             confirm within 24 hours {% else %} Complete the
                             checklist below to submit for review {% endif %}
                         </p>
@@ -515,7 +449,11 @@
 
         <!-- Profile Form -->
         <div class="bg-white shadow rounded-lg overflow-hidden">
-            <form method="post" enctype="multipart/form-data" class="divide-y divide-gray-200">
+            <form
+                method="post"
+                enctype="multipart/form-data"
+                class="divide-y divide-gray-200"
+            >
                 {% csrf_token %}
 
                 <!-- Personal Information -->
@@ -529,7 +467,8 @@
                                 class="block text-sm font-medium text-gray-700"
                                 >Date of Birth</label
                             >
-                            {{ form.date_of_birth }} {% if form.date_of_birth.errors %}
+                            {{ form.date_of_birth }} {% if
+                            form.date_of_birth.errors %}
                             <p class="mt-1 text-sm text-red-600">
                                 {{ form.date_of_birth.errors.0 }}
                             </p>
@@ -613,7 +552,8 @@
                                 class="block text-sm font-medium text-gray-700"
                                 >Monthly Income (KES) *</label
                             >
-                            {{ form.monthly_income }} {% if form.monthly_income.errors %}
+                            {{ form.monthly_income }} {% if
+                            form.monthly_income.errors %}
                             <p class="mt-1 text-sm text-red-600">
                                 {{ form.monthly_income.errors.0 }}
                             </p>
@@ -742,7 +682,8 @@
                                     class="block text-sm font-medium text-gray-700 mb-2"
                                     >Upload National ID</label
                                 >
-                                {{ form.national_id_file }} {% if form.national_id_file.errors %}
+                                {{ form.national_id_file }} {% if
+                                form.national_id_file.errors %}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.national_id_file.errors.0 }}
                                 </p>
@@ -758,7 +699,8 @@
                             <div class="flex items-center justify-between mb-3">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0">
-                                        {% if customer.bank_statement_verified %}
+                                        {% if customer.bank_statement_verified
+                                        %}
                                         <svg
                                             class="h-5 w-5 text-green-500"
                                             fill="none"
@@ -827,7 +769,8 @@
                                     class="block text-sm font-medium text-gray-700 mb-2"
                                     >Upload Bank Statement</label
                                 >
-                                {{ form.bank_statement_file }} {% if form.bank_statement_file.errors %}
+                                {{ form.bank_statement_file }} {% if
+                                form.bank_statement_file.errors %}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.bank_statement_file.errors.0 }}
                                 </p>
@@ -843,7 +786,8 @@
                             <div class="flex items-center justify-between mb-3">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0">
-                                        {% if customer.face_recognition_verified %}
+                                        {% if customer.face_recognition_verified
+                                        %}
                                         <svg
                                             class="h-5 w-5 text-green-500"
                                             fill="none"
@@ -857,7 +801,8 @@
                                                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                                             />
                                         </svg>
-                                        {% elif customer.face_recognition_photo %}
+                                        {% elif customer.face_recognition_photo
+                                        %}
                                         <svg
                                             class="h-5 w-5 text-yellow-500"
                                             fill="none"
@@ -913,7 +858,8 @@
                                     class="block text-sm font-medium text-gray-700 mb-2"
                                     >Upload Face Photo</label
                                 >
-                                {{ form.face_recognition_photo }} {% if form.face_recognition_photo.errors %}
+                                {{ form.face_recognition_photo }} {% if
+                                form.face_recognition_photo.errors %}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.face_recognition_photo.errors.0 }}
                                 </p>
