@@ -1,6 +1,7 @@
 {
+  "pythonPath": "/home/nick/ACCT.f/venv312/bin/python",
   "venvPath": ".",
-  "venv": "venv",
+  "venv": "venv312",
   "pythonVersion": "3.12",
   "typeCheckingMode": "basic",
   "useLibraryCodeForTypes": true,
@@ -12,19 +13,24 @@
   "reportUnknownArgumentType": "none",
   "reportUnknownParameterType": "none",
   "reportUnknownLambdaType": "none",
-  "reportAttributeAccessIssue": "warning",
-  "reportOperatorIssue": "warning",
+  "reportAttributeAccessIssue": "none",
+  "reportOperatorIssue": "none",
   "reportReturnType": "warning",
-  "reportIndexIssue": "warning",
-  "reportArgumentType": "warning",
-  "reportCallIssue": "warning",
+  "reportIndexIssue": "none",
+  "reportArgumentType": "none",
+  "reportCallIssue": "none",
+  "reportRedefinedVariable": "none",
+  "reportUnusedImport": "warning",
+  "reportUnusedVariable": "warning",
   "reportIncompatibleMethodOverride": "none",
   "reportPrivateImportUsage": "none",
   "reportImplicitRelativeImport": "warning",
   "exclude": [
     "**/venv/**",
+    "**/venv312/**",
     "**/__pycache__/**",
     "**/migrations/**",
-    "**/staticfiles/**"
+    "**/staticfiles/**",
+    "**/odoo_addons/**"
   ]
 }

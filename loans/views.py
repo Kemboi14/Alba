@@ -141,8 +141,6 @@ def customer_profile(request):
     else:
         form = CustomerProfileForm(instance=customer)
 
-    kyc_completion = int(customer.get_kyc_completion_percentage())
-
     # ── Fetch real-time KYC status from Odoo (best-effort) ──────────────────
     odoo_kyc = None
     if customer.odoo_customer_id:
@@ -555,10 +553,7 @@ def calculate_loan(request):
         return JsonResponse({"error": f"Invalid input: {str(e)}"}, status=400)
     except Exception:
         # Log the full error for debugging but return generic message
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.exception("Error in calculate_loan")
+        logging.getLogger(__name__).exception("Error in calculate_loan")
         return JsonResponse({"error": "An internal error occurred"}, status=500)
 
 
@@ -686,7 +681,6 @@ def download_statement(request, loan_pk):
 
     styles = getSampleStyleSheet()
     NAVY = colors.HexColor("#1e3a5f")
-    ORANGE = colors.HexColor("#ff6b35")
     LIGHT_GRAY = colors.HexColor("#f3f4f6")
 
     title_style = ParagraphStyle(

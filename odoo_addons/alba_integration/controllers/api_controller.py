@@ -34,7 +34,7 @@ import logging
 import time
 from datetime import date, datetime
 
-from odoo import _, fields, http
+from odoo import _, http
 from odoo import exceptions as odoo_exceptions
 from odoo.http import request
 from werkzeug.wrappers import Response as WerkzeugResponse
