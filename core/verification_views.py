@@ -18,14 +18,17 @@ import json
 import logging
 import os
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.http import require_GET
+
+from core.forms import VerificationProfileForm
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +88,23 @@ def _safe_url(field) -> str:
 
 @login_required
 def client_profile_verification(request):
-    """Render the HTML page that loads the React verification wizard."""
+    """Render the HTML page that loads the React verification wizard.
+
+    GET  – display the form pre-filled from the Customer record.
+    POST – validate and save profile fields, then redirect back.
+    """
     customer = _get_customer(request.user)
+
+    if request.method == "POST":
+        form = VerificationProfileForm(request.POST, instance=customer)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile saved successfully.")
+            return redirect("client_profile_verification")
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        form = VerificationProfileForm(instance=customer)
 
     # Build existing-document URLs for React context
     payslip_urls = []
@@ -97,6 +115,7 @@ def client_profile_verification(request):
             payslip_urls = []
 
     context = {
+        "form": form,
         "customer": customer,
         # 'client' alias so the template works unchanged
         "client": customer,
