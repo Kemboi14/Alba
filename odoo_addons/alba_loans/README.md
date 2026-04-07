@@ -477,14 +477,44 @@ idempotency on the Django side.
 
 ---
 
+## Related Module — `alba_sms`
+
+The `alba_sms` module extends `alba_loans` via `_inherit` to add outbound SMS
+notifications.  It hooks into the following methods without modifying this
+module's code:
+
+| Hook point | SMS event |
+|---|---|
+| `cron_send_overdue_alerts()` | Overdue reminder SMS per customer (1/3/7/14/30-day buckets) |
+| `cron_send_maturity_reminders()` | Maturity notice SMS per maturing loan |
+| `action_send_collection_reminder()` | **Uses the existing `sms_template` field** on `alba.loan.collection.stage` — this field was defined here but never called until `alba_sms` was installed |
+| `alba.loan.repayment.action_post()` | Payment confirmation SMS |
+
+> **Dual-notification note:** `alba_integration` fires `loan.instalment_overdue`
+> and `loan.maturing_soon` webhooks to Django on the same cron runs that
+> `alba_sms` fires SMS.  If the Django portal also sends SMS on those webhook
+> events, customers will receive duplicate messages.  Coordinate with the Django
+> webhook handler to prevent this.
+
+The `sms_template` field on `alba.loan.collection.stage` accepts free-text with
+`{placeholder}` substitution.  Available tokens: `{customer_name}`,
+`{loan_number}`, `{amount}`, `{days}`, `{company_name}`.
+Default values are seeded when `alba_loans` is installed.
+
+---
+
 ## Changelog
 
 ### 19.0.1.0.0 (initial release)
 - Core loan lifecycle: products, applications (9 stages), disbursement, repayment
 - M-Pesa Daraja API: STK Push, C2B Paybill/Till, B2C payouts
 - Full M-Pesa transaction audit log with auto-reconciliation
-- 8 scheduled automation cron jobs
-- PAR tracking, NPL auto-flagging, auto-close
-- Webhook events for all key state transitions
+- 8 scheduled automation cron jobs (PAR, NPL, overdue alerts, maturity reminders,
+  auto-close, STK query, M-Pesa reconciliation, portfolio stats push)
+- PAR tracking, NPL auto-flagging, auto-close on full repayment
+- Collections workflow: 4 escalation stages (Reminder / Collections / Recovery / Legal)
+  each with configurable `sms_template` field (activated by `alba_sms`)
+- Webhook events for all key state transitions (fired via `alba_integration`)
 - QWeb loan statement PDF report
-- Security groups: Loan User, Loan Officer, Loan Manager
+- Security groups: Loan User, Loan Officer, Loan Manager, Operations Manager,
+  Finance Officer, Director

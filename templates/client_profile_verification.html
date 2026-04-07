@@ -553,7 +553,7 @@
                 <div class="form-card-body">
                     <form
                         method="post"
-                        action="{% url 'client_profile' %}"
+                        action="{% url 'client_profile_verification' %}"
                         novalidate
                     >
                         {% csrf_token %}
@@ -1261,7 +1261,7 @@
                         <!-- Form Actions -->
                         <div class="form-actions">
                             <a
-                                href="{% url 'home' %}"
+                                href="{% url 'landing' %}"
                                 class="btn btn-secondary"
                                 role="button"
                             >

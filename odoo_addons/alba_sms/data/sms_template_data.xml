@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- 1. Loan Overdue Reminder -->
+        <record id="sms_template_loan_overdue" model="alba.sms.template">
+            <field name="name">Loan Overdue Reminder</field>
+            <field name="code">loan_overdue_reminder</field>
+            <field name="category">loan_overdue</field>
+            <field name="content">Dear {customer_name}, your loan {loan_number} has an overdue instalment of KES {amount}. It is now {days_overdue} day(s) past due. Please pay immediately to avoid additional penalties. Outstanding balance: KES {outstanding_balance}. - {company_name}</field>
+        </record>
+
+        <!-- 2. Loan Maturity Reminder -->
+        <record id="sms_template_maturity_reminder" model="alba.sms.template">
+            <field name="name">Loan Maturity Reminder</field>
+            <field name="code">maturity_reminder</field>
+            <field name="category">maturity_reminder</field>
+            <!-- Note: {days_overdue} carries days_left when invoked from the maturity cron -->
+            <field name="content">Dear {customer_name}, your loan {loan_number} matures on {maturity_date}. You have {days_overdue} day(s) remaining. Outstanding balance: KES {outstanding_balance}. Please arrange your final payment. - {company_name}</field>
+        </record>
+
+        <!-- 3. Payment Confirmation -->
+        <record id="sms_template_payment_confirmation" model="alba.sms.template">
+            <field name="name">Payment Confirmation</field>
+            <field name="code">payment_confirmation</field>
+            <field name="category">payment_confirmation</field>
+            <field name="content">Dear {customer_name}, we have received your payment of KES {amount} for loan {loan_number}. Remaining balance: KES {outstanding_balance}. Thank you for your payment. - {company_name}</field>
+        </record>
+
+        <!-- 4. Loan Disbursed -->
+        <record id="sms_template_loan_disbursed" model="alba.sms.template">
+            <field name="name">Loan Disbursed</field>
+            <field name="code">loan_disbursed</field>
+            <field name="category">loan_disbursed</field>
+            <field name="content">Dear {customer_name}, your loan {loan_number} of KES {amount} has been disbursed. Repayment begins on {due_date}. For queries call us. - {company_name}</field>
+        </record>
+
+        <!-- 5. Application Approved -->
+        <record id="sms_template_application_approved" model="alba.sms.template">
+            <field name="name">Application Approved</field>
+            <field name="code">application_approved</field>
+            <field name="category">application_approved</field>
+            <field name="content">Dear {customer_name}, congratulations! Your loan application {loan_number} has been approved for KES {amount}. We will contact you for disbursement. - {company_name}</field>
+        </record>
+
+        <!-- 6. Application Rejected -->
+        <record id="sms_template_application_rejected" model="alba.sms.template">
+            <field name="name">Application Rejected</field>
+            <field name="code">application_rejected</field>
+            <field name="category">application_rejected</field>
+            <field name="content">Dear {customer_name}, we regret to inform you that your loan application {loan_number} was not approved at this time. Please visit our offices for more information. - {company_name}</field>
+        </record>
+
+        <!-- 7. Collection Stage Reminder -->
+        <record id="sms_template_collection_reminder" model="alba.sms.template">
+            <field name="name">Collection Stage Reminder</field>
+            <field name="code">collection_reminder</field>
+            <field name="category">collection_reminder</field>
+            <field name="content">Dear {customer_name}, your loan {loan_number} payment of KES {amount} is {days_overdue} days overdue. Please pay immediately to avoid further action. Balance: KES {outstanding_balance}. - {company_name}</field>
+        </record>
+
+        <!-- 8. Investor Interest Credited -->
+        <record id="sms_template_investor_interest" model="alba.sms.template">
+            <field name="name">Investor Interest Credited</field>
+            <field name="code">investor_interest</field>
+            <field name="category">investor_interest</field>
+            <field name="content">Dear {investor_name}, KES {interest_amount} interest has been credited to your investment account {investment_number}. Thank you for investing with us. - {company_name}</field>
+        </record>
+
+    </data>
+</odoo>

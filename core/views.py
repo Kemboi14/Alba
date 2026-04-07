@@ -3,12 +3,13 @@ Core views for Alba Capital ERP System
 Handles: landing page, authentication, customer dashboard
 """
 
+import logging
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.views.generic import TemplateView
-import logging
 
 from .forms import LoginForm, UserRegistrationForm
 from .models import AuditLog, User
@@ -159,7 +160,14 @@ class RegisterView(TemplateView):
 
 
 def logout_view(request):
-    """Log the user out and redirect to landing page"""
+    """Log the user out and redirect to landing page.
+
+    Requires POST to prevent CSRF-based forced logout via GET (e.g. <img> tags).
+    GET requests are redirected to the landing page without logging out.
+    """
+    if request.method != "POST":
+        # Silently redirect — do NOT log out on a GET request
+        return redirect("landing")
     if request.user.is_authenticated:
         create_audit_log(
             request.user,
@@ -194,7 +202,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # Non-customer users (staff) should use Odoo admin
         messages.warning(
             request,
-            "Staff access is through Odoo. Please use the Odoo portal for administrative functions."
+            "Staff access is through Odoo. Please use the Odoo portal for administrative functions.",
         )
         logout(request)
         return redirect("login")
@@ -301,7 +309,9 @@ class CustomerDashboardView(LoginRequiredMixin, TemplateView):
                 }
             )
         except Exception as exc:
-            logger.error("Error loading loan data for dashboard: %s", exc, exc_info=True)
+            logger.error(
+                "Error loading loan data for dashboard: %s", exc, exc_info=True
+            )
             # Set safe default values
             context.update(
                 {

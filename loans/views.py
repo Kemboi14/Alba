@@ -5,17 +5,18 @@ Handles: customer dashboard, profile, loan application, documents, guarantors,
 Staff/admin processing is handled in Odoo.
 """
 
+import logging
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
-import logging
 
-from core.views import create_audit_log  # noqa: PLC0415
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+
+from core.views import create_audit_log  # noqa: PLC0415
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +46,20 @@ from .models import (
 def customer_loan_dashboard(request):
     """Main customer loan dashboard"""
     customer, _ = Customer.objects.get_or_create(user=request.user)
-    
+
     # Authorization check - ensure user can only access their own data
     if customer.user != request.user:
-        logger.warning("User %s attempted to access customer data for user %s", 
-                    request.user.id, customer.user.id)
+        logger.warning(
+            "User %s attempted to access customer data for user %s",
+            request.user.id,
+            customer.user.id,
+        )
         create_audit_log(
-            request.user, "UNAUTHORIZED_ACCESS", "LoanDashboard", None, 
-            f"Attempted access to customer {customer.pk} data"
+            request.user,
+            "UNAUTHORIZED_ACCESS",
+            "LoanDashboard",
+            None,
+            f"Attempted access to customer {customer.pk} data",
         )
         return redirect("customer_dashboard")
 
@@ -94,14 +101,20 @@ def customer_loan_dashboard(request):
 def customer_profile(request):
     """View and update customer profile / KYC documents"""
     customer, _ = Customer.objects.get_or_create(user=request.user)
-    
+
     # Authorization check - ensure user can only access their own data
     if customer.user != request.user:
-        logger.warning("User %s attempted to access profile for user %s", 
-                    request.user.id, customer.user.id)
+        logger.warning(
+            "User %s attempted to access profile for user %s",
+            request.user.id,
+            customer.user.id,
+        )
         create_audit_log(
-            request.user, "UNAUTHORIZED_ACCESS", "Customer", customer.pk, 
-            f"Attempted access to customer {customer.pk} profile"
+            request.user,
+            "UNAUTHORIZED_ACCESS",
+            "Customer",
+            customer.pk,
+            f"Attempted access to customer {customer.pk} profile",
         )
         return redirect("customer_dashboard")
 
@@ -174,7 +187,7 @@ def apply_for_loan(request):
             missing.append("Employer Name")
         messages.warning(
             request,
-            f"Please complete your profile before applying for a loan. Missing: {', '.join(missing)}"
+            f"Please complete your profile before applying for a loan. Missing: {', '.join(missing)}",
         )
         return redirect("loans:customer_profile")
 
@@ -194,24 +207,21 @@ def apply_for_loan(request):
             # Sync to Odoo
             try:
                 from core.services.odoo_sync import OdooSyncService
+
                 odoo_service = OdooSyncService()
                 if odoo_service.is_reachable():
                     result = odoo_service.create_loan_application(application)
                     application.odoo_application_id = result.get("odoo_application_id")
                     application.save()
-                    messages.info(
-                        request,
-                        "Application synced to Odoo successfully."
-                    )
+                    messages.info(request, "Application synced to Odoo successfully.")
                 else:
                     messages.warning(
                         request,
-                        "Application saved locally but could not sync to Odoo. Will sync later."
+                        "Application saved locally but could not sync to Odoo. Will sync later.",
                     )
             except Exception as e:
                 messages.warning(
-                    request,
-                    f"Application saved but Odoo sync failed: {str(e)}"
+                    request, f"Application saved but Odoo sync failed: {str(e)}"
                 )
 
             messages.success(
@@ -385,7 +395,7 @@ def add_guarantor(request, application_pk):
         form = GuarantorForm(request.POST)
         if form.is_valid():
             guarantor = form.save(commit=False)
-            guarantor.loan_application = application
+            guarantor.application = application
             guarantor.save()
             messages.success(request, "Guarantor added successfully.")
             create_audit_log(
@@ -414,20 +424,20 @@ def add_guarantor(request, application_pk):
 @login_required
 def calculate_loan(request):
     """AJAX endpoint — returns loan cost breakdown for the calculator widget
-    
+
     Requires authentication to prevent abuse.
     """
     if request.method != "GET":
         return JsonResponse({"error": "GET required"}, status=405)
-    
+
     # Validate inputs
     product_id = request.GET.get("product_id")
     amount_str = request.GET.get("amount", "0")
     tenure_str = request.GET.get("tenure", "12")
-    
+
     if not product_id:
         return JsonResponse({"error": "product_id is required"}, status=400)
-    
+
     # Validate amount is a positive decimal
     try:
         amount = Decimal(amount_str)
@@ -435,7 +445,7 @@ def calculate_loan(request):
             return JsonResponse({"error": "Amount must be positive"}, status=400)
     except (ValueError, TypeError, InvalidOperation):
         return JsonResponse({"error": "Invalid amount format"}, status=400)
-    
+
     # Validate tenure is a positive integer
     try:
         tenure = int(tenure_str)
@@ -468,6 +478,7 @@ def calculate_loan(request):
     except Exception:
         # Log the full error for debugging but return generic message
         import logging
+
         logger = logging.getLogger(__name__)
         logger.exception("Error in calculate_loan")
         return JsonResponse({"error": "An internal error occurred"}, status=500)
@@ -530,6 +541,8 @@ def notifications_list(request):
 @login_required
 def mark_notification_read(request, pk):
     """Mark a single notification as read (POST only)"""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST method required"}, status=405)
     notification = get_object_or_404(Notification, pk=pk, user=request.user)
     notification.mark_read()
     return JsonResponse({"status": "ok"})
@@ -540,7 +553,7 @@ def mark_all_notifications_read(request):
     """Mark every unread notification as read for the current user (POST only)"""
     if request.method != "POST":
         return JsonResponse({"error": "POST method required"}, status=405)
-    
+
     Notification.objects.filter(user=request.user, is_read=False).update(
         is_read=True, read_at=timezone.now()
     )
@@ -712,12 +725,22 @@ def download_statement(request, loan_pk):
                     f"{row.total_due:,.2f}",
                     f"{row.amount_paid:,.2f}",
                     f"{row.balance:,.2f}",
-                    "Overdue"
-                    if row.due_date < timezone.now().date()
-                    else "Pending"
+                    "Overdue" if row.due_date < timezone.now().date() else "Pending",
                 ],
             )
-        sched_table = Table(sched_rows, colWidths=[15 * mm, 25 * mm, 25 * mm, 25 * mm, 25 * mm, 25 * mm, 25 * mm, 25 * mm])
+        sched_table = Table(
+            sched_rows,
+            colWidths=[
+                15 * mm,
+                25 * mm,
+                25 * mm,
+                25 * mm,
+                25 * mm,
+                25 * mm,
+                25 * mm,
+                25 * mm,
+            ],
+        )
         sched_table.setStyle(
             TableStyle(
                 [
@@ -877,7 +900,7 @@ def _seed_loan_products():
         {
             "code": "QSAL001",
             "name": "Quick Salary Advance",
-            "category": "SALARY_ADVANCE",
+            "category": "salary_advance",
             "description": "Fast salary advance for employed individuals.",
             "min_amount": Decimal("10000"),
             "max_amount": Decimal("50000"),
@@ -892,7 +915,7 @@ def _seed_loan_products():
         {
             "code": "BIZ001",
             "name": "Business Expansion Loan",
-            "category": "BUSINESS_LOAN",
+            "category": "business_loan",
             "description": "Flexible financing for business growth.",
             "min_amount": Decimal("50000"),
             "max_amount": Decimal("500000"),
@@ -907,7 +930,7 @@ def _seed_loan_products():
         {
             "code": "ASSET001",
             "name": "Asset Finance — Vehicle",
-            "category": "ASSET_FINANCING",
+            "category": "asset_financing",
             "description": "Financing for new and used vehicle purchases.",
             "min_amount": Decimal("100000"),
             "max_amount": Decimal("1000000"),

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data noupdate="0">
+        <!-- SMS User — read-only: view logs and batch results -->
+        <record id="group_sms_user" model="res.groups">
+            <field name="name">SMS User</field>
+            <field name="comment">Read-only access to SMS logs and batch campaign results.</field>
+        </record>
+
+        <!-- SMS Officer — can send ad-hoc SMS and run bulk batches -->
+        <record id="group_sms_officer" model="res.groups">
+            <field name="name">SMS Officer</field>
+            <field name="implied_ids" eval="[(4, ref('alba_sms.group_sms_user'))]"/>
+            <field name="comment">Can create and run bulk SMS campaigns. Implies SMS User.</field>
+        </record>
+
+        <!-- SMS Admin — full access including provider config and API keys -->
+        <record id="group_sms_admin" model="res.groups">
+            <field name="name">SMS Admin</field>
+            <field name="implied_ids" eval="[(4, ref('alba_sms.group_sms_officer'))]"/>
+            <field name="comment">Full administration: configure providers, manage templates, view API credentials. Implies SMS Officer.</field>
+        </record>
+    </data>
+</odoo>

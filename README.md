@@ -1,152 +1,264 @@
-# Alba Capital — Loan Customer Portal
+# Alba Capital — Loan Management Platform
 
-**Django 5.0.2 · Python 3.12 · PostgreSQL · Odoo 19 Enterprise**
+**Django 5.0.2 · Odoo 19 Enterprise · PostgreSQL · Python 3.12**
 
 ---
 
-## 📋 Overview
+## Overview
 
-Alba Capital is a financial services platform split across two systems:
+Alba Capital is a two-system financial services platform:
 
-| Layer | Technology | Responsibility |
+| System | Technology | Responsibility |
 |---|---|---|
-| **Customer Portal** | Django 5.0.2 (this repo) | Public-facing loan application UI |
-| **ERP Backend** | Odoo 19 Enterprise | Staff workflows, accounting, HR, payroll, CRM |
+| **Customer Portal** | Django 5.0.2 (this repo) | Public-facing loan applications, KYC, document upload, guarantors, loan tracking |
+| **Staff Back-Office** | Odoo 19 Enterprise (`odoo_addons/`) | 4 custom addons — loan lifecycle, investor accounts, API bridge, bulk SMS |
 | **Database** | PostgreSQL | Shared persistent store |
 
-Customers register, complete their KYC profile, apply for loans, upload documents, add guarantors, and track their active loans — all through this Django portal. Everything that happens after a customer submits an application (credit review, approval, disbursement, repayment tracking, accounting entries) is handled entirely inside Odoo.
+Customers register, complete their KYC profile, upload documents, add guarantors, apply for loans, and track their active loans entirely through the Django portal. All staff-side processing — credit review, approval, disbursement, repayment accounting, investor management, and collections — runs inside Odoo 19 Enterprise via four purpose-built addons.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
-┌─────────────────────────────────┐        ┌──────────────────────────────────┐
-│      Django Customer Portal     │        │       Odoo 19 Enterprise          │
-│                                 │        │                                  │
-│  - Landing page                 │        │  - Loan processing & approval    │
-│  - Customer registration        │◄──────►│  - Credit scoring & KYC review   │
-│  - KYC profile & documents      │  REST  │  - Loan disbursement             │
-│  - Loan application form        │  API   │  - Repayment & collections       │
-│  - Application status tracking  │        │  - Accounting & GL               │
-│  - Active loan dashboard        │        │  - HR & payroll                  │
-│                                 │        │  - Investor reporting            │
-└────────────┬────────────────────┘        └──────────────┬───────────────────┘
-             │                                             │
-             └──────────────┬──────────────────────────────┘
-                            │
-                    ┌───────▼────────┐
-                    │   PostgreSQL   │
-                    └────────────────┘
+┌──────────────────────────┐         ┌────────────────────────────────────────┐
+│   Django Customer Portal │         │        Odoo 19 Enterprise              │
+│   (loan_system/)         │         │        (odoo_addons/)                  │
+│                          │         │                                        │
+│  Customer registration   │◄──────►│  alba_loans    — Loan lifecycle        │
+│  KYC & documents         │  REST  │  alba_investors — Investor accounts     │
+│  Loan applications       │  API + │  alba_integration — API bridge         │
+│  Application tracking    │ webhooks│  alba_sms      — Bulk SMS              │
+│  Active loan dashboard   │         │                                        │
+└──────────┬───────────────┘         └──────────────┬─────────────────────────┘
+           │                                         │
+           └──────────────────┬──────────────────────┘
+                              │
+                    ┌─────────▼────────┐
+                    │   PostgreSQL     │
+                    │   (shared DB)    │
+                    └──────────────────┘
 ```
 
 ---
 
-## 🗂️ Project Structure
+## Django Portal (`loan_system/`)
+
+### Project Structure
 
 ```
 loan_system/
-├── config/                  # Django project settings & URLs
-│   ├── settings.py
-│   ├── urls.py
-│   ├── wsgi.py
-│   └── asgi.py
-├── core/                    # Auth, RBAC, dashboards, audit log
-│   ├── models.py            # User (email-based), AuditLog
-│   ├── views.py             # Login, register, dashboards, user approval
-│   ├── forms.py             # LoginForm, UserRegistrationForm
-│   └── urls.py
-├── loans/                   # Customer loan portal
-│   ├── models.py            # LoanProduct, Customer, LoanApplication, Loan …
-│   ├── views.py             # Customer-facing views only
-│   ├── forms.py             # CustomerProfileForm, LoanApplicationForm …
-│   └── urls.py
+├── config/              # Settings, urls, wsgi, asgi
+├── core/                # Email-based auth, RBAC, audit log, dashboard routing,
+│                        # document verification
+├── loans/               # Customer models, loan application workflow,
+│                        # repayment tracking
 ├── templates/
-│   ├── base.html
-│   ├── landing.html
-│   ├── core/                # login, register, dashboards, user_approval
-│   └── loans/
-│       └── customer/        # dashboard, apply, profile, my_applications …
-├── static/
-├── manage.py
-└── requirements.txt
+│   └── partials/
+│       └── navbar.html  # Shared navbar
+├── static/              # Compiled frontend assets
+└── frontend/            # Vite + React/TypeScript source (document verification UI)
 ```
 
----
+### URL Map
 
-## ⚙️ Tech Stack
-
-| Component | Version |
+| URL | Description |
 |---|---|
-| Python | 3.12 |
-| Django | 5.0.2 |
-| PostgreSQL driver | psycopg2-binary 2.9.9 |
-| Django REST Framework | 3.14.0 |
-| Gunicorn | 21.2.0 |
-| WhiteNoise | 6.6.0 |
-| python-decouple | 3.8 |
+| `/` | Public landing page |
+| `/login/` | Customer / admin login |
+| `/register/` | New customer registration |
+| `/dashboard/` | Role-based redirect |
+| `/customer/dashboard/` | Customer overview |
+| `/loans/` | Loan dashboard |
+| `/loans/apply/` | New loan application |
+| `/loans/applications/` | Application history |
+| `/loans/my-loans/` | Active loans |
+| `/loans/profile/` | KYC profile |
+| `/api/calculate-loan/` | AJAX loan calculator |
 
 ---
 
-## 🚀 Quick Start
+## Odoo Addons (`odoo_addons/`)
 
-### 1. Clone & create the virtual environment
+### `alba_loans` — Core Loan Management
 
-```bash
-git clone <repo-url>
-cd loan_system
+The central addon covering the full loan lifecycle from product configuration through to closure.
 
-python3.12 -m venv venv
-source venv/bin/activate
+**Loan Products**
+- Salary advance, business loan, asset financing
+- Configurable interest methods: flat rate and reducing balance
+- Amortisation schedule generation
+
+**Application Workflow**
+- 9-stage pipeline with Kanban view
+- KYC customer profiles linked to applications
+- Disbursement wizard with automated journal entries
+- Repayment posting with principal / interest / fees split
+
+**Portfolio Management**
+- PAR bucket tracking (PAR 1–30, 31–60, 61–90)
+- NPL flagging
+- Daily and weekly scheduled crons
+
+**M-Pesa Daraja Integration**
+- STK Push (Lipa Na M-Pesa)
+- C2B (customer-to-business payments)
+- B2C (business-to-customer disbursements)
+
+**Reporting**
+- Loan statement PDF per borrower
+
+**Security Groups:** Loan Officer · Loan Manager · Operations Manager · Finance · Director
+
+---
+
+### `alba_investors` — Investor Management
+
+Manages investor capital accounts alongside the loan book.
+
+- Investor profiles with KYC
+- Investment accounts: fixed-term and open-ended
+- Monthly compound interest accrual cron
+- Interest payable journal entries posted automatically
+- Monthly investor statement generation
+- M-Pesa B2C payout to investors
+
+---
+
+### `alba_integration` — Django ↔ Odoo Bridge
+
+Handles all communication between the Django portal and Odoo in both directions.
+
+#### Direction: Django → Odoo (inbound REST)
+
+| Method | Endpoint | Action |
+|---|---|---|
+| `POST` | `/alba/api/v1/customers` | Create or update a customer record |
+| `POST` | `/alba/api/v1/applications` | Submit a loan application |
+| `PATCH` | `/alba/api/v1/applications/<id>/status` | Change application state |
+| `POST` | `/alba/api/v1/payments` | Record a repayment |
+
+#### Direction: Odoo → Django (outbound HMAC-SHA256 webhooks)
+
+| Event |
+|---|
+| `application.status_changed` |
+| `loan.disbursed` |
+| `loan.npl_flagged` |
+| `loan.closed` |
+| `loan.instalment_overdue` |
+| `loan.maturing_soon` |
+| `payment.matched` |
+| `customer.kyc_verified` |
+| `portfolio.stats_updated` |
+
+#### Additional Features
+
+- API key management
+- Retry queue with exponential backoff: 2 min → 5 min → 15 min → 1 h → 4 h
+- Webhook audit log
+- Sync log with automated retention cron
+
+**Security Groups:** Integration User (read webhook logs) · Integration Admin (manage API keys)
+
+---
+
+### `alba_sms` — Bulk SMS
+
+Multi-provider SMS engine with templating, campaign management, and a full audit trail.
+
+**Provider Adapters**
+- Africa's Talking
+- Twilio
+- Vonage
+- Generic HTTP (configurable)
+
+**Template Engine**
+- `{placeholder}` substitution syntax
+- 8 default templates seeded on install
+
+**Automated Hooks**
+- Overdue payment reminders
+- Maturity reminders
+- Payment confirmation notifications
+- Collection stage reminders
+- Investor interest credited notifications
+
+**Bulk Campaign Engine**
+
+Audience targeting options:
+
+| Audience |
+|---|
+| All customers |
+| PAR 1–30 |
+| PAR 31–60 |
+| PAR 61–90 |
+| NPL |
+| Maturing loans |
+| Investors |
+| Custom domain filter |
+
+**Delivery Receipts**
+- DLR webhook endpoint: `/alba/sms/dlr`
+- Full SMS audit log per message
+
+**Kill Switch**
+
+Set `alba_sms.enabled = 0` in **Odoo → Settings → Technical → System Parameters** to suspend all outbound SMS immediately without uninstalling the addon.
+
+**Security Groups:** SMS User (read SMS logs) · SMS Officer (run campaigns) · SMS Admin (configure providers)
+
+> ⚠️ **Dual-notification note:** `alba_sms` and `alba_integration` both hook into overdue, maturity, and payment events. Ensure the Django portal does **not** also SMS customers on those same webhook events to avoid duplicate notifications.
+
+---
+
+## Module Dependency Graph
+
+```
+alba_loans ◄── alba_investors
+    ▲                ▲
+    └────────────────┘
+             ▲
+      alba_integration
+             ▲
+          alba_sms
 ```
 
-### 2. Install dependencies
+> `alba_sms` depends directly on `alba_loans` and `alba_investors`. It does **not** depend on `alba_integration`.
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `SECRET_KEY` | Django secret key — no default, startup fails if missing |
+| `DEBUG` | `True` for development, `False` for production |
+| `ALLOWED_HOSTS` | Comma-separated list of allowed hostnames |
+| `DB_NAME` | PostgreSQL database name |
+| `DB_USER` | PostgreSQL user |
+| `DB_PASSWORD` | PostgreSQL password — no default, startup fails if missing |
+| `DB_HOST` | Database host (default: `localhost`) |
+| `DB_PORT` | Database port (default: `5432`) |
+| `ODOO_URL` | Base URL of the Odoo instance |
+| `ODOO_API_KEY` | API key for Django → Odoo REST calls |
+| `ODOO_WEBHOOK_SECRET` | HMAC-SHA256 secret for verifying Odoo → Django webhooks |
+| `SESSION_COOKIE_SECURE` | Set `True` in production |
+| `CSRF_COOKIE_SECURE` | Set `True` in production |
+
+---
+
+## Quick Start (Django)
 
 ```bash
+git clone <repo>
+cd ACCT.f
+python3.12 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-```
-
-### 3. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` and fill in every value — especially `DB_NAME`, `DB_PASSWORD`, and `SECRET_KEY`:
-
-```ini
-SECRET_KEY=change-this-to-a-long-random-string
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-
-DB_NAME=your_chosen_db_name
-DB_USER=postgres
-DB_PASSWORD=your-db-password
-DB_HOST=localhost
-DB_PORT=5432
-```
-
-### 4. Create the PostgreSQL database
-
-```bash
-psql -U postgres -c "CREATE DATABASE your_chosen_db_name;"
-```
-
-### 5. Run migrations
-
-```bash
+cp .env.example .env   # fill in values
 python manage.py migrate
-```
-
-### 6. Create a superuser
-
-```bash
 python manage.py createsuperuser
-```
-
-### 7. Start the development server
-
-```bash
 python manage.py runserver
 ```
 
@@ -154,126 +266,27 @@ Visit **http://127.0.0.1:8000**
 
 ---
 
-## 👤 User Roles
+## User Roles
 
-| Role | Access |
-|---|---|
-| `CUSTOMER` | Customer portal — apply for loans, track applications & repayments |
-| `ADMIN` | Django admin panel — manage users, approve registrations |
-| `CREDIT_OFFICER` | Odoo — process and approve loan applications |
-| `FINANCE_OFFICER` | Odoo — accounting, disbursement |
-| `HR_OFFICER` | Odoo — HR & payroll |
-| `MANAGEMENT` | Odoo — reporting & analytics |
-| `INVESTOR` | Odoo — investor portal |
-
-New customer registrations require admin approval before the account becomes active.
-
----
-
-## 🔐 Environment Variables
-
-| Variable | Required | Description |
+| Role | System | Access |
 |---|---|---|
-| `SECRET_KEY` | ✅ | Django secret key |
-| `DEBUG` | ✅ | `True` for dev, `False` for production |
-| `ALLOWED_HOSTS` | ✅ | Comma-separated list of allowed hosts |
-| `DB_NAME` | ✅ | PostgreSQL database name |
-| `DB_USER` | ✅ | PostgreSQL user (default: `postgres`) |
-| `DB_PASSWORD` | ✅ | PostgreSQL password |
-| `DB_HOST` | ✅ | Database host (default: `localhost`) |
-| `DB_PORT` | ✅ | Database port (default: `5432`) |
-| `SESSION_COOKIE_SECURE` | | Set `True` in production |
-| `CSRF_COOKIE_SECURE` | | Set `True` in production |
-| `EMAIL_BACKEND` | | Console backend by default |
+| `CUSTOMER` | Django portal | Apply for loans, track applications and repayments |
+| `ADMIN` | Django admin | Manage users, approve registrations |
+| Loan Officer | Odoo — `alba_loans` | Process and assess loan applications |
+| Loan Manager | Odoo — `alba_loans` | Approve loans, manage officers |
+| Finance | Odoo — `alba_loans` | Disbursement, repayment posting, accounting entries |
+| Operations Manager | Odoo — `alba_loans` | Cross-functional operations oversight |
+| Director | Odoo — `alba_loans` | Full read access, portfolio reporting |
+| Investor | Odoo — `alba_investors` | View investment accounts and statements |
+| Integration User | Odoo — `alba_integration` | Read webhook and sync logs |
+| Integration Admin | Odoo — `alba_integration` | Manage API keys and retry queue |
+| SMS User | Odoo — `alba_sms` | Read SMS logs |
+| SMS Officer | Odoo — `alba_sms` | Run bulk campaigns |
+| SMS Admin | Odoo — `alba_sms` | Configure providers and templates |
 
 ---
 
-## 🌐 URL Map
+## Support
 
-| URL | View | Description |
-|---|---|---|
-| `/` | `landing_page` | Public landing page |
-| `/login/` | `LoginView` | Customer / admin login |
-| `/register/` | `RegisterView` | New customer registration |
-| `/logout/` | `logout_view` | Logout |
-| `/dashboard/` | `DashboardView` | Role-based redirect |
-| `/customer/dashboard/` | `CustomerDashboardView` | Customer overview |
-| `/admin-panel/` | `AdminDashboardView` | Admin overview |
-| `/users/approval/` | `user_approval_list` | Pending account approvals |
-| `/loans/` | `customer_loan_dashboard` | Loan dashboard |
-| `/loans/profile/` | `customer_profile` | KYC profile |
-| `/loans/apply/` | `apply_for_loan` | New loan application |
-| `/loans/applications/` | `my_applications` | Application history |
-| `/loans/application/<id>/` | `application_detail` | Application detail |
-| `/loans/my-loans/` | `my_loans` | Active loans |
-| `/loans/loan/<id>/` | `loan_detail` | Loan detail & repayments |
-| `/loans/api/calculate-loan/` | `calculate_loan` | AJAX loan calculator |
-
----
-
-## 🔒 Security
-
-- Email-based authentication (no usernames)
-- Role-Based Access Control (RBAC) on every view
-- Customer accounts require admin approval before first login
-- Immutable audit log on all actions (user, timestamp, IP, user agent)
-- CSRF protection enabled
-- Session expiry after 1 hour of inactivity
-- `SECRET_KEY`, `DB_PASSWORD` have no fallback defaults — startup fails fast if missing
-
-### Production checklist
-
-```
-[ ] Set DEBUG=False
-[ ] Set a strong SECRET_KEY
-[ ] Set SESSION_COOKIE_SECURE=True
-[ ] Set CSRF_COOKIE_SECURE=True
-[ ] Configure ALLOWED_HOSTS to your domain
-[ ] Run behind Nginx + Gunicorn
-[ ] Run python manage.py collectstatic
-```
-
----
-
-## 🗄️ Database
-
-PostgreSQL is the only supported database. SQLite is not used.
-
-```bash
-# Create database
-psql -U postgres -c "CREATE DATABASE your_db_name;"
-
-# Apply migrations
-python manage.py migrate
-
-# Check migration status
-python manage.py showmigrations
-```
-
----
-
-## 🚢 Production
-
-```bash
-# Collect static files
-python manage.py collectstatic --no-input
-
-# Start with Gunicorn
-gunicorn config.wsgi:application \
-    --bind 0.0.0.0:8000 \
-    --workers 3 \
-    --timeout 120
-```
-
----
-
-## 🔗 Odoo Integration
-
-Staff-side processing (credit review, KYC verification, loan approval, disbursement, accounting, HR, payroll) is handled in **Odoo 19 Enterprise**. Integration between this portal and Odoo will be done via REST API. Configuration for the Odoo connection will be added to `.env` once the Odoo instance is set up.
-
----
-
-## 📞 Support
-
-**Alba Capital** — internal system.  
-For issues contact the system administrator.
+**Alba Capital** — internal system.
+Contact the system administrator for access or issues.

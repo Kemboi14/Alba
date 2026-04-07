@@ -285,7 +285,7 @@ endblock %} {% block body %}
         </p>
     </div>
 </div>
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script>
     const pwdInput = document.getElementById("id_password1");
     const meter = document.getElementById("pwd-strength");
@@ -315,4 +315,4 @@ endblock %} {% block body %}
         });
     }
 </script>
-{% endblock %} {% endblock %}
+{% endblock %}
