@@ -5,6 +5,7 @@ Forms for authentication and user management
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from .models import User
+from loans.models import Customer
 
 
 class LoginForm(AuthenticationForm):
@@ -70,3 +71,32 @@ class UserRegistrationForm(UserCreationForm):
             'class': 'w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-alba-orange focus:ring-2 focus:ring-alba-orange/20 outline-none transition',
             'placeholder': 'Confirm your password',
         })
+
+
+class VerificationProfileForm(forms.ModelForm):
+    """Form for the client profile verification page — fields map to Customer model."""
+
+    class Meta:
+        model = Customer
+        fields = [
+            'id_number',
+            'date_of_birth',
+            'address',
+            'city',
+            'county',
+            'employment_status',
+            'employer_name',
+            'employer_contact',
+            'monthly_income',
+            'employment_date',
+            'bank_name',
+            'bank_account',
+            'existing_loans',
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Mark required fields
+        for name in ('id_number', 'date_of_birth', 'address', 'city', 'county',
+                     'employment_status', 'monthly_income'):
+            self.fields[name].required = True

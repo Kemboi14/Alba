@@ -132,10 +132,8 @@ function autoFillForm(output: VerificationOutput): void {
 
   const fieldMap: Record<string, string | number> = {
     id_id_number: clientData.idNumber ?? "",
-    id_full_name: clientData.fullName ?? "",
     id_date_of_birth: clientData.dateOfBirth ?? "",
-    id_gender: (clientData.gender ?? "").toLowerCase(),
-    id_employer: clientData.employer ?? "",
+    id_employer_name: clientData.employer ?? "",
     id_monthly_income: clientData.monthlyIncome ?? "",
   };
 

@@ -19,7 +19,7 @@
         <!-- Production: Load built files from Django static -->
         <link
             rel="stylesheet"
-            href="{% static 'verification/css/main.css' %}"
+            href="{% static 'verification/assets/main.css' %}"
         />
         {% endif %}
 
@@ -551,6 +551,18 @@
                 </div>
 
                 <div class="form-card-body">
+                    {% if messages %}
+                    <div style="margin-bottom: 1.5rem;">
+                        {% for message in messages %}
+                        <div style="padding: 0.75rem 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem;
+                            {% if message.tags == 'error' %}background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5;
+                            {% elif message.tags == 'success' %}background: #f0fdf4; color: #166534; border: 1px solid #86efac;
+                            {% else %}background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd;{% endif %}"
+                            role="alert">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
                     <form
                         method="post"
                         action="{% url 'client_profile_verification' %}"
@@ -558,679 +570,264 @@
                     >
                         {% csrf_token %}
 
-                        <!-- Personal Information -->
+                        <!-- Section 1: Personal Information -->
                         <fieldset class="form-section">
                             <legend class="section-header">
-                                <span class="section-number" aria-hidden="true"
-                                    >1</span
-                                >
+                                <span class="section-number" aria-hidden="true">1</span>
                                 <div>
-                                    <h3 class="section-title">
-                                        Personal Information
-                                    </h3>
-                                    <p class="section-description">
-                                        Enter details as they appear on your
-                                        National ID
-                                    </p>
+                                    <h3 class="section-title">Personal Information</h3>
+                                    <p class="section-description">Enter details as they appear on your National ID</p>
                                 </div>
                             </legend>
 
                             <div class="form-grid">
-                                <div class="form-field full-width">
-                                    <label
-                                        for="id_full_name"
-                                        class="form-label"
-                                    >
-                                        Full Name
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="id_full_name"
-                                        name="full_name"
-                                        class="form-input {% if form.full_name.errors %}is-invalid{% endif %}"
-                                        value="{{ form.full_name.value|default:'' }}"
-                                        required
-                                        aria-required="true"
-                                        aria-describedby="full-name-help"
-                                        autocomplete="name"
-                                        placeholder="Enter your full name as on ID"
-                                    />
-                                    <p id="full-name-help" class="help-text">
-                                        First and last name exactly as shown on
-                                        your National ID
-                                    </p>
-                                    {% if form.full_name.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.full_name.errors.0 }}</span
-                                    >
-                                    {% endif %}
-                                </div>
-
                                 <div class="form-field">
-                                    <label
-                                        for="id_id_number"
-                                        class="form-label"
-                                    >
-                                        ID Number
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
+                                    <label for="id_id_number" class="form-label">
+                                        ID / Passport Number <span class="required-indicator" aria-label="required">*</span>
                                     </label>
-                                    <input
-                                        type="text"
-                                        id="id_id_number"
-                                        name="id_number"
+                                    <input type="text" id="id_id_number" name="id_number"
                                         class="form-input {% if form.id_number.errors %}is-invalid{% endif %}"
                                         value="{{ form.id_number.value|default:'' }}"
-                                        required
-                                        maxlength="8"
-                                        pattern="[0-9]{8}"
-                                        inputmode="numeric"
-                                        aria-required="true"
-                                        aria-describedby="id-number-help"
-                                        placeholder="8-digit ID number"
-                                    />
-                                    <p id="id-number-help" class="help-text">
-                                        Your 8-digit Kenyan National ID number
-                                    </p>
+                                        required maxlength="50" aria-required="true"
+                                        placeholder="e.g. 12345678" />
+                                    <p class="help-text">Your National ID or Passport number</p>
                                     {% if form.id_number.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.id_number.errors.0 }}</span
-                                    >
+                                    <span class="error-message" role="alert">{{ form.id_number.errors.0 }}</span>
                                     {% endif %}
                                 </div>
 
                                 <div class="form-field">
-                                    <label
-                                        for="id_date_of_birth"
-                                        class="form-label"
-                                    >
-                                        Date of Birth
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
+                                    <label for="id_date_of_birth" class="form-label">
+                                        Date of Birth <span class="required-indicator" aria-label="required">*</span>
                                     </label>
-                                    <input
-                                        type="date"
-                                        id="id_date_of_birth"
-                                        name="date_of_birth"
+                                    <input type="date" id="id_date_of_birth" name="date_of_birth"
                                         class="form-input {% if form.date_of_birth.errors %}is-invalid{% endif %}"
                                         value="{{ form.date_of_birth.value|default:'' }}"
-                                        required
-                                        aria-required="true"
-                                        aria-describedby="dob-help"
-                                        autocomplete="bday"
-                                    />
-                                    <p id="dob-help" class="help-text">
-                                        Select your date of birth from the
-                                        calendar
-                                    </p>
+                                        required aria-required="true" />
                                     {% if form.date_of_birth.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.date_of_birth.errors.0 }}</span
-                                    >
-                                    {% endif %}
-                                </div>
-
-                                <div class="form-field">
-                                    <label for="id_gender" class="form-label">
-                                        Gender
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
-                                    </label>
-                                    <select
-                                        id="id_gender"
-                                        name="gender"
-                                        class="form-input {% if form.gender.errors %}is-invalid{% endif %}"
-                                        required
-                                        aria-required="true"
-                                        aria-describedby="gender-help"
-                                    >
-                                        <option
-                                            value=""
-                                            {% if not form.gender.value %}selected{% endif %}
-                                            disabled
-                                        >
-                                            Select your gender
-                                        </option>
-                                        <option
-                                            value="male"
-                                            {% if form.gender.value="" ="male" %}selected{% endif %}
-                                        >
-                                            Male
-                                        </option>
-                                        <option
-                                            value="female"
-                                            {% if form.gender.value="" ="female" %}selected{% endif %}
-                                        >
-                                            Female
-                                        </option>
-                                    </select>
-                                    <p id="gender-help" class="help-text">
-                                        Select as shown on your ID
-                                    </p>
-                                    {% if form.gender.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.gender.errors.0 }}</span
-                                    >
+                                    <span class="error-message" role="alert">{{ form.date_of_birth.errors.0 }}</span>
                                     {% endif %}
                                 </div>
                             </div>
                         </fieldset>
 
-                        <!-- Contact Information -->
+                        <!-- Section 2: Contact Information -->
                         <fieldset class="form-section">
                             <legend class="section-header">
-                                <span class="section-number" aria-hidden="true"
-                                    >2</span
-                                >
+                                <span class="section-number" aria-hidden="true">2</span>
                                 <div>
-                                    <h3 class="section-title">
-                                        Contact Information
-                                    </h3>
-                                    <p class="section-description">
-                                        How we can reach you for updates
-                                    </p>
-                                </div>
-                            </legend>
-
-                            <div class="form-grid">
-                                <div class="form-field">
-                                    <label for="id_email" class="form-label">
-                                        Email Address
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
-                                    </label>
-                                    <input
-                                        type="email"
-                                        id="id_email"
-                                        name="email"
-                                        class="form-input {% if form.email.errors %}is-invalid{% endif %}"
-                                        value="{{ form.email.value|default:'' }}"
-                                        required
-                                        aria-required="true"
-                                        aria-describedby="email-help"
-                                        autocomplete="email"
-                                        placeholder="your.email@example.com"
-                                    />
-                                    <p id="email-help" class="help-text">
-                                        We'll send important updates to this
-                                        email
-                                    </p>
-                                    {% if form.email.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.email.errors.0 }}</span
-                                    >
-                                    {% endif %}
-                                </div>
-
-                                <div class="form-field">
-                                    <label for="id_phone" class="form-label">
-                                        Phone Number
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
-                                    </label>
-                                    <input
-                                        type="tel"
-                                        id="id_phone"
-                                        name="phone"
-                                        class="form-input {% if form.phone.errors %}is-invalid{% endif %}"
-                                        value="{{ form.phone.value|default:'' }}"
-                                        required
-                                        pattern="[0-9]{10,12}"
-                                        inputmode="tel"
-                                        aria-required="true"
-                                        aria-describedby="phone-help"
-                                        autocomplete="tel"
-                                        placeholder="07XX XXX XXX"
-                                    />
-                                    <p id="phone-help" class="help-text">
-                                        10-digit mobile number starting with 07
-                                    </p>
-                                    {% if form.phone.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.phone.errors.0 }}</span
-                                    >
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </fieldset>
-
-                        <!-- Employment Information -->
-                        <fieldset class="form-section">
-                            <legend class="section-header">
-                                <span class="section-number" aria-hidden="true"
-                                    >3</span
-                                >
-                                <div>
-                                    <h3 class="section-title">
-                                        Employment Information
-                                    </h3>
-                                    <p class="section-description">
-                                        Details about your current employment
-                                    </p>
-                                </div>
-                            </legend>
-
-                            <div class="form-grid">
-                                <div class="form-field">
-                                    <label for="id_employer" class="form-label">
-                                        Employer Name
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="id_employer"
-                                        name="employer"
-                                        class="form-input {% if form.employer.errors %}is-invalid{% endif %}"
-                                        value="{{ form.employer.value|default:'' }}"
-                                        required
-                                        aria-required="true"
-                                        aria-describedby="employer-help"
-                                        autocomplete="organization"
-                                        placeholder="Company name"
-                                    />
-                                    <p id="employer-help" class="help-text">
-                                        Company or organization you work for
-                                    </p>
-                                    {% if form.employer.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.employer.errors.0 }}</span
-                                    >
-                                    {% endif %}
-                                </div>
-
-                                <div class="form-field">
-                                    <label
-                                        for="id_job_title"
-                                        class="form-label"
-                                    >
-                                        Job Title
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="id_job_title"
-                                        name="job_title"
-                                        class="form-input {% if form.job_title.errors %}is-invalid{% endif %}"
-                                        value="{{ form.job_title.value|default:'' }}"
-                                        required
-                                        aria-required="true"
-                                        aria-describedby="job-title-help"
-                                        autocomplete="organization-title"
-                                        placeholder="Your position"
-                                    />
-                                    <p id="job-title-help" class="help-text">
-                                        Your current position or role
-                                    </p>
-                                    {% if form.job_title.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.job_title.errors.0 }}</span
-                                    >
-                                    {% endif %}
-                                </div>
-
-                                <div class="form-field">
-                                    <label
-                                        for="id_employment_type"
-                                        class="form-label"
-                                    >
-                                        Employment Type
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
-                                    </label>
-                                    <select
-                                        id="id_employment_type"
-                                        name="employment_type"
-                                        class="form-input {% if form.employment_type.errors %}is-invalid{% endif %}"
-                                        required
-                                        aria-required="true"
-                                        aria-describedby="employment-type-help"
-                                    >
-                                        <option
-                                            value=""
-                                            {% if not form.employment_type.value %}selected{% endif %}
-                                            disabled
-                                        >
-                                            Select type
-                                        </option>
-                                        <option
-                                            value="permanent"
-                                            {% if form.employment_type.value="" ="permanent" %}selected{% endif %}
-                                        >
-                                            Permanent / Full-time
-                                        </option>
-                                        <option
-                                            value="contract"
-                                            {% if form.employment_type.value="" ="contract" %}selected{% endif %}
-                                        >
-                                            Contract
-                                        </option>
-                                        <option
-                                            value="self-employed"
-                                            {% if form.employment_type.value="" ="self-employed" %}selected{% endif %}
-                                        >
-                                            Self Employed
-                                        </option>
-                                    </select>
-                                    <p
-                                        id="employment-type-help"
-                                        class="help-text"
-                                    >
-                                        Your employment contract type
-                                    </p>
-                                    {% if form.employment_type.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.employment_type.errors.0 }}</span
-                                    >
-                                    {% endif %}
-                                </div>
-
-                                <div class="form-field">
-                                    <label
-                                        for="id_monthly_income"
-                                        class="form-label"
-                                    >
-                                        Monthly Income (KSh)
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
-                                    </label>
-                                    <input
-                                        type="number"
-                                        id="id_monthly_income"
-                                        name="monthly_income"
-                                        class="form-input {% if form.monthly_income.errors %}is-invalid{% endif %}"
-                                        value="{{ form.monthly_income.value|default:'' }}"
-                                        required
-                                        min="1000"
-                                        step="100"
-                                        inputmode="numeric"
-                                        aria-required="true"
-                                        aria-describedby="income-help"
-                                        placeholder="e.g., 45000"
-                                    />
-                                    <p id="income-help" class="help-text">
-                                        Gross monthly income in Kenyan Shillings
-                                    </p>
-                                    {% if form.monthly_income.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.monthly_income.errors.0 }}</span
-                                    >
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </fieldset>
-
-                        <!-- Address Information -->
-                        <fieldset class="form-section">
-                            <legend class="section-header">
-                                <span class="section-number" aria-hidden="true"
-                                    >4</span
-                                >
-                                <div>
-                                    <h3 class="section-title">
-                                        Address Information
-                                    </h3>
-                                    <p class="section-description">
-                                        Your current residential address
-                                    </p>
+                                    <h3 class="section-title">Contact Information</h3>
+                                    <p class="section-description">How we can reach you for updates</p>
                                 </div>
                             </legend>
 
                             <div class="form-grid">
                                 <div class="form-field full-width">
-                                    <label for="id_street" class="form-label">
-                                        Street Address
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
+                                    <label for="id_address" class="form-label">
+                                        Physical Address <span class="required-indicator" aria-label="required">*</span>
                                     </label>
-                                    <input
-                                        type="text"
-                                        id="id_street"
-                                        name="street"
-                                        class="form-input {% if form.street.errors %}is-invalid{% endif %}"
-                                        value="{{ form.street.value|default:'' }}"
-                                        required
-                                        aria-required="true"
-                                        aria-describedby="street-help"
-                                        autocomplete="street-address"
-                                        placeholder="House number, street name, building"
-                                    />
-                                    <p id="street-help" class="help-text">
-                                        House or building number and street name
-                                    </p>
-                                    {% if form.street.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.street.errors.0 }}</span
-                                    >
+                                    <input type="text" id="id_address" name="address"
+                                        class="form-input {% if form.address.errors %}is-invalid{% endif %}"
+                                        value="{{ form.address.value|default:'' }}"
+                                        required aria-required="true"
+                                        placeholder="House number, street, building" />
+                                    {% if form.address.errors %}
+                                    <span class="error-message" role="alert">{{ form.address.errors.0 }}</span>
                                     {% endif %}
                                 </div>
 
                                 <div class="form-field">
                                     <label for="id_city" class="form-label">
-                                        City / Town
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
+                                        City / Town <span class="required-indicator" aria-label="required">*</span>
                                     </label>
-                                    <input
-                                        type="text"
-                                        id="id_city"
-                                        name="city"
+                                    <input type="text" id="id_city" name="city"
                                         class="form-input {% if form.city.errors %}is-invalid{% endif %}"
                                         value="{{ form.city.value|default:'' }}"
-                                        required
-                                        aria-required="true"
-                                        aria-describedby="city-help"
-                                        autocomplete="address-level2"
-                                        placeholder="e.g., Nairobi"
-                                    />
-                                    <p id="city-help" class="help-text">
-                                        City or town where you live
-                                    </p>
+                                        required aria-required="true"
+                                        placeholder="e.g. Nairobi" />
                                     {% if form.city.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.city.errors.0 }}</span
-                                    >
+                                    <span class="error-message" role="alert">{{ form.city.errors.0 }}</span>
                                     {% endif %}
                                 </div>
 
                                 <div class="form-field">
                                     <label for="id_county" class="form-label">
-                                        County
-                                        <span
-                                            class="required-indicator"
-                                            aria-label="required"
-                                            >*</span
-                                        >
+                                        County <span class="required-indicator" aria-label="required">*</span>
                                     </label>
-                                    <input
-                                        type="text"
-                                        id="id_county"
-                                        name="county"
+                                    <input type="text" id="id_county" name="county"
                                         class="form-input {% if form.county.errors %}is-invalid{% endif %}"
                                         value="{{ form.county.value|default:'' }}"
-                                        required
-                                        aria-required="true"
-                                        aria-describedby="county-help"
-                                        placeholder="e.g., Nairobi County"
-                                    />
-                                    <p id="county-help" class="help-text">
-                                        County of residence
-                                    </p>
+                                        required aria-required="true"
+                                        placeholder="e.g. Nairobi County" />
                                     {% if form.county.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.county.errors.0 }}</span
-                                    >
-                                    {% endif %}
-                                </div>
-
-                                <div class="form-field">
-                                    <label
-                                        for="id_postal_code"
-                                        class="form-label"
-                                    >
-                                        Postal Code
-                                        <span class="optional-text"
-                                            >(Optional)</span
-                                        >
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="id_postal_code"
-                                        name="postal_code"
-                                        class="form-input {% if form.postal_code.errors %}is-invalid{% endif %}"
-                                        value="{{ form.postal_code.value|default:'' }}"
-                                        aria-describedby="postal-code-help"
-                                        autocomplete="postal-code"
-                                        placeholder="e.g., 00100"
-                                    />
-                                    <p id="postal-code-help" class="help-text">
-                                        Your postal code if available
-                                    </p>
-                                    {% if form.postal_code.errors %}
-                                    <span class="error-message" role="alert"
-                                        >{{ form.postal_code.errors.0 }}</span
-                                    >
+                                    <span class="error-message" role="alert">{{ form.county.errors.0 }}</span>
                                     {% endif %}
                                 </div>
                             </div>
                         </fieldset>
 
-                        <!-- Document Verification -->
+                        <!-- Section 3: Employment Information -->
                         <fieldset class="form-section">
                             <legend class="section-header">
-                                <span class="section-number" aria-hidden="true"
-                                    >5</span
-                                >
+                                <span class="section-number" aria-hidden="true">3</span>
                                 <div>
-                                    <h3 class="section-title">
-                                        Document Verification
-                                    </h3>
-                                    <p class="section-description">
-                                        Upload and verify your documents
-                                        automatically
-                                    </p>
+                                    <h3 class="section-title">Employment Information</h3>
+                                    <p class="section-description">Details about your current employment</p>
                                 </div>
                             </legend>
 
-                            <div
-                                class="verification-section"
-                                role="region"
-                                aria-labelledby="verification-heading"
-                            >
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="id_employment_status" class="form-label">
+                                        Employment Status <span class="required-indicator" aria-label="required">*</span>
+                                    </label>
+                                    <select id="id_employment_status" name="employment_status"
+                                        class="form-input {% if form.employment_status.errors %}is-invalid{% endif %}"
+                                        required aria-required="true">
+                                        <option value="" {% if not form.employment_status.value %}selected{% endif %} disabled>Select status</option>
+                                        <option value="EMPLOYED" {% if form.employment_status.value == "EMPLOYED" %}selected{% endif %}>Employed</option>
+                                        <option value="SELF_EMPLOYED" {% if form.employment_status.value == "SELF_EMPLOYED" %}selected{% endif %}>Self Employed</option>
+                                        <option value="UNEMPLOYED" {% if form.employment_status.value == "UNEMPLOYED" %}selected{% endif %}>Unemployed</option>
+                                        <option value="RETIRED" {% if form.employment_status.value == "RETIRED" %}selected{% endif %}>Retired</option>
+                                    </select>
+                                    {% if form.employment_status.errors %}
+                                    <span class="error-message" role="alert">{{ form.employment_status.errors.0 }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="id_employer_name" class="form-label">Employer Name</label>
+                                    <input type="text" id="id_employer_name" name="employer_name"
+                                        class="form-input {% if form.employer_name.errors %}is-invalid{% endif %}"
+                                        value="{{ form.employer_name.value|default:'' }}"
+                                        placeholder="Company name" />
+                                    {% if form.employer_name.errors %}
+                                    <span class="error-message" role="alert">{{ form.employer_name.errors.0 }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="id_employer_contact" class="form-label">Employer Contact</label>
+                                    <input type="text" id="id_employer_contact" name="employer_contact"
+                                        class="form-input {% if form.employer_contact.errors %}is-invalid{% endif %}"
+                                        value="{{ form.employer_contact.value|default:'' }}"
+                                        placeholder="0712345678" />
+                                    {% if form.employer_contact.errors %}
+                                    <span class="error-message" role="alert">{{ form.employer_contact.errors.0 }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="id_monthly_income" class="form-label">
+                                        Monthly Income (KES) <span class="required-indicator" aria-label="required">*</span>
+                                    </label>
+                                    <input type="number" id="id_monthly_income" name="monthly_income"
+                                        class="form-input {% if form.monthly_income.errors %}is-invalid{% endif %}"
+                                        value="{{ form.monthly_income.value|default:'' }}"
+                                        required min="0" step="100" inputmode="numeric"
+                                        placeholder="e.g. 45000" />
+                                    {% if form.monthly_income.errors %}
+                                    <span class="error-message" role="alert">{{ form.monthly_income.errors.0 }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="id_employment_date" class="form-label">Date of Employment</label>
+                                    <input type="date" id="id_employment_date" name="employment_date"
+                                        class="form-input {% if form.employment_date.errors %}is-invalid{% endif %}"
+                                        value="{{ form.employment_date.value|default:'' }}" />
+                                    {% if form.employment_date.errors %}
+                                    <span class="error-message" role="alert">{{ form.employment_date.errors.0 }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Section 4: Financial Information -->
+                        <fieldset class="form-section">
+                            <legend class="section-header">
+                                <span class="section-number" aria-hidden="true">4</span>
+                                <div>
+                                    <h3 class="section-title">Financial Information</h3>
+                                    <p class="section-description">Bank details for loan disbursement</p>
+                                </div>
+                            </legend>
+
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="id_bank_name" class="form-label">Bank Name</label>
+                                    <input type="text" id="id_bank_name" name="bank_name"
+                                        class="form-input {% if form.bank_name.errors %}is-invalid{% endif %}"
+                                        value="{{ form.bank_name.value|default:'' }}"
+                                        placeholder="e.g. KCB, Equity" />
+                                    {% if form.bank_name.errors %}
+                                    <span class="error-message" role="alert">{{ form.bank_name.errors.0 }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="id_bank_account" class="form-label">Bank Account Number</label>
+                                    <input type="text" id="id_bank_account" name="bank_account"
+                                        class="form-input {% if form.bank_account.errors %}is-invalid{% endif %}"
+                                        value="{{ form.bank_account.value|default:'' }}"
+                                        placeholder="Account number" />
+                                    {% if form.bank_account.errors %}
+                                    <span class="error-message" role="alert">{{ form.bank_account.errors.0 }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="id_existing_loans" class="form-label">Existing Loan Obligations (KES)</label>
+                                    <input type="number" id="id_existing_loans" name="existing_loans"
+                                        class="form-input {% if form.existing_loans.errors %}is-invalid{% endif %}"
+                                        value="{{ form.existing_loans.value|default:'0' }}"
+                                        min="0" step="0.01"
+                                        placeholder="0.00" />
+                                    {% if form.existing_loans.errors %}
+                                    <span class="error-message" role="alert">{{ form.existing_loans.errors.0 }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Section 5: Document Verification -->
+                        <fieldset class="form-section">
+                            <legend class="section-header">
+                                <span class="section-number" aria-hidden="true">5</span>
+                                <div>
+                                    <h3 class="section-title">Document Verification</h3>
+                                    <p class="section-description">Upload and verify your documents automatically</p>
+                                </div>
+                            </legend>
+
+                            <div class="verification-section" role="region" aria-labelledby="verification-heading">
                                 <div class="verification-section-header">
-                                    <div
-                                        class="verification-icon"
-                                        aria-hidden="true"
-                                    >
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                                            />
+                                    <div class="verification-icon" aria-hidden="true">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                                         </svg>
                                     </div>
                                     <div>
-                                        <h4
-                                            id="verification-heading"
-                                            class="verification-title"
-                                        >
-                                            Secure Document Verification
-                                        </h4>
-                                        <p class="verification-description">
-                                            Upload your ID and payslips. We'll
-                                            extract information automatically
-                                            using AI.
-                                        </p>
+                                        <h4 id="verification-heading" class="verification-title">Secure Document Verification</h4>
+                                        <p class="verification-description">Upload your ID and payslips. We'll extract information automatically using AI.</p>
                                     </div>
                                 </div>
 
-                                <div
-                                    id="verification-root"
-                                    role="application"
-                                    aria-label="Document verification wizard"
-                                    aria-live="polite"
-                                >
+                                <div id="verification-root" role="application" aria-label="Document verification wizard" aria-live="polite">
                                     <div class="loading-spinner" role="status">
-                                        <span class="sr-only"
-                                            >Loading verification
-                                            component...</span
-                                        >
+                                        <span class="sr-only">Loading verification component...</span>
                                     </div>
                                 </div>
 
-                                <input
-                                    type="hidden"
-                                    id="verification-data"
-                                    name="verification_data"
-                                    value=""
-                                    aria-hidden="true"
-                                />
+                                <input type="hidden" id="verification-data" name="verification_data" value="" aria-hidden="true" />
                             </div>
                         </fieldset>
 
                         <!-- Form Actions -->
                         <div class="form-actions">
-                            <a
-                                href="{% url 'landing' %}"
-                                class="btn btn-secondary"
-                                role="button"
-                            >
-                                Cancel
-                            </a>
-
-                            <button
-                                type="submit"
-                                class="btn btn-primary"
-                                id="submit-button"
-                            >
-                                Save Profile
-                            </button>
+                            <a href="{% url 'customer_dashboard' %}" class="btn btn-secondary" role="button">Cancel</a>
+                            <button type="submit" class="btn btn-primary" id="submit-button">Save Profile</button>
                         </div>
                     </form>
                 </div>
