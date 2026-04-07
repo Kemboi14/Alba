@@ -184,6 +184,16 @@ class LoanProduct(models.Model):
     # Timestamps
     created_at = models.DateTimeField("Created At", auto_now_add=True)
     updated_at = models.DateTimeField("Updated At", auto_now=True)
+
+    # Odoo Integration
+    odoo_product_id = models.PositiveIntegerField(
+        "Odoo Product ID",
+        null=True,
+        blank=True,
+        unique=True,
+        help_text="ID of the corresponding alba.loan.product record in Odoo",
+    )
+
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name="created_loan_products"
     )
@@ -730,6 +740,18 @@ class LoanApplication(models.Model):
     odoo_application_id = models.PositiveIntegerField(
         "Odoo Application ID", null=True, blank=True
     )
+    odoo_loan_id = models.PositiveIntegerField(
+        "Odoo Loan ID",
+        null=True,
+        blank=True,
+        help_text="Odoo alba.loan ID assigned when this application is disbursed",
+    )
+    odoo_loan_number = models.CharField(
+        "Odoo Loan Number",
+        max_length=50,
+        blank=True,
+        help_text="Odoo loan reference number (e.g. LN-20240601-0001)",
+    )
 
     # Timestamps
     created_at = models.DateTimeField("Created At", auto_now_add=True)
@@ -947,6 +969,16 @@ class Loan(models.Model):
         "Disbursement Reference", max_length=100, blank=True
     )
 
+    # Odoo Integration
+    odoo_loan_id = models.PositiveIntegerField(
+        "Odoo Loan ID",
+        null=True,
+        blank=True,
+        unique=True,
+        db_index=True,
+        help_text="ID of the corresponding alba.loan record in Odoo",
+    )
+
     # Timestamps
     created_at = models.DateTimeField("Created At", auto_now_add=True)
     updated_at = models.DateTimeField("Updated At", auto_now=True)
@@ -1120,6 +1152,42 @@ class LoanRepayment(models.Model):
         User, on_delete=models.SET_NULL, null=True, related_name="processed_repayments"
     )
     notes = models.TextField("Notes", blank=True)
+
+    # Odoo Integration
+    odoo_repayment_id = models.PositiveIntegerField(
+        "Odoo Repayment ID",
+        null=True,
+        blank=True,
+        help_text="ID of the posted repayment record in Odoo",
+    )
+    sync_status = models.CharField(
+        "Sync Status",
+        max_length=20,
+        choices=[
+            ("pending", "Pending Sync"),
+            ("posted", "Posted in Odoo"),
+            ("failed", "Sync Failed"),
+        ],
+        default="pending",
+        db_index=True,
+        help_text="Whether this repayment has been posted/reconciled in Odoo",
+    )
+    principal_applied = models.DecimalField(
+        "Principal Applied",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Principal allocation confirmed by Odoo after posting",
+    )
+    interest_applied = models.DecimalField(
+        "Interest Applied",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Interest allocation confirmed by Odoo after posting",
+    )
 
     # Timestamps
     created_at = models.DateTimeField("Created At", auto_now_add=True)
@@ -1646,3 +1714,51 @@ class LoanDocument(models.Model):
 
     def __str__(self):
         return f"{self.get_document_type_display()} - {self.application.application_number}"
+
+
+class WebhookDelivery(models.Model):
+    """
+    Audit record for every inbound Odoo webhook delivery.
+    Used for idempotency (duplicate detection) and operational monitoring.
+    """
+
+    STATUS_CHOICES = [
+        ("processing", "Processing"),
+        ("success", "Success"),
+        ("error", "Error"),
+        ("unhandled", "Unhandled Event"),
+    ]
+
+    delivery_id = models.CharField(
+        "Delivery ID",
+        max_length=128,
+        unique=True,
+        db_index=True,
+        help_text="X-Alba-Delivery UUID sent by Odoo in the webhook envelope",
+    )
+    event_type = models.CharField("Event Type", max_length=128)
+    status = models.CharField(
+        "Processing Status",
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="processing",
+        db_index=True,
+    )
+    processing_detail = models.TextField("Processing Detail", blank=True)
+    raw_body = models.TextField("Raw Request Body", blank=True)
+    remote_ip = models.CharField("Remote IP", max_length=64, blank=True)
+    odoo_timestamp = models.DateTimeField("Odoo Event Timestamp", null=True, blank=True)
+    received_at = models.DateTimeField("Received At", auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = "webhook_deliveries"
+        verbose_name = "Webhook Delivery"
+        verbose_name_plural = "Webhook Deliveries"
+        ordering = ["-received_at"]
+        indexes = [
+            models.Index(fields=["event_type", "-received_at"]),
+            models.Index(fields=["status", "-received_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.event_type} [{self.delivery_id[:8]}…] — {self.status}"

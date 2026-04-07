@@ -725,8 +725,9 @@ def _build_customer_payload(user) -> dict:
     Build the JSON payload for POST /alba/api/v1/customers from a Django
     User instance.
 
-    Maps Django User fields → Odoo customer fields.  Falls back gracefully
-    when optional fields are absent on the User model.
+    Core identity fields come from the User model.  KYC/profile fields are
+    read from the related Customer profile (``user.customer_profile``) when
+    it exists.
     """
     payload: dict[str, Any] = {
         "django_customer_id": user.pk,
@@ -736,34 +737,44 @@ def _build_customer_payload(user) -> dict:
         "phone": getattr(user, "phone", "") or "",
     }
 
-    # Optional KYC / identity fields
-    for field in (
-        "id_number",
-        "id_type",
-        "nationality",
-        "gender",
-        "date_of_birth",
-        "address",
-        "city",
-        "country",
-        "employer_name",
-        "employer_address",
-        "monthly_income",
-        "kyc_status",
-    ):
-        value = getattr(user, field, None)
-        if value is not None:
-            # Convert date objects to ISO strings
-            if hasattr(value, "isoformat"):
-                payload[field] = value.isoformat()
-            else:
-                payload[field] = value
+    # Try to pull KYC data from the Customer profile (OneToOne reverse FK)
+    profile = None
+    try:
+        profile = user.customer_profile  # raises RelatedObjectDoesNotExist if absent
+    except Exception:
+        pass
 
-    # If the user already has an Odoo customer ID include it so Odoo
-    # can find and update the existing record instead of creating a duplicate.
-    odoo_id = getattr(user, "odoo_customer_id", None)
-    if odoo_id:
-        payload["odoo_customer_id"] = odoo_id
+    if profile is not None:
+        profile_fields = {
+            "id_number": getattr(profile, "id_number", None),
+            "date_of_birth": getattr(profile, "date_of_birth", None),
+            "address": getattr(profile, "address", None),
+            "city": getattr(profile, "city", None),
+            "county": getattr(profile, "county", None),
+            "employer_name": getattr(profile, "employer_name", None),
+            "employer_contact": getattr(profile, "employer_contact", None),
+            "monthly_income": getattr(profile, "monthly_income", None),
+            "employment_status": getattr(profile, "employment_status", None),
+            "bank_name": getattr(profile, "bank_name", None),
+            "bank_account": getattr(profile, "bank_account", None),
+            "kyc_verified": getattr(profile, "kyc_verified", None),
+        }
+        for field, value in profile_fields.items():
+            if value is not None:
+                if hasattr(value, "isoformat"):
+                    payload[field] = value.isoformat()
+                else:
+                    payload[field] = value
+
+        # Odoo customer ID is stored on the Customer profile
+        odoo_id = getattr(profile, "odoo_customer_id", None)
+        if odoo_id:
+            payload["odoo_customer_id"] = odoo_id
+    else:
+        # Fallback: check the user object itself (for custom user models)
+        odoo_id = getattr(user, "odoo_customer_id", None)
+        if odoo_id:
+            payload["odoo_customer_id"] = odoo_id
 
     return payload
 
@@ -773,28 +784,33 @@ def _build_application_payload(application) -> dict:
     Build the JSON payload for POST /alba/api/v1/applications from a
     Django LoanApplication instance.
     """
-    # Resolve customer Odoo ID
-    customer = getattr(application, "customer", None) or getattr(
-        application, "user", None
-    )
+    # Resolve the Odoo customer ID from the Customer profile
+    customer = getattr(application, "customer", None)
     odoo_customer_id = 0
-    if customer:
+    if customer is not None:
         odoo_customer_id = int(getattr(customer, "odoo_customer_id", 0) or 0)
+
+    # Resolve the Odoo product ID from the LoanProduct
+    loan_product = getattr(application, "loan_product", None)
+    odoo_loan_product_id = 0
+    if loan_product is not None:
+        odoo_loan_product_id = int(getattr(loan_product, "odoo_product_id", 0) or 0)
 
     payload: dict[str, Any] = {
         "django_application_id": application.pk,
         "odoo_customer_id": odoo_customer_id,
-        "odoo_loan_product_id": int(
-            getattr(application, "loan_product_odoo_id", 0)
-            or getattr(application, "odoo_product_id", 0)
-            or 0
-        ),
+        "odoo_loan_product_id": odoo_loan_product_id,
         "requested_amount": float(getattr(application, "requested_amount", 0) or 0),
         "tenure_months": int(getattr(application, "tenure_months", 0) or 0),
-        "repayment_frequency": getattr(application, "repayment_frequency", "monthly")
-        or "monthly",
+        "repayment_frequency": getattr(application, "repayment_frequency", "MONTHLY")
+        or "MONTHLY",
         "purpose": getattr(application, "purpose", "") or "",
     }
+
+    # Loan product name/code for Odoo display (fallback when odoo_loan_product_id is 0)
+    if loan_product is not None:
+        payload["loan_product_name"] = getattr(loan_product, "name", "") or ""
+        payload["loan_product_code"] = getattr(loan_product, "code", "") or ""
 
     # Optional fields
     for field in ("approved_amount", "conditions_of_approval", "internal_notes"):

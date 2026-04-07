@@ -174,15 +174,9 @@ CSP_IMG_SRC = ("'self'", "data:")
 CSP_FONT_SRC = ("'self'",)
 
 if DEBUG:
-    CSP_SCRIPT_SRC = CSP_SCRIPT_SRC + (
-        "https://cdn.tailwindcss.com",
-    )
-    CSP_STYLE_SRC = CSP_STYLE_SRC + (
-        "https://fonts.googleapis.com",
-    )
-    CSP_FONT_SRC = CSP_FONT_SRC + (
-        "https://fonts.gstatic.com",
-    )
+    CSP_SCRIPT_SRC = CSP_SCRIPT_SRC + ("https://cdn.tailwindcss.com",)
+    CSP_STYLE_SRC = CSP_STYLE_SRC + ("https://fonts.googleapis.com",)
+    CSP_FONT_SRC = CSP_FONT_SRC + ("https://fonts.gstatic.com",)
 
 # REST Framework Settings
 REST_FRAMEWORK = {
@@ -203,3 +197,5 @@ ODOO_USERNAME = config("ODOO_USERNAME", default="")
 ODOO_API_KEY = config("ODOO_API_KEY", default="")
 ODOO_WEBHOOK_SECRET = config("ODOO_WEBHOOK_SECRET", default="")
 ODOO_TIMEOUT = config("ODOO_TIMEOUT", default=30, cast=int)
+ODOO_MAX_RETRIES = config("ODOO_MAX_RETRIES", default=3, cast=int)
+ODOO_RETRY_BACKOFF = config("ODOO_RETRY_BACKOFF", default=2, cast=float)
