@@ -52,14 +52,7 @@ Context required: user, unread_notification_count {% endcomment %}
                 <a
                     href="{% url 'customer_dashboard' %}"
                     class="nav-link {% if active_page == 'home' %}active{% endif %}"
-                    {%
-                    if
-                    active_page=""
-                    ="home"
-                    %}aria-current="page"
-                    {%
-                    endif
-                    %}
+                    {% if active_page == 'home' %}aria-current="page"{% endif %}
                 >
                     <svg
                         class="w-4 h-4"
@@ -80,14 +73,7 @@ Context required: user, unread_notification_count {% endcomment %}
                 <a
                     href="{% url 'loans:my_loans' %}"
                     class="nav-link {% if active_page == 'loans' %}active{% endif %}"
-                    {%
-                    if
-                    active_page=""
-                    ="loans"
-                    %}aria-current="page"
-                    {%
-                    endif
-                    %}
+                    {% if active_page == 'loans' %}aria-current="page"{% endif %}
                 >
                     <svg
                         class="w-4 h-4"
@@ -108,14 +94,7 @@ Context required: user, unread_notification_count {% endcomment %}
                 <a
                     href="{% url 'loans:my_applications' %}"
                     class="nav-link {% if active_page == 'applications' %}active{% endif %}"
-                    {%
-                    if
-                    active_page=""
-                    ="applications"
-                    %}aria-current="page"
-                    {%
-                    endif
-                    %}
+                    {% if active_page == 'applications' %}aria-current="page"{% endif %}
                 >
                     <svg
                         class="w-4 h-4"
@@ -136,14 +115,7 @@ Context required: user, unread_notification_count {% endcomment %}
                 <a
                     href="{% url 'loans:apply_for_loan' %}"
                     class="nav-link {% if active_page == 'apply' %}active{% endif %}"
-                    {%
-                    if
-                    active_page=""
-                    ="apply"
-                    %}aria-current="page"
-                    {%
-                    endif
-                    %}
+                    {% if active_page == 'apply' %}aria-current="page"{% endif %}
                 >
                     <svg
                         class="w-4 h-4"
@@ -164,14 +136,7 @@ Context required: user, unread_notification_count {% endcomment %}
                 <a
                     href="{% url 'loans:customer_profile' %}"
                     class="nav-link {% if active_page == 'profile' %}active{% endif %}"
-                    {%
-                    if
-                    active_page=""
-                    ="profile"
-                    %}aria-current="page"
-                    {%
-                    endif
-                    %}
+                    {% if active_page == 'profile' %}aria-current="page"{% endif %}
                 >
                     <svg
                         class="w-4 h-4"

@@ -786,6 +786,46 @@ to make it run indefinitely.
 
 ---
 
+## Relationship with `alba_sms`
+
+The `alba_sms` module hooks into the same Odoo cron events as this module
+(`cron_send_overdue_alerts`, `cron_send_maturity_reminders`,
+`alba.loan.repayment.action_post`) but delivers to a completely different
+destination — the customer's phone number rather than the Django portal.
+
+**Neither module depends on the other.** They are parallel peers in the
+dependency graph:
+
+```
+alba_loans ◄── alba_sms
+alba_loans ◄── alba_integration
+```
+
+### ⚠️ Dual-Notification Risk
+
+When `cron_send_overdue_alerts` fires, **both** of the following happen:
+
+1. `alba_integration` → fires `loan.instalment_overdue` webhook → **Django portal**
+2. `alba_sms` → sends SMS directly → **customer's phone**
+
+If your Django portal also sends a customer-facing notification (email or SMS)
+upon receiving the `loan.instalment_overdue` or `payment.matched` webhook, the
+customer will receive **duplicate messages**.
+
+**Resolution:** In your Django webhook handler, check for a future
+`"sms_sent_by_odoo"` flag in the payload, or simply disable the Django-side
+customer notification for those specific event types once `alba_sms` is live.
+
+The same dual-notification risk applies to:
+
+| Event | `alba_integration` fires | `alba_sms` fires |
+|---|---|---|
+| `loan.instalment_overdue` | Webhook to Django | Overdue reminder SMS to customer |
+| `loan.maturing_soon` | Webhook to Django | Maturity reminder SMS to customer |
+| `payment.matched` | Webhook to Django | Payment confirmation SMS to customer |
+
+---
+
 ## Changelog
 
 ### 19.0.1.0.0 (initial release)
@@ -801,3 +841,4 @@ to make it run indefinitely.
   IP allowlisting, last-used tracking
 - Security groups: Integration User, Integration Admin
 - Updated menus: Retry Queue, Dead Webhooks, Sync Logs, Sync Failures
+- See `alba_sms` module for direct customer SMS notifications (independent peer module)

@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================== -->
+    <!--  Form view — alba.sms.template                                     -->
+    <!-- ================================================================== -->
+    <record id="view_alba_sms_template_form" model="ir.ui.view">
+        <field name="name">alba.sms.template.form</field>
+        <field name="model">alba.sms.template</field>
+        <field name="arch" type="xml">
+            <form string="SMS Template">
+                <sheet>
+
+                    <!-- ── Title ─────────────────────────────────────── -->
+                    <div class="oe_title">
+                        <label for="name" string="Template Name" class="oe_edit_only"/>
+                        <h1>
+                            <field
+                                name="name"
+                                placeholder='e.g. "Loan Overdue Reminder"'
+                            />
+                        </h1>
+                    </div>
+
+                    <!-- ── Core metadata ─────────────────────────────── -->
+                    <group>
+                        <group>
+                            <field
+                                name="code"
+                                placeholder='e.g. loan_overdue_reminder'
+                                help="Stable machine-readable key used to look up this template from Python code. Must be unique."
+                            />
+                            <field name="category"/>
+                        </group>
+                        <group>
+                            <field name="is_active" widget="boolean_toggle"/>
+                            <field name="char_count" readonly="1" string="Character Count"/>
+                        </group>
+                    </group>
+
+                    <!-- ── Message content ───────────────────────────── -->
+                    <group string="Message Content">
+                        <field
+                            name="content"
+                            nolabel="1"
+                            widget="text"
+                            placeholder="Dear {customer_name}, your loan {loan_number} of {amount} is due on {due_date}. Please contact us for assistance."
+                            style="min-height: 120px;"
+                        />
+                        <div class="alert alert-info" role="alert" style="margin-top: 8px;">
+                            <i class="fa fa-info-circle me-1"/>
+                            <strong>Available placeholders:</strong>
+                            <code>{customer_name}</code>, <code>{loan_number}</code>,
+                            <code>{amount}</code>, <code>{due_date}</code>,
+                            <code>{days_overdue}</code>, <code>{outstanding_balance}</code>,
+                            <code>{maturity_date}</code>, <code>{company_name}</code>,
+                            <code>{investor_name}</code>, <code>{investment_number}</code>,
+                            <code>{interest_amount}</code>
+                        </div>
+                    </group>
+
+                    <!-- ── Live preview ──────────────────────────────── -->
+                    <group string="Live Preview (Sample Data)">
+                        <field
+                            name="preview"
+                            nolabel="1"
+                            readonly="1"
+                            widget="text"
+                            class="text-muted"
+                            style="min-height: 60px; font-style: italic;"
+                        />
+                    </group>
+
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+
+    <!-- ================================================================== -->
+    <!--  List view — alba.sms.template                                     -->
+    <!-- ================================================================== -->
+    <record id="view_alba_sms_template_list" model="ir.ui.view">
+        <field name="name">alba.sms.template.list</field>
+        <field name="model">alba.sms.template</field>
+        <field name="arch" type="xml">
+            <list
+                string="SMS Templates"
+                decoration-muted="is_active == False"
+            >
+                <field name="name"/>
+                <field name="code"/>
+                <field name="category"/>
+                <field name="is_active" string="Active" widget="boolean_toggle"/>
+                <field name="char_count" string="Chars" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+
+    <!-- ================================================================== -->
+    <!--  Search view — alba.sms.template                                   -->
+    <!-- ================================================================== -->
+    <record id="view_alba_sms_template_search" model="ir.ui.view">
+        <field name="name">alba.sms.template.search</field>
+        <field name="model">alba.sms.template</field>
+        <field name="arch" type="xml">
+            <search string="Search SMS Templates">
+
+                <!-- Full-text search fields -->
+                <field name="name" string="Template Name"/>
+                <field
+                    name="code"
+                    string="Code"
+                    filter_domain="[('code', 'ilike', self)]"
+                />
+                <field
+                    name="category"
+                    string="Category"
+                    filter_domain="[('category', 'ilike', self)]"
+                />
+
+                <!-- ── Category shortcut filters ──────────────────── -->
+                <separator/>
+                <filter
+                    string="Loan Overdue Reminder"
+                    name="filter_cat_loan_overdue"
+                    domain="[('category', '=', 'loan_overdue')]"
+                />
+                <filter
+                    string="Maturity Reminder"
+                    name="filter_cat_maturity"
+                    domain="[('category', '=', 'maturity_reminder')]"
+                />
+                <filter
+                    string="Payment Confirmation"
+                    name="filter_cat_payment"
+                    domain="[('category', '=', 'payment_confirmation')]"
+                />
+                <filter
+                    string="Loan Disbursed"
+                    name="filter_cat_disbursed"
+                    domain="[('category', '=', 'loan_disbursed')]"
+                />
+                <filter
+                    string="Application Approved"
+                    name="filter_cat_approved"
+                    domain="[('category', '=', 'application_approved')]"
+                />
+                <filter
+                    string="Application Rejected"
+                    name="filter_cat_rejected"
+                    domain="[('category', '=', 'application_rejected')]"
+                />
+                <filter
+                    string="Collection Reminder"
+                    name="filter_cat_collection"
+                    domain="[('category', '=', 'collection_reminder')]"
+                />
+                <filter
+                    string="Investor Interest Credited"
+                    name="filter_cat_investor"
+                    domain="[('category', '=', 'investor_interest')]"
+                />
+                <filter
+                    string="Bulk Campaign"
+                    name="filter_cat_bulk"
+                    domain="[('category', '=', 'bulk_campaign')]"
+                />
+
+                <!-- ── Active / Inactive filters ──────────────────── -->
+                <separator/>
+                <filter
+                    string="Active"
+                    name="filter_active"
+                    domain="[('is_active', '=', True)]"
+                />
+                <filter
+                    string="Inactive / Archived"
+                    name="filter_inactive"
+                    domain="[('is_active', '=', False)]"
+                />
+
+                <!-- ── Group By ────────────────────────────────────── -->
+                <separator/>
+                <group expand="0" string="Group By">
+                    <filter
+                        string="Category"
+                        name="group_category"
+                        context="{'group_by': 'category'}"
+                    />
+                </group>
+
+            </search>
+        </field>
+    </record>
+
+</odoo>

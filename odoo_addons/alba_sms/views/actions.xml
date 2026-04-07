@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================== -->
+    <!--  ir.actions.act_window — all alba_sms models                       -->
+    <!--  Views are intentionally NOT referenced here; each model's         -->
+    <!--  view file registers its own ir.ui.view records and Odoo picks     -->
+    <!--  them up automatically via model matching.                         -->
+    <!-- ================================================================== -->
+
+    <!-- ── SMS Providers ─────────────────────────────────────────────────── -->
+    <record id="action_alba_sms_provider" model="ir.actions.act_window">
+        <field name="name">SMS Providers</field>
+        <field name="res_model">alba.sms.provider</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_filter_active': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No SMS providers configured yet.
+            </p>
+            <p>
+                Add an SMS gateway (Africa's Talking, Twilio, Vonage, or a
+                Generic HTTP endpoint) to start sending outbound messages.
+                All credentials are stored here and never need to be
+                hard-coded in Python.
+            </p>
+        </field>
+    </record>
+
+    <!-- ── SMS Templates ─────────────────────────────────────────────────── -->
+    <record id="action_alba_sms_template" model="ir.actions.act_window">
+        <field name="name">SMS Templates</field>
+        <field name="res_model">alba.sms.template</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_filter_active': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No SMS templates defined yet.
+            </p>
+            <p>
+                Templates use simple <code>{placeholder}</code> substitution so
+                non-technical admins can customise message content without
+                touching any code.  Default templates are seeded for all major
+                loan and investor events.
+            </p>
+        </field>
+    </record>
+
+    <!-- ── SMS Logs — all entries ────────────────────────────────────────── -->
+    <record id="action_alba_sms_log" model="ir.actions.act_window">
+        <field name="name">SMS Logs</field>
+        <field name="res_model">alba.sms.log</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'create': False, 'delete': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No SMS log entries yet.
+            </p>
+            <p>
+                Every outbound SMS is recorded here automatically — whether
+                sent ad-hoc, via a bulk campaign, or triggered by a loan /
+                investor event.  Use the filters to isolate failures, track
+                specific recipients, or review delivery status over time.
+            </p>
+        </field>
+    </record>
+
+    <!-- ── SMS Logs — failed only ────────────────────────────────────────── -->
+    <record id="action_alba_sms_log_failed" model="ir.actions.act_window">
+        <field name="name">Failed SMS</field>
+        <field name="res_model">alba.sms.log</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[("status", "=", "failed")]</field>
+        <field name="context">{'create': False, 'delete': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No failed SMS messages — all deliveries succeeded!
+            </p>
+            <p>
+                When a message cannot be delivered the provider error is
+                captured here.  Investigate the <b>Error Message</b> field
+                and check that the provider credentials and API endpoint
+                are correct.
+            </p>
+        </field>
+    </record>
+
+    <!-- ── SMS Batch Campaigns — list / form ─────────────────────────────── -->
+    <record id="action_alba_sms_batch" model="ir.actions.act_window">
+        <field name="name">SMS Campaigns</field>
+        <field name="res_model">alba.sms.batch</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No SMS campaigns created yet.
+            </p>
+            <p>
+                Create a bulk SMS campaign to send messages to a targeted
+                audience — all active customers, overdue loans by PAR bucket,
+                maturing loans, all investors, or a custom domain filter.
+                Campaigns can be sent immediately or scheduled for off-peak
+                hours.
+            </p>
+        </field>
+    </record>
+
+    <!-- ── SMS Batch Campaigns — kanban dashboard ────────────────────────── -->
+    <record id="action_alba_sms_batch_kanban" model="ir.actions.act_window">
+        <field name="name">Campaign Dashboard</field>
+        <field name="res_model">alba.sms.batch</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="context">{'group_by': 'state'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No SMS campaigns created yet.
+            </p>
+            <p>
+                The kanban dashboard groups campaigns by their current state
+                so you can see at a glance what is drafted, scheduled,
+                running, or completed.
+            </p>
+        </field>
+    </record>
+
+</odoo>

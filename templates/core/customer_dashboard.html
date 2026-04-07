@@ -730,8 +730,7 @@
         </div>
     </main>
 </div>
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script>
     function calculateLoan() {
         const amount =
@@ -769,4 +768,4 @@
         document.getElementById("calc-result").classList.remove("hidden");
     }
 </script>
-{% endblock %} {% endblock %}
+{% endblock %}

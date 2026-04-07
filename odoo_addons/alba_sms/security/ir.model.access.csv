@@ -1,0 +1,19 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_alba_sms_provider_admin,alba.sms.provider (Admin),model_alba_sms_provider,alba_sms.group_sms_admin,1,1,1,1
+access_alba_sms_provider_user,alba.sms.provider (User),model_alba_sms_provider,alba_sms.group_sms_user,1,0,0,0
+access_alba_sms_template_admin,alba.sms.template (Admin),model_alba_sms_template,alba_sms.group_sms_admin,1,1,1,1
+access_alba_sms_template_officer,alba.sms.template (Officer),model_alba_sms_template,alba_sms.group_sms_officer,1,1,1,0
+access_alba_sms_template_user,alba.sms.template (User),model_alba_sms_template,alba_sms.group_sms_user,1,0,0,0
+access_alba_sms_log_admin,alba.sms.log (Admin),model_alba_sms_log,alba_sms.group_sms_admin,1,1,1,1
+access_alba_sms_log_officer,alba.sms.log (Officer),model_alba_sms_log,alba_sms.group_sms_officer,1,0,1,0
+access_alba_sms_log_user,alba.sms.log (User),model_alba_sms_log,alba_sms.group_sms_user,1,0,0,0
+access_alba_sms_batch_admin,alba.sms.batch (Admin),model_alba_sms_batch,alba_sms.group_sms_admin,1,1,1,1
+access_alba_sms_batch_officer,alba.sms.batch (Officer),model_alba_sms_batch,alba_sms.group_sms_officer,1,1,1,0
+access_alba_sms_batch_user,alba.sms.batch (User),model_alba_sms_batch,alba_sms.group_sms_user,1,0,0,0
+access_alba_sms_batch_line_admin,alba.sms.batch.line (Admin),model_alba_sms_batch_line,alba_sms.group_sms_admin,1,1,1,1
+access_alba_sms_batch_line_officer,alba.sms.batch.line (Officer),model_alba_sms_batch_line,alba_sms.group_sms_officer,1,1,1,0
+access_alba_sms_batch_line_user,alba.sms.batch.line (User),model_alba_sms_batch_line,alba_sms.group_sms_user,1,0,0,0
+access_alba_sms_wizard_admin,alba.sms.wizard (Admin),model_alba_sms_wizard,alba_sms.group_sms_admin,1,1,1,1
+access_alba_sms_wizard_officer,alba.sms.wizard (Officer),model_alba_sms_wizard,alba_sms.group_sms_officer,1,1,1,1
+access_alba_sms_wizard_line_admin,alba.sms.wizard.line (Admin),model_alba_sms_wizard_line,alba_sms.group_sms_admin,1,1,1,1
+access_alba_sms_wizard_line_officer,alba.sms.wizard.line (Officer),model_alba_sms_wizard_line,alba_sms.group_sms_officer,1,1,1,1

@@ -1700,7 +1700,7 @@ application.application_number }} - Alba Capital{% endblock %} {% block body %}
                         <!-- Staff Approval Actions -->
                         {% if application.status == 'SUBMITTED' %}
                         <a
-                            href="{% url 'loans:process_application' application.pk %}"
+                            href="#"
                             class="block w-full px-4 py-2 text-center border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition"
                         >
                             Start Review
@@ -1708,7 +1708,7 @@ application.application_number }} - Alba Capital{% endblock %} {% block body %}
                         {% endif %} {% if application.status == 'UNDER_REVIEW'
                         %}
                         <a
-                            href="{% url 'loans:process_application' application.pk %}"
+                            href="#"
                             class="block w-full px-4 py-2 text-center border border-transparent rounded-md text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 transition"
                         >
                             Continue Review
@@ -1716,7 +1716,7 @@ application.application_number }} - Alba Capital{% endblock %} {% block body %}
                         {% endif %} {% if application.status ==
                         'CREDIT_ANALYSIS' %}
                         <a
-                            href="{% url 'loans:process_application' application.pk %}"
+                            href="#"
                             class="block w-full px-4 py-2 text-center border border-transparent rounded-md text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition"
                         >
                             Credit Analysis
@@ -1724,7 +1724,7 @@ application.application_number }} - Alba Capital{% endblock %} {% block body %}
                         {% endif %} {% if application.status ==
                         'PENDING_APPROVAL' %}
                         <a
-                            href="{% url 'loans:process_application' application.pk %}"
+                            href="#"
                             class="block w-full px-4 py-2 text-center border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition"
                         >
                             Approve Application
@@ -1758,7 +1758,7 @@ application.application_number }} - Alba Capital{% endblock %} {% block body %}
                         {% endif %}
 
                         <a
-                            href="{% if is_staff %}{% url 'loans:applications_list' %}{% else %}{% url 'loans:my_applications' %}{% endif %}"
+                            href="{% url 'loans:my_applications' %}"
                             class="block w-full px-4 py-2 text-center border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition"
                         >
                             Back to Applications

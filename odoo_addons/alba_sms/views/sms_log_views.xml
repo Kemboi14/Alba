@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================== -->
+    <!--  Form view — alba.sms.log (read-only audit trail)                  -->
+    <!-- ================================================================== -->
+    <record id="view_alba_sms_log_form" model="ir.ui.view">
+        <field name="name">alba.sms.log.form</field>
+        <field name="model">alba.sms.log</field>
+        <field name="arch" type="xml">
+            <form string="SMS Log" create="false" edit="false">
+                <sheet>
+
+                    <!-- Status banner — delivered -->
+                    <div
+                        class="alert alert-success"
+                        role="alert"
+                        invisible="status != 'delivered'"
+                    >
+                        <i class="fa fa-check-circle me-1"/>
+                        <strong>Delivered</strong> — the message was confirmed
+                        received by the handset.
+                    </div>
+
+                    <!-- Status banner — failed -->
+                    <div
+                        class="alert alert-danger"
+                        role="alert"
+                        invisible="status != 'failed'"
+                    >
+                        <i class="fa fa-times-circle me-1"/>
+                        <strong>Delivery failed.</strong>
+                        See the <b>Error Details</b> section below for the
+                        provider error message.
+                    </div>
+
+                    <!-- Status banner — sent / in-flight -->
+                    <div
+                        class="alert alert-info"
+                        role="alert"
+                        invisible="status != 'sent'"
+                    >
+                        <i class="fa fa-paper-plane me-1"/>
+                        <strong>Sent</strong> — the message has been accepted
+                        by the provider and is awaiting delivery confirmation.
+                    </div>
+
+                    <!-- Status banner — queued -->
+                    <div
+                        class="alert alert-warning"
+                        role="alert"
+                        invisible="status != 'queued'"
+                    >
+                        <i class="fa fa-clock-o me-1"/>
+                        <strong>Queued</strong> — the message is pending
+                        dispatch to the SMS provider.
+                    </div>
+
+                    <!-- ── Title ─────────────────────────────────────── -->
+                    <div class="oe_title">
+                        <h1>
+                            <field name="phone_number" readonly="1"/>
+                        </h1>
+                        <h2>
+                            <field
+                                name="status"
+                                readonly="1"
+                                widget="badge"
+                                decoration-success="status == 'delivered'"
+                                decoration-warning="status == 'sent'"
+                                decoration-danger="status == 'failed'"
+                                decoration-info="status == 'queued'"
+                            />
+                        </h2>
+                    </div>
+
+                    <!-- ── Core details ───────────────────────────────── -->
+                    <group>
+                        <group string="Message Details">
+                            <field name="provider_id" readonly="1"/>
+                            <field name="template_id" readonly="1"/>
+                            <field name="batch_id" readonly="1"/>
+                            <field name="sent_at" readonly="1"/>
+                            <field
+                                name="provider_msg_id"
+                                readonly="1"
+                                string="Provider Message ID"
+                            />
+                        </group>
+                        <group string="Source Record">
+                            <field
+                                name="res_model"
+                                readonly="1"
+                                string="Source Model"
+                            />
+                            <field
+                                name="res_id"
+                                readonly="1"
+                                string="Source Record ID"
+                                widget="integer"
+                            />
+                            <field
+                                name="company_id"
+                                readonly="1"
+                                groups="base.group_multi_company"
+                            />
+                        </group>
+                    </group>
+
+                    <!-- ── Message body ───────────────────────────────── -->
+                    <group string="Message">
+                        <field
+                            name="message"
+                            readonly="1"
+                            nolabel="1"
+                            widget="text"
+                            placeholder="(no message body recorded)"
+                            style="min-height: 80px; font-family: monospace;"
+                        />
+                    </group>
+
+                    <!-- ── Error details — only shown when present ─────── -->
+                    <group
+                        string="Error Details"
+                        invisible="not error_message"
+                    >
+                        <field
+                            name="error_message"
+                            readonly="1"
+                            nolabel="1"
+                            widget="text"
+                            class="text-danger"
+                            style="min-height: 60px;"
+                        />
+                    </group>
+
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+
+    <!-- ================================================================== -->
+    <!--  List view — alba.sms.log                                          -->
+    <!--                                                                    -->
+    <!--  decoration-danger    → red row    for failed deliveries           -->
+    <!--  decoration-success   → green row  for confirmed delivery          -->
+    <!--  decoration-warning   → amber row  for sent / in-flight            -->
+    <!-- ================================================================== -->
+    <record id="view_alba_sms_log_list" model="ir.ui.view">
+        <field name="name">alba.sms.log.list</field>
+        <field name="model">alba.sms.log</field>
+        <field name="arch" type="xml">
+            <list
+                string="SMS Logs"
+                create="false"
+                edit="false"
+                decoration-danger="status == 'failed'"
+                decoration-success="status == 'delivered'"
+                decoration-warning="status == 'sent'"
+                default_order="create_date desc"
+            >
+                <field
+                    name="create_date"
+                    string="Date"
+                    optional="show"
+                />
+                <field
+                    name="phone_number"
+                    string="Phone"
+                    optional="show"
+                />
+                <field
+                    name="status"
+                    string="Status"
+                    widget="badge"
+                    decoration-success="status == 'delivered'"
+                    decoration-warning="status == 'sent'"
+                    decoration-danger="status == 'failed'"
+                    decoration-info="status == 'queued'"
+                    optional="show"
+                />
+                <field
+                    name="template_id"
+                    string="Template"
+                    optional="show"
+                />
+                <field
+                    name="provider_id"
+                    string="Provider"
+                    optional="show"
+                />
+                <field
+                    name="batch_id"
+                    string="Batch"
+                    optional="hide"
+                />
+                <field
+                    name="message_preview"
+                    string="Message"
+                    optional="show"
+                />
+                <field
+                    name="provider_msg_id"
+                    string="Provider Msg ID"
+                    optional="hide"
+                />
+                <field
+                    name="sent_at"
+                    string="Sent At"
+                    optional="hide"
+                />
+                <field
+                    name="res_model"
+                    string="Source Model"
+                    optional="hide"
+                />
+                <field
+                    name="res_id"
+                    string="Record ID"
+                    optional="hide"
+                />
+            </list>
+        </field>
+    </record>
+
+
+    <!-- ================================================================== -->
+    <!--  Search view — alba.sms.log                                        -->
+    <!-- ================================================================== -->
+    <record id="view_alba_sms_log_search" model="ir.ui.view">
+        <field name="name">alba.sms.log.search</field>
+        <field name="model">alba.sms.log</field>
+        <field name="arch" type="xml">
+            <search string="Search SMS Logs">
+
+                <!-- Full-text search fields -->
+                <field
+                    name="phone_number"
+                    string="Phone Number"
+                    filter_domain="[('phone_number', 'ilike', self)]"
+                />
+                <field
+                    name="template_id"
+                    string="Template"
+                    filter_domain="[('template_id.name', 'ilike', self)]"
+                />
+                <field
+                    name="provider_id"
+                    string="Provider"
+                    filter_domain="[('provider_id.name', 'ilike', self)]"
+                />
+                <field
+                    name="batch_id"
+                    string="Batch"
+                    filter_domain="[('batch_id.name', 'ilike', self)]"
+                />
+                <field
+                    name="provider_msg_id"
+                    string="Provider Msg ID"
+                    filter_domain="[('provider_msg_id', 'ilike', self)]"
+                />
+                <field
+                    name="res_model"
+                    string="Source Model"
+                    filter_domain="[('res_model', 'ilike', self)]"
+                />
+
+                <!-- ── Status filters ────────────────────────────────── -->
+                <separator/>
+                <filter
+                    string="Queued"
+                    name="filter_queued"
+                    domain="[('status', '=', 'queued')]"
+                />
+                <filter
+                    string="Sent"
+                    name="filter_sent"
+                    domain="[('status', '=', 'sent')]"
+                />
+                <filter
+                    string="Delivered"
+                    name="filter_delivered"
+                    domain="[('status', '=', 'delivered')]"
+                />
+                <filter
+                    string="Failed"
+                    name="filter_failed"
+                    domain="[('status', '=', 'failed')]"
+                />
+
+                <!-- ── Time range filters ────────────────────────────── -->
+                <separator/>
+                <filter
+                    string="Today"
+                    name="filter_today"
+                    domain="[('create_date', '&gt;=', (context_today()).strftime('%Y-%m-%d'))]"
+                />
+                <filter
+                    string="Last 7 Days"
+                    name="filter_last_7_days"
+                    domain="[('create_date', '&gt;=', (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"
+                />
+                <filter
+                    string="This Month"
+                    name="filter_this_month"
+                    domain="[('create_date', '&gt;=', (context_today().replace(day=1)).strftime('%Y-%m-%d'))]"
+                />
+
+                <!-- ── Group By ──────────────────────────────────────── -->
+                <separator/>
+                <group expand="0" string="Group By">
+                    <filter
+                        string="Status"
+                        name="group_status"
+                        context="{'group_by': 'status'}"
+                    />
+                    <filter
+                        string="Provider"
+                        name="group_provider"
+                        context="{'group_by': 'provider_id'}"
+                    />
+                    <filter
+                        string="Template"
+                        name="group_template"
+                        context="{'group_by': 'template_id'}"
+                    />
+                    <filter
+                        string="Batch"
+                        name="group_batch"
+                        context="{'group_by': 'batch_id'}"
+                    />
+                    <filter
+                        string="Date"
+                        name="group_date"
+                        context="{'group_by': 'create_date:day'}"
+                    />
+                </group>
+
+            </search>
+        </field>
+    </record>
+
+</odoo>
