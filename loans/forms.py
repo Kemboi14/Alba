@@ -222,8 +222,9 @@ class LoanApplicationForm(forms.ModelForm):
             "loan_product": forms.Select(
                 attrs={
                     "class": (
-                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
                     ),
                     "onchange": "updateLoanCalculator()",
                     "required": True,
@@ -232,10 +233,11 @@ class LoanApplicationForm(forms.ModelForm):
             "requested_amount": forms.NumberInput(
                 attrs={
                     "class": (
-                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
                     ),
-                    "placeholder": "10000.00",
+                    "placeholder": "e.g. 50,000",
                     "step": "0.01",
                     "onchange": "updateLoanCalculator()",
                 }
@@ -243,27 +245,30 @@ class LoanApplicationForm(forms.ModelForm):
             "tenure_months": forms.NumberInput(
                 attrs={
                     "class": (
-                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
                     ),
-                    "placeholder": "12",
+                    "placeholder": "e.g. 12",
                     "onchange": "updateLoanCalculator()",
                 }
             ),
             "repayment_frequency": forms.Select(
                 attrs={
                     "class": (
-                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
                     ),
                 }
             ),
             "purpose": forms.Textarea(
                 attrs={
-                    "rows": 3,
+                    "rows": 5,
                     "class": (
-                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
                     ),
                     "placeholder": "Briefly describe the purpose of this loan",
                 }
