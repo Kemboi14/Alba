@@ -3,6 +3,7 @@ import { DocumentUploadCard } from "../DocumentUploadCard";
 import { VerificationBadge } from "../VerificationBadge";
 import {
   verifyKenyanID,
+  verifyKenyanIDBack,
   fileToBase64,
   validateIDNumber,
 } from "../../utils/idVerifier";
@@ -114,8 +115,8 @@ export const IDVerification: React.FC<IDVerificationProps> = ({
       setIsVerifyingBack(true);
 
       try {
-        // For the back of ID, we also run verification but it's less critical
-        const result = await verifyKenyanID(file);
+        // For the back of ID, use dedicated back-side verifier
+        const result = await verifyKenyanIDBack(file);
 
         setIDBack({
           file,

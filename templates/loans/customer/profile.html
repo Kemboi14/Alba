@@ -1,969 +1,1051 @@
-{% extends 'base.html' %} {% block title %}My Profile - Alba Capital{% endblock %} {% block extra_head %}
+{% extends 'base.html' %} {% load static %} {% block title %}My Profile — Alba Capital{% endblock %} {% block extra_head %}
 <style>
-    /* KYC progress bar — starts at 0, JS animates to target width */
-    .kyc-progress-bar {
-        width: 0%;
-        transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    /* ── Wizard Step Tracker ──────────────────────── */
+    .wizard-steps {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+        padding: 0 1rem;
+        overflow-x: auto;
+    }
+    .wizard-step {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        padding: 0.75rem 0.5rem;
+        border: none;
+        background: none;
+        white-space: nowrap;
+        transition: opacity 0.2s;
+        font-family: inherit;
+    }
+    .wizard-step:hover { opacity: 0.85; }
+    .wizard-step-circle {
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 0.8rem;
+        flex-shrink: 0;
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        border: 2px solid var(--border);
+        background: #f8fafc;
+        color: var(--text-muted);
+    }
+    .wizard-step.active .wizard-step-circle {
+        background: var(--orange);
+        border-color: var(--orange);
+        color: #fff;
+        box-shadow: 0 0 0 4px rgba(255,107,53,0.15);
+        transform: scale(1.08);
+    }
+    .wizard-step.done .wizard-step-circle {
+        background: var(--success);
+        border-color: var(--success);
+        color: #fff;
+    }
+    .wizard-step-label {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        transition: color 0.2s;
+    }
+    .wizard-step.active .wizard-step-label { color: var(--orange); font-weight: 600; }
+    .wizard-step.done .wizard-step-label { color: var(--success); }
+    .wizard-step-connector {
+        width: 40px; height: 2px;
+        background: var(--border);
+        flex-shrink: 0;
+        transition: background 0.3s;
+    }
+    .wizard-step-connector.done { background: var(--success); }
+    @media (max-width: 639px) {
+        .wizard-step-label { display: none; }
+        .wizard-step-connector { width: 24px; }
+        .wizard-step { padding: 0.5rem 0.25rem; }
     }
 
-    /* Shimmer overlay on the bar */
+    /* ── Animated KYC progress ────────────────────── */
+    .kyc-progress-bar {
+        width: 0%;
+        transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
     .kyc-progress-bar::after {
         content: "";
         position: absolute;
-        top: 0;
-        left: -60%;
-        width: 50%;
+        top: 0; left: -60%;
+        width: 50%; height: 100%;
+        background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+        animation: shimmer 2.2s infinite 0.9s;
+    }
+    @keyframes shimmer { 0% { left: -60%; } 100% { left: 115%; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Accordion sections ───────────────────────── */
+    .kyc-section {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 0.875rem;
+        overflow: hidden;
+        transition: box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .kyc-section.section-active {
+        border-color: var(--orange);
+        box-shadow: 0 0 0 3px rgba(255,107,53,0.08), 0 4px 16px rgba(0,0,0,0.06);
+    }
+    .kyc-section-trigger {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 0.875rem;
+        padding: 1.125rem 1.5rem;
+        cursor: pointer;
+        background: none;
+        border: none;
+        text-align: left;
+        font-family: inherit;
+        transition: background 0.15s;
+    }
+    .kyc-section-trigger:hover { background: #fafbfc; }
+    .kyc-section-icon {
+        width: 40px; height: 40px;
+        border-radius: 0.625rem;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.25s;
+    }
+    .kyc-section-chevron {
+        margin-left: auto;
+        width: 20px; height: 20px;
+        color: var(--text-muted);
+        transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+        flex-shrink: 0;
+    }
+    .kyc-section.section-active .kyc-section-chevron {
+        transform: rotate(180deg);
+        color: var(--orange);
+    }
+    .kyc-section-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease;
+        opacity: 0;
+    }
+    .kyc-section.section-active .kyc-section-body {
+        max-height: 2000px;
+        opacity: 1;
+    }
+    .kyc-section-content {
+        padding: 0 1.5rem 1.5rem;
+    }
+    .kyc-section-badge {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        padding: 0.125rem 0.5rem;
+        border-radius: 9999px;
+        letter-spacing: 0.02em;
+    }
+
+    /* ── Upload zones ─────────────────────────────── */
+    .upload-zone {
+        border: 2px dashed #d1d5db;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: border-color 0.2s, background 0.2s, transform 0.15s;
+        cursor: pointer;
+        position: relative;
+    }
+    .upload-zone:hover {
+        border-color: var(--orange);
+        background: var(--orange-light);
+    }
+    .upload-zone.drag-over {
+        border-color: var(--orange);
+        background: rgba(255,107,53,0.06);
+        transform: scale(1.01);
+    }
+    .upload-zone.has-file {
+        border-color: var(--success);
+        border-style: solid;
+        background: #f0fdf4;
+    }
+    .upload-zone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
         height: 100%;
-        background: linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0) 0%,
-            rgba(255, 255, 255, 0.35) 50%,
-            rgba(255, 255, 255, 0) 100%
-        );
-        animation: shimmer 2.2s infinite;
-        animation-delay: 0.9s; /* start after expand lands */
     }
 
-    @keyframes shimmer {
-        0% {
-            left: -60%;
-        }
-        100% {
-            left: 115%;
-        }
+    /* ── Checklist ─────────────────────────────────── */
+    .check-item {
+        display: flex; align-items: center; gap: 0.625rem;
+        padding: 0.5rem 0.625rem;
+        border-radius: 0.5rem;
+        transition: background 0.15s, transform 0.15s;
     }
-
-    /* Checklist item hover lift */
-    .kyc-checklist-item {
-        transition:
-            background 0.15s ease,
-            transform 0.15s ease;
-    }
-    .kyc-checklist-item:hover {
-        background-color: #fafafa;
+    .check-item:hover {
+        background: #fafafa;
         transform: translateX(2px);
     }
+    .check-dot {
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.2s;
+    }
+    .check-dot-done {
+        background: var(--success);
+        color: #fff;
+    }
+    .check-dot-empty {
+        background: #f1f5f9;
+        border: 2px solid #d1d5db;
+    }
+
+    /* ── Sticky bottom bar ────────────────────────── */
+    .sticky-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 20;
+        background: rgba(255,255,255,0.95);
+        backdrop-filter: blur(8px);
+        border-top: 1px solid var(--border);
+        padding: 0.875rem 1.5rem;
+    }
+
+    /* ── Section navigation buttons ───────────────── */
+    .section-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1.5px solid var(--border);
+        background: #fff;
+        color: var(--text-muted);
+        transition: all 0.15s;
+        font-family: inherit;
+    }
+    .section-nav-btn:hover {
+        border-color: var(--orange);
+        color: var(--orange);
+        background: var(--orange-light);
+    }
+    .section-nav-btn-next {
+        background: var(--orange);
+        color: #fff;
+        border-color: var(--orange);
+    }
+    .section-nav-btn-next:hover {
+        background: var(--orange-hover);
+        border-color: var(--orange-hover);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(255,107,53,0.3);
+    }
+
+    /* ── Verification root ────────────────────────── */
+    #verification-root { min-height: 400px; overflow: hidden; }
+
+    /* ── Tip callout ──────────────────────────────── */
+    .tip-callout {
+        background: var(--orange-light);
+        border: 1px solid #ffe0cc;
+        border-radius: var(--radius);
+        padding: 0.75rem 1rem;
+        display: flex; align-items: flex-start; gap: 0.5rem;
+        font-size: 0.8125rem;
+        color: #9a3412;
+    }
+    .tip-callout svg { flex-shrink: 0; color: var(--orange); margin-top: 1px; }
+
+    /* ── Smooth page entrance ─────────────────────── */
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.4s ease both; }
+    .fade-up-d1 { animation-delay: 0.06s; }
+    .fade-up-d2 { animation-delay: 0.12s; }
+    .fade-up-d3 { animation-delay: 0.18s; }
+    .fade-up-d4 { animation-delay: 0.24s; }
 </style>
 {% endblock %} {% block body %}
 <div class="page-wrapper">
-    <!-- Navigation -->
     {% include 'partials/navbar.html' with active_page='profile' %}
 
-    <!-- Main Content -->
     <main id="main-content" class="page-content" style="max-width: 56rem">
-        <!-- Page Header -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">My Profile</h1>
-            <p class="mt-2 text-sm text-gray-600">
-                Complete your profile to apply for loans
-            </p>
+
+        <!-- ═══════════════════════════════════════════════
+             PAGE HEADER  —  greeting + KYC ring
+             ═══════════════════════════════════════════════ -->
+        <div class="mb-6 fade-up">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">My Profile</h1>
+                    <p class="mt-1 text-sm text-gray-500">Complete every section below to unlock loan applications</p>
+                </div>
+                <!-- Mini KYC ring indicator -->
+                <div class="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
+                    <div class="relative" style="width:48px;height:48px">
+                        <svg viewBox="0 0 36 36" style="width:48px;height:48px;transform:rotate(-90deg)">
+                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e5e7eb" stroke-width="3"></circle>
+                            <circle id="kyc-ring" cx="18" cy="18" r="15.5" fill="none"
+                                stroke="{% if kyc_verified %}#16a34a{% elif kyc_completion >= 80 %}#eab308{% else %}#ff6b35{% endif %}"
+                                stroke-width="3" stroke-linecap="round"
+                                stroke-dasharray="97.4" stroke-dashoffset="97.4"
+                                data-pct="{{ kyc_completion }}"
+                                style="transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)"></circle>
+                        </svg>
+                        <span class="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700" id="kyc-ring-pct">0%</span>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800 leading-tight">KYC Status</p>
+                        {% if kyc_verified %}
+                        <span class="text-xs font-medium text-green-600">Verified</span>
+                        {% elif kyc_completion >= 80 %}
+                        <span class="text-xs font-medium text-yellow-600">Under Review</span>
+                        {% else %}
+                        <span class="text-xs font-medium text-alba-orange">{{ kyc_completion }}% Complete</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- ═══════════════════════════════════════════════════════════
-             KYC COMPLETION CARD  —  polished progress bar + checklist
-             ═══════════════════════════════════════════════════════════ -->
-        <div
-            class="mb-6 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden"
-        >
-            <!-- Card header row: title + status pill -->
-            <div
-                class="px-6 pt-6 pb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100"
-            >
+        <!-- ═══════════════════════════════════════════════
+             KYC PROGRESS CARD  (collapsible)
+             ═══════════════════════════════════════════════ -->
+        <div class="mb-5 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden fade-up fade-up-d1">
+            <!-- Header row -->
+            <button type="button" class="w-full px-6 pt-5 pb-4 flex items-center justify-between gap-3 text-left"
+                    onclick="this.closest('.rounded-2xl').querySelector('.kyc-detail-panel').classList.toggle('hidden')">
                 <div class="flex items-center gap-3">
-                    <!-- Icon bubble — colour changes with state -->
                     {% if kyc_verified %}
-                    <div
-                        class="h-11 w-11 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0"
-                    >
-                        <svg
-                            class="h-6 w-6 text-green-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                        </svg>
+                    <div class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
                     {% elif kyc_completion >= 80 %}
-                    <div
-                        class="h-11 w-11 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0"
-                    >
-                        <svg
-                            class="h-6 w-6 text-yellow-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                        </svg>
+                    <div class="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="h-5 w-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
                     {% else %}
-                    <div
-                        class="h-11 w-11 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0"
-                    >
-                        <svg
-                            class="h-6 w-6 text-red-500"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                        </svg>
+                    <div class="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="h-5 w-5 text-alba-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                     </div>
                     {% endif %}
-
                     <div>
-                        <h3
-                            class="text-base font-semibold text-gray-900 leading-tight"
-                        >
-                            KYC Verification Status
-                        </h3>
+                        <h3 class="text-sm font-semibold text-gray-900">KYC Verification Checklist</h3>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            {% if kyc_verified %} Verified by {{ customer.kyc_verified_by.get_full_name }} {% elif kyc_completion >= 80 %} Under review — our team will
-                            confirm within 24 hours {% else %} Complete the
-                            checklist below to submit for review {% endif %}
+                            {% if kyc_verified %}Verified{% elif kyc_completion >= 80 %}Under review — 24 hour turnaround{% else %}{{ kyc_completion }}% done — fill out the sections below{% endif %}
                         </p>
                     </div>
                 </div>
-
                 <!-- Status pill -->
                 {% if kyc_verified %}
-                <span
-                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 ring-1 ring-green-200"
-                >
-                    <svg
-                        class="h-3.5 w-3.5"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
-                    Verified ✅
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 ring-1 ring-green-200">
+                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                    Verified
                 </span>
                 {% elif kyc_completion >= 80 %}
-                <span
-                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200"
-                >
-                    <svg
-                        class="h-3.5 w-3.5"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
-                    Pending Review
-                </span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200">Pending</span>
                 {% else %}
-                <span
-                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 ring-1 ring-red-200"
-                >
-                    <svg
-                        class="h-3.5 w-3.5"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
-                    Incomplete
-                </span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-alba-orange ring-1 ring-orange-200">Incomplete</span>
                 {% endif %}
-            </div>
-            <!-- /header row -->
+            </button>
 
-            <!-- Progress bar section -->
-            <div class="px-6 py-5">
-                <!-- Large % readout + bar -->
-                <div class="flex items-end justify-between mb-2">
-                    <p
-                        class="text-3xl font-extrabold text-gray-900 leading-none tabular-nums"
-                    >
-                        <span id="kyc-pct-display">0</span>%
-                        <span class="ml-1 text-sm font-medium text-gray-500"
-                            >Complete</span
-                        >
-                    </p>
-                    <p class="text-xs text-gray-400 mb-0.5">
-                        {{ kyc_completion }}% of 100%
-                    </p>
-                </div>
-
-                <!-- Track + animated fill -->
-                <div
-                    class="w-full bg-gray-100 rounded-full h-3 overflow-hidden shadow-inner"
-                >
-                    <div
-                        class="kyc-progress-bar h-3 rounded-full relative overflow-hidden {% if kyc_verified %}bg-green-500 {% elif kyc_completion >= 80 %}bg-yellow-400 {% else %}bg-alba-orange{% endif %}"
-                        data-progress="{{ kyc_completion }}"
-                    ></div>
-                </div>
-
-                <!-- Tick-mark scale -->
-                <div class="flex justify-between mt-1 px-0.5">
-                    <span class="text-xs text-gray-400">0%</span>
-                    <span class="text-xs text-gray-400">25%</span>
-                    <span class="text-xs text-gray-400">50%</span>
-                    <span class="text-xs text-gray-400">75%</span>
-                    <span class="text-xs text-gray-400">100%</span>
+            <!-- Progress bar -->
+            <div class="px-6 pb-3">
+                <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                    <div class="kyc-progress-bar h-2.5 rounded-full {% if kyc_verified %}bg-green-500{% elif kyc_completion >= 80 %}bg-yellow-400{% else %}bg-alba-orange{% endif %}"
+                         data-progress="{{ kyc_completion }}"></div>
                 </div>
             </div>
-            <!-- /progress bar section -->
 
-            <!-- ─── KYC Field Checklist ──────────────────────────────── -->
-            <div class="px-6 pb-6">
-                <p
-                    class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3"
-                >
-                    Required fields
-                </p>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-                    <!-- 1. National ID Number -->
-                    <div
-                        class="kyc-checklist-item flex items-center gap-2.5 py-2 px-2 rounded-lg"
-                    >
-                        {% if customer.id_number %}
-                        <span class="text-lg leading-none" title="Complete"
-                            >✅</span
-                        >
-                        <span class="text-sm font-medium text-gray-800"
-                            >National ID Number</span
-                        >
-                        {% else %}
-                        <span class="text-lg leading-none" title="Incomplete"
-                            >⬜</span
-                        >
-                        <span class="text-sm text-gray-400"
-                            >National ID Number</span
-                        >
-                        {% endif %}
+            <!-- Collapsible checklist detail -->
+            <div class="kyc-detail-panel {% if kyc_completion >= 80 %}hidden{% endif %} px-6 pb-5 border-t border-gray-100 pt-4">
+                <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Required fields</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0.5">
+                    <div class="check-item">
+                        {% if customer.id_number %}<div class="check-dot check-dot-done"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div><span class="text-sm font-medium text-gray-800">National ID Number</span>
+                        {% else %}<div class="check-dot check-dot-empty"></div><span class="text-sm text-gray-400">National ID Number</span>{% endif %}
                     </div>
-
-                    <!-- 2. Date of Birth -->
-                    <div
-                        class="kyc-checklist-item flex items-center gap-2.5 py-2 px-2 rounded-lg"
-                    >
-                        {% if customer.date_of_birth %}
-                        <span class="text-lg leading-none" title="Complete"
-                            >✅</span
-                        >
-                        <span class="text-sm font-medium text-gray-800"
-                            >Date of Birth</span
-                        >
-                        {% else %}
-                        <span class="text-lg leading-none" title="Incomplete"
-                            >⬜</span
-                        >
-                        <span class="text-sm text-gray-400">Date of Birth</span>
-                        {% endif %}
+                    <div class="check-item">
+                        {% if customer.date_of_birth %}<div class="check-dot check-dot-done"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div><span class="text-sm font-medium text-gray-800">Date of Birth</span>
+                        {% else %}<div class="check-dot check-dot-empty"></div><span class="text-sm text-gray-400">Date of Birth</span>{% endif %}
                     </div>
-
-                    <!-- 3. Residential Address -->
-                    <div
-                        class="kyc-checklist-item flex items-center gap-2.5 py-2 px-2 rounded-lg"
-                    >
-                        {% if customer.address %}
-                        <span class="text-lg leading-none" title="Complete"
-                            >✅</span
-                        >
-                        <span class="text-sm font-medium text-gray-800"
-                            >Residential Address</span
-                        >
-                        {% else %}
-                        <span class="text-lg leading-none" title="Incomplete"
-                            >⬜</span
-                        >
-                        <span class="text-sm text-gray-400"
-                            >Residential Address</span
-                        >
-                        {% endif %}
+                    <div class="check-item">
+                        {% if customer.address %}<div class="check-dot check-dot-done"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div><span class="text-sm font-medium text-gray-800">Residential Address</span>
+                        {% else %}<div class="check-dot check-dot-empty"></div><span class="text-sm text-gray-400">Residential Address</span>{% endif %}
                     </div>
-
-                    <!-- 4. Monthly Income -->
-                    <div
-                        class="kyc-checklist-item flex items-center gap-2.5 py-2 px-2 rounded-lg"
-                    >
-                        {% if customer.monthly_income %}
-                        <span class="text-lg leading-none" title="Complete"
-                            >✅</span
-                        >
-                        <span class="text-sm font-medium text-gray-800"
-                            >Monthly Income</span
-                        >
-                        {% else %}
-                        <span class="text-lg leading-none" title="Incomplete"
-                            >⬜</span
-                        >
-                        <span class="text-sm text-gray-400"
-                            >Monthly Income</span
-                        >
-                        {% endif %}
+                    <div class="check-item">
+                        {% if customer.monthly_income %}<div class="check-dot check-dot-done"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div><span class="text-sm font-medium text-gray-800">Monthly Income</span>
+                        {% else %}<div class="check-dot check-dot-empty"></div><span class="text-sm text-gray-400">Monthly Income</span>{% endif %}
                     </div>
-
-                    <!-- 5. Employer Name -->
-                    <div
-                        class="kyc-checklist-item flex items-center gap-2.5 py-2 px-2 rounded-lg"
-                    >
-                        {% if customer.employer_name %}
-                        <span class="text-lg leading-none" title="Complete"
-                            >✅</span
-                        >
-                        <span class="text-sm font-medium text-gray-800"
-                            >Employer Name</span
-                        >
-                        {% else %}
-                        <span class="text-lg leading-none" title="Incomplete"
-                            >⬜</span
-                        >
-                        <span class="text-sm text-gray-400">Employer Name</span>
-                        {% endif %}
+                    <div class="check-item">
+                        {% if customer.employer_name %}<div class="check-dot check-dot-done"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div><span class="text-sm font-medium text-gray-800">Employer Name</span>
+                        {% else %}<div class="check-dot check-dot-empty"></div><span class="text-sm text-gray-400">Employer Name</span>{% endif %}
                     </div>
-
-                    <!-- 6. National ID Document (upload) -->
-                    <div
-                        class="kyc-checklist-item flex items-center gap-2.5 py-2 px-2 rounded-lg"
-                    >
-                        {% if customer.national_id_file %}
-                        <span class="text-lg leading-none" title="Complete"
-                            >✅</span
-                        >
-                        <span class="text-sm font-medium text-gray-800"
-                            >National ID Document</span
-                        >
-                        <span class="ml-auto">
-                            <a
-                                href="{{ customer.national_id_file.url }}"
-                                target="_blank"
-                                class="text-xs text-alba-orange hover:underline font-medium"
-                                >View</a
-                            >
-                        </span>
-                        {% else %}
-                        <span class="text-lg leading-none" title="Incomplete"
-                            >⬜</span
-                        >
-                        <span class="text-sm text-gray-400"
-                            >National ID Document</span
-                        >
-                        <span class="ml-auto text-xs text-gray-300"
-                            >Not uploaded</span
-                        >
-                        {% endif %}
+                    <div class="check-item">
+                        {% if customer.national_id_file %}<div class="check-dot check-dot-done"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div><span class="text-sm font-medium text-gray-800">National ID Document</span>
+                        <a href="{{ customer.national_id_file.url }}" target="_blank" class="ml-auto text-xs text-alba-orange hover:underline font-medium">View</a>
+                        {% else %}<div class="check-dot check-dot-empty"></div><span class="text-sm text-gray-400">National ID Document</span><span class="ml-auto text-xs text-gray-300">Not uploaded</span>{% endif %}
                     </div>
-
-                    <!-- 7. Bank Statement (upload) -->
-                    <div
-                        class="kyc-checklist-item flex items-center gap-2.5 py-2 px-2 rounded-lg"
-                    >
-                        {% if customer.bank_statement_file %}
-                        <span class="text-lg leading-none" title="Complete"
-                            >✅</span
-                        >
-                        <span class="text-sm font-medium text-gray-800"
-                            >Bank Statement</span
-                        >
-                        <span class="ml-auto">
-                            <a
-                                href="{{ customer.bank_statement_file.url }}"
-                                target="_blank"
-                                class="text-xs text-alba-orange hover:underline font-medium"
-                                >View</a
-                            >
-                        </span>
-                        {% else %}
-                        <span class="text-lg leading-none" title="Incomplete"
-                            >⬜</span
-                        >
-                        <span class="text-sm text-gray-400"
-                            >Bank Statement</span
-                        >
-                        <span class="ml-auto text-xs text-gray-300"
-                            >Not uploaded</span
-                        >
-                        {% endif %}
+                    <div class="check-item">
+                        {% if customer.bank_statement_file %}<div class="check-dot check-dot-done"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div><span class="text-sm font-medium text-gray-800">Bank Statement</span>
+                        <a href="{{ customer.bank_statement_file.url }}" target="_blank" class="ml-auto text-xs text-alba-orange hover:underline font-medium">View</a>
+                        {% else %}<div class="check-dot check-dot-empty"></div><span class="text-sm text-gray-400">Bank Statement</span><span class="ml-auto text-xs text-gray-300">Not uploaded</span>{% endif %}
                     </div>
-
-                    <!-- 8. Face Photo (upload) -->
-                    <div
-                        class="kyc-checklist-item flex items-center gap-2.5 py-2 px-2 rounded-lg"
-                    >
-                        {% if customer.face_recognition_photo %}
-                        <span class="text-lg leading-none" title="Complete"
-                            >✅</span
-                        >
-                        <span class="text-sm font-medium text-gray-800"
-                            >Face Photo</span
-                        >
-                        <span class="ml-auto">
-                            <a
-                                href="{{ customer.face_recognition_photo.url }}"
-                                target="_blank"
-                                class="text-xs text-alba-orange hover:underline font-medium"
-                                >View</a
-                            >
-                        </span>
-                        {% else %}
-                        <span class="text-lg leading-none" title="Incomplete"
-                            >⬜</span
-                        >
-                        <span class="text-sm text-gray-400">Face Photo</span>
-                        <span class="ml-auto text-xs text-gray-300"
-                            >Not uploaded</span
-                        >
-                        {% endif %}
+                    <div class="check-item">
+                        {% if customer.face_recognition_photo %}<div class="check-dot check-dot-done"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div><span class="text-sm font-medium text-gray-800">Face Photo</span>
+                        <a href="{{ customer.face_recognition_photo.url }}" target="_blank" class="ml-auto text-xs text-alba-orange hover:underline font-medium">View</a>
+                        {% else %}<div class="check-dot check-dot-empty"></div><span class="text-sm text-gray-400">Face Photo</span><span class="ml-auto text-xs text-gray-300">Not uploaded</span>{% endif %}
                     </div>
                 </div>
-                <!-- /grid -->
             </div>
-            <!-- /checklist -->
         </div>
         <!-- /KYC card -->
 
-        <!-- Profile Form -->
-        <div class="bg-white shadow rounded-lg overflow-hidden">
-            <form
-                method="post"
-                enctype="multipart/form-data"
-                class="divide-y divide-gray-200"
-            >
-                {% csrf_token %}
-
-                <!-- Personal Information -->
-                <div class="px-6 py-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">
-                        Personal Information
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Date of Birth</label
-                            >
-                            {{ form.date_of_birth }} {% if form.date_of_birth.errors %}
-                            <p class="mt-1 text-sm text-red-600">
-                                {{ form.date_of_birth.errors.0 }}
-                            </p>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >ID/Passport Number *</label
-                            >
-                            {{ form.id_number }} {% if form.id_number.errors %}
-                            <p class="mt-1 text-sm text-red-600">
-                                {{ form.id_number.errors.0 }}
-                            </p>
-                            {% endif %}
-                        </div>
-                        <div class="md:col-span-2">
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Physical Address</label
-                            >
-                            {{ form.address }} {% if form.address.errors %}
-                            <p class="mt-1 text-sm text-red-600">
-                                {{ form.address.errors.0 }}
-                            </p>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >County</label
-                            >
-                            {{ form.county }}
-                        </div>
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >City/Town</label
-                            >
-                            {{ form.city }}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Employment Information -->
-                <div class="px-6 py-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">
-                        Employment Information
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Employment Status *</label
-                            >
-                            {{ form.employment_status }}
-                        </div>
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Employer Name</label
-                            >
-                            {{ form.employer_name }}
-                        </div>
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Employer Contact</label
-                            >
-                            {{ form.employer_contact }}
-                        </div>
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Employer Email</label
-                            >
-                            {{ form.employer_email }}
-                        </div>
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Monthly Income (KES) *</label
-                            >
-                            {{ form.monthly_income }} {% if form.monthly_income.errors %}
-                            <p class="mt-1 text-sm text-red-600">
-                                {{ form.monthly_income.errors.0 }}
-                            </p>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Date of Employment</label
-                            >
-                            {{ form.employment_date }}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Financial Information -->
-                <div class="px-6 py-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">
-                        Financial Information
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Existing Monthly Loan Obligations (KES)</label
-                            >
-                            {{ form.existing_loans }}
-                            <p class="mt-1 text-xs text-gray-500">
-                                Total monthly payments for other loans
-                            </p>
-                        </div>
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Bank Name</label
-                            >
-                            {{ form.bank_name }}
-                        </div>
-                        <div class="md:col-span-2">
-                            <label
-                                class="block text-sm font-medium text-gray-700"
-                                >Bank Account Number</label
-                            >
-                            {{ form.bank_account }}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- KYC Documents Section -->
-                <div class="px-6 py-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">
-                        KYC Documents
-                    </h3>
-                    <div class="space-y-6">
-                        <!-- National ID Upload -->
-                        <div class="border border-gray-200 rounded-lg p-4">
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0">
-                                        {% if customer.national_id_verified %}
-                                        <svg
-                                            class="h-5 w-5 text-green-500"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                            />
-                                        </svg>
-                                        {% elif customer.national_id_file %}
-                                        <svg
-                                            class="h-5 w-5 text-yellow-500"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                            />
-                                        </svg>
-                                        {% else %}
-                                        <svg
-                                            class="h-5 w-5 text-gray-400"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                            />
-                                        </svg>
-                                        {% endif %}
-                                    </div>
-                                    <div class="ml-3">
-                                        <h4
-                                            class="text-sm font-medium text-gray-900"
-                                        >
-                                            National ID Document
-                                        </h4>
-                                        <p class="text-xs text-gray-500">
-                                            Upload your ID card or passport
-                                        </p>
-                                    </div>
-                                </div>
-                                {% if customer.national_id_file %}
-                                <a
-                                    href="{{ customer.national_id_file.url }}"
-                                    target="_blank"
-                                    class="text-alba-orange hover:text-alba-navy text-sm font-medium"
-                                    >View</a
-                                >
-                                {% endif %}
-                            </div>
-                            <div>
-                                <label
-                                    class="block text-sm font-medium text-gray-700 mb-2"
-                                    >Upload National ID</label
-                                >
-                                {{ form.national_id_file }} {% if form.national_id_file.errors %}
-                                <p class="mt-1 text-sm text-red-600">
-                                    {{ form.national_id_file.errors.0 }}
-                                </p>
-                                {% endif %}
-                                <p class="mt-1 text-xs text-gray-500">
-                                    Accepted formats: JPG, PNG, PDF (Max 5MB)
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- Bank Statement Upload -->
-                        <div class="border border-gray-200 rounded-lg p-4">
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0">
-                                        {% if customer.bank_statement_verified %}
-                                        <svg
-                                            class="h-5 w-5 text-green-500"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                            />
-                                        </svg>
-                                        {% elif customer.bank_statement_file %}
-                                        <svg
-                                            class="h-5 w-5 text-yellow-500"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                            />
-                                        </svg>
-                                        {% else %}
-                                        <svg
-                                            class="h-5 w-5 text-gray-400"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                            />
-                                        </svg>
-                                        {% endif %}
-                                    </div>
-                                    <div class="ml-3">
-                                        <h4
-                                            class="text-sm font-medium text-gray-900"
-                                        >
-                                            Bank Statement
-                                        </h4>
-                                        <p class="text-xs text-gray-500">
-                                            Last 6 months bank statement
-                                        </p>
-                                    </div>
-                                </div>
-                                {% if customer.bank_statement_file %}
-                                <a
-                                    href="{{ customer.bank_statement_file.url }}"
-                                    target="_blank"
-                                    class="text-alba-orange hover:text-alba-navy text-sm font-medium"
-                                    >View</a
-                                >
-                                {% endif %}
-                            </div>
-                            <div>
-                                <label
-                                    class="block text-sm font-medium text-gray-700 mb-2"
-                                    >Upload Bank Statement</label
-                                >
-                                {{ form.bank_statement_file }} {% if form.bank_statement_file.errors %}
-                                <p class="mt-1 text-sm text-red-600">
-                                    {{ form.bank_statement_file.errors.0 }}
-                                </p>
-                                {% endif %}
-                                <p class="mt-1 text-xs text-gray-500">
-                                    Accepted formats: JPG, PNG, PDF (Max 5MB)
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- Face Recognition Upload -->
-                        <div class="border border-gray-200 rounded-lg p-4">
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0">
-                                        {% if customer.face_recognition_verified %}
-                                        <svg
-                                            class="h-5 w-5 text-green-500"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                            />
-                                        </svg>
-                                        {% elif customer.face_recognition_photo %}
-                                        <svg
-                                            class="h-5 w-5 text-yellow-500"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                            />
-                                        </svg>
-                                        {% else %}
-                                        <svg
-                                            class="h-5 w-5 text-gray-400"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                            />
-                                        </svg>
-                                        {% endif %}
-                                    </div>
-                                    <div class="ml-3">
-                                        <h4
-                                            class="text-sm font-medium text-gray-900"
-                                        >
-                                            Face Recognition Photo
-                                        </h4>
-                                        <p class="text-xs text-gray-500">
-                                            Clear photo of your face for
-                                            verification
-                                        </p>
-                                    </div>
-                                </div>
-                                {% if customer.face_recognition_photo %}
-                                <a
-                                    href="{{ customer.face_recognition_photo.url }}"
-                                    target="_blank"
-                                    class="text-alba-orange hover:text-alba-navy text-sm font-medium"
-                                    >View</a
-                                >
-                                {% endif %}
-                            </div>
-                            <div>
-                                <label
-                                    class="block text-sm font-medium text-gray-700 mb-2"
-                                    >Upload Face Photo</label
-                                >
-                                {{ form.face_recognition_photo }} {% if form.face_recognition_photo.errors %}
-                                <p class="mt-1 text-sm text-red-600">
-                                    {{ form.face_recognition_photo.errors.0 }}
-                                </p>
-                                {% endif %}
-                                <p class="mt-1 text-xs text-gray-500">
-                                    Take a clear photo facing camera (Max 5MB)
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Form Actions -->
-                <div
-                    class="px-6 py-4 bg-gray-50 flex justify-between items-center"
-                >
-                    <p class="text-sm text-gray-600">* Required fields</p>
-                    <div class="flex space-x-3">
-                        <a
-                            href="{% url 'loans:customer_dashboard' %}"
-                            class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-alba-orange transition"
-                        >
-                            Cancel
-                        </a>
-                        <button
-                            type="submit"
-                            class="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-alba-orange hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-alba-orange transition"
-                        >
-                            Save Profile
-                        </button>
-                    </div>
-                </div>
-            </form>
+        <!-- ═══════════════════════════════════════════════
+             WIZARD STEP TRACKER
+             ═══════════════════════════════════════════════ -->
+        <div class="mb-5 bg-white border border-gray-200 rounded-2xl shadow-sm px-2 py-3 fade-up fade-up-d2">
+            <div class="wizard-steps" id="wizard-steps">
+                <button type="button" class="wizard-step active" data-step="1" onclick="goToStep(1)">
+                    <span class="wizard-step-circle">1</span>
+                    <span class="wizard-step-label">Personal</span>
+                </button>
+                <div class="wizard-step-connector" data-after="1"></div>
+                <button type="button" class="wizard-step" data-step="2" onclick="goToStep(2)">
+                    <span class="wizard-step-circle">2</span>
+                    <span class="wizard-step-label">Employment</span>
+                </button>
+                <div class="wizard-step-connector" data-after="2"></div>
+                <button type="button" class="wizard-step" data-step="3" onclick="goToStep(3)">
+                    <span class="wizard-step-circle">3</span>
+                    <span class="wizard-step-label">Financial</span>
+                </button>
+                <div class="wizard-step-connector" data-after="3"></div>
+                <button type="button" class="wizard-step" data-step="4" onclick="goToStep(4)">
+                    <span class="wizard-step-circle">4</span>
+                    <span class="wizard-step-label">Documents</span>
+                </button>
+            </div>
         </div>
+
+        <!-- ═══════════════════════════════════════════════
+             PROFILE FORM  —  accordion sections
+             ═══════════════════════════════════════════════ -->
+        <form method="post" enctype="multipart/form-data" id="profile-form" data-loading>
+            {% csrf_token %}
+            <div class="space-y-4" id="sections-container">
+
+                <!-- ─── STEP 1: Personal Information ──────────── -->
+                <div class="kyc-section section-active fade-up fade-up-d2" data-section="1" id="section-1">
+                    <button type="button" class="kyc-section-trigger" onclick="toggleSection(1)">
+                        <div class="kyc-section-icon bg-blue-50">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-sm font-semibold text-gray-900">Personal Information</h3>
+                                {% if customer.id_number and customer.date_of_birth and customer.address %}
+                                <span class="kyc-section-badge bg-green-100 text-green-700">Complete</span>
+                                {% else %}
+                                <span class="kyc-section-badge bg-orange-100 text-alba-orange">Required</span>
+                                {% endif %}
+                            </div>
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">ID number, date of birth, address</p>
+                        </div>
+                        <svg class="kyc-section-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div class="kyc-section-body">
+                        <div class="kyc-section-content">
+                            <div class="tip-callout mb-5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>Use the <strong>exact details</strong> as they appear on your National ID for faster verification.</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="form-field">
+                                    <label class="form-label">ID / Passport Number <span class="required-star">*</span></label>
+                                    {{ form.id_number }}
+                                    {% if form.id_number.errors %}<p class="error-text">{{ form.id_number.errors.0 }}</p>{% endif %}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Date of Birth <span class="required-star">*</span></label>
+                                    {{ form.date_of_birth }}
+                                    {% if form.date_of_birth.errors %}<p class="error-text">{{ form.date_of_birth.errors.0 }}</p>{% endif %}
+                                </div>
+                                <div class="form-field md:col-span-2">
+                                    <label class="form-label">Physical Address <span class="required-star">*</span></label>
+                                    {{ form.address }}
+                                    {% if form.address.errors %}<p class="error-text">{{ form.address.errors.0 }}</p>{% endif %}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">County</label>
+                                    {{ form.county }}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">City / Town</label>
+                                    {{ form.city }}
+                                </div>
+                            </div>
+                            <!-- Section nav -->
+                            <div class="flex justify-end mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" class="section-nav-btn section-nav-btn-next" onclick="goToStep(2)">
+                                    Continue to Employment
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─── STEP 2: Employment Information ────────── -->
+                <div class="kyc-section fade-up fade-up-d3" data-section="2" id="section-2">
+                    <button type="button" class="kyc-section-trigger" onclick="toggleSection(2)">
+                        <div class="kyc-section-icon bg-purple-50">
+                            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-sm font-semibold text-gray-900">Employment Information</h3>
+                                {% if customer.employer_name and customer.monthly_income %}
+                                <span class="kyc-section-badge bg-green-100 text-green-700">Complete</span>
+                                {% else %}
+                                <span class="kyc-section-badge bg-orange-100 text-alba-orange">Required</span>
+                                {% endif %}
+                            </div>
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">Employer, income, and employment details</p>
+                        </div>
+                        <svg class="kyc-section-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div class="kyc-section-body">
+                        <div class="kyc-section-content">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="form-field">
+                                    <label class="form-label">Employment Status <span class="required-star">*</span></label>
+                                    {{ form.employment_status }}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Employer Name</label>
+                                    {{ form.employer_name }}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Employer Contact</label>
+                                    {{ form.employer_contact }}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Employer Email</label>
+                                    {{ form.employer_email }}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Monthly Income (KES) <span class="required-star">*</span></label>
+                                    {{ form.monthly_income }}
+                                    {% if form.monthly_income.errors %}<p class="error-text">{{ form.monthly_income.errors.0 }}</p>{% endif %}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Date of Employment</label>
+                                    {{ form.employment_date }}
+                                </div>
+                            </div>
+                            <!-- Section nav -->
+                            <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" class="section-nav-btn" onclick="goToStep(1)">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                                    Personal
+                                </button>
+                                <button type="button" class="section-nav-btn section-nav-btn-next" onclick="goToStep(3)">
+                                    Continue to Financial
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─── STEP 3: Financial Information ─────────── -->
+                <div class="kyc-section fade-up fade-up-d3" data-section="3" id="section-3">
+                    <button type="button" class="kyc-section-trigger" onclick="toggleSection(3)">
+                        <div class="kyc-section-icon bg-green-50">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-sm font-semibold text-gray-900">Financial Information</h3>
+                                {% if customer.bank_name and customer.bank_account %}
+                                <span class="kyc-section-badge bg-green-100 text-green-700">Complete</span>
+                                {% else %}
+                                <span class="kyc-section-badge bg-gray-100 text-gray-500">Optional</span>
+                                {% endif %}
+                            </div>
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">Bank details and existing obligations</p>
+                        </div>
+                        <svg class="kyc-section-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div class="kyc-section-body">
+                        <div class="kyc-section-content">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="form-field">
+                                    <label class="form-label">Bank Name</label>
+                                    {{ form.bank_name }}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Bank Account Number</label>
+                                    {{ form.bank_account }}
+                                </div>
+                                <div class="form-field md:col-span-2">
+                                    <label class="form-label">Existing Monthly Loan Obligations (KES)</label>
+                                    {{ form.existing_loans }}
+                                    <p class="help-text">Total monthly payments you make for other loans</p>
+                                </div>
+                            </div>
+                            <!-- Section nav -->
+                            <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" class="section-nav-btn" onclick="goToStep(2)">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                                    Employment
+                                </button>
+                                <button type="button" class="section-nav-btn section-nav-btn-next" onclick="goToStep(4)">
+                                    Continue to Documents
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─── STEP 4: Document Verification ─────────── -->
+                <div class="kyc-section fade-up fade-up-d4" data-section="4" id="section-4">
+                    <button type="button" class="kyc-section-trigger" onclick="toggleSection(4)">
+                        <div class="kyc-section-icon" style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5180 100%);">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-sm font-semibold text-gray-900">Document Verification</h3>
+                                {% if customer.national_id_verified and customer.bank_statement_verified and customer.face_recognition_verified %}
+                                <span class="kyc-section-badge bg-green-100 text-green-700">Verified</span>
+                                {% elif customer.national_id_file and customer.bank_statement_file and customer.face_recognition_photo %}
+                                <span class="kyc-section-badge bg-yellow-100 text-yellow-700">Uploaded — Verify Now</span>
+                                {% else %}
+                                <span class="kyc-section-badge bg-orange-100 text-alba-orange">Required</span>
+                                {% endif %}
+                            </div>
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">Upload ID, payslips &amp; face photo for AI verification</p>
+                        </div>
+                        <svg class="kyc-section-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div class="kyc-section-body">
+                        <div class="kyc-section-content">
+                            <p class="text-sm text-gray-500 mb-4">
+                                Upload your ID, payslips, and face photo. Our AI will extract information and auto-fill form fields.
+                            </p>
+
+                            <!-- Uploaded doc badges -->
+                            <div class="flex flex-wrap gap-2 mb-5">
+                                {% if customer.national_id_file %}
+                                <span class="badge {% if customer.national_id_verified %}badge-green{% else %}badge-yellow{% endif %}">
+                                    {% if customer.national_id_verified %}&#10003;{% else %}&#128196;{% endif %} National ID
+                                    <a href="{{ customer.national_id_file.url }}" target="_blank" class="underline ml-1">View</a>
+                                </span>
+                                {% endif %}
+                                {% if customer.bank_statement_file %}
+                                <span class="badge {% if customer.bank_statement_verified %}badge-green{% else %}badge-yellow{% endif %}">
+                                    {% if customer.bank_statement_verified %}&#10003;{% else %}&#128196;{% endif %} Bank Statement
+                                    <a href="{{ customer.bank_statement_file.url }}" target="_blank" class="underline ml-1">View</a>
+                                </span>
+                                {% endif %}
+                                {% if customer.face_recognition_photo %}
+                                <span class="badge {% if customer.face_recognition_verified %}badge-green{% else %}badge-yellow{% endif %}">
+                                    {% if customer.face_recognition_verified %}&#10003;{% else %}&#128247;{% endif %} Face Photo
+                                    <a href="{{ customer.face_recognition_photo.url }}" target="_blank" class="underline ml-1">View</a>
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <!-- ── KYC Verification Status (from Odoo) ── -->
+                            {% if kyc_verified %}
+                            <div class="mb-5 rounded-lg border border-green-200 bg-green-50 p-4">
+                                <div class="flex items-start gap-3">
+                                    <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-sm font-semibold text-green-800">KYC Verified</h4>
+                                        <p class="text-xs text-green-600 mt-1">Your identity has been verified by our team. You are cleared to apply for loans.</p>
+                                        {% if odoo_kyc.kyc_verified_by %}
+                                        <p class="text-xs text-green-600 mt-0.5">Verified by: {{ odoo_kyc.kyc_verified_by }}{% if odoo_kyc.kyc_verified_date %} on {{ odoo_kyc.kyc_verified_date }}{% endif %}</p>
+                                        {% endif %}
+                                        <!-- Per-document status -->
+                                        <div class="mt-3 space-y-1">
+                                            <div class="flex items-center gap-2 text-xs">
+                                                <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                <span class="text-green-700">National ID — Verified</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 text-xs">
+                                                <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                <span class="text-green-700">Bank Statement / Payslip — Verified</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 text-xs">
+                                                <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                <span class="text-green-700">Face Photo — Verified</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% elif verification_status == "rejected" %}
+                            <div class="mb-5 rounded-lg border border-red-200 bg-red-50 p-4">
+                                <div class="flex items-start gap-3">
+                                    <svg class="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-sm font-semibold text-red-800">Verification Rejected</h4>
+                                        {% if odoo_kyc.kyc_notes %}
+                                        <p class="text-xs text-red-700 mt-1"><strong>Reason:</strong> {{ odoo_kyc.kyc_notes }}</p>
+                                        {% elif verification_details.rejection_reason %}
+                                        <p class="text-xs text-red-700 mt-1"><strong>Reason:</strong> {{ verification_details.rejection_reason }}</p>
+                                        {% endif %}
+                                        <p class="text-xs text-red-600 mt-1">Please re-upload clearer documents and run the AI verification again.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% elif verification_status == "in_progress" %}
+                            <div class="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                                <div class="flex items-start gap-3">
+                                    <svg class="w-6 h-6 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-sm font-semibold text-blue-800">Documents Submitted — Awaiting KYC Review</h4>
+                                        <p class="text-xs text-blue-600 mt-1">
+                                            Your documents passed AI validation and have been submitted to our team for KYC review.
+                                            You will be notified once verification is complete.
+                                        </p>
+                                        {% if verification_confidence > 0 %}
+                                        <div class="mt-2 flex items-center gap-2">
+                                            <span class="text-xs text-blue-600">AI Confidence: {{ verification_confidence }}%</span>
+                                            <div class="flex-1 max-w-[120px] h-1.5 bg-blue-200 rounded-full overflow-hidden">
+                                                <div class="h-full rounded-full bg-blue-500" style="width: {{ verification_confidence }}%"></div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        <!-- Per-document upload status -->
+                                        <div class="mt-3 space-y-1">
+                                            <div class="flex items-center gap-2 text-xs">
+                                                {% if customer.national_id_file %}
+                                                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                <span class="text-blue-700">National ID — Uploaded, under review</span>
+                                                {% else %}
+                                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                <span class="text-gray-500">National ID — Not uploaded</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="flex items-center gap-2 text-xs">
+                                                {% if customer.bank_statement_file %}
+                                                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                <span class="text-blue-700">Bank Statement / Payslip — Uploaded, under review</span>
+                                                {% else %}
+                                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                <span class="text-gray-500">Bank Statement / Payslip — Not uploaded</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="flex items-center gap-2 text-xs">
+                                                {% if customer.face_recognition_photo %}
+                                                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                <span class="text-blue-700">Face Photo — Uploaded, under review</span>
+                                                {% else %}
+                                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                <span class="text-gray-500">Face Photo — Not uploaded</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Upload zones — drag & drop friendly -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                                <!-- National ID Upload -->
+                                <div class="upload-zone {% if customer.national_id_file %}has-file{% endif %}" id="zone-id">
+                                    {{ form.national_id_file }}
+                                    <div class="pointer-events-none">
+                                        {% if customer.national_id_file %}
+                                        <div class="flex flex-col items-center gap-1">
+                                            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span class="text-xs font-medium text-green-700">ID Uploaded</span>
+                                            <span class="text-xs text-gray-400">Drop to replace</span>
+                                        </div>
+                                        {% else %}
+                                        <div class="flex flex-col items-center gap-1.5">
+                                            <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                            <span class="text-xs font-semibold text-gray-600">National ID</span>
+                                            <span class="text-xs text-gray-400">Drop or click</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Bank Statement Upload -->
+                                <div class="upload-zone {% if customer.bank_statement_file %}has-file{% endif %}" id="zone-bank">
+                                    {{ form.bank_statement_file }}
+                                    <div class="pointer-events-none">
+                                        {% if customer.bank_statement_file %}
+                                        <div class="flex flex-col items-center gap-1">
+                                            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span class="text-xs font-medium text-green-700">Statement Uploaded</span>
+                                            <span class="text-xs text-gray-400">Drop to replace</span>
+                                        </div>
+                                        {% else %}
+                                        <div class="flex flex-col items-center gap-1.5">
+                                            <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            <span class="text-xs font-semibold text-gray-600">Bank Statement</span>
+                                            <span class="text-xs text-gray-400">Drop or click</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Face Photo Upload -->
+                                <div class="upload-zone {% if customer.face_recognition_photo %}has-file{% endif %}" id="zone-selfie">
+                                    {{ form.face_recognition_photo }}
+                                    <div class="pointer-events-none">
+                                        {% if customer.face_recognition_photo %}
+                                        <div class="flex flex-col items-center gap-1">
+                                            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span class="text-xs font-medium text-green-700">Photo Uploaded</span>
+                                            <span class="text-xs text-gray-400">Drop to replace</span>
+                                        </div>
+                                        {% else %}
+                                        <div class="flex flex-col items-center gap-1.5">
+                                            <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                            <span class="text-xs font-semibold text-gray-600">Face Photo</span>
+                                            <span class="text-xs text-gray-400">Drop or click</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Verification banner -->
+                            <div id="verification-banner" class="alert hidden mb-4" role="status" aria-live="polite">
+                                <p id="verification-banner-text" class="text-sm font-medium"></p>
+                            </div>
+
+                            <!-- React Verification Wizard -->
+                            <div class="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
+                                <div class="flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-alba-navy to-[#2d5180]">
+                                    <div class="h-9 w-9 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+                                        <svg class="h-4.5 w-4.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-white">AI Document Verification</h4>
+                                        <p class="text-xs text-blue-200">Upload below — data is extracted and auto-filled</p>
+                                    </div>
+                                </div>
+                                <div id="verification-root" class="p-4" style="min-height: 400px; display: flex; align-items: center; justify-content: center;">
+                                    <div style="width: 48px; height: 48px; border: 4px solid #ffe4d6; border-top-color: #ff6b35; border-radius: 50%; animation: spin 1s linear infinite;" role="status">
+                                        <span class="sr-only">Loading verification component...</span>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="verification-data" name="verification_data" value="" />
+                            </div>
+
+                            <!-- Section nav -->
+                            <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" class="section-nav-btn" onclick="goToStep(3)">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                                    Financial
+                                </button>
+                                <span class="text-xs text-gray-400 self-center">Last step — save below</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════
+                 STICKY SAVE BAR
+                 ═══════════════════════════════════════════════ -->
+            <div class="sticky-actions mt-5 rounded-xl shadow-lg border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p class="text-xs text-gray-500"><span class="text-alba-orange font-semibold">*</span> indicates required fields</p>
+                <div class="flex items-center gap-3">
+                    <a href="{% url 'loans:customer_dashboard' %}" class="btn btn-secondary btn-sm">Cancel</a>
+                    <button type="submit" class="btn btn-primary btn-sm" data-loading-text="Saving…">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        Save Profile
+                    </button>
+                </div>
+            </div>
+        </form>
     </main>
 </div>
 
 <script>
+    // ── Verification wizard context (injected by Django) ───────────────────
+    window.VERIFICATION_CONTEXT = {{ verification_context_json|safe }};
+
+    // ── Wizard section navigation ──────────────────────────────────────────
+    let currentStep = 1;
+    const totalSteps = 4;
+
+    function goToStep(n) {
+        if (n < 1 || n > totalSteps) return;
+        // Close current, open target
+        document.querySelectorAll('.kyc-section').forEach(s => s.classList.remove('section-active'));
+        const target = document.getElementById('section-' + n);
+        if (target) {
+            target.classList.add('section-active');
+            // Smooth scroll to section
+            setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' }), 80);
+        }
+        currentStep = n;
+        updateStepTracker();
+    }
+
+    function toggleSection(n) {
+        const section = document.getElementById('section-' + n);
+        if (!section) return;
+        const isActive = section.classList.contains('section-active');
+        if (isActive) {
+            section.classList.remove('section-active');
+        } else {
+            goToStep(n);
+        }
+    }
+
+    function updateStepTracker() {
+        document.querySelectorAll('.wizard-step').forEach(step => {
+            const sn = parseInt(step.dataset.step);
+            step.classList.remove('active', 'done');
+            if (sn === currentStep) step.classList.add('active');
+            else if (sn < currentStep) step.classList.add('done');
+        });
+        document.querySelectorAll('.wizard-step-connector').forEach(c => {
+            const after = parseInt(c.dataset.after);
+            c.classList.toggle('done', after < currentStep);
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         // ── KYC animated progress bar ──────────────────────────────────────
         const progressBar = document.querySelector(".kyc-progress-bar");
+        const target = progressBar ? parseInt(progressBar.getAttribute("data-progress"), 10) || 0 : 0;
+
         if (progressBar) {
-            const target =
-                parseInt(progressBar.getAttribute("data-progress"), 10) || 0;
+            setTimeout(() => { progressBar.style.width = target + "%"; }, 150);
+        }
 
-            // Animate the bar width after a short delay so the CSS transition is visible
+        // ── KYC ring animation ─────────────────────────────────────────────
+        const ring = document.getElementById('kyc-ring');
+        const ringPct = document.getElementById('kyc-ring-pct');
+        if (ring) {
+            const pct = parseInt(ring.dataset.pct, 10) || 0;
+            const circ = 2 * Math.PI * 15.5; // ~97.4
             setTimeout(() => {
-                progressBar.style.width = target + "%";
-            }, 120);
-
-            // Animate the large percentage counter from 0 → target
-            const display = document.getElementById("kyc-pct-display");
-            if (display) {
-                const duration = 1000; // ms — matches the CSS transition duration
-                const startTime = performance.now();
-                function tick(now) {
-                    const elapsed = now - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
-                    // Ease-out: decelerate near the end
-                    const eased = 1 - Math.pow(1 - progress, 3);
-                    display.textContent = Math.round(eased * target);
-                    if (progress < 1) requestAnimationFrame(tick);
-                }
-                // Start the counter slightly after the bar begins to move
-                setTimeout(() => requestAnimationFrame(tick), 120);
+                ring.style.strokeDashoffset = circ - (circ * pct / 100);
+            }, 200);
+            // Animate number
+            if (ringPct) {
+                const dur = 1200;
+                const start = performance.now();
+                (function tick(now) {
+                    const p = Math.min((now - start) / dur, 1);
+                    const eased = 1 - Math.pow(1 - p, 3);
+                    ringPct.textContent = Math.round(eased * pct) + '%';
+                    if (p < 1) requestAnimationFrame(tick);
+                })(start);
             }
         }
 
-        // Handle file upload previews
-        const fileInputs = document.querySelectorAll('input[type="file"]');
-        fileInputs.forEach((input) => {
-            input.addEventListener("change", function (e) {
-                const file = e.target.files[0];
-                if (file) {
-                    // Validate file size (5MB max)
-                    if (file.size > 5 * 1024 * 1024) {
-                        alert("File size must be less than 5MB");
-                        e.target.value = "";
-                        return;
-                    }
-
-                    // Show file name
-                    const label = e.target.previousElementSibling;
-                    if (label && label.tagName === "LABEL") {
-                        const fileName = document.createElement("span");
-                        fileName.className = "ml-2 text-sm text-gray-600";
-                        fileName.textContent = "(Selected: " + file.name + ")";
-
-                        // Remove existing file name if present
-                        const existingFileName = label.querySelector("span");
-                        if (existingFileName) {
-                            existingFileName.remove();
-                        }
-
-                        label.appendChild(fileName);
+        // ── Drag and drop for upload zones ─────────────────────────────────
+        document.querySelectorAll('.upload-zone').forEach(zone => {
+            const input = zone.querySelector('input[type="file"]');
+            zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+            zone.addEventListener('drop', e => {
+                e.preventDefault();
+                zone.classList.remove('drag-over');
+                if (e.dataTransfer.files.length && input) {
+                    input.files = e.dataTransfer.files;
+                    zone.classList.add('has-file');
+                    // Update visual
+                    const label = zone.querySelector('.pointer-events-none');
+                    if (label) {
+                        const fname = e.dataTransfer.files[0].name;
+                        label.innerHTML = '<div class="flex flex-col items-center gap-1">' +
+                            '<svg class="w-8 h-8 text-alba-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
+                            '<span class="text-xs font-medium text-gray-700 truncate max-w-full px-2">' + fname.substring(0, 24) + '</span>' +
+                            '<span class="text-xs text-gray-400">Drop to replace</span></div>';
                     }
                 }
             });
+            // Also handle click-selected files
+            if (input) {
+                input.addEventListener('change', () => {
+                    if (input.files.length) {
+                        zone.classList.add('has-file');
+                        const label = zone.querySelector('.pointer-events-none');
+                        if (label) {
+                            const fname = input.files[0].name;
+                            label.innerHTML = '<div class="flex flex-col items-center gap-1">' +
+                                '<svg class="w-8 h-8 text-alba-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
+                                '<span class="text-xs font-medium text-gray-700 truncate max-w-full px-2">' + fname.substring(0, 24) + '</span>' +
+                                '<span class="text-xs text-gray-400">Click to change</span></div>';
+                        }
+                    }
+                });
+            }
         });
 
-        // Face recognition camera capture
-        const faceInput = document.getElementById("id_face_recognition_photo");
-        if (faceInput) {
-            // Add camera capture functionality for mobile devices
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                // For mobile devices, prefer camera
-                if (
-                    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-                        navigator.userAgent,
-                    )
-                ) {
-                    faceInput.setAttribute("capture", "camera");
-                }
+        // ── Verification wizard events ─────────────────────────────────────
+        const banner = document.getElementById("verification-banner");
+        const bannerText = document.getElementById("verification-banner-text");
+
+        window.addEventListener('verificationComplete', function(e) {
+            if (banner && bannerText) {
+                banner.className = "alert alert-success mb-4";
+                bannerText.textContent = "Documents verified successfully! Form fields have been auto-filled.";
+                banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+
+        window.addEventListener('verificationError', function(e) {
+            if (banner && bannerText) {
+                banner.className = "alert alert-error mb-4";
+                bannerText.textContent = "Verification failed: " + (e.detail && e.detail.message || "Please try again.");
+                banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+
+        // ── Auto-open section with first error ─────────────────────────────
+        const firstErr = document.querySelector('.error-text');
+        if (firstErr) {
+            const sec = firstErr.closest('.kyc-section');
+            if (sec) {
+                const sn = parseInt(sec.dataset.section);
+                if (sn) goToStep(sn);
             }
         }
+
+        // Init step tracker
+        updateStepTracker();
     });
 </script>
+<!-- CSRF meta tag for verification API calls -->
+<meta name="csrf-token" content="{{ csrf_token }}" />
+{% if debug %}
+<script type="module" src="http://localhost:5173/@vite/client"></script>
+<script type="module" src="http://localhost:5173/src/main.tsx"></script>
+{% else %}
+<link rel="stylesheet" href="{% static 'verification/assets/main.css' %}" />
+<script type="module" src="{% static 'verification/js/main.js' %}"></script>
+{% endif %}
 {% endblock %}

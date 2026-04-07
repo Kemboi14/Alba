@@ -139,7 +139,9 @@ export const VerificationWizard: React.FC<VerificationWizardProps> = ({
           {steps.map((step, index) => {
             const StepIcon = step.icon;
             const isActive = index === activeStep;
-            const isCompleted = index < activeStep;
+            // Only mark completed if the step's verification actually passed
+            const isCompleted = index < activeStep && canProceedToStep(index + 1);
+            // Allow going back to previous steps, or forward only if verification passed
             const isClickable = index <= activeStep || canProceedToStep(index);
 
             return (

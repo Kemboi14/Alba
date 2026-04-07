@@ -714,7 +714,77 @@ class AlbaApiController(http.Controller):
             return self._error_response("Internal server error.", 500)
 
     # -------------------------------------------------------------------------
-    # 5. Create loan application
+    # 5. Get customer KYC status
+    # -------------------------------------------------------------------------
+
+    @http.route(
+        "/alba/api/v1/customers/<int:customer_id>/kyc",
+        type="http",
+        auth="public",
+        methods=["GET"],
+        csrf=False,
+    )
+    def get_kyc_status(self, customer_id, **kwargs):
+        """
+        Retrieve the current KYC verification status of a customer from Odoo.
+
+        Authentication
+        --------------
+        Requires ``X-Alba-API-Key`` header.
+
+        Response 200
+        ------------
+        .. code-block:: json
+
+            {
+                "odoo_customer_id": 42,
+                "kyc_status": "verified",
+                "kyc_verified_by": "Admin User",
+                "kyc_verified_date": "2024-01-15 12:00:00",
+                "kyc_notes": ""
+            }
+        """
+        try:
+            api_key = self._authenticate()
+
+            customer = request.env["alba.customer"].sudo().search(
+                [
+                    ("id", "=", customer_id),
+                    ("company_id", "=", api_key.company_id.id),
+                ],
+                limit=1,
+            )
+            if not customer.exists():
+                return self._error_response(
+                    f"Customer with id={customer_id} not found.", 404
+                )
+
+            return self._json_response(
+                {
+                    "odoo_customer_id": customer.id,
+                    "kyc_status": customer.kyc_status or "pending",
+                    "kyc_verified_by": (
+                        customer.kyc_verified_by.name
+                        if customer.kyc_verified_by
+                        else ""
+                    ),
+                    "kyc_verified_date": (
+                        str(customer.kyc_verified_date)
+                        if customer.kyc_verified_date
+                        else ""
+                    ),
+                    "kyc_notes": getattr(customer, "kyc_notes", "") or "",
+                }
+            )
+
+        except odoo_exceptions.AccessDenied as exc:
+            return self._error_response(str(exc), 403)
+        except Exception as exc:
+            _logger.exception("get_kyc_status: unexpected error — %s", exc)
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 6. Create loan application
     # -------------------------------------------------------------------------
 
     @http.route(
