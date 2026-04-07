@@ -5,6 +5,7 @@ Handles: customer dashboard, profile, loan application, documents, guarantors,
 Staff/admin processing is handled in Odoo.
 """
 
+import json
 import logging
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
@@ -125,7 +126,8 @@ def customer_profile(request):
             if customer.is_kyc_fully_uploaded() and not customer.kyc_verified:
                 messages.info(
                     request,
-                    "All KYC documents uploaded. Your account will be verified within 24 hours.",
+                    "Documents uploaded. Please complete AI Document Verification "
+                    "in Step 4 to verify your identity.",
                 )
             messages.success(request, "Profile updated successfully.")
             create_audit_log(
@@ -140,6 +142,76 @@ def customer_profile(request):
         form = CustomerProfileForm(instance=customer)
 
     kyc_completion = int(customer.get_kyc_completion_percentage())
+
+    # ── Fetch real-time KYC status from Odoo (best-effort) ──────────────────
+    odoo_kyc = None
+    if customer.odoo_customer_id:
+        try:
+            from core.services.odoo_sync import OdooSyncService
+
+            svc = OdooSyncService()
+            if svc.is_reachable():
+                odoo_kyc = svc.get_kyc_status(customer.odoo_customer_id)
+                # Sync Odoo's authoritative status back to Django
+                odoo_status = (odoo_kyc.get("kyc_status") or "").strip()
+                if odoo_status == "verified" and not customer.kyc_verified:
+                    customer.kyc_verified = True
+                    customer.national_id_verified = True
+                    customer.bank_statement_verified = True
+                    customer.face_recognition_verified = True
+                    customer.verification_status = "verified"
+                    customer.save(update_fields=[
+                        "kyc_verified",
+                        "national_id_verified",
+                        "bank_statement_verified",
+                        "face_recognition_verified",
+                        "verification_status",
+                    ])
+                elif odoo_status == "rejected" and customer.kyc_verified:
+                    customer.kyc_verified = False
+                    customer.verification_status = "rejected"
+                    customer.save(update_fields=[
+                        "kyc_verified", "verification_status",
+                    ])
+        except Exception as exc:
+            logger.debug("Could not fetch Odoo KYC status: %s", exc)
+
+    # Build verification wizard context for the React component
+    payslip_urls = []
+    try:
+        payslip_urls = json.loads(customer.additional_payslip_files or "[]")
+    except (json.JSONDecodeError, ValueError):
+        payslip_urls = []
+
+    def _safe_url(field):
+        try:
+            return field.url if field else ""
+        except Exception:
+            return ""
+
+    verification_context_json = json.dumps({
+        "csrfToken": request.META.get("CSRF_COOKIE", ""),
+        "apiBaseUrl": "/api/verify",
+        "existingDocuments": {
+            "idFront": _safe_url(customer.national_id_file),
+            "idBack": _safe_url(getattr(customer, "id_back_file", None)),
+            "payslips": payslip_urls,
+            "selfie": _safe_url(customer.face_recognition_photo),
+        },
+        "verificationStatus": getattr(customer, "verification_status", "pending"),
+        "confidence": getattr(customer, "verification_confidence", 0),
+    })
+
+    # Parse verification results for display
+    verification_details = {}
+    try:
+        verification_details = json.loads(customer.verification_results or "{}")
+    except (json.JSONDecodeError, ValueError):
+        verification_details = {}
+
+    # Re-calculate after possible Odoo sync update
+    kyc_completion = int(customer.get_kyc_completion_percentage())
+
     return render(
         request,
         "loans/customer/profile.html",
@@ -148,6 +220,12 @@ def customer_profile(request):
             "customer": customer,
             "kyc_completion": kyc_completion,
             "kyc_verified": customer.kyc_verified,
+            "verification_context_json": verification_context_json,
+            "verification_status": customer.verification_status,
+            "verification_confidence": customer.verification_confidence,
+            "verification_details": verification_details,
+            "odoo_kyc": odoo_kyc,
+            "debug": request.GET.get("debug", "false").lower() == "true",
         },
     )
 

@@ -54,6 +54,12 @@ async function uploadDocuments(output: VerificationOutput): Promise<void> {
   );
   if (documents.selfie) formData.append("selfie", documents.selfie);
 
+  // Include verification results so server can validate client-side checks passed
+  formData.append("verification_data", JSON.stringify({
+    verification: output.verification,
+    summary: output.summary,
+  }));
+
   const res = await fetch(`${context.apiBaseUrl}/documents/upload/`, {
     method: "POST",
     headers: { "X-CSRFToken": getCsrfToken() },
@@ -176,7 +182,7 @@ async function handleComplete(output: VerificationOutput): Promise<void> {
     if (banner) {
       banner.classList.add("show");
       banner.querySelector(".success-banner-text")!.textContent =
-        `Documents verified successfully!${odoo_synced ? " Synced to Odoo." : ""} Form fields auto-filled.`;
+        `Documents validated and submitted for KYC review.${odoo_synced ? " Synced to review team." : ""} Form fields auto-filled.`;
     }
 
     // Step 6 — Notify any other Django listeners

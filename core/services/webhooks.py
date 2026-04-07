@@ -887,10 +887,25 @@ def _handle_customer_kyc_verified(data: dict, delivery_id: str):
         if kyc_status == "verified":
             customer.kyc_verified = True
             customer.kyc_verified_at = dj_timezone.now()
-            update_fields += ["kyc_verified", "kyc_verified_at"]
+            # Mark individual documents as verified (Odoo confirmed all)
+            customer.national_id_verified = True
+            customer.bank_statement_verified = True
+            customer.face_recognition_verified = True
+            update_fields += [
+                "kyc_verified", "kyc_verified_at",
+                "national_id_verified", "bank_statement_verified",
+                "face_recognition_verified",
+            ]
         elif kyc_status == "rejected":
             customer.kyc_verified = False
-            update_fields.append("kyc_verified")
+            customer.national_id_verified = False
+            customer.bank_statement_verified = False
+            customer.face_recognition_verified = False
+            update_fields += [
+                "kyc_verified",
+                "national_id_verified", "bank_statement_verified",
+                "face_recognition_verified",
+            ]
 
         customer.save(update_fields=update_fields)
         logger.info(

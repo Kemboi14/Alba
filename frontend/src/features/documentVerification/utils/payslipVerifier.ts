@@ -81,15 +81,22 @@ export async function verifyPayslip(
       };
     }
 
-    // Check if document looks like a payslip
-    const isPayslipLike = INCOME_KEYWORDS.some((keyword) =>
+    // Check if document looks like a payslip (hard gate — reject non-payslip docs)
+    const matchedKeywords = INCOME_KEYWORDS.filter((keyword) =>
       rawText.toLowerCase().includes(keyword),
     );
 
-    if (!isPayslipLike) {
-      warnings.push(
-        "Document may not be a payslip. Please verify the uploaded file.",
-      );
+    if (matchedKeywords.length < 2) {
+      return {
+        isValid: false,
+        confidence: 0,
+        extractedData: {},
+        errors: [
+          "This does not appear to be a payslip or income document. Please upload your actual payslip (PDF or image).",
+        ],
+        warnings: [],
+        rawText,
+      };
     }
 
     // Extract financial data

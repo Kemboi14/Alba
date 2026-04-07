@@ -280,6 +280,28 @@ class OdooSyncService:
             payload,
         )
 
+    def get_kyc_status(self, odoo_customer_id: int) -> dict:
+        """
+        Fetch the real-time KYC verification status from Odoo.
+
+        Args:
+            odoo_customer_id: Odoo ID of the ``alba.customer`` record.
+
+        Returns:
+            dict: Response body containing:
+                ``odoo_customer_id`` (int),
+                ``kyc_status`` (str) — pending / partial / complete / verified / rejected,
+                ``kyc_verified_by`` (str),
+                ``kyc_verified_date`` (str),
+                ``kyc_notes`` (str).
+
+        Raises:
+            OdooNotFoundError: When the customer ID is not found in Odoo.
+            OdooSyncError: On any other API failure.
+        """
+        logger.info("Fetching KYC status from Odoo: odoo_customer_id=%d", odoo_customer_id)
+        return self._get(f"/alba/api/v1/customers/{odoo_customer_id}/kyc")
+
     def create_loan_application(self, application) -> dict:
         """
         Submit a Django LoanApplication record to Odoo.

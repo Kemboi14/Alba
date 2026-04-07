@@ -24,6 +24,46 @@ const KENYAN_ID_PATTERNS = {
   gender: /\b(MALE|FEMALE|M|F)\b/gi,
 };
 
+// Keywords that should appear on a genuine Kenyan National ID
+const ID_KEYWORDS_FRONT = [
+  "republic",
+  "kenya",
+  "national",
+  "identity",
+  "jamhuri",
+  "kitambulisho",
+  "full name",
+  "date of birth",
+  "sex",
+  "district",
+  "place of issue",
+  "holder",
+];
+
+const ID_KEYWORDS_BACK = [
+  "republic",
+  "kenya",
+  "national",
+  "identity",
+  "jamhuri",
+  "kitambulisho",
+  "principal registrar",
+  "address",
+  "district",
+  "division",
+  "location",
+  "serial",
+];
+
+/**
+ * Check if OCR text contains enough ID keywords to be a genuine ID
+ */
+function hasIDKeywords(text: string, keywords: string[], minMatches: number): { matches: number; matched: string[] } {
+  const lowerText = text.toLowerCase();
+  const matched = keywords.filter((kw) => lowerText.includes(kw));
+  return { matches: matched.length, matched };
+}
+
 /**
  * Compress image before OCR processing
  */
@@ -79,6 +119,21 @@ export async function verifyKenyanID(
 
     const rawText = result.data.text;
     const extractedData: IDVerificationResult["extractedData"] = {};
+
+    // Check if document looks like a Kenyan ID (keyword check)
+    const keywordCheck = hasIDKeywords(rawText, ID_KEYWORDS_FRONT, 2);
+    if (keywordCheck.matches < 2) {
+      return {
+        isValid: false,
+        confidence: 0,
+        extractedData: {},
+        errors: [
+          "This does not appear to be a Kenyan National ID. Please upload a clear photo of the front of your National ID card.",
+        ],
+        warnings: [],
+        rawText,
+      };
+    }
 
     // Extract ID Number (8 digits)
     const idNumbers = rawText.match(KENYAN_ID_PATTERNS.idNumber);
@@ -171,6 +226,111 @@ export async function verifyKenyanID(
     };
   } catch (error) {
     console.error("ID Verification Error:", error);
+    return {
+      isValid: false,
+      confidence: 0,
+      extractedData: {},
+      errors: [
+        "Failed to process image. Please try again with a clearer photo.",
+      ],
+      warnings: [],
+      rawText: "",
+    };
+  }
+}
+
+/**
+ * Verify back side of Kenyan National ID using OCR
+ * Less strict than front — checks for document keywords and serial number
+ */
+export async function verifyKenyanIDBack(
+  imageFile: File,
+): Promise<IDVerificationResult> {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  try {
+    const compressedFile = await compressImageForOCR(imageFile);
+
+    const result = await Tesseract.recognize(compressedFile, "eng", {
+      logger: (m: { status: string; progress: number }) => {
+        if (m.status === "recognizing text") {
+          console.log(`OCR Progress (back): ${(m.progress * 100).toFixed(0)}%`);
+        }
+      },
+    });
+
+    const rawText = result.data.text;
+    const extractedData: IDVerificationResult["extractedData"] = {};
+
+    // Check if document looks like the back of a Kenyan ID
+    const keywordCheck = hasIDKeywords(rawText, ID_KEYWORDS_BACK, 2);
+    if (keywordCheck.matches < 2) {
+      return {
+        isValid: false,
+        confidence: 0,
+        extractedData: {},
+        errors: [
+          "This does not appear to be the back of a Kenyan National ID. Please upload a clear photo of the back of your ID card.",
+        ],
+        warnings: [],
+        rawText,
+      };
+    }
+
+    let confidence = 0;
+    let validFields = 0;
+
+    // Keywords matched — that's a strong signal
+    confidence += 30;
+    validFields++;
+
+    // Extract Serial Number
+    const serialNumbers = rawText.match(KENYAN_ID_PATTERNS.serialNumber);
+    if (serialNumbers && serialNumbers.length > 0) {
+      extractedData.serialNumber = serialNumbers[0];
+      confidence += 30;
+      validFields++;
+    } else {
+      warnings.push("Serial number not clearly detected on back side.");
+    }
+
+    // Check for address/district text (common on back)
+    const addressPattern = /(?:address|district|division|location|province)[:\s]+([A-Za-z\s]+)/i;
+    const addressMatch = rawText.match(addressPattern);
+    if (addressMatch) {
+      confidence += 20;
+      validFields++;
+    }
+
+    // Check for ID number on back too (sometimes visible)
+    const idNumbers = rawText.match(KENYAN_ID_PATTERNS.idNumber);
+    if (idNumbers && idNumbers.length > 0) {
+      const validId = idNumbers.find((n: string) => {
+        const num = parseInt(n, 10);
+        return num > 10000000 && num < 99999999;
+      });
+      if (validId) {
+        extractedData.idNumber = validId;
+        confidence += 20;
+        validFields++;
+      }
+    }
+
+    if (result.data.confidence < 50) {
+      warnings.push("Image quality is low. Consider retaking the photo.");
+    }
+
+    return {
+      isValid: validFields >= 2,
+      confidence: Math.min(confidence, 100),
+      extractedData,
+      errors,
+      warnings,
+      rawText,
+    };
+  } catch (error) {
+    console.error("ID Back Verification Error:", error);
     return {
       isValid: false,
       confidence: 0,

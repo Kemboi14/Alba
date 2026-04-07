@@ -266,11 +266,24 @@ export const useVerificationStore = create<VerificationState>()(
             case 0:
               return true;
             case 1:
-              return !!state.idCard.front && !!state.idCard.back;
+              // Require ID front AND back to be uploaded AND verified
+              return !!(
+                state.idCard.front?.verification?.isValid &&
+                state.idCard.back?.verification?.isValid
+              );
             case 2:
-              return state.payslips.files.length > 0;
+              // Require at least one verified payslip
+              return (
+                state.payslips.files.length > 0 &&
+                state.payslips.files.some((f) => f.verification?.isValid)
+              );
             case 3:
-              return !!state.faceImage.image && state.faceImage.faceDetected;
+              // Require face detected with good quality
+              return !!(
+                state.faceImage.image &&
+                state.faceImage.faceDetected &&
+                state.faceImage.quality === "good"
+              );
             default:
               return false;
           }
@@ -359,8 +372,10 @@ export const useVerificationStore = create<VerificationState>()(
               ),
               canSubmit: !!(
                 idVerified &&
+                payslipVerified &&
                 state.payslips.files.length > 0 &&
-                state.faceImage.faceDetected
+                state.faceImage.faceDetected &&
+                state.faceImage.quality === "good"
               ),
             },
           };
@@ -368,10 +383,8 @@ export const useVerificationStore = create<VerificationState>()(
       }),
       {
         name: "verification-storage",
+        version: 2, // Bump to clear stale persisted data
         partialize: (state) => ({
-          idCard: state.idCard,
-          payslips: state.payslips,
-          faceImage: state.faceImage,
           extractedClientData: state.extractedClientData,
         }),
       },

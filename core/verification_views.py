@@ -117,11 +117,9 @@ def client_profile_verification(request):
     context = {
         "form": form,
         "customer": customer,
-        # 'client' alias so the template works unchanged
         "client": customer,
         "verification_status": getattr(customer, "verification_status", "pending"),
         "debug": request.GET.get("debug", "false").lower() == "true",
-        # Pre-built JSON for the VERIFICATION_CONTEXT window variable
         "verification_context_json": json.dumps(
             {
                 "csrfToken": request.META.get("CSRF_COOKIE", ""),
@@ -165,6 +163,28 @@ class DocumentUploadView(View):
         customer = _get_customer(request.user)
         if not customer:
             return _json_error("Customer profile not found.", 404)
+
+        # ── Require client-side verification data ─────────────────────────────
+        verification_json = request.POST.get("verification_data", "")
+        if verification_json:
+            try:
+                vdata = json.loads(verification_json)
+                v = vdata.get("verification", {})
+                # Reject if client-side verification flagged any doc as unverified
+                if not v.get("idCard", {}).get("verified"):
+                    return _json_error(
+                        "ID verification did not pass. Please upload a valid Kenyan National ID.", 422
+                    )
+                if not v.get("payslips", {}).get("verified"):
+                    return _json_error(
+                        "Payslip verification did not pass. Please upload a valid payslip.", 422
+                    )
+                if not v.get("faceImage", {}).get("faceDetected"):
+                    return _json_error(
+                        "Face verification did not pass. Please upload a clear face photo.", 422
+                    )
+            except (json.JSONDecodeError, TypeError):
+                pass  # Allow upload to proceed if field is malformed
 
         uploaded = {}
         errors = []
@@ -344,8 +364,16 @@ class ProfileUpdateView(View):
 @method_decorator(login_required, name="dispatch")
 class VerificationSubmitView(View):
     """
-    Called when the customer clicks "Submit Verification" in the wizard.
-    Marks Customer as verified and triggers Odoo KYC sync (best-effort).
+    Called when the customer clicks "Submit Verification" in the React wizard.
+
+    AI verification only validates that the uploaded documents look like real
+    IDs / payslips / face photos.  It does NOT complete KYC — real KYC
+    verification is performed by staff in Odoo.
+
+    On success this view:
+      1. Records the AI confidence score.
+      2. Syncs the customer + documents to Odoo with kyc_status="submitted".
+      3. Returns a response telling the user their docs are under review.
     """
 
     def post(self, request):
@@ -363,17 +391,36 @@ class VerificationSubmitView(View):
         )
 
         if confidence < 40:
+            customer.verification_status = "rejected"
+            customer.verification_confidence = confidence
+            # Merge existing results with rejection reason
+            try:
+                existing = json.loads(customer.verification_results or "{}")
+            except (json.JSONDecodeError, ValueError):
+                existing = {}
+            existing["rejection_reason"] = (
+                "AI could not verify your documents (confidence {confidence}%). "
+                "Please re-upload clearer photos of your real ID, payslip, and face."
+            ).format(confidence=confidence)
+            customer.verification_results = json.dumps(existing)
+            customer.save()
+            logger.info(
+                "AI verification rejected: pk=%s confidence=%s",
+                customer.pk,
+                confidence,
+            )
             return _json_error(
-                "Verification confidence too low. Please re-upload clearer documents.",
+                "Document verification failed. Please re-upload clearer documents.",
                 422,
             )
 
-        customer.verification_status = "verified"
+        # AI validation passed — mark as in_progress (awaiting Odoo review)
+        customer.verification_status = "in_progress"
         customer.verification_confidence = confidence
-        customer.kyc_verified = True
+        # kyc_verified stays False — only Odoo can set it to True
         customer.save()
 
-        # Best-effort Odoo KYC sync — never block the response on failure
+        # Sync customer + docs to Odoo with "submitted" KYC status
         odoo_synced = False
         try:
             from core.services.odoo_sync import OdooSyncService
@@ -390,8 +437,14 @@ class VerificationSubmitView(View):
                 if odoo_id:
                     svc.update_kyc_status(
                         odoo_customer_id=odoo_id,
-                        kyc_status="verified",
-                        notes=f"Verified via document wizard (confidence {confidence}%)",
+                        kyc_status="submitted",
+                        notes=(
+                            f"Documents uploaded via portal. "
+                            f"AI validation passed (confidence {confidence}%). "
+                            f"Awaiting manual KYC review."
+                        ),
+                        document_type="national_id",
+                        document_number=customer.id_number or "",
                     )
                     odoo_synced = True
         except Exception as exc:
@@ -400,7 +453,7 @@ class VerificationSubmitView(View):
             )
 
         logger.info(
-            "Verification submitted: pk=%s confidence=%s odoo_synced=%s",
+            "AI verification submitted: pk=%s confidence=%s odoo_synced=%s",
             customer.pk,
             confidence,
             odoo_synced,
@@ -408,7 +461,11 @@ class VerificationSubmitView(View):
         return JsonResponse(
             {
                 "status": "success",
-                "verification_status": "verified",
+                "verification_status": "in_progress",
+                "message": (
+                    "Documents validated and submitted for KYC review."
+                    + (" Synced to Odoo." if odoo_synced else "")
+                ),
                 "confidence": confidence,
                 "odoo_synced": odoo_synced,
             }

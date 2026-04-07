@@ -507,16 +507,20 @@ class Customer(models.Model):
         return total or Decimal("0")
 
     def get_kyc_completion_percentage(self):
-        """Calculate KYC completion percentage across all 8 required fields."""
+        """Calculate KYC completion percentage.
+
+        Profile fields count as filled, but document fields only count
+        when they have been *verified* (not just uploaded).
+        """
         fields = [
             bool(self.id_number),
             bool(self.date_of_birth),
             bool(self.address),
             bool(self.monthly_income),
             bool(self.employer_name),
-            bool(self.national_id_file),
-            bool(self.bank_statement_file),
-            bool(self.face_recognition_photo),
+            bool(self.national_id_file) and self.national_id_verified,
+            bool(self.bank_statement_file) and self.bank_statement_verified,
+            bool(self.face_recognition_photo) and self.face_recognition_verified,
         ]
         completed = sum(fields)
         total = len(fields)
