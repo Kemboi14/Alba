@@ -1,5 +1,4 @@
-{% extends 'base.html' %} {% block title %}My Profile - Alba Capital{% endblock
-%} {% block extra_head %}
+{% extends 'base.html' %} {% block title %}My Profile - Alba Capital{% endblock %} {% block extra_head %}
 <style>
     /* KYC progress bar — starts at 0, JS animates to target width */
     .kyc-progress-bar {
@@ -135,9 +134,7 @@
                             KYC Verification Status
                         </h3>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            {% if kyc_verified %} Verified by {{
-                            customer.kyc_verified_by.get_full_name }} {% elif
-                            kyc_completion >= 80 %} Under review — our team will
+                            {% if kyc_verified %} Verified by {{ customer.kyc_verified_by.get_full_name }} {% elif kyc_completion >= 80 %} Under review — our team will
                             confirm within 24 hours {% else %} Complete the
                             checklist below to submit for review {% endif %}
                         </p>
@@ -467,8 +464,7 @@
                                 class="block text-sm font-medium text-gray-700"
                                 >Date of Birth</label
                             >
-                            {{ form.date_of_birth }} {% if
-                            form.date_of_birth.errors %}
+                            {{ form.date_of_birth }} {% if form.date_of_birth.errors %}
                             <p class="mt-1 text-sm text-red-600">
                                 {{ form.date_of_birth.errors.0 }}
                             </p>
@@ -552,8 +548,7 @@
                                 class="block text-sm font-medium text-gray-700"
                                 >Monthly Income (KES) *</label
                             >
-                            {{ form.monthly_income }} {% if
-                            form.monthly_income.errors %}
+                            {{ form.monthly_income }} {% if form.monthly_income.errors %}
                             <p class="mt-1 text-sm text-red-600">
                                 {{ form.monthly_income.errors.0 }}
                             </p>
@@ -682,8 +677,7 @@
                                     class="block text-sm font-medium text-gray-700 mb-2"
                                     >Upload National ID</label
                                 >
-                                {{ form.national_id_file }} {% if
-                                form.national_id_file.errors %}
+                                {{ form.national_id_file }} {% if form.national_id_file.errors %}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.national_id_file.errors.0 }}
                                 </p>
@@ -699,8 +693,7 @@
                             <div class="flex items-center justify-between mb-3">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0">
-                                        {% if customer.bank_statement_verified
-                                        %}
+                                        {% if customer.bank_statement_verified %}
                                         <svg
                                             class="h-5 w-5 text-green-500"
                                             fill="none"
@@ -769,8 +762,7 @@
                                     class="block text-sm font-medium text-gray-700 mb-2"
                                     >Upload Bank Statement</label
                                 >
-                                {{ form.bank_statement_file }} {% if
-                                form.bank_statement_file.errors %}
+                                {{ form.bank_statement_file }} {% if form.bank_statement_file.errors %}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.bank_statement_file.errors.0 }}
                                 </p>
@@ -786,8 +778,7 @@
                             <div class="flex items-center justify-between mb-3">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0">
-                                        {% if customer.face_recognition_verified
-                                        %}
+                                        {% if customer.face_recognition_verified %}
                                         <svg
                                             class="h-5 w-5 text-green-500"
                                             fill="none"
@@ -801,8 +792,7 @@
                                                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                                             />
                                         </svg>
-                                        {% elif customer.face_recognition_photo
-                                        %}
+                                        {% elif customer.face_recognition_photo %}
                                         <svg
                                             class="h-5 w-5 text-yellow-500"
                                             fill="none"
@@ -858,8 +848,7 @@
                                     class="block text-sm font-medium text-gray-700 mb-2"
                                     >Upload Face Photo</label
                                 >
-                                {{ form.face_recognition_photo }} {% if
-                                form.face_recognition_photo.errors %}
+                                {{ form.face_recognition_photo }} {% if form.face_recognition_photo.errors %}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.face_recognition_photo.errors.0 }}
                                 </p>

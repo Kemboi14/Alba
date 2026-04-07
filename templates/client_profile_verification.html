@@ -700,38 +700,20 @@
                                     >
                                         <option
                                             value=""
-                                            {%
-                                            if
-                                            not
-                                            form.gender.value
-                                            %}selected{%
-                                            endif
-                                            %}
+                                            {% if not form.gender.value %}selected{% endif %}
                                             disabled
                                         >
                                             Select your gender
                                         </option>
                                         <option
                                             value="male"
-                                            {%
-                                            if
-                                            form.gender.value=""
-                                            ="male"
-                                            %}selected{%
-                                            endif
-                                            %}
+                                            {% if form.gender.value="" ="male" %}selected{% endif %}
                                         >
                                             Male
                                         </option>
                                         <option
                                             value="female"
-                                            {%
-                                            if
-                                            form.gender.value=""
-                                            ="female"
-                                            %}selected{%
-                                            endif
-                                            %}
+                                            {% if form.gender.value="" ="female" %}selected{% endif %}
                                         >
                                             Female
                                         </option>
@@ -936,50 +918,26 @@
                                     >
                                         <option
                                             value=""
-                                            {%
-                                            if
-                                            not
-                                            form.employment_type.value
-                                            %}selected{%
-                                            endif
-                                            %}
+                                            {% if not form.employment_type.value %}selected{% endif %}
                                             disabled
                                         >
                                             Select type
                                         </option>
                                         <option
                                             value="permanent"
-                                            {%
-                                            if
-                                            form.employment_type.value=""
-                                            ="permanent"
-                                            %}selected{%
-                                            endif
-                                            %}
+                                            {% if form.employment_type.value="" ="permanent" %}selected{% endif %}
                                         >
                                             Permanent / Full-time
                                         </option>
                                         <option
                                             value="contract"
-                                            {%
-                                            if
-                                            form.employment_type.value=""
-                                            ="contract"
-                                            %}selected{%
-                                            endif
-                                            %}
+                                            {% if form.employment_type.value="" ="contract" %}selected{% endif %}
                                         >
                                             Contract
                                         </option>
                                         <option
                                             value="self-employed"
-                                            {%
-                                            if
-                                            form.employment_type.value=""
-                                            ="self-employed"
-                                            %}selected{%
-                                            endif
-                                            %}
+                                            {% if form.employment_type.value="" ="self-employed" %}selected{% endif %}
                                         >
                                             Self Employed
                                         </option>
@@ -992,8 +950,7 @@
                                     </p>
                                     {% if form.employment_type.errors %}
                                     <span class="error-message" role="alert"
-                                        >{{ form.employment_type.errors.0
-                                        }}</span
+                                        >{{ form.employment_type.errors.0 }}</span
                                     >
                                     {% endif %}
                                 </div>
@@ -1029,8 +986,7 @@
                                     </p>
                                     {% if form.monthly_income.errors %}
                                     <span class="error-message" role="alert"
-                                        >{{ form.monthly_income.errors.0
-                                        }}</span
+                                        >{{ form.monthly_income.errors.0 }}</span
                                     >
                                     {% endif %}
                                 </div>

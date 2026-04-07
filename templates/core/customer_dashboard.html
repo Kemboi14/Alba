@@ -1,5 +1,6 @@
-{% extends 'base.html' %} {% block title %}Dashboard — Alba Capital{% endblock
-%} {% block body %}
+{% extends 'base.html' %}
+{% block title %}Dashboard — Alba Capital{% endblock %}
+{% block body %}
 <div class="page-wrapper">
     {% include 'partials/navbar.html' with active_page='home' %}
 
@@ -77,13 +78,11 @@
                 <p class="font-semibold">KYC Verified</p>
                 <p class="text-sm mt-0.5">
                     Your identity has been verified. You now have full access to
-                    all loan products.{% if kyc_verified_at %} Verified {{
-                    kyc_verified_at|date:"d M Y" }}.{% endif %}
+                    all loan products.{% if kyc_verified_at %} Verified {{ kyc_verified_at|date:"d M Y" }}.{% endif %}
                 </p>
             </div>
         </div>
-        {% elif customer_profile and customer_profile.is_kyc_fully_uploaded and
-        not customer_profile.kyc_verified %}
+        {% elif customer_profile and customer_profile.is_kyc_fully_uploaded and not customer_profile.kyc_verified %}
         <div class="alert alert-info mb-6" role="status">
             <svg
                 class="alert-icon w-5 h-5"
@@ -414,8 +413,7 @@
                 <div>
                     <p class="font-semibold text-gray-900">My Loans</p>
                     <p class="text-xs text-gray-500 mt-0.5">
-                        {{ active_loans_count }} active loan{{
-                        active_loans_count|pluralize }}
+                        {{ active_loans_count }} active loan{{ active_loans_count|pluralize }}
                     </p>
                 </div>
                 <svg
@@ -504,8 +502,7 @@
                                 {{ app.application_number }}
                             </p>
                             <p class="text-xs text-gray-500 mt-0.5">
-                                {{ app.loan_product.name }} &middot; {{
-                                app.created_at|date:"d M Y" }}
+                                {{ app.loan_product.name }} &middot; {{ app.created_at|date:"d M Y" }}
                             </p>
                         </div>
                         <div class="text-right flex-shrink-0 ml-4">

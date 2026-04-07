@@ -1,5 +1,4 @@
-{% extends 'base.html' %} {% block title %}Apply for Loan - Alba Capital{%
-endblock%} {% block extra_css %}
+{% extends 'base.html' %} {% block title %}Apply for Loan - Alba Capital{% endblock%} {% block extra_css %}
 <style>
     /* ── Product card selection state ──────────────────────────────────────── */
     .loan-product-card {
@@ -238,8 +237,7 @@ endblock%} {% block extra_css %}
                                 class="calc-product-btn text-left p-3 rounded-xl border-2 border-gray-200 hover:border-alba-orange transition-all focus:outline-none"
                             >
                                 <div class="flex items-center gap-2 mb-1">
-                                    {% if product.category == 'SALARY_ADVANCE'
-                                    %}
+                                    {% if product.category == 'SALARY_ADVANCE' %}
                                     <span
                                         class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100"
                                     >
@@ -257,8 +255,7 @@ endblock%} {% block extra_css %}
                                             />
                                         </svg>
                                     </span>
-                                    {% elif product.category == 'BUSINESS_LOAN'
-                                    %}
+                                    {% elif product.category == 'BUSINESS_LOAN' %}
                                     <span
                                         class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-100"
                                     >
@@ -276,8 +273,7 @@ endblock%} {% block extra_css %}
                                             />
                                         </svg>
                                     </span>
-                                    {% elif product.category ==
-                                    'ASSET_FINANCING'%}
+                                    {% elif product.category == 'ASSET_FINANCING'%}
                                     <span
                                         class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-purple-100"
                                     >
@@ -320,12 +316,10 @@ endblock%} {% block extra_css %}
                                     >
                                 </div>
                                 <p class="text-xs text-gray-400 mt-0.5">
-                                    KES {{ product.min_amount|floatformat:0
-                                    }}–{{ product.max_amount|floatformat:0 }}
+                                    KES {{ product.min_amount|floatformat:0 }}–{{ product.max_amount|floatformat:0 }}
                                 </p>
                                 <p class="text-xs text-gray-400">
-                                    {{ product.interest_rate }}% &bull; up to {{
-                                    product.max_tenure_months}}mo
+                                    {{ product.interest_rate }}% &bull; up to {{ product.max_tenure_months}}mo
                                 </p>
                             </button>
                             {% endfor %}
@@ -674,8 +668,7 @@ endblock%} {% block extra_css %}
                                 >Amount Range:</span
                             >
                             <span class="text-sm font-medium text-gray-900"
-                                >KES {{ product.min_amount|floatformat:0 }}–{{
-                                product.max_amount|floatformat:0}}</span
+                                >KES {{ product.min_amount|floatformat:0 }}–{{ product.max_amount|floatformat:0}}</span
                             >
                         </div>
                         <div class="flex justify-between items-center">
@@ -683,15 +676,13 @@ endblock%} {% block extra_css %}
                                 >Interest Rate:</span
                             >
                             <span class="text-sm font-medium text-gray-900"
-                                >{{ product.interest_rate }}% {{
-                                product.get_interest_method_display}}</span
+                                >{{ product.interest_rate }}% {{ product.get_interest_method_display}}</span
                             >
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-sm text-gray-600">Tenure:</span>
                             <span class="text-sm font-medium text-gray-900"
-                                >{{ product.min_tenure_months }}–{{
-                                product.max_tenure_months}} months</span
+                                >{{ product.min_tenure_months }}–{{ product.max_tenure_months}} months</span
                             >
                         </div>
                         {% if product.description %}
@@ -787,8 +778,7 @@ endblock%} {% block extra_css %}
                                     class="block text-sm font-medium text-gray-700"
                                     >Requested Amount (KES) *</label
                                 >
-                                {{ form.requested_amount }} {% if
-                                form.requested_amount.errors%}
+                                {{ form.requested_amount }} {% if form.requested_amount.errors%}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.requested_amount.errors.0 }}
                                 </p>
@@ -806,8 +796,7 @@ endblock%} {% block extra_css %}
                                     class="block text-sm font-medium text-gray-700"
                                     >Loan Tenure (Months) *</label
                                 >
-                                {{ form.tenure_months }} {% if
-                                form.tenure_months.errors%}
+                                {{ form.tenure_months }} {% if form.tenure_months.errors%}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.tenure_months.errors.0 }}
                                 </p>
@@ -825,8 +814,7 @@ endblock%} {% block extra_css %}
                                     class="block text-sm font-medium text-gray-700"
                                     >Repayment Frequency *</label
                                 >
-                                {{ form.repayment_frequency }} {% if
-                                form.repayment_frequency.errors%}
+                                {{ form.repayment_frequency }} {% if form.repayment_frequency.errors%}
                                 <p class="mt-1 text-sm text-red-600">
                                     {{ form.repayment_frequency.errors.0 }}
                                 </p>
