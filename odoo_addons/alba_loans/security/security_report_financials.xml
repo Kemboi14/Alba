@@ -153,5 +153,45 @@
         <field name="perm_unlink" eval="True"/>
     </record>
 
+    <!-- ================================================================
+         Wizard Window Actions
+         (defined in this file because it already resolves model_alba_report_*
+          external IDs, guaranteeing ir.model records exist for all 5 models)
+         ================================================================ -->
+    <record id="action_alba_report_par_wizard" model="ir.actions.act_window">
+        <field name="name">PAR Report</field>
+        <field name="res_model">alba.report.par</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="action_alba_report_npl_wizard" model="ir.actions.act_window">
+        <field name="name">NPL Report</field>
+        <field name="res_model">alba.report.npl</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="action_alba_report_pl_wizard" model="ir.actions.act_window">
+        <field name="name">Profit &amp; Loss Report</field>
+        <field name="res_model">alba.report.pl</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="action_alba_report_cashflow_wizard" model="ir.actions.act_window">
+        <field name="name">Cash Flow Statement</field>
+        <field name="res_model">alba.report.cashflow</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="action_alba_report_balance_sheet_wizard" model="ir.actions.act_window">
+        <field name="name">Balance Sheet</field>
+        <field name="res_model">alba.report.balance.sheet</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
 </data>
 </odoo>
