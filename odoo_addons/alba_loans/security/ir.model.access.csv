@@ -75,18 +75,3 @@ access_alba_loan_document_manager,alba.loan.document manager,model_alba_loan_doc
 access_alba_loan_document_director,alba.loan.document director,model_alba_loan_document,alba_loans.group_director,1,1,1,1
 access_alba_loan_document_trade,alba.loan.document trade,model_alba_loan_document,alba_loans.group_trade_finance_officer,1,1,1,0
 access_alba_loan_document_business,alba.loan.document business,model_alba_loan_document,alba_loans.group_business_dev_officer,1,1,1,0
-access_alba_report_par_officer,alba.report.par officer,model_alba_report_par,alba_loans.group_loan_officer,1,1,1,1
-access_alba_report_par_manager,alba.report.par manager,model_alba_report_par,alba_loans.group_operations_manager,1,1,1,1
-access_alba_report_par_director,alba.report.par director,model_alba_report_par,alba_loans.group_director,1,1,1,1
-access_alba_report_npl_officer,alba.report.npl officer,model_alba_report_npl,alba_loans.group_loan_officer,1,1,1,1
-access_alba_report_npl_manager,alba.report.npl manager,model_alba_report_npl,alba_loans.group_operations_manager,1,1,1,1
-access_alba_report_npl_director,alba.report.npl director,model_alba_report_npl,alba_loans.group_director,1,1,1,1
-access_alba_report_pl_finance,alba.report.pl finance,model_alba_report_pl,alba_loans.group_finance_officer,1,1,1,1
-access_alba_report_pl_finance_admin,alba.report.pl finance admin,model_alba_report_pl,alba_loans.group_finance_admin,1,1,1,1
-access_alba_report_pl_director,alba.report.pl director,model_alba_report_pl,alba_loans.group_director,1,1,1,1
-access_alba_report_cashflow_finance,alba.report.cashflow finance,model_alba_report_cashflow,alba_loans.group_finance_officer,1,1,1,1
-access_alba_report_cashflow_finance_admin,alba.report.cashflow finance admin,model_alba_report_cashflow,alba_loans.group_finance_admin,1,1,1,1
-access_alba_report_cashflow_director,alba.report.cashflow director,model_alba_report_cashflow,alba_loans.group_director,1,1,1,1
-access_alba_report_balance_sheet_finance,alba.report.balance.sheet finance,model_alba_report_balance_sheet,alba_loans.group_finance_officer,1,1,1,1
-access_alba_report_balance_sheet_finance_admin,alba.report.balance.sheet finance admin,model_alba_report_balance_sheet,alba_loans.group_finance_admin,1,1,1,1
-access_alba_report_balance_sheet_director,alba.report.balance.sheet director,model_alba_report_balance_sheet,alba_loans.group_director,1,1,1,1
