@@ -460,7 +460,6 @@
                 />
 
                 <!-- ── State filters ─────────────────────────────────── -->
-                <separator />
                 <filter
                     string="Draft"
                     name="filter_draft"
@@ -488,7 +487,6 @@
                 />
 
                 <!-- ── Convenience compound filters ──────────────────── -->
-                <separator />
                 <filter
                     string="Active Campaigns"
                     name="filter_active"
@@ -497,7 +495,7 @@
                 />
 
                 <!-- ── Time range filters ────────────────────────────── -->
-                <separator />
+
                 <filter
                     string="Created Today"
                     name="filter_today"
@@ -511,8 +509,7 @@
                 />
 
                 <!-- ── Group By ──────────────────────────────────────── -->
-                <separator />
-                <group expand="0" string="Group By">
+                <group string="Group By">
                     <filter
                         string="State"
                         name="group_state"

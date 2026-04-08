@@ -121,7 +121,6 @@
                 />
 
                 <!-- ── Category shortcut filters ──────────────────── -->
-                <separator/>
                 <filter
                     string="Loan Overdue Reminder"
                     name="filter_cat_loan_overdue"
@@ -169,7 +168,6 @@
                 />
 
                 <!-- ── Active / Inactive filters ──────────────────── -->
-                <separator/>
                 <filter
                     string="Active"
                     name="filter_active"
@@ -182,8 +180,7 @@
                 />
 
                 <!-- ── Group By ────────────────────────────────────── -->
-                <separator/>
-                <group expand="0" string="Group By">
+                <group string="Group By">
                     <filter
                         string="Category"
                         name="group_category"
