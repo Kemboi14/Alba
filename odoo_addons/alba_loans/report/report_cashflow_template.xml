@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+<template id="report_cashflow_template">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="doc">
+            <t t-set="data" t-value="doc.get_cashflow_data()"/>
+            <t t-set="sym"  t-value="data['currency'].symbol"/>
+            <t t-call="web.external_layout">
+                <div class="page">
+
+                    <!-- ── Title ──────────────────────────────────────────── -->
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <h2 class="text-primary"><strong>CASH FLOW STATEMENT</strong></h2>
+                            <h5 class="text-muted">
+                                Period: <strong>
+                                    <t t-esc="data['date_from']"/> to <t t-esc="data['date_to']"/>
+                                </strong>
+                            </h5>
+                        </div>
+                        <div class="col-4 text-end text-muted" style="font-size:11px;">
+                            <t t-esc="data['company'].name"/><br/>
+                            Generated: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%d %b %Y %H:%M')"/>
+                        </div>
+                    </div>
+                    <hr/>
+
+                    <div class="row">
+                        <div class="col-8 offset-2">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th colspan="2">CASH MOVEMENTS</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+
+                                    <!-- OPERATING INFLOWS -->
+                                    <tr class="table-light">
+                                        <td colspan="2">
+                                            <strong>OPERATING ACTIVITIES — Inflows</strong>
+                                            <span class="text-muted ms-2" style="font-size:10px;">
+                                                (<t t-esc="data['repayment_count']"/> payments received)
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Principal Recoveries</td>
+                                        <td class="text-end text-success">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['principal_collected'])"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Interest Received</td>
+                                        <td class="text-end text-success">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['interest_collected'])"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Fees &amp; Penalties Received</td>
+                                        <td class="text-end text-success">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['fees_collected'])"/>
+                                        </td>
+                                    </tr>
+                                    <tr class="fw-bold table-success">
+                                        <td><strong>Total Cash Inflows</strong></td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['total_collected'])"/>
+                                        </td>
+                                    </tr>
+
+                                    <!-- INVESTING OUTFLOWS -->
+                                    <tr class="table-light">
+                                        <td colspan="2">
+                                            <strong>INVESTING ACTIVITIES — Outflows</strong>
+                                            <span class="text-muted ms-2" style="font-size:10px;">
+                                                (<t t-esc="data['disbursed_count']"/> loans disbursed)
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Loan Disbursements</td>
+                                        <td class="text-end text-danger">
+                                            (<t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['total_disbursed'])"/>)
+                                        </td>
+                                    </tr>
+                                    <tr class="fw-bold table-danger">
+                                        <td><strong>Total Cash Outflows</strong></td>
+                                        <td class="text-end text-danger">
+                                            (<t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['total_disbursed'])"/>)
+                                        </td>
+                                    </tr>
+
+                                    <!-- NET -->
+                                    <tr t-attf-class="fw-bold border-top-2 #{data['is_positive'] and 'table-success' or 'table-danger'}"
+                                        style="border-top: 2px solid #333;">
+                                        <td><strong>NET CASH FLOW</strong></td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['net_cash'])"/>
+                                        </td>
+                                    </tr>
+
+                                </tbody>
+                            </table>
+
+                            <div class="border rounded p-2 mt-2 text-muted" style="font-size:10px;">
+                                Inflows = sum of all posted repayments received in the period.<br/>
+                                Outflows = principal disbursed on loans with disbursement date in
+                                the period. Investor capital movements require a separate journal
+                                reconciliation.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </t>
+        </t>
+    </t>
+</template>
+
+</data>
+</odoo>

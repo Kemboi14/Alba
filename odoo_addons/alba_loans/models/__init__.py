@@ -16,4 +16,5 @@ from . import (
     approval_workflow,
     investor,
     mpesa_transaction,
+    report_financials,
 )

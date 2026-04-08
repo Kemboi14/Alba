@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+<template id="report_pl_template">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="doc">
+            <t t-set="data" t-value="doc.get_pl_data()"/>
+            <t t-set="sym"  t-value="data['currency'].symbol"/>
+            <t t-call="web.external_layout">
+                <div class="page">
+
+                    <!-- ── Title ──────────────────────────────────────────── -->
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <h2 class="text-primary"><strong>PROFIT &amp; LOSS STATEMENT</strong></h2>
+                            <h5 class="text-muted">
+                                Period: <strong>
+                                    <t t-esc="data['date_from']"/> to <t t-esc="data['date_to']"/>
+                                </strong>
+                            </h5>
+                        </div>
+                        <div class="col-4 text-end text-muted" style="font-size:11px;">
+                            <t t-esc="data['company'].name"/><br/>
+                            Generated: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%d %b %Y %H:%M')"/>
+                        </div>
+                    </div>
+                    <hr/>
+
+                    <div class="row">
+                        <!-- ── Income Statement ──────────────────────────── -->
+                        <div class="col-7">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th colspan="2">INCOME &amp; EXPENDITURE</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- REVENUE -->
+                                    <tr class="table-light">
+                                        <td colspan="2"><strong>REVENUE</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Interest Income</td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['interest_income'])"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Fee Income</td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['fees_income'])"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Penalty / Late Fees</td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['penalty_income'])"/>
+                                        </td>
+                                    </tr>
+                                    <tr class="fw-bold table-info">
+                                        <td><strong>Total Revenue</strong></td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['total_income'])"/>
+                                        </td>
+                                    </tr>
+
+                                    <!-- EXPENSES -->
+                                    <tr class="table-light">
+                                        <td colspan="2"><strong>EXPENSES</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Investor Interest Expense</td>
+                                        <td class="text-end text-danger">
+                                            (<t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['investor_interest_exp'])"/>)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Provision for Loan Losses</td>
+                                        <td class="text-end text-danger">
+                                            (<t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['provision_for_losses'])"/>)
+                                        </td>
+                                    </tr>
+                                    <tr class="fw-bold table-warning">
+                                        <td><strong>Total Expenses</strong></td>
+                                        <td class="text-end text-danger">
+                                            (<t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['total_expenses'])"/>)
+                                        </td>
+                                    </tr>
+
+                                    <!-- NET -->
+                                    <tr t-attf-class="fw-bold #{data['is_profit'] and 'table-success' or 'table-danger'}">
+                                        <td><strong><t t-if="data['is_profit']">NET PROFIT</t><t t-else="">NET LOSS</t></strong></td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(abs(data['net_profit']))"/>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ── Revenue By Product ────────────────────────── -->
+                        <div class="col-5">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-secondary">
+                                    <tr>
+                                        <th>Revenue by Product</th>
+                                        <th class="text-end">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="data['products']" t-as="prod">
+                                        <tr>
+                                            <td style="font-size:11px;"><t t-esc="prod['name']"/></td>
+                                            <td class="text-end" style="font-size:11px;">
+                                                <t t-esc="sym"/>
+                                                <t t-esc="'{:,.2f}'.format(prod['total'])"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+
+                            <div class="border rounded p-2 mt-2 text-muted" style="font-size:10px;">
+                                <strong>Based on <t t-esc="data['repayment_count']"/> posted payments</strong>
+                                in the period.<br/>
+                                Investor interest expense = total accrued interest
+                                across all active investors.<br/>
+                                Provision = 100% of NPL outstanding balances.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </t>
+        </t>
+    </t>
+</template>
+
+</data>
+</odoo>

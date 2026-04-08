@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+    <!-- ==================================================================
+         PAR Report — live pivot/list views on alba.loan
+         ================================================================== -->
+
+    <!-- PAR: dedicated list view -->
+    <record id="view_alba_loan_par_list" model="ir.ui.view">
+        <field name="name">alba.loan.par.list</field>
+        <field name="model">alba.loan</field>
+        <field name="arch" type="xml">
+            <list string="Portfolio at Risk"
+                  decoration-danger="par_bucket in ('91_180','over_180') or state == 'npl'"
+                  decoration-warning="par_bucket in ('31_60','61_90')"
+                  decoration-muted="state == 'closed'">
+                <field name="loan_number"/>
+                <field name="customer_id"/>
+                <field name="loan_product_id"/>
+                <field name="disbursement_date"/>
+                <field name="maturity_date"/>
+                <field name="principal_amount" sum="Total Principal"/>
+                <field name="outstanding_balance" sum="Total Outstanding"/>
+                <field name="arrears_amount" sum="Total Arrears"/>
+                <field name="days_in_arrears"/>
+                <field name="par_bucket" widget="badge"
+                       decoration-danger="par_bucket in ('91_180','over_180')"
+                       decoration-warning="par_bucket in ('31_60','61_90')"
+                       decoration-success="par_bucket == 'current'"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- PAR: pivot view -->
+    <record id="view_alba_loan_par_pivot" model="ir.ui.view">
+        <field name="name">alba.loan.par.pivot</field>
+        <field name="model">alba.loan</field>
+        <field name="arch" type="xml">
+            <pivot string="PAR Pivot">
+                <field name="par_bucket" type="row"/>
+                <field name="loan_product_id" type="col"/>
+                <field name="outstanding_balance" type="measure"/>
+                <field name="arrears_amount" type="measure"/>
+                <field name="days_in_arrears" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- PAR: graph view -->
+    <record id="view_alba_loan_par_graph" model="ir.ui.view">
+        <field name="name">alba.loan.par.graph</field>
+        <field name="model">alba.loan</field>
+        <field name="arch" type="xml">
+            <graph string="PAR Chart" type="bar">
+                <field name="par_bucket" type="row"/>
+                <field name="outstanding_balance" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- PAR: search view -->
+    <record id="view_alba_loan_par_search" model="ir.ui.view">
+        <field name="name">alba.loan.par.search</field>
+        <field name="model">alba.loan</field>
+        <field name="arch" type="xml">
+            <search string="PAR Search">
+                <field name="loan_number"/>
+                <field name="customer_id"/>
+                <field name="loan_product_id"/>
+                <filter string="At Risk" name="at_risk"
+                        domain="[('par_bucket', '!=', 'current')]"/>
+                <filter string="PAR 1-30" name="par_1_30"
+                        domain="[('par_bucket', '=', '1_30')]"/>
+                <filter string="PAR 31-60" name="par_31_60"
+                        domain="[('par_bucket', '=', '31_60')]"/>
+                <filter string="PAR 61-90" name="par_61_90"
+                        domain="[('par_bucket', '=', '61_90')]"/>
+                <filter string="PAR 91-180" name="par_91_180"
+                        domain="[('par_bucket', '=', '91_180')]"/>
+                <filter string="PAR >180" name="par_over_180"
+                        domain="[('par_bucket', '=', 'over_180')]"/>
+                <filter string="NPL" name="npl"
+                        domain="[('state', '=', 'npl')]"/>
+                <group>
+                    <filter string="PAR Bucket" name="group_par_bucket"
+                            context="{'group_by': 'par_bucket'}"/>
+                    <filter string="Loan Product" name="group_product"
+                            context="{'group_by': 'loan_product_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- PAR: window action (live screen) -->
+    <record id="action_alba_loan_par_live" model="ir.actions.act_window">
+        <field name="name">Portfolio at Risk (Live)</field>
+        <field name="res_model">alba.loan</field>
+        <field name="view_mode">list,pivot,graph,form</field>
+        <field name="domain">[('state', 'in', ('active', 'npl'))]</field>
+        <field name="context">{'search_default_at_risk': 1}</field>
+        <field name="view_ids" eval="[
+            (5, 0, 0),
+            (0, 0, {'view_mode': 'list',  'view_id': ref('view_alba_loan_par_list')}),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_alba_loan_par_pivot')}),
+            (0, 0, {'view_mode': 'graph', 'view_id': ref('view_alba_loan_par_graph')}),
+        ]"/>
+    </record>
+
+    <!-- ==================================================================
+         NPL Report — live view on alba.loan
+         ================================================================== -->
+
+    <record id="view_alba_loan_npl_list" model="ir.ui.view">
+        <field name="name">alba.loan.npl.list</field>
+        <field name="model">alba.loan</field>
+        <field name="arch" type="xml">
+            <list string="Non-Performing Loans"
+                  decoration-danger="state == 'npl'"
+                  decoration-muted="state == 'written_off'">
+                <field name="loan_number"/>
+                <field name="customer_id"/>
+                <field name="loan_product_id"/>
+                <field name="disbursement_date"/>
+                <field name="maturity_date"/>
+                <field name="principal_amount" sum="Total Principal"/>
+                <field name="outstanding_balance" sum="Total Outstanding"/>
+                <field name="arrears_amount" sum="Total Arrears"/>
+                <field name="days_in_arrears"/>
+                <field name="par_bucket" widget="badge"/>
+                <field name="state" widget="badge"
+                       decoration-danger="state == 'npl'"
+                       decoration-muted="state == 'written_off'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_alba_loan_npl_live" model="ir.actions.act_window">
+        <field name="name">Non-Performing Loans (Live)</field>
+        <field name="res_model">alba.loan</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state', 'in', ('npl', 'written_off'))]</field>
+        <field name="view_ids" eval="[
+            (5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_alba_loan_npl_list')}),
+        ]"/>
+    </record>
+
+    <!-- ==================================================================
+         PAR Report Wizard
+         ================================================================== -->
+
+    <record id="view_alba_report_par_wizard" model="ir.ui.view">
+        <field name="name">alba.report.par.wizard</field>
+        <field name="model">alba.report.par</field>
+        <field name="arch" type="xml">
+            <form string="Portfolio at Risk Report">
+                <group string="Report Parameters">
+                    <field name="company_id"
+                           groups="base.group_multi_company"
+                           options="{'no_create': True}"/>
+                    <field name="as_of_date"/>
+                    <field name="currency_id" invisible="1"/>
+                </group>
+                <footer>
+                    <button string="Print PDF" name="action_print_pdf"
+                            type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_alba_report_par_wizard" model="ir.actions.act_window">
+        <field name="name">PAR Report</field>
+        <field name="res_model">alba.report.par</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- ==================================================================
+         NPL Report Wizard
+         ================================================================== -->
+
+    <record id="view_alba_report_npl_wizard" model="ir.ui.view">
+        <field name="name">alba.report.npl.wizard</field>
+        <field name="model">alba.report.npl</field>
+        <field name="arch" type="xml">
+            <form string="Non-Performing Loans Report">
+                <group string="Report Parameters">
+                    <field name="company_id"
+                           groups="base.group_multi_company"
+                           options="{'no_create': True}"/>
+                    <field name="as_of_date"/>
+                    <field name="include_written_off"/>
+                    <field name="currency_id" invisible="1"/>
+                </group>
+                <footer>
+                    <button string="Print PDF" name="action_print_pdf"
+                            type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_alba_report_npl_wizard" model="ir.actions.act_window">
+        <field name="name">NPL Report</field>
+        <field name="res_model">alba.report.npl</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- ==================================================================
+         Profit & Loss Report Wizard
+         ================================================================== -->
+
+    <record id="view_alba_report_pl_wizard" model="ir.ui.view">
+        <field name="name">alba.report.pl.wizard</field>
+        <field name="model">alba.report.pl</field>
+        <field name="arch" type="xml">
+            <form string="Profit &amp; Loss Report">
+                <group string="Report Period">
+                    <field name="company_id"
+                           groups="base.group_multi_company"
+                           options="{'no_create': True}"/>
+                    <field name="date_from"/>
+                    <field name="date_to"/>
+                    <field name="currency_id" invisible="1"/>
+                </group>
+                <footer>
+                    <button string="Print PDF" name="action_print_pdf"
+                            type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_alba_report_pl_wizard" model="ir.actions.act_window">
+        <field name="name">Profit &amp; Loss Report</field>
+        <field name="res_model">alba.report.pl</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- ==================================================================
+         Cash Flow Report Wizard
+         ================================================================== -->
+
+    <record id="view_alba_report_cashflow_wizard" model="ir.ui.view">
+        <field name="name">alba.report.cashflow.wizard</field>
+        <field name="model">alba.report.cashflow</field>
+        <field name="arch" type="xml">
+            <form string="Cash Flow Statement">
+                <group string="Report Period">
+                    <field name="company_id"
+                           groups="base.group_multi_company"
+                           options="{'no_create': True}"/>
+                    <field name="date_from"/>
+                    <field name="date_to"/>
+                    <field name="currency_id" invisible="1"/>
+                </group>
+                <footer>
+                    <button string="Print PDF" name="action_print_pdf"
+                            type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_alba_report_cashflow_wizard" model="ir.actions.act_window">
+        <field name="name">Cash Flow Statement</field>
+        <field name="res_model">alba.report.cashflow</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- ==================================================================
+         Balance Sheet Wizard
+         ================================================================== -->
+
+    <record id="view_alba_report_balance_sheet_wizard" model="ir.ui.view">
+        <field name="name">alba.report.balance.sheet.wizard</field>
+        <field name="model">alba.report.balance.sheet</field>
+        <field name="arch" type="xml">
+            <form string="Balance Sheet">
+                <group string="Report Parameters">
+                    <field name="company_id"
+                           groups="base.group_multi_company"
+                           options="{'no_create': True}"/>
+                    <field name="as_of_date"/>
+                    <field name="currency_id" invisible="1"/>
+                </group>
+                <footer>
+                    <button string="Print PDF" name="action_print_pdf"
+                            type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_alba_report_balance_sheet_wizard" model="ir.actions.act_window">
+        <field name="name">Balance Sheet</field>
+        <field name="res_model">alba.report.balance.sheet</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+</data>
+</odoo>

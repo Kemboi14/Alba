@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+    <!-- PAR Report -->
+    <record id="action_report_par" model="ir.actions.report">
+        <field name="name">Portfolio at Risk Report</field>
+        <field name="model">alba.report.par</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_loans.report_par_template</field>
+        <field name="report_file">alba_loans.report_par_template</field>
+        <field name="print_report_name">'PAR Report - %s' % object.as_of_date</field>
+        <field name="paperformat_id" ref="alba_loans.paperformat_a4"/>
+    </record>
+
+    <!-- NPL Report -->
+    <record id="action_report_npl" model="ir.actions.report">
+        <field name="name">Non-Performing Loans Report</field>
+        <field name="model">alba.report.npl</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_loans.report_npl_template</field>
+        <field name="report_file">alba_loans.report_npl_template</field>
+        <field name="print_report_name">'NPL Report - %s' % object.as_of_date</field>
+        <field name="paperformat_id" ref="alba_loans.paperformat_a4"/>
+    </record>
+
+    <!-- P&L Report -->
+    <record id="action_report_pl" model="ir.actions.report">
+        <field name="name">Profit &amp; Loss Report</field>
+        <field name="model">alba.report.pl</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_loans.report_pl_template</field>
+        <field name="report_file">alba_loans.report_pl_template</field>
+        <field name="print_report_name">'P&amp;L - %s to %s' % (object.date_from, object.date_to)</field>
+        <field name="paperformat_id" ref="alba_loans.paperformat_a4"/>
+    </record>
+
+    <!-- Cash Flow Report -->
+    <record id="action_report_cashflow" model="ir.actions.report">
+        <field name="name">Cash Flow Statement</field>
+        <field name="model">alba.report.cashflow</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_loans.report_cashflow_template</field>
+        <field name="report_file">alba_loans.report_cashflow_template</field>
+        <field name="print_report_name">'Cash Flow - %s to %s' % (object.date_from, object.date_to)</field>
+        <field name="paperformat_id" ref="alba_loans.paperformat_a4"/>
+    </record>
+
+    <!-- Balance Sheet -->
+    <record id="action_report_balance_sheet" model="ir.actions.report">
+        <field name="name">Balance Sheet</field>
+        <field name="model">alba.report.balance.sheet</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_loans.report_balance_sheet_template</field>
+        <field name="report_file">alba_loans.report_balance_sheet_template</field>
+        <field name="print_report_name">'Balance Sheet - %s' % object.as_of_date</field>
+        <field name="paperformat_id" ref="alba_loans.paperformat_a4"/>
+    </record>
+
+</data>
+</odoo>
