@@ -82,6 +82,8 @@ Accounting
         # ── Reports ──────────────────────────────────────────────────────────
         "report/loan_statement_report.xml",
         "report/loan_statement_template.xml",
+        # ── Financial Reports — security loaded after model sync ─────────────
+        "security/security_report_financials.xml",
         # ── Financial Reports ─────────────────────────────────────────────────
         "views/report_financials_views.xml",
         "report/report_financials_report.xml",

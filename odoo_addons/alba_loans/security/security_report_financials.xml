@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data noupdate="0">
+
+    <!-- ================================================================
+         Financial Report Wizards — Model Access Rights
+         (Defined in XML so they load after ir.model records are synced
+          during module upgrades)
+         ================================================================ -->
+
+    <!-- alba.report.par -->
+    <record id="access_alba_report_par_officer" model="ir.model.access">
+        <field name="name">alba.report.par officer</field>
+        <field name="model_id" ref="model_alba_report_par"/>
+        <field name="group_id" ref="alba_loans.group_loan_officer"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_alba_report_par_manager" model="ir.model.access">
+        <field name="name">alba.report.par manager</field>
+        <field name="model_id" ref="model_alba_report_par"/>
+        <field name="group_id" ref="alba_loans.group_operations_manager"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_alba_report_par_director" model="ir.model.access">
+        <field name="name">alba.report.par director</field>
+        <field name="model_id" ref="model_alba_report_par"/>
+        <field name="group_id" ref="alba_loans.group_director"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- alba.report.npl -->
+    <record id="access_alba_report_npl_officer" model="ir.model.access">
+        <field name="name">alba.report.npl officer</field>
+        <field name="model_id" ref="model_alba_report_npl"/>
+        <field name="group_id" ref="alba_loans.group_loan_officer"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_alba_report_npl_manager" model="ir.model.access">
+        <field name="name">alba.report.npl manager</field>
+        <field name="model_id" ref="model_alba_report_npl"/>
+        <field name="group_id" ref="alba_loans.group_operations_manager"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_alba_report_npl_director" model="ir.model.access">
+        <field name="name">alba.report.npl director</field>
+        <field name="model_id" ref="model_alba_report_npl"/>
+        <field name="group_id" ref="alba_loans.group_director"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- alba.report.pl -->
+    <record id="access_alba_report_pl_finance" model="ir.model.access">
+        <field name="name">alba.report.pl finance</field>
+        <field name="model_id" ref="model_alba_report_pl"/>
+        <field name="group_id" ref="alba_loans.group_finance_officer"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_alba_report_pl_finance_admin" model="ir.model.access">
+        <field name="name">alba.report.pl finance admin</field>
+        <field name="model_id" ref="model_alba_report_pl"/>
+        <field name="group_id" ref="alba_loans.group_finance_admin"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_alba_report_pl_director" model="ir.model.access">
+        <field name="name">alba.report.pl director</field>
+        <field name="model_id" ref="model_alba_report_pl"/>
+        <field name="group_id" ref="alba_loans.group_director"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- alba.report.cashflow -->
+    <record id="access_alba_report_cashflow_finance" model="ir.model.access">
+        <field name="name">alba.report.cashflow finance</field>
+        <field name="model_id" ref="model_alba_report_cashflow"/>
+        <field name="group_id" ref="alba_loans.group_finance_officer"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_alba_report_cashflow_finance_admin" model="ir.model.access">
+        <field name="name">alba.report.cashflow finance admin</field>
+        <field name="model_id" ref="model_alba_report_cashflow"/>
+        <field name="group_id" ref="alba_loans.group_finance_admin"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_alba_report_cashflow_director" model="ir.model.access">
+        <field name="name">alba.report.cashflow director</field>
+        <field name="model_id" ref="model_alba_report_cashflow"/>
+        <field name="group_id" ref="alba_loans.group_director"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- alba.report.balance.sheet -->
+    <record id="access_alba_report_balance_sheet_finance" model="ir.model.access">
+        <field name="name">alba.report.balance.sheet finance</field>
+        <field name="model_id" ref="model_alba_report_balance_sheet"/>
+        <field name="group_id" ref="alba_loans.group_finance_officer"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_alba_report_balance_sheet_finance_admin" model="ir.model.access">
+        <field name="name">alba.report.balance.sheet finance admin</field>
+        <field name="model_id" ref="model_alba_report_balance_sheet"/>
+        <field name="group_id" ref="alba_loans.group_finance_admin"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_alba_report_balance_sheet_director" model="ir.model.access">
+        <field name="name">alba.report.balance.sheet director</field>
+        <field name="model_id" ref="model_alba_report_balance_sheet"/>
+        <field name="group_id" ref="alba_loans.group_director"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+</data>
+</odoo>
