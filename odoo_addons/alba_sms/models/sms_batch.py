@@ -11,7 +11,7 @@ _logger = logging.getLogger(__name__)
 class AlbaSmsBatch(models.Model):
     _name = "alba.sms.batch"
     _description = "Alba SMS Batch Campaign"
-    _inherit = ["mail.thread"]
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _rec_name = "name"
     _order = "create_date desc"
 
