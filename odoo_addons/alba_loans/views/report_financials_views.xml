@@ -93,13 +93,8 @@
         </field>
     </record>
 
-    <!-- PAR: window action (live screen) -->
+    <!-- PAR: window action pinned to PAR-specific views (updates stub in actions.xml) -->
     <record id="action_alba_loan_par_live" model="ir.actions.act_window">
-        <field name="name">Portfolio at Risk (Live)</field>
-        <field name="res_model">alba.loan</field>
-        <field name="view_mode">list,pivot,graph,form</field>
-        <field name="domain">[('state', 'in', ('active', 'npl'))]</field>
-        <field name="context">{'search_default_at_risk': 1}</field>
         <field name="view_id" ref="view_alba_loan_par_list"/>
         <field name="search_view_id" ref="view_alba_loan_par_search"/>
     </record>
@@ -132,11 +127,8 @@
         </field>
     </record>
 
+    <!-- NPL: window action pinned to NPL-specific list view (updates stub in actions.xml) -->
     <record id="action_alba_loan_npl_live" model="ir.actions.act_window">
-        <field name="name">Non-Performing Loans (Live)</field>
-        <field name="res_model">alba.loan</field>
-        <field name="view_mode">list,form</field>
-        <field name="domain">[('state', 'in', ('npl', 'written_off'))]</field>
         <field name="view_id" ref="view_alba_loan_npl_list"/>
     </record>
 
@@ -165,13 +157,6 @@
         </field>
     </record>
 
-    <record id="action_alba_report_par_wizard" model="ir.actions.act_window">
-        <field name="name">PAR Report</field>
-        <field name="res_model">alba.report.par</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-    </record>
-
     <!-- ==================================================================
          NPL Report Wizard
          ================================================================== -->
@@ -196,13 +181,6 @@
                 </footer>
             </form>
         </field>
-    </record>
-
-    <record id="action_alba_report_npl_wizard" model="ir.actions.act_window">
-        <field name="name">NPL Report</field>
-        <field name="res_model">alba.report.npl</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
     </record>
 
     <!-- ==================================================================
@@ -231,13 +209,6 @@
         </field>
     </record>
 
-    <record id="action_alba_report_pl_wizard" model="ir.actions.act_window">
-        <field name="name">Profit &amp; Loss Report</field>
-        <field name="res_model">alba.report.pl</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-    </record>
-
     <!-- ==================================================================
          Cash Flow Report Wizard
          ================================================================== -->
@@ -264,13 +235,6 @@
         </field>
     </record>
 
-    <record id="action_alba_report_cashflow_wizard" model="ir.actions.act_window">
-        <field name="name">Cash Flow Statement</field>
-        <field name="res_model">alba.report.cashflow</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-    </record>
-
     <!-- ==================================================================
          Balance Sheet Wizard
          ================================================================== -->
@@ -294,13 +258,6 @@
                 </footer>
             </form>
         </field>
-    </record>
-
-    <record id="action_alba_report_balance_sheet_wizard" model="ir.actions.act_window">
-        <field name="name">Balance Sheet</field>
-        <field name="res_model">alba.report.balance.sheet</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
     </record>
 
 </data>
