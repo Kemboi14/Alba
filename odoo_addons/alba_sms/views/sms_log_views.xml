@@ -267,7 +267,6 @@
                 />
 
                 <!-- ── Status filters ────────────────────────────────── -->
-                <separator/>
                 <filter
                     string="Queued"
                     name="filter_queued"
@@ -290,7 +289,6 @@
                 />
 
                 <!-- ── Time range filters ────────────────────────────── -->
-                <separator/>
                 <filter
                     string="Today"
                     name="filter_today"
@@ -308,8 +306,7 @@
                 />
 
                 <!-- ── Group By ──────────────────────────────────────── -->
-                <separator/>
-                <group expand="0" string="Group By">
+                <group string="Group By">
                     <filter
                         string="Status"
                         name="group_status"
