@@ -76,6 +76,8 @@ Accounting
         "views/loan_views.xml",
         # ── Financial Reports — security + views must come before menus.xml ──
         "security/security_report_financials.xml",
+        # ── Wizard actions — separate file after security (ir.model records confirmed) ──
+        "views/report_wizard_actions.xml",
         "views/report_financials_views.xml",
         "report/report_financials_report.xml",
         "report/report_par_template.xml",
