@@ -41,7 +41,7 @@
 
                     <!-- ── Title ─────────────────────────────────────── -->
                     <div class="oe_title">
-                        <label for="name" string="Provider Name" class="oe_edit_only"/>
+                        <label for="name" string="Provider Name"/>
                         <h1>
                             <field
                                 name="name"
@@ -120,7 +120,7 @@
                             <field
                                 name="extra_params"
                                 nolabel="1"
-                                widget="ace"
+                                widget="code"
                                 options="{'mode': 'json'}"
                                 placeholder='{"channel": "sms", "type": "plain"}'
                                 style="min-height: 200px; font-family: monospace;"
@@ -218,7 +218,7 @@
                 />
 
                 <!-- ── Group By ────────────────────────────────────── -->
-                <group string="Group By">
+                <group>
                     <filter
                         string="Provider Type"
                         name="group_provider_type"

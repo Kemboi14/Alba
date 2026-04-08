@@ -240,7 +240,6 @@
                     <div class="oe_title">
                         <label
                             for="name"
-                            class="oe_edit_only"
                             string="Campaign Name"
                         />
                         <h1>
@@ -509,7 +508,7 @@
                 />
 
                 <!-- ── Group By ──────────────────────────────────────── -->
-                <group string="Group By">
+                <group>
                     <filter
                         string="State"
                         name="group_state"
