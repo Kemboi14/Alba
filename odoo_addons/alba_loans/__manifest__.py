@@ -74,6 +74,15 @@ Accounting
         "views/mpesa_transaction_views.xml",
         # ── Loan views with computed fields (load last to ensure models ready) ─
         "views/loan_views.xml",
+        # ── Financial Reports — security + views must come before menus.xml ──
+        "security/security_report_financials.xml",
+        "views/report_financials_views.xml",
+        "report/report_financials_report.xml",
+        "report/report_par_template.xml",
+        "report/report_npl_template.xml",
+        "report/report_pl_template.xml",
+        "report/report_cashflow_template.xml",
+        "report/report_balance_sheet_template.xml",
         # ── Menus (after all actions are defined) ────────────────────────────
         "views/menus.xml",
         # ── Wizards ──────────────────────────────────────────────────────────
@@ -82,16 +91,6 @@ Accounting
         # ── Reports ──────────────────────────────────────────────────────────
         "report/loan_statement_report.xml",
         "report/loan_statement_template.xml",
-        # ── Financial Reports — security loaded after model sync ─────────────
-        "security/security_report_financials.xml",
-        # ── Financial Reports ─────────────────────────────────────────────────
-        "views/report_financials_views.xml",
-        "report/report_financials_report.xml",
-        "report/report_par_template.xml",
-        "report/report_npl_template.xml",
-        "report/report_pl_template.xml",
-        "report/report_cashflow_template.xml",
-        "report/report_balance_sheet_template.xml",
     ],
     "demo": [],
     "installable": True,
