@@ -163,7 +163,7 @@
         />
 
     <!-- ================================================================
-         Reports  (live actions only — wizard PDF menus added post-install)
+         Reports
          ================================================================ -->
     <menuitem
             id="menu_alba_reports_root"
@@ -189,6 +189,51 @@
             action="action_alba_loan_npl_live"
             sequence="20"
             groups="alba_loans.group_loan_officer"
+        />
+
+    <menuitem
+            id="menu_alba_report_par_pdf"
+            name="PAR Report (PDF)"
+            parent="menu_alba_reports_root"
+            action="action_alba_report_par_wizard"
+            sequence="30"
+            groups="alba_loans.group_loan_officer"
+        />
+
+    <menuitem
+            id="menu_alba_report_npl_pdf"
+            name="NPL Report (PDF)"
+            parent="menu_alba_reports_root"
+            action="action_alba_report_npl_wizard"
+            sequence="40"
+            groups="alba_loans.group_loan_officer"
+        />
+
+    <menuitem
+            id="menu_alba_report_pl"
+            name="Profit &amp; Loss"
+            parent="menu_alba_reports_root"
+            action="action_alba_report_pl_wizard"
+            sequence="50"
+            groups="alba_loans.group_finance_officer"
+        />
+
+    <menuitem
+            id="menu_alba_report_cashflow"
+            name="Cash Flow Statement"
+            parent="menu_alba_reports_root"
+            action="action_alba_report_cashflow_wizard"
+            sequence="60"
+            groups="alba_loans.group_finance_officer"
+        />
+
+    <menuitem
+            id="menu_alba_report_balance_sheet"
+            name="Balance Sheet"
+            parent="menu_alba_reports_root"
+            action="action_alba_report_balance_sheet_wizard"
+            sequence="70"
+            groups="alba_loans.group_finance_officer"
         />
 
     <!-- ================================================================
