@@ -82,6 +82,14 @@ Accounting
         # ── Reports ──────────────────────────────────────────────────────────
         "report/loan_statement_report.xml",
         "report/loan_statement_template.xml",
+        # ── Financial Reports ─────────────────────────────────────────────────
+        "views/report_financials_views.xml",
+        "report/report_financials_report.xml",
+        "report/report_par_template.xml",
+        "report/report_npl_template.xml",
+        "report/report_pl_template.xml",
+        "report/report_cashflow_template.xml",
+        "report/report_balance_sheet_template.xml",
     ],
     "demo": [],
     "installable": True,

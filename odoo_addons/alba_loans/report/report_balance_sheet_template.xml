@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+<template id="report_balance_sheet_template">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="doc">
+            <t t-set="data" t-value="doc.get_balance_sheet_data()"/>
+            <t t-set="sym"  t-value="data['currency'].symbol"/>
+            <t t-call="web.external_layout">
+                <div class="page">
+
+                    <!-- ── Title ──────────────────────────────────────────── -->
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <h2 class="text-primary"><strong>BALANCE SHEET</strong></h2>
+                            <h5 class="text-muted">
+                                As of: <strong><t t-esc="data['as_of_date']"/></strong>
+                            </h5>
+                        </div>
+                        <div class="col-4 text-end text-muted" style="font-size:11px;">
+                            <t t-esc="data['company'].name"/><br/>
+                            Generated: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%d %b %Y %H:%M')"/>
+                        </div>
+                    </div>
+                    <hr/>
+
+                    <div class="row">
+
+                        <!-- ── ASSETS ─────────────────────────────────────── -->
+                        <div class="col-6 pe-4">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-dark">
+                                    <tr><th colspan="2">ASSETS</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="table-light">
+                                        <td colspan="2">
+                                            <strong>Loan Portfolio</strong>
+                                            <span class="text-muted ms-2" style="font-size:10px;">
+                                                (<t t-esc="data['active_loan_count']"/> active +
+                                                <t t-esc="data['npl_loan_count']"/> NPL loans)
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Gross Loan Portfolio</td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['gross_portfolio'])"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4 text-danger">Less: Specific Provision (NPL)</td>
+                                        <td class="text-end text-danger">
+                                            (<t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['specific_provision'])"/>)
+                                        </td>
+                                    </tr>
+                                    <tr class="fw-bold table-info">
+                                        <td><strong>Net Loan Portfolio</strong></td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['net_portfolio'])"/>
+                                        </td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td colspan="2" class="text-muted" style="font-size:10px;">
+                                            Cash, fixed assets and other assets — per accounting system
+                                        </td>
+                                    </tr>
+                                    <tr class="fw-bold table-primary">
+                                        <td><strong>TOTAL ASSETS</strong></td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['net_portfolio'])"/>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ── LIABILITIES & EQUITY ───────────────────────── -->
+                        <div class="col-6">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-dark">
+                                    <tr><th colspan="2">LIABILITIES &amp; EQUITY</th></tr>
+                                </thead>
+                                <tbody>
+
+                                    <!-- LIABILITIES -->
+                                    <tr class="table-light">
+                                        <td colspan="2">
+                                            <strong>Liabilities</strong>
+                                            <span class="text-muted ms-2" style="font-size:10px;">
+                                                (<t t-esc="data['investor_count']"/> investors)
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Investor Deposits (Principal)</td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['investor_deposits'])"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Accrued Investor Interest</td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['investor_accrued_interest'])"/>
+                                        </td>
+                                    </tr>
+                                    <tr class="fw-bold table-warning">
+                                        <td><strong>Total Liabilities</strong></td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['total_liabilities'])"/>
+                                        </td>
+                                    </tr>
+
+                                    <!-- EQUITY -->
+                                    <tr class="table-light">
+                                        <td colspan="2"><strong>Equity</strong></td>
+                                    </tr>
+                                    <tr t-attf-class="#{data['is_solvent'] and '' or 'text-danger'}">
+                                        <td class="ps-4">Net Equity (Net Assets)</td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['net_equity'])"/>
+                                        </td>
+                                    </tr>
+
+                                    <!-- TOTAL -->
+                                    <tr class="fw-bold table-primary">
+                                        <td><strong>TOTAL LIABILITIES &amp; EQUITY</strong></td>
+                                        <td class="text-end">
+                                            <t t-esc="sym"/>
+                                            <t t-esc="'{:,.2f}'.format(data['total_liabilities'] + data['net_equity'])"/>
+                                        </td>
+                                    </tr>
+
+                                </tbody>
+                            </table>
+
+                            <t t-if="not data['is_solvent']">
+                                <div class="alert alert-danger mt-2" style="font-size:11px;">
+                                    ⚠ Net equity is negative — liabilities exceed net loan portfolio.
+                                    Review investor funding structure.
+                                </div>
+                            </t>
+                        </div>
+
+                    </div>
+
+                    <p class="text-muted mt-3" style="font-size:10px;">
+                        Assets = net loan portfolio only (excludes cash, fixed assets, and other
+                        assets held outside this module). Full balance sheet requires consolidation
+                        with Odoo accounting journals. Specific provision = 100% of NPL outstanding
+                        balances.
+                    </p>
+
+                </div>
+            </t>
+        </t>
+    </t>
+</template>
+
+</data>
+</odoo>

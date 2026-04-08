@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+<template id="report_npl_template">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="doc">
+            <t t-set="data" t-value="doc.get_npl_data()"/>
+            <t t-set="sym"  t-value="data['currency'].symbol"/>
+            <t t-call="web.external_layout">
+                <div class="page">
+
+                    <!-- ── Title ──────────────────────────────────────────── -->
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <h2 class="text-primary"><strong>NON-PERFORMING LOANS (NPL) REPORT</strong></h2>
+                            <h5 class="text-muted">
+                                As of: <strong><t t-esc="data['as_of_date']"/></strong>
+                            </h5>
+                        </div>
+                        <div class="col-4 text-end text-muted" style="font-size:11px;">
+                            <t t-esc="data['company'].name"/><br/>
+                            Generated: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%d %b %Y %H:%M')"/>
+                        </div>
+                    </div>
+                    <hr/>
+
+                    <!-- ── KPI Summary ────────────────────────────────────── -->
+                    <div class="row mb-4">
+                        <div class="col-3 text-center border p-2 me-2 rounded">
+                            <div class="text-muted" style="font-size:11px;">TOTAL PORTFOLIO</div>
+                            <div style="font-size:15px; font-weight:bold;">
+                                <t t-esc="sym"/> <t t-esc="'{:,.0f}'.format(data['total_portfolio'])"/>
+                            </div>
+                        </div>
+                        <div class="col-3 text-center border p-2 me-2 rounded">
+                            <div class="text-muted" style="font-size:11px;">NPL BALANCE</div>
+                            <div style="font-size:15px; font-weight:bold; color:#c0392b;">
+                                <t t-esc="sym"/> <t t-esc="'{:,.0f}'.format(data['npl_balance'])"/>
+                            </div>
+                            <div class="text-muted" style="font-size:11px;">
+                                NPL Ratio: <t t-esc="'{:.1f}'.format(data['npl_ratio'])"/>%
+                            </div>
+                        </div>
+                        <div class="col-2 text-center border p-2 me-2 rounded">
+                            <div class="text-muted" style="font-size:11px;">NPL LOANS</div>
+                            <div style="font-size:15px; font-weight:bold; color:#c0392b;">
+                                <t t-esc="data['npl_count']"/>
+                            </div>
+                        </div>
+                        <t t-if="data['include_written_off']">
+                            <div class="col-2 text-center border p-2 rounded">
+                                <div class="text-muted" style="font-size:11px;">WRITTEN OFF</div>
+                                <div style="font-size:15px; font-weight:bold; color:#7f8c8d;">
+                                    <t t-esc="data['written_off_count']"/>
+                                </div>
+                                <div class="text-muted" style="font-size:11px;">
+                                    <t t-esc="sym"/> <t t-esc="'{:,.0f}'.format(data['written_off_balance'])"/>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
+                    <!-- ── NPL Loan Detail Table ──────────────────────────── -->
+                    <table class="table table-sm table-bordered table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Loan #</th>
+                                <th>Customer</th>
+                                <th>Product</th>
+                                <th class="text-end">Principal</th>
+                                <th class="text-end">Outstanding</th>
+                                <th class="text-end">Arrears</th>
+                                <th class="text-end">Days Overdue</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="data['loans']" t-as="loan">
+                                <tr>
+                                    <td><t t-esc="loan.loan_number"/></td>
+                                    <td><t t-esc="loan.customer_id.partner_id.name or '—'"/></td>
+                                    <td><t t-esc="loan.loan_product_id.name or '—'"/></td>
+                                    <td class="text-end">
+                                        <t t-esc="sym"/>
+                                        <t t-esc="'{:,.2f}'.format(loan.principal_amount)"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <t t-esc="sym"/>
+                                        <t t-esc="'{:,.2f}'.format(loan.outstanding_balance)"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <t t-esc="sym"/>
+                                        <t t-esc="'{:,.2f}'.format(loan.arrears_amount)"/>
+                                    </td>
+                                    <td class="text-end text-danger">
+                                        <t t-esc="loan.days_in_arrears"/>
+                                    </td>
+                                    <td>
+                                        <span t-attf-class="badge #{loan.state == 'npl' and 'bg-danger' or 'bg-secondary'}">
+                                            <t t-esc="loan.state.upper()"/>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                        <tfoot class="table-secondary fw-bold">
+                            <tr>
+                                <td colspan="3"><strong>TOTAL (<t t-esc="data['npl_count']"/> NPL loans)</strong></td>
+                                <td class="text-end">—</td>
+                                <td class="text-end">
+                                    <t t-esc="sym"/>
+                                    <t t-esc="'{:,.2f}'.format(data['npl_balance'])"/>
+                                </td>
+                                <td class="text-end">—</td>
+                                <td class="text-end">—</td>
+                                <td/>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    <p class="text-muted mt-3" style="font-size:10px;">
+                        * A loan is classified as Non-Performing when it has been in arrears
+                        for 90 or more consecutive days. A 100% specific provision is recommended
+                        for NPL balances.
+                    </p>
+
+                </div>
+            </t>
+        </t>
+    </t>
+</template>
+
+</data>
+</odoo>
