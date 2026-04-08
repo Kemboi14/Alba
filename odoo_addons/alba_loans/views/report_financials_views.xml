@@ -100,12 +100,8 @@
         <field name="view_mode">list,pivot,graph,form</field>
         <field name="domain">[('state', 'in', ('active', 'npl'))]</field>
         <field name="context">{'search_default_at_risk': 1}</field>
-        <field name="view_ids" eval="[
-            (5, 0, 0),
-            (0, 0, {'view_mode': 'list',  'view_id': ref('view_alba_loan_par_list')}),
-            (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_alba_loan_par_pivot')}),
-            (0, 0, {'view_mode': 'graph', 'view_id': ref('view_alba_loan_par_graph')}),
-        ]"/>
+        <field name="view_id" ref="view_alba_loan_par_list"/>
+        <field name="search_view_id" ref="view_alba_loan_par_search"/>
     </record>
 
     <!-- ==================================================================
@@ -141,10 +137,7 @@
         <field name="res_model">alba.loan</field>
         <field name="view_mode">list,form</field>
         <field name="domain">[('state', 'in', ('npl', 'written_off'))]</field>
-        <field name="view_ids" eval="[
-            (5, 0, 0),
-            (0, 0, {'view_mode': 'list', 'view_id': ref('view_alba_loan_npl_list')}),
-        ]"/>
+        <field name="view_id" ref="view_alba_loan_npl_list"/>
     </record>
 
     <!-- ==================================================================
