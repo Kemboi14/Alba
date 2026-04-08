@@ -153,46 +153,9 @@
         <field name="perm_unlink" eval="True"/>
     </record>
 
-    <!-- ================================================================
-         Wizard Window Actions — defined as ir.actions.server so the
-         model_id FK (not a string res_model) avoids the act_window
-         constraint that silently fails for new TransientModels in
-         Odoo 19 upgrade mode.
-         ================================================================ -->
-    <record id="action_alba_report_par_wizard" model="ir.actions.server">
-        <field name="name">PAR Report</field>
-        <field name="model_id" ref="model_alba_report_par"/>
-        <field name="state">code</field>
-        <field name="code">action = {'type': 'ir.actions.act_window', 'name': 'PAR Report', 'res_model': 'alba.report.par', 'view_mode': 'form', 'target': 'new'}</field>
-    </record>
-
-    <record id="action_alba_report_npl_wizard" model="ir.actions.server">
-        <field name="name">NPL Report</field>
-        <field name="model_id" ref="model_alba_report_npl"/>
-        <field name="state">code</field>
-        <field name="code">action = {'type': 'ir.actions.act_window', 'name': 'NPL Report', 'res_model': 'alba.report.npl', 'view_mode': 'form', 'target': 'new'}</field>
-    </record>
-
-    <record id="action_alba_report_pl_wizard" model="ir.actions.server">
-        <field name="name">Profit &amp; Loss Report</field>
-        <field name="model_id" ref="model_alba_report_pl"/>
-        <field name="state">code</field>
-        <field name="code">action = {'type': 'ir.actions.act_window', 'name': 'Profit &amp; Loss Report', 'res_model': 'alba.report.pl', 'view_mode': 'form', 'target': 'new'}</field>
-    </record>
-
-    <record id="action_alba_report_cashflow_wizard" model="ir.actions.server">
-        <field name="name">Cash Flow Statement</field>
-        <field name="model_id" ref="model_alba_report_cashflow"/>
-        <field name="state">code</field>
-        <field name="code">action = {'type': 'ir.actions.act_window', 'name': 'Cash Flow Statement', 'res_model': 'alba.report.cashflow', 'view_mode': 'form', 'target': 'new'}</field>
-    </record>
-
-    <record id="action_alba_report_balance_sheet_wizard" model="ir.actions.server">
-        <field name="name">Balance Sheet</field>
-        <field name="model_id" ref="model_alba_report_balance_sheet"/>
-        <field name="state">code</field>
-        <field name="code">action = {'type': 'ir.actions.act_window', 'name': 'Balance Sheet', 'res_model': 'alba.report.balance.sheet', 'view_mode': 'form', 'target': 'new'}</field>
-    </record>
+    <!-- Wizard actions and menus for the 5 financial report wizards are
+         created by post-migrate.py / post_init_hook (hooks.py) to bypass
+         the Odoo 19 convert.py silent-drop bug for new TransientModels. -->
 
 </data>
 </odoo>
