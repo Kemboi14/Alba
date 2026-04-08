@@ -306,7 +306,7 @@
                 />
 
                 <!-- ── Group By ──────────────────────────────────────── -->
-                <group string="Group By">
+                <group>
                     <filter
                         string="Status"
                         name="group_status"
