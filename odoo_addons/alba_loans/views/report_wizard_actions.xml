@@ -1,46 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<odoo>
-<data>
-
-    <!-- ================================================================
-         Financial Report Wizard Actions
-         These TransientModels are already registered so XML is safe here.
-         ================================================================ -->
-
-    <record id="action_alba_report_par_wizard" model="ir.actions.act_window">
-        <field name="name">PAR Report</field>
-        <field name="res_model">alba.report.par</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-    </record>
-
-    <record id="action_alba_report_npl_wizard" model="ir.actions.act_window">
-        <field name="name">NPL Report</field>
-        <field name="res_model">alba.report.npl</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-    </record>
-
-    <record id="action_alba_report_pl_wizard" model="ir.actions.act_window">
-        <field name="name">Profit &amp; Loss Report</field>
-        <field name="res_model">alba.report.pl</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-    </record>
-
-    <record id="action_alba_report_cashflow_wizard" model="ir.actions.act_window">
-        <field name="name">Cash Flow Statement</field>
-        <field name="res_model">alba.report.cashflow</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-    </record>
-
-    <record id="action_alba_report_balance_sheet_wizard" model="ir.actions.act_window">
-        <field name="name">Balance Sheet</field>
-        <field name="res_model">alba.report.balance.sheet</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-    </record>
-
-</data>
-</odoo>
+<!-- Report wizard ir.actions.act_window records cannot be created via XML in
+     upgrade mode because Odoo 19 convert.py silently drops act_window records
+     whose res_model is a TransientModel during the upgrade phase.
+     These actions are created by migrations/19.0.1.2.0/post-migrate.py instead. -->
+<odoo><data/></odoo>
