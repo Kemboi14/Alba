@@ -105,4 +105,5 @@ Security Groups
     "auto_install": False,
     "application": True,
     "sequence": 40,
+    "web_icon": "alba_sms,static/description/icon.png",
 }
