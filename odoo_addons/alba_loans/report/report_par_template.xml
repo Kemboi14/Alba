@@ -50,7 +50,7 @@
                             </div>
                             <div class="text-muted" style="font-size:11px;">
                                 NPL Ratio: <t t-esc="'{:.1f}'.format(data['npl_pct'])"/>%
-                                &nbsp;(<t t-esc="data['npl_count']"/> loans)
+                                &#160;(<t t-esc="data['npl_count']"/> loans)
                             </div>
                         </div>
                     </div>
