@@ -50,4 +50,5 @@ Manages the full investor lifecycle for Alba Capital:
     "auto_install": False,
     "application": True,
     "sequence": 20,
+    "web_icon": "alba_investors,static/description/icon.png",
 }

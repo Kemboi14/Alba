@@ -94,4 +94,5 @@ than the configured retention period (default: 90 days).
     "application": True,
     "auto_install": False,
     "sequence": 30,
+    "web_icon": "alba_integration,static/description/icon.png",
 }
