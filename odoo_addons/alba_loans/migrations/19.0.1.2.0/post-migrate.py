@@ -122,6 +122,5 @@ def migrate(cr, version):
             "parent_id": parent_menu.id,
             "action": f"ir.actions.act_window,{action.id}",
             "sequence": spec["sequence"],
-            "groups_id": [(4, group.id)],
         })
         _set_imd(env, _MODULE, spec["menu_xmlid"], "ir.ui.menu", menu.id)
