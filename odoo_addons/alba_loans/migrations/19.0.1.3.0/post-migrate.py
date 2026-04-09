@@ -131,19 +131,11 @@ def migrate(cr, version):
         })
         _set_imd(env, _MODULE, spec["action_xmlid"], "ir.actions.act_window", action.id)
 
-        # Resolve all groups for this menu
-        group_ids = []
-        for gxmlid in spec["group_xmlids"]:
-            group = env.ref(f"{_MODULE}.{gxmlid}", raise_if_not_found=False)
-            if group:
-                group_ids.append((4, group.id))
-
         # Create fresh menu
         menu = env["ir.ui.menu"].create({
             "name": spec["menu_name"],
             "parent_id": parent_menu.id,
             "action": f"ir.actions.act_window,{action.id}",
             "sequence": spec["sequence"],
-            "groups_id": group_ids,
         })
         _set_imd(env, _MODULE, spec["menu_xmlid"], "ir.ui.menu", menu.id)

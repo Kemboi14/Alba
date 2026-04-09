@@ -113,7 +113,6 @@ def create_report_wizard_actions_and_menus(env):
                     "parent_id": parent_menu.id,
                     "action": f"ir.actions.act_window,{action.id}",
                     "sequence": spec["sequence"],
-                    "groups_id": [(4, group.id)],
                 }
             )
             IrModelData.create(
