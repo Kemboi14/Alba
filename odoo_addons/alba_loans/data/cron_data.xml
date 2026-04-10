@@ -13,7 +13,7 @@
         <field name="model_id" ref="alba_loans.model_alba_loan" />
         <field name="state">code</field>
         <field name="code">
-model.search([('state', 'in', ['active', 'npl'])]).mapped('_compute_par')
+model.search([('state', 'in', ['active', 'npl'])], limit=None)._compute_par()
         </field>
         <field name="user_id" ref="base.user_root" />
         <field name="interval_number">1</field>
