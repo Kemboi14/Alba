@@ -142,7 +142,7 @@ class AlbaMpesaConfig(models.Model):
     consumer_secret = fields.Char(
         string="Consumer Secret",
         required=True,
-        groups="alba_loans.group_loan_manager",
+        groups="alba_loans.group_director",
         help=(
             "Keep this value secret.  Combined with the Consumer Key to "
             "generate OAuth bearer tokens via Base64-encoded Basic auth."
@@ -190,7 +190,7 @@ class AlbaMpesaConfig(models.Model):
 
     passkey = fields.Char(
         string="Lipa Na M-Pesa Passkey",
-        groups="alba_loans.group_loan_manager",
+        groups="alba_loans.group_director",
         help=(
             "Passkey for STK Push transactions.  "
             "Provided by Safaricom when you register for Lipa Na M-Pesa.  "
@@ -222,7 +222,7 @@ class AlbaMpesaConfig(models.Model):
     )
     initiator_security_credential = fields.Char(
         string="B2C Security Credential",
-        groups="alba_loans.group_loan_manager",
+        groups="alba_loans.group_director",
         help=(
             "Encrypted credential for the B2C initiator.  Generate it by "
             "encrypting the initiator password with the Daraja production "

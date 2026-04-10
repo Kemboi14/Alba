@@ -406,18 +406,21 @@ class AlbaLoan(models.Model):
                     }
                 )
 
-            self.env["alba.repayment.schedule"].create(schedule_vals)
-            rec.write({"schedule_generated": True})
-            rec.message_post(
-                body=_(
-                    "Repayment schedule generated: <b>%d</b> instalments from <b>%s</b> to <b>%s</b>."
+            # Use transaction context to ensure atomicity
+            # If any operation fails, all changes are rolled back
+            with self.env.cr.savepoint():
+                self.env["alba.repayment.schedule"].create(schedule_vals)
+                rec.write({"schedule_generated": True})
+                rec.message_post(
+                    body=_(
+                        "Repayment schedule generated: <b>%d</b> instalments from <b>%s</b> to <b>%s</b>."
+                    )
+                    % (
+                        len(schedule_vals),
+                        schedule_vals[0]["due_date"],
+                        schedule_vals[-1]["due_date"],
+                    )
                 )
-                % (
-                    len(schedule_vals),
-                    schedule_vals[0]["due_date"],
-                    schedule_vals[-1]["due_date"],
-                )
-            )
         return True
 
     def action_post_disbursement_entry(self):

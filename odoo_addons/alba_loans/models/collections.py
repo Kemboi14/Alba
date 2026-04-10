@@ -219,7 +219,7 @@ class AlbaLoan(models.Model):
             "mail.mail_activity_data_todo",
             user_id=self.env.ref("alba_loans.group_director").users[0].id if self.env.ref("alba_loans.group_director").users else self.env.user.id,
             summary=_("Legal action required for %s") % self.loan_number,
-            note=_("Loan %s is %s days overdue and has been escalated to legal.") % (self.loan_number, self.days_overdue),
+            note=_("Loan %s is %s days overdue and has been escalated to legal.") % (self.loan_number, self.days_in_arrears),
         )
         
         # Log the escalation
@@ -229,7 +229,7 @@ class AlbaLoan(models.Model):
             "escalated"
         )
         
-        self.message_post(body=_("<b>ESCALATED TO LEGAL</b><br/>Loan escalated to legal department after %s days overdue.") % self.days_overdue)
+        self.message_post(body=_("<b>ESCALATED TO LEGAL</b><br/>Loan escalated to legal department after %s days overdue.") % self.days_in_arrears)
 
 
 class AlbaLoanCollectionCron(models.Model):
