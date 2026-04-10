@@ -173,6 +173,7 @@
             groups="alba_loans.group_loan_officer"
         />
 
+    <!-- Live list views -->
     <menuitem
             id="menu_alba_report_par_live"
             name="Portfolio at Risk (Live)"
