@@ -186,6 +186,13 @@ class AlbaLoanApplication(models.Model):
         help="Any special conditions that must be met before disbursement.",
     )
 
+    # ── Documents ─────────────────────────────────────────────────────────────
+    loan_document_ids = fields.One2many(
+        "alba.loan.document",
+        "loan_application_id",
+        string="Documents",
+    )
+
     # ── Linked Loan ───────────────────────────────────────────────────────────
     loan_id = fields.Many2one(
         "alba.loan",
