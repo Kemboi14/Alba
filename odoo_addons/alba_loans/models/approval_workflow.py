@@ -182,10 +182,10 @@ class AlbaLoanApplication(models.Model):
         for rec in self:
             # Track who submitted
             rec.submitted_by_user_id = self.env.user
-            rec.submitted_by_role_id = self.env.user.groups_id & self.env.ref("alba_loans.group_relationship_officer")
+            rec.submitted_by_role_id = self.env.user.group_ids & self.env.ref("alba_loans.group_relationship_officer")
             
             # Validate required documents
-            if not rec.document_ids:
+            if not rec.loan_document_ids:
                 raise UserError(_("At least one supporting document is required before submission."))
             
             rec.write({
