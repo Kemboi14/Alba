@@ -695,6 +695,15 @@ class AlbaMpesaTransaction(models.Model):
                     "raw_response": json.dumps(data),
                 }
             )
+        else:
+            # Validate that the transaction has an active M-Pesa config
+            if not txn.config_id or not txn.config_id.is_active:
+                _logger.warning(
+                    "STK callback for CheckoutRequestID '%s' rejected: transaction has no active M-Pesa config.",
+                    checkout_id,
+                )
+                # Return empty recordset to signal rejection
+                return self.browse()
 
         update_vals = {
             "result_code": result_code,

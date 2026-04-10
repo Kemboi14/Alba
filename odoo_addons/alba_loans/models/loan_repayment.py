@@ -213,6 +213,16 @@ class AlbaLoanRepayment(models.Model):
             "UNIQUE(django_payment_id)",
             "A repayment with this Django Payment ID already exists.",
         ),
+        (
+            "mpesa_transaction_id_not_empty",
+            "CHECK(mpesa_transaction_id IS NULL OR mpesa_transaction_id != '')",
+            "M-Pesa transaction ID cannot be empty string.",
+        ),
+        (
+            "django_payment_id_not_empty",
+            "CHECK(django_payment_id IS NULL OR django_payment_id != '')",
+            "Django payment ID cannot be empty string.",
+        ),
     ]
 
     # =========================================================================
@@ -328,13 +338,14 @@ class AlbaLoanRepayment(models.Model):
         principal = 0.0
 
         # Pull overdue/pending schedule entries ordered by due_date asc
+        # Use row-level locking to prevent concurrent payments from over-allocating
         schedule = self.env["alba.repayment.schedule"].search(
             [
                 ("loan_id", "=", self.loan_id.id),
                 ("balance_due", ">", 0),
             ],
             order="due_date asc",
-        )
+        ).with_for_update()
 
         # Calculate other charges and penalties first (based on overdue days)
         for entry in schedule:

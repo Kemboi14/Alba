@@ -123,11 +123,13 @@ def migrate(cr, version):
         ]).unlink()
 
         # Create fresh act_window action
+        group = env.ref(f"{_MODULE}.{spec['group_xmlid']}")
         action = env["ir.actions.act_window"].create({
             "name": spec["action_name"],
             "res_model": spec["res_model"],
             "view_mode": "form",
             "target": "new",
+            "groups_id": [(6, 0, group.ids)] if group else False,
         })
         _set_imd(env, _MODULE, spec["action_xmlid"], "ir.actions.act_window", action.id)
 
