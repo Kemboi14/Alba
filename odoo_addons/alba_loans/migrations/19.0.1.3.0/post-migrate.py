@@ -103,9 +103,33 @@ def _ensure_director_implies_loan_officer(env):
 
 
 def migrate(cr, version):
+    # Step 0: Ensure loan_document_ids field exists in database
+    # This fixes circular dependency issue during upgrade
+    cr.execute("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'alba_loan_application' 
+        AND column_name = 'loan_document_ids'
+    """)
+    if not cr.fetchone():
+        # Field doesn't exist, add it using SQL
+        cr.execute("""
+            ALTER TABLE alba_loan_application 
+            ADD COLUMN loan_document_ids INTEGER
+        """)
+        cr.execute("""
+            COMMENT ON COLUMN alba_loan_application.loan_document_ids IS 'Documents (one2many to alba.loan.document)'
+        """)
+
     env = api.Environment(cr, SUPERUSER_ID, {})
 
-    # Step 1: Fix group chain
+    # Step 1: Ensure models are loaded to fix circular dependency
+    # Force load alba.loan.document before alba.loan.application view parsing
+    env['ir.model']._instanciate('alba.loan.document')
+    env['ir.model']._instanciate('alba.loan.application')
+    env.registry.setup_models(cr)
+
+    # Step 2: Fix group chain
     _ensure_director_implies_loan_officer(env)
 
     # Step 2: Force-recreate all 5 report wizard actions and menus
