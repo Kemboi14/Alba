@@ -1,5 +1,5 @@
 # Core Framework
-Django==5.0.2
+Django==5.2.8
 python-decouple==3.8
 
 # Database
@@ -9,8 +9,8 @@ psycopg2-binary==2.9.9
 python-dateutil==2.8.2
 
 # API
-djangorestframework==3.14.0
-requests==2.31.0
+djangorestframework==3.15.2
+requests==2.33.0
 
 # Authentication (Google OAuth)
 django-allauth[socialaccount]==65.15.1
@@ -30,5 +30,5 @@ djangorestframework-stubs==3.16.8
 reportlab==4.2.2
 
 # Production
-gunicorn==21.2.0
+gunicorn==22.0.0
 whitenoise==6.6.0
