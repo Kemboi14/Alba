@@ -191,6 +191,7 @@ class AlbaLoanApplication(models.Model):
         "alba.loan.document",
         "loan_application_id",
         string="Documents",
+        copy=False,
     )
 
     # ── Linked Loan ───────────────────────────────────────────────────────────
