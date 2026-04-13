@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Alba Capital - Loan Management",
-    "version": "19.0.1.4.0",
+    "version": "19.0.1.5.0",
     "category": "Finance",
     "summary": "Core loan management: products, applications, disbursements, repayments, M-Pesa integration and accounting automation",
     "description": """
@@ -67,7 +67,7 @@ Accounting
         # ── Loan management views (load basic views first) ───────────────────
         "views/customer_views.xml",
         "views/loan_product_views.xml",
-        "views/loan_application_views.xml:noupdate",
+        "views/loan_application_views.xml",
         "views/repayment_views.xml",
         # ── M-Pesa views ────────────────────────────────────────────────────
         "views/mpesa_config_views.xml",
