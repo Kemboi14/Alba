@@ -67,7 +67,7 @@ Accounting
         # ── Loan management views (load basic views first) ───────────────────
         "views/customer_views.xml",
         "views/loan_product_views.xml",
-        "views/loan_application_views.xml",
+        "views/loan_application_views.xml:noupdate",
         "views/repayment_views.xml",
         # ── M-Pesa views ────────────────────────────────────────────────────
         "views/mpesa_config_views.xml",
