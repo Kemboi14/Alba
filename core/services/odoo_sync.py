@@ -156,15 +156,18 @@ class OdooSyncService:
             getattr(settings, "ODOO_RETRY_BACKOFF", self._DEFAULT_RETRY_BACKOFF)
         )
 
+        self.db_name = (getattr(settings, "ODOO_DB", "") or "").strip()
+
         self._session = requests.Session()
-        self._session.headers.update(
-            {
-                "X-Alba-API-Key": self.api_key,
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "User-Agent": "AlbaDjangoPortal/1.0",
-            }
-        )
+        headers = {
+            "X-Alba-API-Key": self.api_key,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "AlbaDjangoPortal/1.0",
+        }
+        if self.db_name:
+            headers["X-Odoo-Database"] = self.db_name
+        self._session.headers.update(headers)
 
     # =========================================================================
     # Public API methods
