@@ -453,7 +453,7 @@ class AlbaLoanApplication(models.Model):
             raise UserError(_("Only approved applications can be disbursed."))
 
         # Ensure loan product has all accounting accounts configured (auto-detects
-        # from the chart of accounts and saves them if missing).
+        # from the chart of accounts and creates minimal accounts if missing).
         self.loan_product_id._ensure_accounting_defaults()
 
         return {

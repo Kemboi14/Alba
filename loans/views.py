@@ -276,35 +276,17 @@ def apply_for_loan(request):
         if form.is_valid():
             application = form.save(commit=False)
             application.customer = customer
-            application.status = LoanApplication.SUBMITTED
-            application.submitted_at = timezone.now()
+            # Save as DRAFT — customer must upload supporting documents
+            # (payslip / employment letter) before final submission.
+            application.status = LoanApplication.DRAFT
             application.save()
-
-            # Sync to Odoo
-            try:
-                from core.services.odoo_sync import OdooSyncService
-
-                odoo_service = OdooSyncService()
-                if odoo_service.is_reachable():
-                    result = odoo_service.create_loan_application(application)
-                    application.odoo_application_id = result.get("odoo_application_id")
-                    application.save()
-                    messages.info(request, "Application synced to Odoo successfully.")
-                else:
-                    messages.warning(
-                        request,
-                        "Application saved locally but could not sync to Odoo. Will sync later.",
-                    )
-            except Exception as e:
-                messages.warning(
-                    request, f"Application saved but Odoo sync failed: {str(e)}"
-                )
 
             messages.success(
                 request,
                 (
-                    f"Application {application.application_number} submitted successfully! "
-                    "Our team will review it within 24 hours."
+                    f"Application {application.application_number} saved. "
+                    "Please upload your supporting documents (payslip, employment letter, etc.) "
+                    "then click Submit."
                 ),
             )
             create_audit_log(
@@ -312,7 +294,7 @@ def apply_for_loan(request):
                 "CREATE",
                 "LoanApplication",
                 application.pk,
-                f"Submitted loan application {application.application_number}",
+                f"Created draft loan application {application.application_number}",
             )
             return redirect("loans:application_detail", pk=application.pk)
     else:
@@ -365,7 +347,7 @@ def my_applications(request):
 
 @login_required
 def submit_application(request, pk):
-    """Final submission of a draft application"""
+    """Final submission of a draft application — requires at least one supporting document."""
     customer, _ = Customer.objects.get_or_create(user=request.user)
     application = get_object_or_404(LoanApplication, pk=pk, customer=customer)
 
@@ -373,15 +355,44 @@ def submit_application(request, pk):
         messages.info(request, "This application has already been submitted.")
         return redirect("loans:application_detail", pk=pk)
 
+    # Enforce SRS 3.1.2 step 2: customer must upload at least one supporting document
+    # (payslip, employment letter, bank statement, etc.) before submission.
+    has_documents = LoanDocument.objects.filter(application=application).exists()
+    if not has_documents:
+        messages.warning(
+            request,
+            "Please upload at least one supporting document (e.g. payslip or employment "
+            "letter) before submitting your application.",
+        )
+        return redirect("loans:upload_document", application_pk=pk)
+
     application.status = LoanApplication.SUBMITTED
     application.submitted_at = timezone.now()
     application.save()
 
+    # Sync to Odoo now that the application is formally submitted
+    try:
+        from core.services.odoo_sync import OdooSyncService
+
+        odoo_service = OdooSyncService()
+        if odoo_service.is_reachable():
+            result = odoo_service.create_loan_application(application)
+            application.odoo_application_id = result.get("odoo_application_id")
+            application.save(update_fields=["odoo_application_id"])
+            messages.info(request, "Application synced to Odoo.")
+        else:
+            messages.warning(
+                request,
+                "Application submitted but could not sync to Odoo right now. Will sync later.",
+            )
+    except Exception as e:
+        logger.warning("Odoo sync failed for application %s: %s", application.pk, e)
+
     messages.success(
         request,
         (
-            f"Application {application.application_number} submitted. "
-            "You will be notified once it is reviewed."
+            f"Application {application.application_number} submitted successfully! "
+            "Our team will review it within 24 hours."
         ),
     )
     create_audit_log(
@@ -448,6 +459,19 @@ def upload_document(request, application_pk):
                 doc.pk,
                 f"Uploaded document for application {application.application_number}",
             )
+            # Sync document to Odoo so staff can see it immediately
+            if application.odoo_application_id:
+                try:
+                    from core.services.odoo_sync import OdooSyncService
+                    sync = OdooSyncService()
+                    if sync.is_reachable():
+                        sync.sync_document(application.odoo_application_id, doc)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "Document sync to Odoo failed (non-fatal): app_id=%s err=%s",
+                        application.pk,
+                        exc,
+                    )
             return redirect("loans:application_detail", pk=application_pk)
     else:
         form = LoanDocumentForm()

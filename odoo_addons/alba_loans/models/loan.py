@@ -180,12 +180,7 @@ class AlbaLoan(models.Model):
         "loan_id",
         string="Repayment History",
     )
-    move_ids = fields.One2many(
-        "account.move",
-        "ref",
-        string="Journal Entries",
-        domain="[('ref', 'like', loan_number)]",
-    )
+    # Note: journal entries are tracked via disbursement_move_id (Many2one below)
 
     # ── Accounting ────────────────────────────────────────────────────────────
     journal_id = fields.Many2one(

@@ -78,8 +78,7 @@
                             </page>
 
                             <!-- ── Accounting ─────────────────────────────── -->
-                            <page string="Accounting" name="accounting"
-                                  groups="account.group_account_manager">
+                            <page string="Accounting" name="accounting">
                                 <group>
                                     <group string="Income Accounts">
                                         <field name="account_loan_receivable_id"

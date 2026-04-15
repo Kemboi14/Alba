@@ -209,6 +209,7 @@
                                                decoration-warning="state == 'draft'"
                                                decoration-danger="state == 'rejected'"/>
                                         <field name="uploaded_by" string="Uploaded By" readonly="1"/>
+                                        <field name="create_date" string="Uploaded On" readonly="1"/>
                                         <field name="description" string="Notes" optional="hide"/>
                                     </list>
                                 </field>

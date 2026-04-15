@@ -490,7 +490,14 @@ class AlbaApiController(http.Controller):
                     f"Missing required fields: {', '.join(missing)}", 400
                 )
 
-            django_customer_id = str(data["django_customer_id"]).strip()
+            django_customer_id = self._safe_int(
+                str(data["django_customer_id"]).strip(), default=0
+            )
+            if not django_customer_id:
+                return self._error_response(
+                    "django_customer_id must be a positive integer (Django User PK).",
+                    400,
+                )
             Customer = request.env["alba.customer"].sudo()
 
             # --- Locate existing record (scoped to API key's company) -----------
@@ -530,7 +537,7 @@ class AlbaApiController(http.Controller):
 
             # --- Build customer field dict (with company scoping) -----------
             customer_vals = {
-                "django_customer_id": django_customer_id,
+                "django_customer_id": django_customer_id,  # int
                 "partner_id": partner.id,
                 "company_id": api_key.company_id.id,
             }
@@ -547,7 +554,6 @@ class AlbaApiController(http.Controller):
                 "bank_name": "bank_name",
                 "bank_account": "bank_account",
                 "county": "county",
-                "city": "city",
             }
             for django_field, odoo_field in optional_map.items():
                 val = data.get(django_field)
@@ -824,27 +830,33 @@ class AlbaApiController(http.Controller):
             }
         """
         try:
-            self._authenticate()
+            api_key = self._authenticate()
             data = self._parse_json_body()
 
+            # Validate core required fields
             missing = self._validate_required(
                 data,
-                [
-                    "django_application_id",
-                    "django_customer_id",
-                    "loan_product_code",
-                    "requested_amount",
-                    "tenure_months",
-                ],
+                ["django_application_id", "requested_amount", "tenure_months"],
             )
+            # At least one customer identifier required
+            if not data.get("odoo_customer_id") and not data.get("django_customer_id"):
+                missing.append("odoo_customer_id (or django_customer_id)")
+            # At least one product identifier required
+            if not data.get("odoo_loan_product_id") and not data.get("loan_product_code"):
+                missing.append("odoo_loan_product_id (or loan_product_code)")
             if missing:
                 return self._error_response(
                     f"Missing required fields: {', '.join(missing)}", 400
                 )
 
-            django_app_id = str(data["django_application_id"]).strip()
-            django_cust_id = str(data["django_customer_id"]).strip()
-
+            django_app_id = self._safe_int(
+                str(data["django_application_id"]).strip(), default=0
+            )
+            if not django_app_id:
+                return self._error_response(
+                    "django_application_id must be a positive integer (Django LoanApplication PK).",
+                    400,
+                )
             Application = request.env["alba.loan.application"].sudo()
 
             # --- Idempotency: check for existing application -----------------
@@ -866,59 +878,70 @@ class AlbaApiController(http.Controller):
                     }
                 )
 
-            # --- Resolve customer (scoped to company) -----------------------
-            customer = (
-                request.env["alba.customer"]
-                .sudo()
-                .search(
-                    [
-                        ("django_customer_id", "=", django_cust_id),
-                        ("company_id", "=", api_key.company_id.id),
-                    ],
+            # --- Resolve customer -------------------------------------------
+            # Prefer direct Odoo ID lookup (sent by Django portal), fallback to
+            # django_customer_id field for backward compatibility.
+            Customer = request.env["alba.customer"].sudo()
+            customer = None
+            if data.get("odoo_customer_id"):
+                customer = Customer.browse(self._safe_int(data["odoo_customer_id"]))
+                if not customer.exists():
+                    customer = None
+            if not customer and data.get("django_customer_id"):
+                customer = Customer.search(
+                    [("django_customer_id", "=", str(data["django_customer_id"]).strip())],
                     limit=1,
                 )
-            )
             if not customer:
                 return self._error_response(
-                    f"Customer with django_customer_id='{django_cust_id}' not found. "
-                    "Create the customer record first via POST /alba/api/v1/customers.",
+                    "Customer not found. Ensure the customer is synced to Odoo first "
+                    "via POST /alba/api/v1/customers.",
                     404,
                 )
 
-            # --- Resolve loan product (scoped to company) -------------------
-            product = (
-                request.env["alba.loan.product"]
-                .sudo()
-                .search(
+            # --- Resolve loan product -------------------------------------------
+            # Prefer direct Odoo product ID, fallback to product code lookup.
+            Product = request.env["alba.loan.product"].sudo()
+            product = None
+            if data.get("odoo_loan_product_id"):
+                product = Product.browse(self._safe_int(data["odoo_loan_product_id"]))
+                if not product.exists() or not product.is_active:
+                    product = None
+            if not product and data.get("loan_product_code"):
+                product = Product.search(
                     [
                         ("code", "=", data["loan_product_code"]),
                         ("is_active", "=", True),
-                        ("company_id", "=", api_key.company_id.id),
                     ],
                     limit=1,
                 )
-            )
             if not product:
                 return self._error_response(
-                    f"Active loan product with code='{data['loan_product_code']}' "
-                    "not found.",
+                    "Active loan product not found. Verify the product exists and is "
+                    "active in Odoo.",
                     404,
                 )
 
             # Determine repayment frequency — fallback to product default
             repayment_freq = (
-                data.get("repayment_frequency") or ""
-            ).strip().lower() or (product.repayment_frequency or "monthly")
+                (data.get("repayment_frequency") or "").strip().lower()
+                or product.repayment_frequency
+                or "monthly"
+            )
+            # Normalise Django uppercase values (e.g. "MONTHLY" → "monthly")
+            repayment_freq = repayment_freq.lower()
+
+            purpose = (data.get("purpose") or "").strip() or "General"
 
             app_vals = {
                 "django_application_id": django_app_id,
                 "customer_id": customer.id,
-                "product_id": product.id,
+                "loan_product_id": product.id,
                 "company_id": api_key.company_id.id,
                 "requested_amount": self._safe_float(data["requested_amount"]),
                 "tenure_months": self._safe_int(data["tenure_months"], 1),
                 "repayment_frequency": repayment_freq,
-                "purpose": (data.get("purpose") or "").strip(),
+                "purpose": purpose,
                 "state": "draft",
             }
 
@@ -946,6 +969,163 @@ class AlbaApiController(http.Controller):
             return self._error_response(str(exc), 400)
         except Exception as exc:
             _logger.exception("create_application: unexpected error — %s", exc)
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 6b. Sync document from Django portal to Odoo
+    # -------------------------------------------------------------------------
+
+    @http.route(
+        "/alba/api/v1/applications/<int:application_id>/documents",
+        type="http",
+        auth="public",
+        methods=["POST"],
+        csrf=False,
+    )
+    def sync_document(self, application_id, **kwargs):
+        """
+        Create or update an ``alba.loan.document`` (and its ``ir.attachment``)
+        for a given loan application from a Django portal document upload.
+
+        Authentication
+        --------------
+        Requires ``X-Alba-API-Key`` header.
+
+        URL parameter
+        -------------
+        ``application_id`` — Odoo database ID of the ``alba.loan.application``.
+
+        Request body (JSON)
+        -------------------
+        Required: ``name``, ``document_type``, ``file_content`` (base64),
+        ``file_name``
+
+        Optional: ``description``
+
+        Response 201
+        ------------
+        .. code-block:: json
+
+            {
+                "odoo_document_id": 3,
+                "status": "created"
+            }
+        """
+        import base64 as _base64
+
+        try:
+            api_key = self._authenticate()
+            data = self._parse_json_body()
+
+            missing = self._validate_required(
+                data, ["name", "document_type", "file_content", "file_name"]
+            )
+            if missing:
+                return self._error_response(
+                    f"Missing required fields: {', '.join(missing)}", 400
+                )
+
+            application = (
+                request.env["alba.loan.application"].sudo().browse(application_id)
+            )
+            if not application.exists():
+                return self._error_response(
+                    f"Application with id={application_id} not found.", 404
+                )
+
+            # Decode base64 file content
+            try:
+                file_bytes = _base64.b64decode(data["file_content"])
+            except Exception:
+                return self._error_response(
+                    "Invalid base64 encoding for file_content.", 400
+                )
+
+            # Determine mimetype from filename
+            file_name = (data["file_name"] or "document").strip()
+            ext = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
+            _mime_map = {
+                "pdf": "application/pdf",
+                "jpg": "image/jpeg",
+                "jpeg": "image/jpeg",
+                "png": "image/png",
+                "doc": "application/msword",
+                "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            }
+            mimetype = _mime_map.get(ext, "application/octet-stream")
+
+            # Create ir.attachment
+            attachment = (
+                request.env["ir.attachment"]
+                .sudo()
+                .create(
+                    {
+                        "name": file_name,
+                        "datas": data["file_content"],
+                        "res_model": "alba.loan.application",
+                        "res_id": application.id,
+                        "mimetype": mimetype,
+                    }
+                )
+            )
+
+            # Map Django document_type to Odoo selection values
+            _dtype_map = {
+                "ID_CARD": "national_id",
+                "PAYSLIP": "payslip",
+                "BANK_STATEMENT": "bank_statement",
+                "EMPLOYMENT_LETTER": "employment_letter",
+                "GUARANTOR_ID": "other",
+                "OTHER": "other",
+                # Also accept Odoo-native values directly
+                "national_id": "national_id",
+                "payslip": "payslip",
+                "bank_statement": "bank_statement",
+                "employment_letter": "employment_letter",
+                "passport": "passport",
+                "kra_pin": "kra_pin",
+                "utility_bill": "utility_bill",
+            }
+            odoo_dtype = _dtype_map.get(data["document_type"], "other")
+
+            doc = (
+                request.env["alba.loan.document"]
+                .sudo()
+                .create(
+                    {
+                        "name": data["name"],
+                        "document_type": odoo_dtype,
+                        "loan_application_id": application.id,
+                        "customer_id": application.customer_id.id,
+                        "attachment_id": attachment.id,
+                        "description": (data.get("description") or "").strip(),
+                        "state": "draft",
+                        "company_id": api_key.company_id.id,
+                    }
+                )
+            )
+
+            _logger.info(
+                "sync_document: created odoo_doc_id=%d app_id=%d type=%s",
+                doc.id,
+                application_id,
+                odoo_dtype,
+            )
+
+            return self._json_response(
+                {"odoo_document_id": doc.id, "status": "created"}, status=201
+            )
+
+        except odoo_exceptions.AccessDenied as exc:
+            return self._error_response(str(exc), 403)
+        except odoo_exceptions.UserError as exc:
+            return self._error_response(str(exc), 400)
+        except Exception as exc:
+            _logger.exception(
+                "sync_document: unexpected error for app_id=%d — %s",
+                application_id,
+                exc,
+            )
             return self._error_response("Internal server error.", 500)
 
     # -------------------------------------------------------------------------
@@ -1000,9 +1180,14 @@ class AlbaApiController(http.Controller):
             api_key = self._authenticate()
             data = self._parse_json_body()
 
-            new_status = (data.get("new_status") or "").strip().lower()
+            # Accept "new_status" (canonical) or "status" (Django legacy key)
+            new_status = (
+                data.get("new_status") or data.get("status") or ""
+            ).strip().lower()
             if not new_status:
-                return self._error_response("Missing required field: new_status", 400)
+                return self._error_response(
+                    "Missing required field: new_status (or status)", 400
+                )
 
             if new_status not in _STATUS_ACTION_MAP:
                 return self._error_response(
