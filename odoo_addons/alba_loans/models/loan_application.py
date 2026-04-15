@@ -451,6 +451,11 @@ class AlbaLoanApplication(models.Model):
             "guarantor_confirmation",
         ):
             raise UserError(_("Only approved applications can be disbursed."))
+
+        # Ensure loan product has all accounting accounts configured (auto-detects
+        # from the chart of accounts and saves them if missing).
+        self.loan_product_id._ensure_accounting_defaults()
+
         return {
             "type": "ir.actions.act_window",
             "name": _("Disburse Loan"),
