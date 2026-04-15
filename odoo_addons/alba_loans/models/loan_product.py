@@ -324,3 +324,90 @@ class AlbaLoanProduct(models.Model):
             "domain": [("loan_product_id", "=", self.id)],
             "context": {"default_loan_product_id": self.id},
         }
+
+    def _ensure_accounting_defaults(self):
+        """
+        Auto-detect and assign accounting accounts from the chart of accounts
+        if they are not yet configured on this product.  Writes the detected
+        accounts back to the product so the user can review / override them.
+
+        Priority for each account:
+          1. Exact name match (case-insensitive substring)
+          2. Correct account_type with any name
+          3. Raise a UserError with clear guidance if nothing is found.
+        """
+        self.ensure_one()
+        Account = self.env["account.account"]
+        company_id = self.company_id.id or self.env.company.id
+        changes = {}
+
+        def _find(type_list, name_hint, fallback_name_hints=None):
+            """Return first account matching type_list, preferring name_hint.
+            ORM record rules already scope to the current company, so no
+            explicit company filter is needed.
+            """
+            # 1. Preferred: correct type + name match
+            acc = Account.search(
+                [("account_type", "in", type_list), ("name", "ilike", name_hint)],
+                limit=1,
+            )
+            if acc:
+                return acc
+            # 2. Try alternative name hints (if provided)
+            for hint in (fallback_name_hints or []):
+                acc = Account.search(
+                    [("account_type", "in", type_list), ("name", "ilike", hint)],
+                    limit=1,
+                )
+                if acc:
+                    return acc
+            # 3. Any account of the right type
+            acc = Account.search([("account_type", "in", type_list)], limit=1)
+            return acc
+
+        if not self.account_loan_receivable_id:
+            acc = _find(
+                ["asset_receivable", "asset_current", "asset_non_current", "asset_fixed", "asset_prepayments"],
+                "loan",
+                fallback_name_hints=["receivable", "debtor", "asset"],
+            )
+            if not acc:
+                raise ValidationError(
+                    _(
+                        "Cannot auto-detect a Loan Receivable account for product "
+                        "'%(product)s'.\n\nPlease install a Chart of Accounts (Accounting "
+                        "→ Configuration → Chart of Accounts), or go to the Loan Product "
+                        "form → Accounting tab and set the 'Loan Receivable Account' "
+                        "manually before disbursing.",
+                        product=self.name,
+                    )
+                )
+            changes["account_loan_receivable_id"] = acc.id
+
+        if not self.account_interest_income_id:
+            acc = _find(
+                ["income", "income_other"],
+                "interest",
+                fallback_name_hints=["revenue", "income"],
+            )
+            if acc:
+                changes["account_interest_income_id"] = acc.id
+
+        if not self.account_fees_income_id:
+            acc = _find(
+                ["income", "income_other"],
+                "fee",
+                fallback_name_hints=["income", "revenue"],
+            )
+            if not acc:
+                # Fall back to the interest income account already found/set
+                acc_id = changes.get("account_interest_income_id") or (
+                    self.account_interest_income_id.id
+                )
+                if acc_id:
+                    changes["account_fees_income_id"] = acc_id
+            else:
+                changes["account_fees_income_id"] = acc.id
+
+        if changes:
+            self.write(changes)

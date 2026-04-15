@@ -267,93 +267,89 @@ class AlbaLoanDisburseWizard(models.TransientModel):
         """
         self.ensure_one()
         
-        # Use a savepoint/atomic transaction to ensure all-or-nothing behavior
-        from odoo import api
-        
-        with api.Environment.manage():
-            # Lock the application record to prevent concurrent disbursement attempts
-            application = self.application_id.with_env(self.env).sudo().browse(self.application_id.id)
-            application.env.cr.execute(
-                "SELECT id FROM alba_loan_application WHERE id = %s FOR UPDATE NOWAIT",
-                (application.id,)
-            )
-            
-            # Re-read after locking to get current state
-            application.invalidate_recordset()
-            
-            disbursable_states = (
-                "approved",
-                "employer_verification",
-                "guarantor_confirmation",
-            )
-            if application.state not in disbursable_states:
-                raise UserError(
-                    _(
-                        "Application %s is in state '%s' and cannot be disbursed. "
-                        "It must be Approved, in Employer Verification, or "
-                        "in Guarantor Confirmation."
-                    )
-                    % (application.application_number, application.state)
-                )
+        # Lock the application record to prevent concurrent disbursement attempts
+        application = self.application_id.with_env(self.env).sudo().browse(self.application_id.id)
+        application.env.cr.execute(
+            "SELECT id FROM alba_loan_application WHERE id = %s FOR UPDATE NOWAIT",
+            (application.id,)
+        )
 
-            if application.loan_id:
-                raise UserError(
-                    _("Application %s has already been disbursed as loan %s.")
-                    % (application.application_number, application.loan_id.loan_number)
-                )
+        # Re-read after locking to get current state
+        application.invalidate_recordset()
 
-            # ── 1. Create alba.loan ───────────────────────────────────────────────
-            loan_vals = {
-                "application_id": application.id,
-                "principal_amount": self.approved_amount,
-                "interest_rate": self.interest_rate,
-                "interest_method": self.interest_method,
-                "tenure_months": self.tenure_months,
-                "repayment_frequency": self.repayment_frequency,
-                "disbursement_date": self.disbursement_date,
-                "journal_id": self.journal_id.id,
-                "state": "active",
-                "notes": self.notes or "",
+        disbursable_states = (
+            "approved",
+            "employer_verification",
+            "guarantor_confirmation",
+        )
+        if application.state not in disbursable_states:
+            raise UserError(
+                _(
+                    "Application %s is in state '%s' and cannot be disbursed. "
+                    "It must be Approved, in Employer Verification, or "
+                    "in Guarantor Confirmation."
+                )
+                % (application.application_number, application.state)
+            )
+
+        if application.loan_id:
+            raise UserError(
+                _("Application %s has already been disbursed as loan %s.")
+                % (application.application_number, application.loan_id.loan_number)
+            )
+
+        # ── 1. Create alba.loan ───────────────────────────────────────────────
+        loan_vals = {
+            "application_id": application.id,
+            "principal_amount": self.approved_amount,
+            "interest_rate": self.interest_rate,
+            "interest_method": self.interest_method,
+            "tenure_months": self.tenure_months,
+            "repayment_frequency": self.repayment_frequency,
+            "disbursement_date": self.disbursement_date,
+            "journal_id": self.journal_id.id,
+            "state": "active",
+            "notes": self.notes or "",
+        }
+        loan = self.env["alba.loan"].create(loan_vals)
+
+        # ── 2. Post disbursement journal entry ───────────────────────────────
+        loan.action_post_disbursement_entry()
+
+        # ── 3. Generate repayment schedule ───────────────────────────────────
+        if self.generate_schedule:
+            loan.action_generate_schedule()
+
+        # ── 4. Transition application → disbursed ────────────────────────────
+        application.write(
+            {
+                "state": "disbursed",
+                "approved_amount": self.approved_amount,
+                "disbursed_date": fields.Datetime.now(),
+                "disbursed_by": self.env.uid,
+                "loan_id": loan.id,
             }
-            loan = self.env["alba.loan"].create(loan_vals)
-
-            # ── 2. Post disbursement journal entry ───────────────────────────────
-            loan.action_post_disbursement_entry()
-
-            # ── 3. Generate repayment schedule ───────────────────────────────────
-            if self.generate_schedule:
-                loan.action_generate_schedule()
-
-            # ── 4. Transition application → disbursed ────────────────────────────
-            application.write(
-                {
-                    "state": "disbursed",
-                    "approved_amount": self.approved_amount,
-                    "disbursed_date": fields.Datetime.now(),
-                    "disbursed_by": self.env.uid,
-                    "loan_id": loan.id,
-                }
+        )
+        application.message_post(
+            body=_(
+                "Loan <b>%(loan_number)s</b> disbursed for "
+                "<b>%(currency)s %(amount).2f</b> on %(date)s via %(journal)s. "
+                "%(notes)s",
+                loan_number=loan.loan_number,
+                currency=self.currency_id.name,
+                amount=self.approved_amount,
+                date=self.disbursement_date,
+                journal=self.journal_id.name,
+                notes=self.notes or "",
             )
-            application.message_post(
-                body=_(
-                    "Loan <b>%(loan_number)s</b> disbursed for "
-                    "<b>%(currency)s %(amount).2f</b> on %(date)s via %(journal)s. "
-                    "%(notes)s",
-                    loan_number=loan.loan_number,
-                    currency=self.currency_id.name,
-                    amount=self.approved_amount,
-                    date=self.disbursement_date,
-                    journal=self.journal_id.name,
-                    notes=self.notes or "",
-                )
-            )
+        )
 
-            # ── 5. Return form view of the new loan ───────────────────────────────
-            return {
-                "type": "ir.actions.act_window",
-                "name": _("Loan — %s") % loan.loan_number,
-                "res_model": "alba.loan",
-                "view_mode": "form",
-                "res_id": loan.id,
-                "target": "current",
-            }
+        # ── 5. Return form view of the new loan ───────────────────────────────
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Loan — %s") % loan.loan_number,
+            "res_model": "alba.loan",
+            "view_mode": "form",
+            "res_id": loan.id,
+            "target": "current",
+        }
