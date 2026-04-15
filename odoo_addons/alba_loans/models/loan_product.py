@@ -365,49 +365,57 @@ class AlbaLoanProduct(models.Model):
             acc = Account.search([("account_type", "in", type_list)], limit=1)
             return acc
 
+        def _get_or_create(type_list, name_hint, fallback_name_hints, auto_name, auto_code, auto_type):
+            acc = _find(type_list, name_hint, fallback_name_hints)
+            if acc:
+                return acc
+            # Auto-create a minimal account so the flow is not blocked
+            # Make sure the code is unique
+            base_code = auto_code
+            code = base_code
+            i = 1
+            while Account.search([("code", "=", code)], limit=1):
+                code = f"{base_code}{i}"
+                i += 1
+            vals = {"name": auto_name, "code": code, "account_type": auto_type}
+            company = self.company_id or self.env.company
+            if company:
+                vals["company_ids"] = [(4, company.id)]
+            return Account.create(vals)
+
         if not self.account_loan_receivable_id:
-            acc = _find(
+            acc = _get_or_create(
                 ["asset_receivable", "asset_current", "asset_non_current", "asset_fixed", "asset_prepayments"],
                 "loan",
-                fallback_name_hints=["receivable", "debtor", "asset"],
+                ["receivable", "debtor", "asset"],
+                "Loans Receivable",
+                "110100",
+                "asset_non_current",
             )
-            if not acc:
-                raise ValidationError(
-                    _(
-                        "Cannot auto-detect a Loan Receivable account for product "
-                        "'%(product)s'.\n\nPlease install a Chart of Accounts (Accounting "
-                        "→ Configuration → Chart of Accounts), or go to the Loan Product "
-                        "form → Accounting tab and set the 'Loan Receivable Account' "
-                        "manually before disbursing.",
-                        product=self.name,
-                    )
-                )
             changes["account_loan_receivable_id"] = acc.id
 
         if not self.account_interest_income_id:
-            acc = _find(
+            acc = _get_or_create(
                 ["income", "income_other"],
                 "interest",
-                fallback_name_hints=["revenue", "income"],
+                ["revenue", "income"],
+                "Interest Income",
+                "410100",
+                "income_other",
             )
-            if acc:
-                changes["account_interest_income_id"] = acc.id
+            changes["account_interest_income_id"] = acc.id
 
         if not self.account_fees_income_id:
-            acc = _find(
+            acc = _get_or_create(
                 ["income", "income_other"],
                 "fee",
-                fallback_name_hints=["income", "revenue"],
+                ["income", "revenue"],
+                "Loan Processing Fees",
+                "410200",
+                "income_other",
             )
-            if not acc:
-                # Fall back to the interest income account already found/set
-                acc_id = changes.get("account_interest_income_id") or (
-                    self.account_interest_income_id.id
-                )
-                if acc_id:
-                    changes["account_fees_income_id"] = acc_id
-            else:
-                changes["account_fees_income_id"] = acc.id
+            changes["account_fees_income_id"] = acc.id
 
         if changes:
             self.write(changes)
+        return True

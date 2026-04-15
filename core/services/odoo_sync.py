@@ -341,6 +341,61 @@ class OdooSyncService:
         )
         return result
 
+    def sync_document(self, odoo_application_id: int, doc) -> dict:
+        """
+        Sync a Django LoanDocument to Odoo as an alba.loan.document record.
+
+        Args:
+            odoo_application_id: Odoo ID of the ``alba.loan.application``.
+            doc: Django LoanDocument model instance with ``document_file``,
+                 ``document_type``, and ``description`` fields.
+
+        Returns:
+            dict: Response body containing ``odoo_document_id`` and
+                  ``status`` ("created").
+
+        Raises:
+            OdooSyncError: On any API failure.
+        """
+        import base64 as _b64
+
+        # Read and encode the file
+        doc.document_file.open("rb")
+        try:
+            file_bytes = doc.document_file.read()
+        finally:
+            doc.document_file.close()
+
+        file_content_b64 = _b64.b64encode(file_bytes).decode("utf-8")
+        file_name = doc.document_file.name.split("/")[-1]
+        doc_type_display = dict(getattr(doc, "DOCUMENT_TYPE_CHOICES", [])).get(
+            doc.document_type, doc.document_type
+        )
+
+        payload: dict = {
+            "name": doc_type_display or file_name,
+            "document_type": doc.document_type,
+            "file_content": file_content_b64,
+            "file_name": file_name,
+            "description": getattr(doc, "description", "") or "",
+        }
+
+        logger.info(
+            "Syncing document to Odoo: app_id=%d type=%s file=%s",
+            odoo_application_id,
+            doc.document_type,
+            file_name,
+        )
+        result = self._post(
+            f"/alba/api/v1/applications/{odoo_application_id}/documents",
+            payload,
+        )
+        logger.info(
+            "Document synced to Odoo: odoo_doc_id=%s",
+            result.get("odoo_document_id"),
+        )
+        return result
+
     def update_application_status(
         self,
         odoo_application_id: int,
@@ -788,6 +843,8 @@ def _build_customer_payload(user) -> dict:
             if value is not None:
                 if hasattr(value, "isoformat"):
                     payload[field] = value.isoformat()
+                elif hasattr(value, "__class__") and value.__class__.__name__ == "Decimal":
+                    payload[field] = float(value)
                 else:
                     payload[field] = value
 

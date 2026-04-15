@@ -1173,7 +1173,7 @@
                         <h3 class="text-lg font-semibold text-gray-900">
                             Uploaded Documents
                         </h3>
-                        {% if is_customer_owner and application.status == 'DRAFT' %}
+                        {% if is_customer_owner and application.status == 'DRAFT' or is_customer_owner and application.status == 'SUBMITTED' %}
                         <a
                             href="{% url 'loans:upload_document' application.pk %}"
                             class="text-sm font-medium text-alba-orange hover:text-alba-navy"
@@ -1269,6 +1269,17 @@
                             <p class="mt-2 text-sm text-gray-600">
                                 No documents uploaded yet
                             </p>
+                            {% if is_customer_owner and application.status == 'DRAFT' %}
+                            <p class="mt-1 text-xs text-amber-700 font-medium">
+                                Required before submitting: Payslip or Employment Letter, Bank Statement
+                            </p>
+                            <a
+                                href="{% url 'loans:upload_document' application.pk %}"
+                                class="mt-3 inline-block px-4 py-2 text-sm font-medium text-white bg-alba-orange rounded-md hover:bg-opacity-90 transition"
+                            >
+                                Upload Documents
+                            </a>
+                            {% endif %}
                         </div>
                         {% endif %}
                     </div>
