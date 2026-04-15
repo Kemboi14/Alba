@@ -1,0 +1,25 @@
+[Unit]
+Description=Alba Loans — Gunicorn WSGI server
+After=network.target
+
+[Service]
+User=root
+Group=www-data
+WorkingDirectory=/opt/odoo/Alba
+EnvironmentFile=/opt/odoo/Alba/.env
+ExecStart=/opt/odoo/Alba/venv/bin/gunicorn \
+    --workers 3 \
+    --bind unix:/run/alba-loans.sock \
+    --access-logfile /var/log/alba-loans/access.log \
+    --error-logfile /var/log/alba-loans/error.log \
+    --timeout 120 \
+    config.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

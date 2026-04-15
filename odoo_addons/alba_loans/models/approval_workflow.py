@@ -141,7 +141,59 @@ class ResUsers(models.Model):
         if not limit:
             return False
         
-        return self.has_group(limit.approver_group_id.xml_id)
+
+class ResUsers(models.Model):
+    """Extend users with approval authority checks"""
+    
+    _inherit = "res.users"
+    
+    def has_approval_authority(self, process_type, amount):
+        """Check if user has authority to approve a given amount"""
+        self.ensure_one()
+        
+        limit = self.env["alba.approval.limit"].get_approver_for_amount(process_type, amount)
+        if not limit:
+            return False
+        
+        # FIX: Odoo 19 - xml_id is not a field, use get_external_id()
+        group = limit.approver_group_id
+        if not group:
+            return False
+        
+        # get_external_id() returns dict like {id: 'module.xml_id'}
+        external_ids = group.get_external_id()
+        group_xml_id = external_ids.get(group.id, '')
+        
+        if not group_xml_id:
+            # Fallback: check by group ID if no external ID exists
+            return group.id in self.groups_id.ids
+        
+        return self.has_group(group_xml_id)
+    
+    def can_approve_transition(self, model_name, from_state, to_state):
+        """Check if user can approve a workflow transition"""
+        self.ensure_one()
+        
+        rule = self.env["alba.workflow.rule"].search([
+            ("model_name", "=", model_name),
+            ("from_state", "=", from_state),
+            ("to_state", "=", to_state),
+            ("active", "=", True),
+        ], limit=1)
+        
+        if not rule or not rule.required_group_id:
+            return True  # No restrictions
+        
+        # FIX: Same issue here - xml_id not available in Odoo 19
+        group = rule.required_group_id
+        external_ids = group.get_external_id()
+        group_xml_id = external_ids.get(group.id, '')
+        
+        if not group_xml_id:
+            return group.id in self.groups_id.ids
+        
+        return self.has_group(group_xml_id)
+
     
     def can_approve_transition(self, model_name, from_state, to_state):
         """Check if user can approve a workflow transition"""
