@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-post-migrate for alba_loans 19.0.1.5.0
+"""Post-migrate for alba_loans 19.0.1.5.0.
 
 Injects the Documents tab (loan_document_ids One2many field) into the
 loan application form view after the models are fully loaded.
@@ -16,10 +15,9 @@ _MODULE = "alba_loans"
 
 
 def _inject_documents_tab(env):
-    """
-    Inject the Documents tab (loan_document_ids) into the loan application
-    form view. This is needed because the One2many field causes a circular
-    dependency error during XML view parsing on upgrade.
+    """Inject the Documents tab (loan_document_ids One2many field) into the
+    loan application form view. This is needed because the One2many field
+    causes a circular dependency error during XML view parsing on upgrade.
     """
     view = env.ref(f"{_MODULE}.view_alba_loan_application_form", raise_if_not_found=False)
     if not view:
