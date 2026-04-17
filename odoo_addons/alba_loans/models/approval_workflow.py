@@ -161,8 +161,8 @@ class ResUsers(models.Model):
         external_ids = group.get_external_id()
         group_xml_id = external_ids.get(group.id, "")
         if not group_xml_id:
-            # Fallback: direct group membership check
-            return group.id in self.groups_id.ids
+            # Fallback: direct group membership check using proper API
+            return self.env['res.groups'].search([('id', '=', group.id), ('users', 'in', self.id)]).exists()
         return self.has_group(group_xml_id)
 
     def can_approve_transition(self, model_name, from_state, to_state):
@@ -183,7 +183,7 @@ class ResUsers(models.Model):
         external_ids = group.get_external_id()
         group_xml_id = external_ids.get(group.id, "")
         if not group_xml_id:
-            return group.id in self.groups_id.ids
+            return self.env['res.groups'].search([('id', '=', group.id), ('users', 'in', self.id)]).exists()
         return self.has_group(group_xml_id)
 
 
@@ -223,7 +223,8 @@ class AlbaLoanApplication(models.Model):
             if sod_rule and sod_rule.enforce_different_user:
                 if rec.submitted_by_user_id and rec.submitted_by_user_id == self.env.user:
                     # Allow bypass for privileged groups (e.g. Director, Loan Manager Full)
-                    user_group_ids = self.env.user.groups_id.ids
+                    user_groups = self.env['res.groups'].search([('users', 'in', self.env.user.id)])
+                    user_group_ids = user_groups.ids
                     bypass_ids = sod_rule.bypass_group_ids.ids
                     if not (bypass_ids and any(g in user_group_ids for g in bypass_ids)):
                         raise UserError(
