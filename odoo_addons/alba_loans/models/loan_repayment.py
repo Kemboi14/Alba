@@ -197,33 +197,26 @@ class AlbaLoanRepayment(models.Model):
     reversal_reason = fields.Text(string="Reversal Reason")
 
     # ── SQL Constraints ───────────────────────────────────────────────────────
-    _sql_constraints = [
-        (
-            "amount_positive",
-            "CHECK(amount_paid > 0)",
-            "Payment amount must be greater than zero.",
-        ),
-        (
-            "unique_mpesa_transaction",
-            "UNIQUE(mpesa_transaction_id)",
-            "A repayment with this M-Pesa transaction ID already exists.",
-        ),
-        (
-            "unique_django_payment_id",
-            "UNIQUE(django_payment_id)",
-            "A repayment with this Django Payment ID already exists.",
-        ),
-        (
-            "mpesa_transaction_id_not_empty",
-            "CHECK(mpesa_transaction_id IS NULL OR mpesa_transaction_id != '')",
-            "M-Pesa transaction ID cannot be empty string.",
-        ),
-        (
-            "django_payment_id_not_empty",
-            "CHECK(django_payment_id IS NULL OR django_payment_id != '')",
-            "Django payment ID cannot be empty string.",
-        ),
-    ]
+    _amount_positive = models.Constraint(
+        "CHECK(amount_paid > 0)",
+        "Payment amount must be greater than zero.",
+    )
+    _unique_mpesa_transaction = models.Constraint(
+        "UNIQUE(mpesa_transaction_id)",
+        "A repayment with this M-Pesa transaction ID already exists.",
+    )
+    _unique_django_payment_id = models.Constraint(
+        "UNIQUE(django_payment_id)",
+        "A repayment with this Django Payment ID already exists.",
+    )
+    _mpesa_transaction_id_not_empty = models.Constraint(
+        "CHECK(mpesa_transaction_id IS NULL OR mpesa_transaction_id != '')",
+        "M-Pesa transaction ID cannot be empty string.",
+    )
+    _django_payment_id_not_empty = models.Constraint(
+        "CHECK(django_payment_id IS NULL OR django_payment_id != '')",
+        "Django payment ID cannot be empty string.",
+    )
 
     # =========================================================================
     # Computed Methods

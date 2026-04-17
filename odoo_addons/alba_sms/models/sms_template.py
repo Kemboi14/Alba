@@ -109,13 +109,10 @@ class AlbaSmsTemplate(models.Model):
     # SQL constraints
     # ------------------------------------------------------------------
 
-    _sql_constraints = [
-        (
-            "code_unique",
-            "UNIQUE(code)",
-            "A template with this code already exists. The code must be unique.",
-        ),
-    ]
+    _code_unique = models.Constraint(
+        "UNIQUE(code)",
+        "A template with this code already exists. The code must be unique.",
+    )
 
     # ------------------------------------------------------------------
     # Computed fields

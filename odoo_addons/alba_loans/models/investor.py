@@ -140,13 +140,11 @@ class AlbaInvestor(models.Model):
     )
     
     # ─── Computed ─────────────────────────────────────────────────────────────
-    transaction_count = fields.Integer(string="Transactions", compute="_compute_counts")
+    transaction_count = fields.Integer(string="Transaction Count", compute="_compute_counts")
     
     # ─── Constraints ──────────────────────────────────────────────────────────
-    _sql_constraints = [
-        ("positive_principal", "CHECK(principal_amount > 0)", "Principal amount must be positive."),
-        ("positive_rate", "CHECK(interest_rate >= 0)", "Interest rate cannot be negative."),
-    ]
+    _positive_principal = models.Constraint("CHECK(principal_amount > 0)", "Principal amount must be positive.")
+    _positive_rate = models.Constraint("CHECK(interest_rate >= 0)", "Interest rate cannot be negative.")
 
     # ─── Compute Methods ──────────────────────────────────────────────────────
     @api.depends("name", "investor_type")

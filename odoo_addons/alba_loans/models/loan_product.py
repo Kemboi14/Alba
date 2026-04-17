@@ -179,28 +179,22 @@ class AlbaLoanProduct(models.Model):
     )
 
     # ─── SQL Constraints ──────────────────────────────────────────────────────
-    _sql_constraints = [
-        (
-            "code_company_unique",
-            "UNIQUE(code, company_id)",
-            "A loan product with this code already exists for the same company.",
-        ),
-        (
-            "amount_check",
-            "CHECK(min_amount >= 0 AND max_amount >= min_amount)",
-            "Maximum loan amount must be greater than or equal to the minimum amount.",
-        ),
-        (
-            "tenure_check",
-            "CHECK(min_tenure_months >= 1 AND max_tenure_months >= min_tenure_months)",
-            "Maximum tenure must be greater than or equal to minimum tenure.",
-        ),
-        (
-            "interest_rate_check",
-            "CHECK(interest_rate >= 0 AND interest_rate <= 100)",
-            "Interest rate must be between 0 and 100.",
-        ),
-    ]
+    _code_company_unique = models.Constraint(
+        "UNIQUE(code, company_id)",
+        "A loan product with this code already exists for the same company.",
+    )
+    _amount_check = models.Constraint(
+        "CHECK(min_amount >= 0 AND max_amount >= min_amount)",
+        "Maximum loan amount must be greater than or equal to the minimum amount.",
+    )
+    _tenure_check = models.Constraint(
+        "CHECK(min_tenure_months >= 1 AND max_tenure_months >= min_tenure_months)",
+        "Maximum tenure must be greater than or equal to minimum tenure.",
+    )
+    _interest_rate_check = models.Constraint(
+        "CHECK(interest_rate >= 0 AND interest_rate <= 100)",
+        "Interest rate must be between 0 and 100.",
+    )
 
     # ─── Compute Methods ──────────────────────────────────────────────────────
     def _compute_application_count(self):

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Alba Capital - Loan Management",
-    "version": "19.0.1.5.0",
+    "version": "19.0.1.7.0",
     "category": "Finance",
     "summary": "Core loan management: products, applications, disbursements, repayments, M-Pesa integration and accounting automation",
     "description": """

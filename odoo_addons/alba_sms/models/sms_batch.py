@@ -125,18 +125,17 @@ class AlbaSmsBatch(models.Model):
             if customer:
                 phone = (
                     getattr(customer, "mpesa_number", False)
-                    or (customer.partner_id and customer.partner_id.mobile)
                     or (customer.partner_id and customer.partner_id.phone)
                 )
         elif model == "alba.investor":
             phone = (
                 getattr(record, "mpesa_number", False)
-                or (record.partner_id and record.partner_id.mobile)
                 or (record.partner_id and record.partner_id.phone)
             )
         elif model == "alba.customer":
-            phone = getattr(record, "mpesa_number", False) or (
-                record.partner_id and record.partner_id.mobile
+            phone = (
+                getattr(record, "mpesa_number", False)
+                or (record.partner_id and record.partner_id.phone)
             )
 
         return phone or False
@@ -236,7 +235,7 @@ class AlbaSmsBatch(models.Model):
         target = self.target_type
 
         if target == "all_customers":
-            records = self.env["alba.customer"].search([("state", "=", "active")])
+            records = self.env["alba.customer"].search([("active", "=", True)])
             for rec in records:
                 phone = self._resolve_phone(rec)
                 if not phone:

@@ -288,23 +288,18 @@ class AlbaMpesaTransaction(models.Model):
     # SQL Constraints
     # =========================================================================
 
-    _sql_constraints = [
-        (
-            "mpesa_code_unique",
-            "UNIQUE(mpesa_code)",
-            "A transaction with this M-Pesa code already exists.",
-        ),
-        (
-            "checkout_request_id_unique",
-            "UNIQUE(checkout_request_id)",
-            "A transaction with this Checkout Request ID already exists.",
-        ),
-        (
-            "conversation_id_unique",
-            "UNIQUE(conversation_id)",
-            "A transaction with this Conversation ID already exists.",
-        ),
-    ]
+    _mpesa_code_unique = models.Constraint(
+        "UNIQUE(mpesa_code)",
+        "A transaction with this M-Pesa code already exists.",
+    )
+    _checkout_request_id_unique = models.Constraint(
+        "UNIQUE(checkout_request_id)",
+        "A transaction with this Checkout Request ID already exists.",
+    )
+    _conversation_id_unique = models.Constraint(
+        "UNIQUE(conversation_id)",
+        "A transaction with this Conversation ID already exists.",
+    )
 
     # =========================================================================
     # Python-level constraints

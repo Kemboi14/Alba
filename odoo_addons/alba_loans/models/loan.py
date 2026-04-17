@@ -229,18 +229,14 @@ class AlbaLoan(models.Model):
     # =========================================================================
     # SQL Constraints
     # =========================================================================
-    _sql_constraints = [
-        (
-            "loan_number_unique",
-            "UNIQUE(loan_number)",
-            "A loan with this loan number already exists.",
-        ),
-        (
-            "principal_positive",
-            "CHECK(principal_amount > 0)",
-            "Principal amount must be greater than zero.",
-        ),
-    ]
+    _loan_number_unique = models.Constraint(
+        "UNIQUE(loan_number)",
+        "A loan with this loan number already exists.",
+    )
+    _principal_positive = models.Constraint(
+        "CHECK(principal_amount > 0)",
+        "Principal amount must be greater than zero.",
+    )
 
     # =========================================================================
     # Compute Methods

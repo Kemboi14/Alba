@@ -138,7 +138,7 @@ class AlbaLoan(models.Model):
         ("61_90", "61-90 Days"),
         ("91_180", "91-180 Days"),
         ("over_180", "180+ Days"),
-    ], string="PAR Bucket", compute="_compute_par", store=True)
+    ], string="NPL Bucket", compute="_compute_par", store=True)
     
     @api.depends("days_in_arrears")
     def _compute_collection_stage(self):

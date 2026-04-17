@@ -186,23 +186,18 @@ class AlbaInvestor(models.Model):
     active = fields.Boolean(default=True)
 
     # ── SQL Constraints ───────────────────────────────────────────────────────
-    _sql_constraints = [
-        (
-            "investor_number_unique",
-            "UNIQUE(investor_number)",
-            "An investor with this investor number already exists.",
-        ),
-        (
-            "unique_id_number",
-            "UNIQUE(id_number)",
-            "An investor with this ID / Passport number already exists.",
-        ),
-        (
-            "unique_django_investor_id",
-            "UNIQUE(django_investor_id)",
-            "An investor with this Django Investor ID already exists.",
-        ),
-    ]
+    _investor_number_unique = models.Constraint(
+        "UNIQUE(investor_number)",
+        "An investor with this investor number already exists.",
+    )
+    _unique_id_number = models.Constraint(
+        "UNIQUE(id_number)",
+        "An investor with this ID / Passport number already exists.",
+    )
+    _unique_django_investor_id = models.Constraint(
+        "UNIQUE(django_investor_id)",
+        "An investor with this Django Investor ID already exists.",
+    )
 
     # =========================================================================
     # Computed methods

@@ -37,6 +37,7 @@ class AlbaSmsProvider(models.Model):
             ("africa_talking", "Africa's Talking"),
             ("twilio", "Twilio"),
             ("vonage", "Vonage / Nexmo"),
+            ("onfon", "OnfonMedia"),
             ("generic_http", "Generic HTTP"),
         ],
         string="Provider Type",
@@ -146,13 +147,10 @@ class AlbaSmsProvider(models.Model):
     #  SQL constraints                                                     #
     # ------------------------------------------------------------------ #
 
-    _sql_constraints = [
-        (
-            "unique_name_per_company",
-            "UNIQUE(name, company_id)",
-            "A provider with this name already exists for the selected company.",
-        ),
-    ]
+    _unique_name_per_company = models.Constraint(
+        "UNIQUE(name, company_id)",
+        "A provider with this name already exists for the selected company.",
+    )
 
     # ------------------------------------------------------------------ #
     #  Compute helpers                                                     #
@@ -325,6 +323,26 @@ class AlbaSmsProvider(models.Model):
                 "Accept": "application/json",
             }
 
+        elif self.provider_type == "onfon":
+            # OnfonMedia BulkSMS API
+            # Accesskey sent as header (= username field)
+            # ApiKey + ClientId sent in JSON body
+            payload = {
+                "SenderId": self.sender_id or "",
+                "MessageParameters": [
+                    {
+                        "Number": phone,
+                        "Text": message,
+                    }
+                ],
+                "ApiKey": self.api_key or "",
+                "ClientId": self.username or "",
+            }
+            headers = {
+                "Accesskey": self.username or "",
+                "Content-Type": "application/json",
+            }
+
         elif self.provider_type == "twilio":
             # Twilio uses form-encoded POST; auth is Basic Auth (SID:Token).
             payload = {
@@ -396,6 +414,13 @@ class AlbaSmsProvider(models.Model):
             at_id = at_recipients[0].get("messageId", "")
             if at_id:
                 return str(at_id)
+
+        # OnfonMedia: {"ErrorCode":"0","Data":{"MessageId":"xxx",...}}
+        onfon_data = response_json.get("Data", {})
+        if isinstance(onfon_data, dict):
+            onfon_id = onfon_data.get("MessageId", "")
+            if onfon_id:
+                return str(onfon_id)
 
         # Common flat keys (tried in order of preference)
         for key in ("messageId", "message_id", "MessageSid", "sid", "SMSMessageSid"):

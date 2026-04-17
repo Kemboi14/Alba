@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Alba Capital - Bulk SMS",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Technical",
     "summary": "Outbound SMS notifications and bulk campaigns for loans, collections, repayments and investor communications",
     "description": """
@@ -88,6 +88,8 @@ Security Groups
         "data/sms_template_data.xml",
         # ── Scheduled actions (crons) ────────────────────────────────────────
         "data/cron_data.xml",
+        # ── Provider seed data (noupdate) ────────────────────────────────────
+        "data/sms_provider_onfon.xml",
         # ── Window actions (must load before views that reference them) ───────
         "views/actions.xml",
         # ── Model views ──────────────────────────────────────────────────────
