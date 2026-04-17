@@ -126,6 +126,7 @@
             <field name="creator_group_id" ref="alba_loans.group_relationship_officer"/>
             <field name="approver_group_id" ref="alba_loans.group_operations_manager"/>
             <field name="enforce_different_user">True</field>
+            <field name="bypass_group_ids" eval="[(4, ref('alba_loans.group_director')), (4, ref('alba_loans.group_loan_manager'))]"/>
             <field name="active">True</field>
         </record>
         

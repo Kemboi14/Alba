@@ -139,13 +139,10 @@ class AlbaInvestmentStatement(models.Model):
     notes = fields.Text(string="Notes / Remarks")
 
     # ── SQL Constraints ───────────────────────────────────────────────────────
-    _sql_constraints = [
-        (
-            "reference_unique",
-            "UNIQUE(reference)",
-            "A statement with this reference already exists.",
-        ),
-    ]
+    _reference_unique = models.Constraint(
+        "UNIQUE(reference)",
+        "A statement with this reference already exists.",
+    )
 
     # =========================================================================
     # Computed methods

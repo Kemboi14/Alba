@@ -131,23 +131,18 @@ class AlbaInterestAccrual(models.Model):
     reversal_reason = fields.Text(string="Reversal Reason")
 
     # ── SQL Constraints ───────────────────────────────────────────────────────
-    _sql_constraints = [
-        (
-            "interest_amount_positive",
-            "CHECK(interest_amount > 0)",
-            "Interest amount must be greater than zero.",
-        ),
-        (
-            "opening_balance_non_negative",
-            "CHECK(opening_balance >= 0)",
-            "Opening balance cannot be negative.",
-        ),
-        (
-            "period_dates_check",
-            "CHECK(period_end >= period_start)",
-            "Period end date must be on or after period start date.",
-        ),
-    ]
+    _interest_amount_positive = models.Constraint(
+        "CHECK(interest_amount > 0)",
+        "Interest amount must be greater than zero.",
+    )
+    _opening_balance_non_negative = models.Constraint(
+        "CHECK(opening_balance >= 0)",
+        "Opening balance cannot be negative.",
+    )
+    _period_dates_check = models.Constraint(
+        "CHECK(period_end >= period_start)",
+        "Period end date must be on or after period start date.",
+    )
 
     # =========================================================================
     # Computed methods

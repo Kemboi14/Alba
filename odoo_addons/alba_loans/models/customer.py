@@ -214,18 +214,14 @@ class AlbaCustomer(models.Model):
     notes = fields.Text(string="Internal Notes")
 
     # ── SQL constraints ───────────────────────────────────────────────────────
-    _sql_constraints = [
-        (
-            "unique_django_customer_id",
-            "UNIQUE(django_customer_id)",
-            "A customer with this Django Customer ID already exists.",
-        ),
-        (
-            "unique_id_number",
-            "UNIQUE(id_number)",
-            "A customer with this ID / Passport number already exists.",
-        ),
-    ]
+    _unique_django_customer_id = models.Constraint(
+        "UNIQUE(django_customer_id)",
+        "A customer with this Django Customer ID already exists.",
+    )
+    _unique_id_number = models.Constraint(
+        "UNIQUE(id_number)",
+        "A customer with this ID / Passport number already exists.",
+    )
 
     # =========================================================================
     # Computed field methods

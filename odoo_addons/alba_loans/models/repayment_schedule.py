@@ -130,33 +130,26 @@ class AlbaRepaymentSchedule(models.Model):
     )
 
     # ── SQL Constraints ───────────────────────────────────────────────────────
-    _sql_constraints = [
-        (
-            "installment_loan_unique",
-            "UNIQUE(loan_id, installment_number)",
-            "Instalment number must be unique per loan.",
-        ),
-        (
-            "principal_non_negative",
-            "CHECK(principal_due >= 0)",
-            "Principal due cannot be negative.",
-        ),
-        (
-            "interest_non_negative",
-            "CHECK(interest_due >= 0)",
-            "Interest due cannot be negative.",
-        ),
-        (
-            "principal_paid_non_negative",
-            "CHECK(principal_paid >= 0)",
-            "Principal paid cannot be negative.",
-        ),
-        (
-            "interest_paid_non_negative",
-            "CHECK(interest_paid >= 0)",
-            "Interest paid cannot be negative.",
-        ),
-    ]
+    _installment_loan_unique = models.Constraint(
+        "UNIQUE(loan_id, installment_number)",
+        "Instalment number must be unique per loan.",
+    )
+    _principal_non_negative = models.Constraint(
+        "CHECK(principal_due >= 0)",
+        "Principal due cannot be negative.",
+    )
+    _interest_non_negative = models.Constraint(
+        "CHECK(interest_due >= 0)",
+        "Interest due cannot be negative.",
+    )
+    _principal_paid_non_negative = models.Constraint(
+        "CHECK(principal_paid >= 0)",
+        "Principal paid cannot be negative.",
+    )
+    _interest_paid_non_negative = models.Constraint(
+        "CHECK(interest_paid >= 0)",
+        "Interest paid cannot be negative.",
+    )
 
     # =========================================================================
     # Computed Methods

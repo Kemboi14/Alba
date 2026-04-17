@@ -314,13 +314,10 @@ class AlbaMpesaConfig(models.Model):
     # SQL Constraints
     # =========================================================================
 
-    _sql_constraints = [
-        (
-            "name_company_unique",
-            "UNIQUE(name, company_id)",
-            "A configuration with this name already exists for the same company.",
-        ),
-    ]
+    _name_company_unique = models.Constraint(
+        "UNIQUE(name, company_id)",
+        "A configuration with this name already exists for the same company.",
+    )
 
     # =========================================================================
     # Python-level constraints

@@ -47,10 +47,10 @@ class AlbaApprovalLimit(models.Model):
     active = fields.Boolean(default=True)
     company_id = fields.Many2one("res.company", default=lambda self: self.env.company)
     
-    _sql_constraints = [
-        ("positive_amounts", "CHECK(min_amount >= 0 AND max_amount > min_amount)", 
-         "Maximum amount must be greater than minimum amount."),
-    ]
+    _positive_amounts = models.Constraint(
+        "CHECK(min_amount >= 0 AND max_amount > min_amount)",
+        "Maximum amount must be greater than minimum amount.",
+    )
     
     @api.model
     def get_approver_for_amount(self, process_type, amount):
@@ -118,7 +118,17 @@ class AlbaSegregationOfDuties(models.Model):
     # Validation
     enforce_different_user = fields.Boolean(string="Enforce Different User", default=True,
         help="If checked, the approver must be a different user than the creator")
-    
+
+    # Groups that are allowed to bypass the SoD restriction (e.g. Director, Loan Manager Full)
+    bypass_group_ids = fields.Many2many(
+        "res.groups",
+        "alba_sod_bypass_group_rel",
+        "sod_id",
+        "group_id",
+        string="Bypass Groups",
+        help="Users belonging to any of these groups can approve even if they submitted the loan.",
+    )
+
     active = fields.Boolean(default=True)
     
     @api.constrains("creator_group_id", "approver_group_id")
@@ -183,7 +193,7 @@ class AlbaLoanApplication(models.Model):
     _inherit = "alba.loan.application"
     
     # Approval Tracking
-    approved_by_user_id = fields.Many2one("res.users", string="Approved By", readonly=True, copy=False)
+    approved_by_user_id = fields.Many2one("res.users", string="Approved By (User)", readonly=True, copy=False)
     approved_by_role_id = fields.Many2one("res.groups", string="Approver Role", readonly=True, copy=False)
     
     # Second Approval (for high amounts)
@@ -212,9 +222,13 @@ class AlbaLoanApplication(models.Model):
             )
             if sod_rule and sod_rule.enforce_different_user:
                 if rec.submitted_by_user_id and rec.submitted_by_user_id == self.env.user:
-                    raise UserError(
-                        _("Segregation of Duties: You cannot approve a loan you submitted.")
-                    )
+                    # Allow bypass for privileged groups (e.g. Director, Loan Manager Full)
+                    user_group_ids = self.env.user.groups_id.ids
+                    bypass_ids = sod_rule.bypass_group_ids.ids
+                    if not (bypass_ids and any(g in user_group_ids for g in bypass_ids)):
+                        raise UserError(
+                            _("Segregation of Duties: You cannot approve a loan you submitted.")
+                        )
             limit = self.env["alba.approval.limit"].get_approver_for_amount(
                 "loan_application", rec.requested_amount
             )

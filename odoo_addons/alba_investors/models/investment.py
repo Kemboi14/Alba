@@ -191,23 +191,18 @@ class AlbaInvestment(models.Model):
     notes = fields.Text(string="Notes")
 
     # ── SQL Constraints ───────────────────────────────────────────────────────
-    _sql_constraints = [
-        (
-            "investment_number_unique",
-            "UNIQUE(investment_number)",
-            "An investment with this number already exists.",
-        ),
-        (
-            "principal_positive",
-            "CHECK(principal_amount > 0)",
-            "Principal amount must be greater than zero.",
-        ),
-        (
-            "interest_rate_non_negative",
-            "CHECK(interest_rate >= 0)",
-            "Interest rate cannot be negative.",
-        ),
-    ]
+    _investment_number_unique = models.Constraint(
+        "UNIQUE(investment_number)",
+        "An investment with this number already exists.",
+    )
+    _principal_positive = models.Constraint(
+        "CHECK(principal_amount > 0)",
+        "Principal amount must be greater than zero.",
+    )
+    _interest_rate_non_negative = models.Constraint(
+        "CHECK(interest_rate >= 0)",
+        "Interest rate cannot be negative.",
+    )
 
     # =========================================================================
     # Computed methods
