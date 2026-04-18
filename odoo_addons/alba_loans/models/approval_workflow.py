@@ -223,8 +223,7 @@ class AlbaLoanApplication(models.Model):
             if sod_rule and sod_rule.enforce_different_user:
                 if rec.submitted_by_user_id and rec.submitted_by_user_id == self.env.user:
                     # Allow bypass for privileged groups (e.g. Director, Loan Manager Full)
-                    user_groups = self.env['res.groups'].search([('users', 'in', self.env.user.id)])
-                    user_group_ids = user_groups.ids
+                    user_group_ids = self.env.user.group_ids.ids
                     bypass_ids = sod_rule.bypass_group_ids.ids
                     if not (bypass_ids and any(g in user_group_ids for g in bypass_ids)):
                         raise UserError(
