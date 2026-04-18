@@ -81,14 +81,12 @@ def _create_report_wizard_actions_and_menus(env):
         if existing_action:
             action = existing_action
         else:
-            group = env.ref(f"{_MODULE}.{spec['group_xmlid']}")
             action = env["ir.actions.act_window"].create(
                 {
                     "name": spec["action_name"],
                     "res_model": spec["res_model"],
                     "view_mode": "form",
                     "target": "new",
-                    "groups_id": [(6, 0, group.ids)] if group else False,
                 }
             )
             IrModelData.create(
