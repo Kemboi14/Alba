@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_collateral_assignment_wizard_form" model="ir.ui.view">
+        <field name="name">alba.collateral.assignment.wizard.form</field>
+        <field name="model">alba.collateral.assignment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Assign Collateral">
+                <sheet>
+                    <group>
+                        <group string="Loan">
+                            <field name="loan_id" readonly="1"/>
+                            <field name="customer_id" readonly="1"/>
+                        </group>
+                        <group string="Collateral">
+                            <field name="collateral_id" options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                    <group string="LTV Analysis">
+                        <field name="ltv_ratio" readonly="1"/>
+                        <field name="ltv_status" readonly="1"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_assign" string="Assign Collateral" type="object" class="oe_highlight"/>
+                    <button string="Cancel" class="oe_link" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_collateral_assignment_wizard" model="ir.actions.act_window">
+        <field name="name">Assign Collateral</field>
+        <field name="res_model">alba.collateral.assignment.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

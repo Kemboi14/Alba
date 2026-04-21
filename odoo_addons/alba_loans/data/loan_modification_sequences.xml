@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Alba Loans - Loan Modification Sequences
+  Sequences for Top-Up, Partial Payoff, Payment Holiday, Refinance, Consolidation
+-->
+<odoo>
+    <data noupdate="1">
+        <!-- Top-Up Sequence -->
+        <record id="seq_loan_topup" model="ir.sequence">
+            <field name="name">Loan Top-Up</field>
+            <field name="code">alba.loan.topup</field>
+            <field name="prefix">TOP</field>
+            <field name="padding">6</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Partial Payoff Sequence -->
+        <record id="seq_loan_partial_payoff" model="ir.sequence">
+            <field name="name">Loan Partial Payoff</field>
+            <field name="code">alba.loan.partial.payoff</field>
+            <field name="prefix">PPF</field>
+            <field name="padding">6</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Payment Holiday Sequence -->
+        <record id="seq_loan_payment_holiday" model="ir.sequence">
+            <field name="name">Loan Payment Holiday</field>
+            <field name="code">alba.loan.payment.holiday</field>
+            <field name="prefix">HOL</field>
+            <field name="padding">6</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Refinance Sequence -->
+        <record id="seq_loan_refinance" model="ir.sequence">
+            <field name="name">Loan Refinance</field>
+            <field name="code">alba.loan.refinance</field>
+            <field name="prefix">REF</field>
+            <field name="padding">6</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Consolidation Sequence -->
+        <record id="seq_loan_consolidation" model="ir.sequence">
+            <field name="name">Loan Consolidation</field>
+            <field name="code">alba.loan.consolidation</field>
+            <field name="prefix">CON</field>
+            <field name="padding">6</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Guarantor Sequence -->
+        <record id="seq_guarantor" model="ir.sequence">
+            <field name="name">Guarantor</field>
+            <field name="code">alba.guarantor</field>
+            <field name="prefix">GUA</field>
+            <field name="padding">6</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+</odoo>

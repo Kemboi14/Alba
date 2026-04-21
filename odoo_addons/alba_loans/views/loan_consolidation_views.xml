@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_loan_consolidation_tree" model="ir.ui.view">
+        <field name="name">alba.loan.consolidation.tree</field>
+        <field name="model">alba.loan.consolidation</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state=='rejected'" decoration-success="state=='completed'" decoration-info="state=='quoted'">
+                <field name="name"/>
+                <field name="customer_id"/>
+                <field name="loan_count"/>
+                <field name="total_outstanding"/>
+                <field name="consolidated_amount"/>
+                <field name="monthly_savings"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_loan_consolidation_form" model="ir.ui.view">
+        <field name="name">alba.loan.consolidation.form</field>
+        <field name="model">alba.loan.consolidation</field>
+        <field name="arch" type="xml">
+            <form string="Loan Consolidation">
+                <header>
+                    <button name="action_generate_quote" string="Generate Quote" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_approve" string="Approve" type="object" class="oe_highlight" invisible="state != 'quoted'"/>
+                    <button name="action_settle_loans" string="Settle Old Loans" type="object" class="oe_highlight" invisible="state != 'approved'"/>
+                    <button name="action_create_consolidated_loan" string="Create New Loan" type="object" class="oe_highlight" invisible="state != 'settled'"/>
+                    <button name="action_complete" string="Complete" type="object" class="oe_highlight" invisible="state != 'disbursed'"/>
+                    <button name="action_reject" string="Reject" type="object" invisible="state == 'completed'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,quoted,approved,settled,disbursed,completed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <group>
+                        <group string="Customer &amp; Loans">
+                            <field name="customer_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                            <field name="loan_ids" widget="many2many_tags" domain="[('customer_id', '=', customer_id), ('state', 'in', ['active', 'overdue'])]" readonly="state != 'draft'"/>
+                            <field name="loan_count" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Eligibility">
+                            <field name="is_eligible" readonly="1"/>
+                            <field name="eligibility_warnings" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Current Totals">
+                            <field name="total_outstanding" readonly="1"/>
+                            <field name="total_principal" readonly="1"/>
+                            <field name="old_combined_emi" readonly="1"/>
+                            <field name="weighted_avg_rate" readonly="1"/>
+                        </group>
+                        <group string="New Terms">
+                            <field name="consolidation_type" readonly="state != 'draft'"/>
+                            <field name="consolidated_amount" readonly="state != 'draft'"/>
+                            <field name="new_interest_rate" readonly="state != 'draft'"/>
+                            <field name="new_tenure_months" readonly="state != 'draft'"/>
+                            <field name="new_emi" readonly="1"/>
+                            <field name="monthly_savings" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Fees">
+                        <field name="consolidation_fee_rate" readonly="state != 'draft'"/>
+                        <field name="consolidation_fee_amount" readonly="1"/>
+                    </group>
+                    <group string="Links" invisible="not new_loan_id">
+                        <field name="new_loan_application_id" readonly="1"/>
+                        <field name="new_loan_id" readonly="1"/>
+                    </group>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_loan_consolidation" model="ir.actions.act_window">
+        <field name="name">Consolidations</field>
+        <field name="res_model">alba.loan.consolidation</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_loan_consolidation" name="Consolidations" parent="menu_alba_loans_root_active" action="action_loan_consolidation" sequence="35"/>
+</odoo>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_loan_topup_wizard_form" model="ir.ui.view">
+        <field name="name">alba.loan.topup.wizard.form</field>
+        <field name="model">alba.loan.topup.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Request Top-Up">
+                <sheet>
+                    <group>
+                        <group string="Loan Information">
+                            <field name="loan_id" readonly="1" options="{'no_create': True}"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="current_outstanding" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Eligibility">
+                            <field name="is_eligible" readonly="1"/>
+                            <field name="eligibility_message" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Top-Up Details">
+                            <field name="topup_amount"/>
+                            <field name="new_principal" readonly="1"/>
+                            <field name="purpose"/>
+                            <field name="purpose_notes"/>
+                        </group>
+                        <group string="Disbursement">
+                            <field name="disbursement_method"/>
+                            <field name="disbursement_date"/>
+                            <field name="journal_id" options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_create_topup" string="Submit for Approval" type="object" class="oe_highlight" invisible="not is_eligible"/>
+                    <button name="action_create_and_approve" string="Create &amp; Approve (Auto &lt; 50K)" type="object" class="oe_highlight" invisible="not is_eligible or topup_amount >= 50000"/>
+                    <button string="Cancel" class="oe_link" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_loan_topup_wizard" model="ir.actions.act_window">
+        <field name="name">Request Top-Up</field>
+        <field name="res_model">alba.loan.topup.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

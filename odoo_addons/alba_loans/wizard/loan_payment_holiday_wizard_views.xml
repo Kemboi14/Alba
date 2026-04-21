@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_loan_payment_holiday_wizard_form" model="ir.ui.view">
+        <field name="name">alba.loan.payment.holiday.wizard.form</field>
+        <field name="model">alba.loan.payment.holiday.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Request Payment Holiday">
+                <sheet>
+                    <group>
+                        <group string="Loan">
+                            <field name="loan_id" readonly="1"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="current_outstanding" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Eligibility">
+                            <field name="is_eligible" readonly="1"/>
+                            <field name="eligibility_message" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Holiday Period">
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                        </group>
+                        <group string="Details">
+                            <field name="reason"/>
+                            <field name="reason_notes"/>
+                            <field name="interest_accrual"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_create_holiday" string="Submit Holiday Request" type="object" class="oe_highlight" invisible="not is_eligible"/>
+                    <button string="Cancel" class="oe_link" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_loan_payment_holiday_wizard" model="ir.actions.act_window">
+        <field name="name">Request Payment Holiday</field>
+        <field name="res_model">alba.loan.payment.holiday.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

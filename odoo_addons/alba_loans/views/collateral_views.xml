@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Collateral Master Tree -->
+    <record id="view_collateral_tree" model="ir.ui.view">
+        <field name="name">alba.collateral.tree</field>
+        <field name="model">alba.collateral</field>
+        <field name="arch" type="xml">
+            <list decoration-success="status=='pledged'" decoration-muted="status=='released'">
+                <field name="name"/>
+                <field name="collateral_type"/>
+                <field name="registration_number"/>
+                <field name="valuation_amount"/>
+                <field name="forced_sale_value"/>
+                <field name="owner_name"/>
+                <field name="status"/>
+                <field name="active_loan_count"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Collateral Master Form -->
+    <record id="view_collateral_form" model="ir.ui.view">
+        <field name="name">alba.collateral.form</field>
+        <field name="model">alba.collateral</field>
+        <field name="arch" type="xml">
+            <form string="Collateral">
+                <header>
+                    <button name="action_release" string="Release" type="object" invisible="status != 'pledged'"/>
+                    <button name="action_liquidate" string="Liquidate" type="object" invisible="status not in ('pledged', 'released')" class="oe_highlight" confirm="Mark for liquidation?"/>
+                    <field name="status" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group string="Basic Info">
+                            <field name="collateral_type"/>
+                            <field name="registration_number"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Valuation">
+                            <field name="valuation_amount"/>
+                            <field name="forced_sale_value"/>
+                            <field name="valuation_date"/>
+                            <field name="valued_by"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Type Details" name="type_details">
+                            <group invisible="collateral_type != 'land'">
+                                <field name="land_title_deed"/>
+                                <field name="land_reference"/>
+                                <field name="land_size"/>
+                                <field name="land_use"/>
+                                <field name="land_encumbrances"/>
+                            </group>
+                            <group invisible="collateral_type != 'vehicle'">
+                                <field name="vehicle_make"/>
+                                <field name="vehicle_model"/>
+                                <field name="vehicle_year"/>
+                                <field name="vehicle_chassis"/>
+                                <field name="vehicle_logbook_held"/>
+                                <field name="vehicle_insurance_expiry"/>
+                            </group>
+                            <group invisible="collateral_type != 'equipment'">
+                                <field name="equipment_manufacturer"/>
+                                <field name="equipment_serial"/>
+                                <field name="equipment_year"/>
+                            </group>
+                            <group invisible="collateral_type != 'shares'">
+                                <field name="shares_cds_account"/>
+                                <field name="shares_company"/>
+                                <field name="shares_quantity"/>
+                                <field name="shares_current_value"/>
+                            </group>
+                        </page>
+                        <page string="Location">
+                            <group>
+                                <field name="location_county"/>
+                                <field name="location_subcounty"/>
+                                <field name="location_ward"/>
+                                <field name="location_description"/>
+                            </group>
+                        </page>
+                        <page string="Owner">
+                            <group>
+                                <field name="owner_id"/>
+                                <field name="owner_name"/>
+                            </group>
+                        </page>
+                        <page string="Documents">
+                            <field name="document_ids">
+                                <list editable="bottom">
+                                    <field name="document_type"/>
+                                    <field name="name"/>
+                                    <field name="verified"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Loan Collateral Tree -->
+    <record id="view_loan_collateral_tree" model="ir.ui.view">
+        <field name="name">alba.loan.collateral.tree</field>
+        <field name="model">alba.loan.collateral</field>
+        <field name="arch" type="xml">
+            <list decoration-danger="ltv_status=='exceeded'" decoration-warning="ltv_status=='caution'" decoration-success="ltv_status=='good'">
+                <field name="loan_id"/>
+                <field name="collateral_id"/>
+                <field name="loan_amount"/>
+                <field name="collateral_value"/>
+                <field name="ltv_ratio"/>
+                <field name="ltv_limit"/>
+                <field name="ltv_status"/>
+                <field name="status"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Loan Collateral Form -->
+    <record id="view_loan_collateral_form" model="ir.ui.view">
+        <field name="name">alba.loan.collateral.form</field>
+        <field name="model">alba.loan.collateral</field>
+        <field name="arch" type="xml">
+            <form string="Loan Collateral Assignment">
+                <header>
+                    <button name="action_check_ltv" string="Check LTV" type="object"/>
+                    <button name="action_release" string="Release" type="object" invisible="status != 'pledged'"/>
+                    <button name="action_liquidate" string="Liquidate" type="object" invisible="status != 'pledged'"/>
+                    <field name="status" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="loan_id"/>
+                            <field name="collateral_id"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="LTV Analysis">
+                            <field name="loan_amount" readonly="1"/>
+                            <field name="collateral_value" readonly="1"/>
+                            <field name="forced_sale_value" readonly="1"/>
+                            <field name="ltv_ratio" readonly="1"/>
+                            <field name="ltv_limit" readonly="1"/>
+                            <field name="ltv_status" readonly="1"/>
+                        </group>
+                    </group>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Actions -->
+    <record id="action_collateral" model="ir.actions.act_window">
+        <field name="name">Collateral Registry</field>
+        <field name="res_model">alba.collateral</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_loan_collateral" model="ir.actions.act_window">
+        <field name="name">Loan Collateral Assignments</field>
+        <field name="res_model">alba.loan.collateral</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Menus -->
+    <menuitem id="menu_collateral_master" name="Collateral Registry" parent="menu_alba_loans_config" action="action_collateral" sequence="26"/>
+    <menuitem id="menu_loan_collateral_assignments" name="Collateral Assignments" parent="menu_alba_loans_root_active" action="action_loan_collateral" sequence="36"/>
+</odoo>
