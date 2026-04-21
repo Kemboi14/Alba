@@ -56,9 +56,8 @@ Accounting
         "python": ["requests"],
     },
     "data": [
-        # ── Security — always first ──────────────────────────────────────────
+        # ── Security groups ──────────────────────────────────────────────────────
         "security/security_groups.xml",
-        "security/ir.model.access.csv",
         # ── Master data / sequences ──────────────────────────────────────────
         "data/sequence_data.xml",
         "data/loan_modification_sequences.xml",
@@ -114,6 +113,8 @@ Accounting
         # ── Reports ──────────────────────────────────────────────────────────
         "report/loan_statement_report.xml",
         "report/loan_statement_template.xml",
+        # ── Security access (load after models are created) ─────────────────────
+        "security/ir.model.access.csv",
     ],
     "demo": [],
     "installable": True,

@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Report wizard actions are created by migrations/19.0.1.2.0/post-migrate.py
+<!-- Report wizard actions are created by migrations/19.0.1.8.0/post-migrate.py
      to bypass Odoo 19's silent-drop of TransientModel act_window during upgrade. -->
 <odoo><data/></odoo>
