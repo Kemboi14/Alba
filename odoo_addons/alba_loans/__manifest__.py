@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Alba Capital - Loan Management",
-    "version": "19.0.1.7.0",
+    "version": "19.0.1.8.0",
     "category": "Finance",
     "summary": "Core loan management: products, applications, disbursements, repayments, M-Pesa integration and accounting automation",
     "description": """
@@ -20,6 +20,12 @@ Manages the full loan lifecycle for Alba Capital:
 * Maturity date reminders (weekly)
 * Auto-close fully-repaid loans (daily cron)
 * Portfolio stats push to Django portal (every 6 hours)
+
+Loan Modifications
+--------------------
+* FREE Top-Up — Quick principal increase without restructure fee
+* Partial Payoff — Extra payments to reduce EMI or tenure
+* Full Guarantor Management — KYC, confirmation, liability tracking
 
 M-Pesa (Daraja API) Integration
 ---------------------------------
@@ -55,6 +61,7 @@ Accounting
         "security/ir.model.access.csv",
         # ── Master data / sequences ──────────────────────────────────────────
         "data/sequence_data.xml",
+        "data/loan_modification_sequences.xml",
         "data/loan_product_data.xml",
         "data/collection_stage_data.xml",
         "data/approval_limit_data.xml",
@@ -76,8 +83,6 @@ Accounting
         "views/loan_views.xml",
         # ── Financial Reports — security + views must come before menus.xml ──
         "security/security_report_financials.xml",
-        # ── Wizard actions — separate file after security (ir.model records confirmed) ──
-        "views/report_wizard_actions.xml",
         "views/report_financials_views.xml",
         "report/report_financials_report.xml",
         "report/report_par_template.xml",
@@ -90,6 +95,22 @@ Accounting
         # ── Wizards ──────────────────────────────────────────────────────────
         "wizard/loan_disburse_wizard_views.xml",
         "wizard/mpesa_stk_push_wizard_views.xml",
+        "wizard/loan_topup_wizard_views.xml",
+        "wizard/loan_partial_payoff_wizard_views.xml",
+        "wizard/loan_payment_holiday_wizard_views.xml",
+        "wizard/loan_refinance_wizard_views.xml",
+        "wizard/loan_consolidation_wizard_views.xml",
+        "wizard/collateral_assignment_wizard_views.xml",
+        "wizard/report_wizard_views.xml",
+        # ── Loan Modifications ──────────────────────────────────────────────
+        "views/loan_topup_views.xml",
+        "views/loan_partial_payoff_views.xml",
+        "views/guarantor_views.xml",
+        "views/loan_payment_holiday_views.xml",
+        "views/loan_refinance_views.xml",
+        "views/loan_consolidation_views.xml",
+        "views/collateral_views.xml",
+        "views/credit_score_views.xml",
         # ── Reports ──────────────────────────────────────────────────────────
         "report/loan_statement_report.xml",
         "report/loan_statement_template.xml",

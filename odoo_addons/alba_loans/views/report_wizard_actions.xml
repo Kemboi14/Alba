@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Report wizard ir.actions.act_window records cannot be created via XML in
-     upgrade mode because Odoo 19 convert.py silently drops act_window records
-     whose res_model is a TransientModel during the upgrade phase.
-     These actions are created by migrations/19.0.1.2.0/post-migrate.py instead. -->
+<!-- Report wizard actions are created by migrations/19.0.1.2.0/post-migrate.py
+     to bypass Odoo 19's silent-drop of TransientModel act_window during upgrade. -->
 <odoo><data/></odoo>

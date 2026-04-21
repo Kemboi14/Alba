@@ -192,10 +192,19 @@
             groups="alba_loans.group_loan_officer"
         />
 
-    <!-- PAR PDF, NPL PDF, P&L, Cash Flow, Balance Sheet menus are created
-         by migrations/19.0.1.2.0/post-migrate.py (and post_init_hook for fresh
-         installs) to avoid the Odoo 19 convert.py silent-drop bug for
-         TransientModel act_window records during upgrade mode. -->
+    <!-- ================================================================
+         Reports
+         ================================================================ -->
+    <menuitem
+            id="menu_alba_loans_reports"
+            name="Reports"
+            parent="menu_alba_loans_root"
+            sequence="80"
+            groups="alba_loans.group_loan_manager,alba_loans.group_director"
+        />
+
+    <!-- Report menu items (PAR, NPL, P&L, Cash Flow, Balance Sheet) are created
+         by post_init_hook in hooks.py to ensure actions exist before menus reference them. -->
 
     <!-- ================================================================
          Configuration
