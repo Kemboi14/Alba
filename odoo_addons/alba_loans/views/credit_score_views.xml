@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Credit Score Rule Tree -->
+    <record id="view_credit_score_rule_tree" model="ir.ui.view">
+        <field name="name">alba.credit.score.rule.tree</field>
+        <field name="model">alba.credit.score.rule</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="rule_type"/>
+                <field name="points"/>
+                <field name="weight"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Credit Score Rule Form -->
+    <record id="view_credit_score_rule_form" model="ir.ui.view">
+        <field name="name">alba.credit.score.rule.form</field>
+        <field name="model">alba.credit.score.rule</field>
+        <field name="arch" type="xml">
+            <form string="Credit Score Rule">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="rule_type"/>
+                        <field name="active"/>
+                        <field name="sequence"/>
+                    </group>
+                    <group string="Value Range">
+                        <field name="min_value"/>
+                        <field name="max_value"/>
+                    </group>
+                    <group string="Scoring">
+                        <field name="points"/>
+                        <field name="weight"/>
+                    </group>
+                    <field name="description"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Credit Score Tree -->
+    <record id="view_credit_score_tree" model="ir.ui.view">
+        <field name="name">alba.credit.score.tree</field>
+        <field name="model">alba.credit.score</field>
+        <field name="arch" type="xml">
+            <list decoration-success="final_risk_category=='excellent'" decoration-warning="final_risk_category=='fair'" decoration-danger="final_risk_category=='poor'">
+                <field name="score_date"/>
+                <field name="application_id"/>
+                <field name="customer_id"/>
+                <field name="total_score"/>
+                <field name="score_percentage"/>
+                <field name="final_risk_category"/>
+                <field name="final_recommendation"/>
+                <field name="calculated_by"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Credit Score Form -->
+    <record id="view_credit_score_form" model="ir.ui.view">
+        <field name="name">alba.credit.score.form</field>
+        <field name="model">alba.credit.score</field>
+        <field name="arch" type="xml">
+            <form string="Credit Score">
+                <header>
+                    <button name="action_calculate" string="Calculate Score" type="object" class="oe_highlight" invisible="line_ids"/>
+                    <button name="action_override" string="Override" type="object" invisible="overridden"/>
+                    <field name="final_risk_category" widget="statusbar" statusbar_visible="excellent,good,fair,poor"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="application_id"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="score_date" readonly="1"/>
+                            <field name="calculated_by" readonly="1"/>
+                        </group>
+                        <group string="Score">
+                            <field name="total_score"/>
+                            <field name="max_possible_score"/>
+                            <field name="score_percentage"/>
+                        </group>
+                    </group>
+                    <group string="Assessment">
+                        <group>
+                            <field name="risk_category" readonly="1"/>
+                            <field name="recommendation" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="final_risk_category" readonly="1"/>
+                            <field name="final_recommendation" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Override" invisible="not overridden">
+                        <field name="overridden"/>
+                        <field name="override_by" readonly="1"/>
+                        <field name="override_date" readonly="1"/>
+                        <field name="override_reason" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Score Breakdown">
+                            <field name="line_ids" readonly="1">
+                                <list>
+                                    <field name="rule_name"/>
+                                    <field name="rule_type"/>
+                                    <field name="points_earned"/>
+                                    <field name="max_points"/>
+                                    <field name="percentage"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Actions -->
+    <record id="action_credit_score_rule" model="ir.actions.act_window">
+        <field name="name">Credit Score Rules</field>
+        <field name="res_model">alba.credit.score.rule</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_credit_score" model="ir.actions.act_window">
+        <field name="name">Credit Scores</field>
+        <field name="res_model">alba.credit.score</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Menus -->
+    <menuitem id="menu_credit_score_config" name="Credit Score Rules" parent="menu_alba_loans_config" action="action_credit_score_rule" sequence="50"/>
+    <menuitem id="menu_credit_scores" name="Credit Scores" parent="menu_alba_loans_root_active" action="action_credit_score" sequence="37"/>
+</odoo>

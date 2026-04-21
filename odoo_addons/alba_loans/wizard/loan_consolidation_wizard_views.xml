@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_loan_consolidation_wizard_form" model="ir.ui.view">
+        <field name="name">alba.loan.consolidation.wizard.form</field>
+        <field name="model">alba.loan.consolidation.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Create Consolidation">
+                <sheet>
+                    <group>
+                        <group string="Customer">
+                            <field name="customer_id" options="{'no_create': True}"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Rate Method">
+                            <field name="consolidation_type"/>
+                        </group>
+                    </group>
+                    <group string="Select Loans to Consolidate">
+                        <field name="loan_ids" widget="many2many_checkboxes" domain="[('customer_id', '=', customer_id), ('state', 'in', ['active', 'overdue'])]" options="{'no_create': True}"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_create_consolidation" string="Generate Quote" type="object" class="oe_highlight"/>
+                    <button string="Cancel" class="oe_link" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_loan_consolidation_wizard" model="ir.actions.act_window">
+        <field name="name">Create Consolidation</field>
+        <field name="res_model">alba.loan.consolidation.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

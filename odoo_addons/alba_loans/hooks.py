@@ -20,49 +20,44 @@ _MODULE = "alba_loans"
 
 _WIZARD_SPECS = [
     {
-        "action_xmlid": "action_alba_report_par_wizard",
-        "menu_xmlid": "menu_alba_report_par_pdf",
+        "action_xmlid": "action_par_report",
+        "menu_xmlid": "menu_par_report",
         "action_name": "PAR Report",
-        "menu_name": "PAR Report (PDF)",
-        "res_model": "alba.report.par",
+        "menu_name": "PAR Report",
+        "res_model": "alba.report.par.wizard",
         "sequence": 30,
-        "group_xmlid": "group_loan_officer",
     },
     {
-        "action_xmlid": "action_alba_report_npl_wizard",
-        "menu_xmlid": "menu_alba_report_npl_pdf",
+        "action_xmlid": "action_npl_report",
+        "menu_xmlid": "menu_npl_report",
         "action_name": "NPL Report",
-        "menu_name": "NPL Report (PDF)",
-        "res_model": "alba.report.npl",
+        "menu_name": "NPL Report",
+        "res_model": "alba.report.npl.wizard",
         "sequence": 40,
-        "group_xmlid": "group_loan_officer",
     },
     {
-        "action_xmlid": "action_alba_report_pl_wizard",
-        "menu_xmlid": "menu_alba_report_pl",
+        "action_xmlid": "action_pl_report",
+        "menu_xmlid": "menu_pl_report",
         "action_name": "Profit & Loss Report",
         "menu_name": "Profit & Loss",
-        "res_model": "alba.report.pl",
+        "res_model": "alba.report.pl.wizard",
         "sequence": 50,
-        "group_xmlid": "group_finance_officer",
     },
     {
-        "action_xmlid": "action_alba_report_cashflow_wizard",
-        "menu_xmlid": "menu_alba_report_cashflow",
+        "action_xmlid": "action_cashflow_report",
+        "menu_xmlid": "menu_cashflow_report",
         "action_name": "Cash Flow Statement",
         "menu_name": "Cash Flow Statement",
-        "res_model": "alba.report.cashflow",
+        "res_model": "alba.report.cashflow.wizard",
         "sequence": 60,
-        "group_xmlid": "group_finance_officer",
     },
     {
-        "action_xmlid": "action_alba_report_balance_sheet_wizard",
-        "menu_xmlid": "menu_alba_report_balance_sheet",
+        "action_xmlid": "action_balance_sheet_report",
+        "menu_xmlid": "menu_balance_sheet_report",
         "action_name": "Balance Sheet",
         "menu_name": "Balance Sheet",
-        "res_model": "alba.report.balance.sheet",
+        "res_model": "alba.report.balance.sheet.wizard",
         "sequence": 70,
-        "group_xmlid": "group_finance_officer",
     },
 ]
 
@@ -73,7 +68,7 @@ def create_report_wizard_actions_and_menus(env):
     Safe to call from both post_init_hook (install) and post-migrate (upgrade).
     """
     IrModelData = env["ir.model.data"]
-    parent_menu = env.ref(f"{_MODULE}.menu_alba_reports_root")
+    parent_menu = env.ref(f"{_MODULE}.menu_alba_loans_reports")
 
     for spec in _WIZARD_SPECS:
         # ── action ──────────────────────────────────────────────────────
@@ -83,14 +78,12 @@ def create_report_wizard_actions_and_menus(env):
         if existing_action:
             action = existing_action
         else:
-            group = env.ref(f"{_MODULE}.{spec['group_xmlid']}")
             action = env["ir.actions.act_window"].create(
                 {
                     "name": spec["action_name"],
                     "res_model": spec["res_model"],
                     "view_mode": "form",
                     "target": "new",
-                    "groups_id": [(6, 0, group.ids)] if group else False,
                 }
             )
             IrModelData.create(

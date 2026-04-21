@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_loan_partial_payoff_wizard_form" model="ir.ui.view">
+        <field name="name">alba.loan.partial.payoff.wizard.form</field>
+        <field name="model">alba.loan.partial.payoff.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Calculate Partial Payoff">
+                <sheet>
+                    <group>
+                        <group string="Loan Information">
+                            <field name="loan_id" readonly="1" options="{'no_create': True}"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="current_outstanding" readonly="1"/>
+                            <field name="current_emi" readonly="1"/>
+                            <field name="remaining_tenure" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Validation">
+                            <field name="is_valid" readonly="1"/>
+                            <field name="validation_message" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Payoff Details">
+                            <field name="payoff_amount"/>
+                            <field name="reduction_mode"/>
+                        </group>
+                        <group string="Results Preview">
+                            <field name="principal_reduction" readonly="1"/>
+                            <field name="interest_saved" readonly="1"/>
+                            <field name="new_outstanding" readonly="1"/>
+                            <field name="new_emi" readonly="1"/>
+                            <field name="new_tenure" readonly="1"/>
+                            <field name="emi_reduction" readonly="1" invisible="emi_reduction == 0"/>
+                            <field name="tenure_reduction" readonly="1" invisible="tenure_reduction == 0"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_generate_quote" string="Generate Quote" type="object" class="oe_highlight" invisible="not is_valid"/>
+                    <button name="action_apply_immediately" string="Apply Immediately (If Paying Now)" type="object" class="oe_highlight" invisible="not is_valid"/>
+                    <button string="Cancel" class="oe_link" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_loan_partial_payoff_wizard" model="ir.actions.act_window">
+        <field name="name">Calculate Partial Payoff</field>
+        <field name="res_model">alba.loan.partial.payoff.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

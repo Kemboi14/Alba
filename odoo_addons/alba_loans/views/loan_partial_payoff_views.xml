@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Alba Loans - Partial Payoff Views
+-->
+<odoo>
+    <!-- Partial Payoff Tree View -->
+    <record id="view_loan_partial_payoff_tree" model="ir.ui.view">
+        <field name="name">alba.loan.partial.payoff.tree</field>
+        <field name="model">alba.loan.partial.payoff</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state=='cancelled'" decoration-success="state=='applied'" decoration-info="state=='quoted'" decoration-warning="state=='expired'">
+                <field name="name"/>
+                <field name="loan_id"/>
+                <field name="customer_id"/>
+                <field name="payoff_amount"/>
+                <field name="reduction_mode"/>
+                <field name="principal_reduction"/>
+                <field name="interest_saved"/>
+                <field name="state"/>
+                <field name="quote_valid_until"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Partial Payoff Form View -->
+    <record id="view_loan_partial_payoff_form" model="ir.ui.view">
+        <field name="name">alba.loan.partial.payoff.form</field>
+        <field name="model">alba.loan.partial.payoff</field>
+        <field name="arch" type="xml">
+            <form string="Loan Partial Payoff">
+                <header>
+                    <button name="action_generate_quote" string="Generate Quote" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_accept" string="Customer Accepts" type="object" class="oe_highlight" invisible="state != 'quoted'"/>
+                    <button name="action_apply" string="Apply Payoff" type="object" class="oe_highlight" invisible="state not in ('quoted', 'accepted')"/>
+                    <button name="action_cancel" string="Cancel" type="object" invisible="state not in ('draft', 'quoted', 'accepted')"/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object" invisible="state != 'expired'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,quoted,accepted,applied"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Loan Details">
+                            <field name="loan_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="current_outstanding" readonly="1"/>
+                            <field name="current_emi" readonly="1"/>
+                            <field name="remaining_tenure" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Quote Validity">
+                            <field name="quote_date" readonly="1"/>
+                            <field name="quote_valid_until" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Payoff Details">
+                            <field name="payoff_amount" readonly="state != 'draft'"/>
+                            <field name="reduction_mode" readonly="state != 'draft'"/>
+                            <field name="principal_reduction" readonly="1"/>
+                            <field name="interest_saved" readonly="1"/>
+                            <field name="new_outstanding" readonly="1"/>
+                        </group>
+                        <group string="New Terms">
+                            <field name="new_emi" readonly="1"/>
+                            <field name="new_tenure" readonly="1"/>
+                            <field name="emi_reduction" readonly="1" invisible="emi_reduction == 0"/>
+                            <field name="tenure_reduction" readonly="1" invisible="tenure_reduction == 0"/>
+                        </group>
+                    </group>
+                    <group string="Payment" invisible="state in ('draft', 'cancelled')">
+                        <group>
+                            <field name="payment_date"/>
+                            <field name="payment_method"/>
+                            <field name="payment_reference"/>
+                        </group>
+                        <group>
+                            <field name="repayment_id" readonly="1"/>
+                            <field name="processed_by" readonly="1"/>
+                            <field name="processed_date" readonly="1"/>
+                        </group>
+                    </group>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="activity_ids" widget="mail_activity"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Partial Payoff Search View -->
+    <record id="view_loan_partial_payoff_search" model="ir.ui.view">
+        <field name="name">alba.loan.partial.payoff.search</field>
+        <field name="model">alba.loan.partial.payoff</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="loan_id"/>
+                <field name="customer_id"/>
+                <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <filter name="quoted" string="Quoted" domain="[('state', '=', 'quoted')]"/>
+                <filter name="applied" string="Applied" domain="[('state', '=', 'applied')]"/>
+                <filter name="expired" string="Expired" domain="[('state', '=', 'expired')]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- Partial Payoff Wizard Form -->
+    <record id="view_loan_partial_payoff_wizard_form" model="ir.ui.view">
+        <field name="name">alba.loan.partial.payoff.wizard.form</field>
+        <field name="model">alba.loan.partial.payoff.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Calculate Partial Payoff">
+                <sheet>
+                    <group>
+                        <group string="Loan Information">
+                            <field name="loan_id" readonly="1" options="{'no_create': True}"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="current_outstanding" readonly="1"/>
+                            <field name="current_emi" readonly="1"/>
+                            <field name="remaining_tenure" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Validation">
+                            <field name="is_valid" readonly="1"/>
+                            <field name="validation_message" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Payoff Details">
+                            <field name="payoff_amount"/>
+                            <field name="reduction_mode"/>
+                        </group>
+                        <group string="Results Preview">
+                            <field name="principal_reduction" readonly="1"/>
+                            <field name="interest_saved" readonly="1"/>
+                            <field name="new_outstanding" readonly="1"/>
+                            <field name="new_emi" readonly="1"/>
+                            <field name="new_tenure" readonly="1"/>
+                            <field name="emi_reduction" readonly="1" invisible="emi_reduction == 0"/>
+                            <field name="tenure_reduction" readonly="1" invisible="tenure_reduction == 0"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_generate_quote" string="Generate Quote" type="object" class="oe_highlight" invisible="not is_valid"/>
+                    <button name="action_apply_immediately" string="Apply Immediately (If Paying Now)" type="object" class="oe_highlight" invisible="not is_valid"/>
+                    <button string="Cancel" class="oe_link" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Partial Payoff Action -->
+    <record id="action_loan_partial_payoff" model="ir.actions.act_window">
+        <field name="name">Partial Payoffs</field>
+        <field name="res_model">alba.loan.partial.payoff</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_loan_partial_payoff_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first partial payoff
+            </p>
+            <p>
+                Partial payoffs allow customers to pay extra to reduce principal without full settlement.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item -->
+    <menuitem id="menu_loan_partial_payoff"
+              name="Partial Payoffs"
+              parent="menu_alba_loans_root_active"
+              action="action_loan_partial_payoff"
+              sequence="31"/>
+</odoo>

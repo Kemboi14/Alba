@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Alba Loans - Top-Up Views
+-->
+<odoo>
+    <!-- Top-Up Tree View -->
+    <record id="view_loan_topup_tree" model="ir.ui.view">
+        <field name="name">alba.loan.topup.tree</field>
+        <field name="model">alba.loan.topup</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state=='cancelled'" decoration-success="state=='disbursed'" decoration-info="state=='pending'" decoration-danger="state=='rejected'">
+                <field name="name"/>
+                <field name="loan_id"/>
+                <field name="customer_id"/>
+                <field name="topup_amount"/>
+                <field name="new_principal"/>
+                <field name="purpose"/>
+                <field name="state"/>
+                <field name="disbursement_date"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Top-Up Form View -->
+    <record id="view_loan_topup_form" model="ir.ui.view">
+        <field name="name">alba.loan.topup.form</field>
+        <field name="model">alba.loan.topup</field>
+        <field name="arch" type="xml">
+            <form string="Loan Top-Up">
+                <header>
+                    <button name="action_submit" string="Submit for Approval" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_approve" string="Approve" type="object" class="oe_highlight" invisible="state != 'pending'" groups="alba_loans.group_loan_manager"/>
+                    <button name="action_disburse" string="Disburse" type="object" class="oe_highlight" invisible="state != 'approved'"/>
+                    <button name="action_reject" string="Reject" type="object" invisible="state not in ('draft', 'pending')"/>
+                    <button name="action_cancel" string="Cancel" type="object" invisible="state not in ('draft', 'pending')"/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object" invisible="state != 'rejected'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,pending,approved,disbursed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Loan Details">
+                            <field name="loan_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="current_outstanding" readonly="1"/>
+                            <field name="current_principal" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Eligibility">
+                            <field name="is_eligible" readonly="1"/>
+                            <field name="eligibility_warnings" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Top-Up Details">
+                            <field name="topup_amount" readonly="state != 'draft'"/>
+                            <field name="new_principal" readonly="1"/>
+                            <field name="purpose" readonly="state != 'draft'"/>
+                            <field name="purpose_notes" readonly="state != 'draft'"/>
+                        </group>
+                        <group string="Disbursement">
+                            <field name="disbursement_method" readonly="state != 'draft'"/>
+                            <field name="disbursement_date" readonly="state != 'draft'"/>
+                            <field name="journal_id" readonly="state != 'draft'" options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                    <group string="Approval" invisible="state == 'draft'">
+                        <group>
+                            <field name="requested_by" readonly="1"/>
+                            <field name="approved_by" readonly="1"/>
+                            <field name="approved_date" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="disbursement_move_id" readonly="1"/>
+                            <field name="schedule_regenerated" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Rejection" invisible="state != 'rejected'">
+                        <field name="rejection_reason" readonly="1"/>
+                    </group>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="activity_ids" widget="mail_activity"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Top-Up Search View -->
+    <record id="view_loan_topup_search" model="ir.ui.view">
+        <field name="name">alba.loan.topup.search</field>
+        <field name="model">alba.loan.topup</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="loan_id"/>
+                <field name="customer_id"/>
+                <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <filter name="pending" string="Pending" domain="[('state', '=', 'pending')]"/>
+                <filter name="approved" string="Approved" domain="[('state', '=', 'approved')]"/>
+                <filter name="disbursed" string="Disbursed" domain="[('state', '=', 'disbursed')]"/>
+                <filter name="rejected" string="Rejected" domain="[('state', '=', 'rejected')]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- Top-Up Wizard Form -->
+    <record id="view_loan_topup_wizard_form" model="ir.ui.view">
+        <field name="name">alba.loan.topup.wizard.form</field>
+        <field name="model">alba.loan.topup.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Request Top-Up">
+                <sheet>
+                    <group>
+                        <group string="Loan Information">
+                            <field name="loan_id" readonly="1" options="{'no_create': True}"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="current_outstanding" readonly="1"/>
+                            <field name="current_principal" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Eligibility">
+                            <field name="is_eligible" readonly="1"/>
+                            <field name="eligibility_message" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Top-Up Details">
+                            <field name="topup_amount"/>
+                            <field name="new_principal" readonly="1"/>
+                            <field name="purpose"/>
+                            <field name="purpose_notes"/>
+                        </group>
+                        <group string="Disbursement">
+                            <field name="disbursement_method"/>
+                            <field name="disbursement_date"/>
+                            <field name="journal_id" options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_create_topup" string="Submit for Approval" type="object" class="oe_highlight" invisible="not is_eligible"/>
+                    <button name="action_create_and_approve" string="Create &amp; Approve (Auto &lt; 50K)" type="object" class="oe_highlight" invisible="not is_eligible or topup_amount >= 50000"/>
+                    <button string="Cancel" class="oe_link" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Top-Up Action -->
+    <record id="action_loan_topup" model="ir.actions.act_window">
+        <field name="name">Loan Top-Ups</field>
+        <field name="res_model">alba.loan.topup</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_loan_topup_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first loan top-up
+            </p>
+            <p>
+                Top-ups allow customers to increase their loan principal without going through a full restructure.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item -->
+    <menuitem id="menu_loan_topup"
+              name="Top-Ups"
+              parent="menu_alba_loans_root_active"
+              action="action_loan_topup"
+              sequence="30"/>
+</odoo>

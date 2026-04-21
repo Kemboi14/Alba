@@ -206,6 +206,26 @@ class AlbaLoanApplication(models.Model):
         compute="_compute_loan_count",
     )
 
+    # ── Guarantors ────────────────────────────────────────────────────────────
+    loan_guarantor_ids = fields.One2many(
+        "alba.loan.guarantor",
+        "loan_application_id",
+        string="Guarantors",
+    )
+    guarantor_count = fields.Integer(
+        string="Guarantor Count",
+        compute="_compute_guarantor_count",
+    )
+    confirmed_guarantor_count = fields.Integer(
+        string="Confirmed Guarantors",
+        compute="_compute_guarantor_count",
+    )
+    total_guaranteed_amount = fields.Monetary(
+        string="Total Guaranteed",
+        currency_field="currency_id",
+        compute="_compute_guarantor_count",
+    )
+
     # ── Company ───────────────────────────────────────────────────────────────
     company_id = fields.Many2one(
         "res.company",
@@ -277,6 +297,17 @@ class AlbaLoanApplication(models.Model):
     def _compute_loan_count(self):
         for rec in self:
             rec.loan_count = 1 if rec.loan_id else 0
+
+    @api.depends("loan_guarantor_ids", "loan_guarantor_ids.status")
+    def _compute_guarantor_count(self):
+        for rec in self:
+            rec.guarantor_count = len(rec.loan_guarantor_ids)
+            rec.confirmed_guarantor_count = len(
+                rec.loan_guarantor_ids.filtered(lambda g: g.status == "confirmed")
+            )
+            rec.total_guaranteed_amount = sum(
+                rec.loan_guarantor_ids.filtered(lambda g: g.status == "confirmed").mapped("guarantee_amount")
+            )
 
     @api.depends("state")
     def _compute_button_visibility(self):
@@ -477,6 +508,33 @@ class AlbaLoanApplication(models.Model):
             "res_model": "alba.loan",
             "view_mode": "form",
             "res_id": self.loan_id.id,
+        }
+
+    def action_view_guarantors(self):
+        """View guarantors for this application"""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Guarantors — %s") % self.application_number,
+            "res_model": "alba.loan.guarantor",
+            "view_mode": "list,form",
+            "domain": [("loan_application_id", "=", self.id)],
+            "context": {"default_loan_application_id": self.id},
+        }
+
+    def action_add_guarantor(self):
+        """Add a guarantor to this application"""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Add Guarantor"),
+            "res_model": "alba.loan.guarantor",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_loan_application_id": self.id,
+                "default_guarantee_amount": self.approved_amount or self.requested_amount,
+            },
         }
 
     # =========================================================================

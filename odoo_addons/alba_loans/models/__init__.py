@@ -6,6 +6,9 @@ from . import (
     customer,
     mpesa_config,
     loan_document,
+    guarantor,
+    collateral,
+    credit_score,
     # Models with dependencies
     loan_application,
     loan,
@@ -17,4 +20,10 @@ from . import (
     investor,
     mpesa_transaction,
     report_financials,
+    # Loan modifications
+    loan_topup,
+    loan_partial_payoff,
+    loan_payment_holiday,
+    loan_refinance,
+    loan_consolidation,
 )

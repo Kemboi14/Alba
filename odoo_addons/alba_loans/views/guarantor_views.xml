@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Alba Loans - Guarantor Views
+  Full guarantor management including master data and loan assignments
+-->
+<odoo>
+    <!-- Guarantor Master Tree View -->
+    <record id="view_guarantor_tree" model="ir.ui.view">
+        <field name="name">alba.guarantor.tree</field>
+        <field name="model">alba.guarantor</field>
+        <field name="arch" type="xml">
+            <list decoration-danger="blacklisted==True" decoration-success="kyc_status=='verified' and not blacklisted">
+                <field name="name"/>
+                <field name="id_number"/>
+                <field name="phone"/>
+                <field name="employer_name"/>
+                <field name="monthly_income"/>
+                <field name="max_guarantee_limit"/>
+                <field name="total_guaranteed"/>
+                <field name="available_capacity"/>
+                <field name="kyc_status"/>
+                <field name="blacklisted"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Guarantor Master Form View -->
+    <record id="view_guarantor_form" model="ir.ui.view">
+        <field name="name">alba.guarantor.form</field>
+        <field name="model">alba.guarantor</field>
+        <field name="arch" type="xml">
+            <form string="Guarantor">
+                <header>
+                    <button name="action_verify" string="Verify KYC" type="object" class="oe_highlight" invisible="kyc_status != 'pending'"/>
+                    <button name="action_reject" string="Reject KYC" type="object" invisible="kyc_status != 'pending'"/>
+                    <button name="action_blacklist" string="Blacklist" type="object" invisible="blacklisted"/>
+                    <button name="action_unblacklist" string="Remove from Blacklist" type="object" invisible="not blacklisted"/>
+                    <button name="action_view_active_guarantees" string="View Active Guarantees" type="object"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_active_guarantees" type="object" class="oe_stat_button" icon="fa-list">
+                            <field name="guarantee_count" widget="statinfo" string="Active Guarantees"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Identification">
+                            <field name="id_number"/>
+                            <field name="id_type"/>
+                            <field name="kyc_status"/>
+                            <field name="blacklisted"/>
+                            <field name="blacklist_reason" invisible="not blacklisted"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Contact">
+                            <field name="phone"/>
+                            <field name="email"/>
+                            <field name="address"/>
+                            <field name="county"/>
+                            <field name="sub_county"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Employment">
+                            <field name="employer_name"/>
+                            <field name="employer_phone"/>
+                            <field name="job_title"/>
+                            <field name="monthly_income"/>
+                        </group>
+                        <group string="Guarantee Limits">
+                            <field name="max_guarantee_limit"/>
+                            <field name="total_guaranteed"/>
+                            <field name="available_capacity"/>
+                            <field name="last_verification_date"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Documents">
+                            <field name="document_ids">
+                                <list>
+                                    <field name="document_type"/>
+                                    <field name="name"/>
+                                    <field name="verified"/>
+                                    <field name="verified_by"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Guarantee History">
+                            <field name="loan_guarantor_ids" readonly="1">
+                                <list>
+                                    <field name="loan_application_id"/>
+                                    <field name="guarantee_amount"/>
+                                    <field name="status"/>
+                                    <field name="confirmed_date"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="activity_ids" widget="mail_activity"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Guarantor Search View -->
+    <record id="view_guarantor_search" model="ir.ui.view">
+        <field name="name">alba.guarantor.search</field>
+        <field name="model">alba.guarantor</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="id_number"/>
+                <field name="phone"/>
+                <field name="employer_name"/>
+                <filter name="verified" string="Verified" domain="[('kyc_status', '=', 'verified')]"/>
+                <filter name="pending" string="Pending Verification" domain="[('kyc_status', '=', 'pending')]"/>
+                <filter name="blacklisted" string="Blacklisted" domain="[('blacklisted', '=', True)]"/>
+                <filter name="available" string="Has Available Capacity" domain="[('available_capacity', '>', 0)]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- Loan Guarantor (Assignment) Tree View -->
+    <record id="view_loan_guarantor_tree" model="ir.ui.view">
+        <field name="name">alba.loan.guarantor.tree</field>
+        <field name="model">alba.loan.guarantor</field>
+        <field name="arch" type="xml">
+            <list decoration-success="status=='confirmed'" decoration-muted="status=='released'" decoration-danger="status=='liability'">
+                <field name="loan_application_id"/>
+                <field name="guarantor_id"/>
+                <field name="customer_id"/>
+                <field name="relationship"/>
+                <field name="guarantee_amount"/>
+                <field name="guarantee_type"/>
+                <field name="status"/>
+                <field name="confirmed_date"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Loan Guarantor (Assignment) Form View -->
+    <record id="view_loan_guarantor_form" model="ir.ui.view">
+        <field name="name">alba.loan.guarantor.form</field>
+        <field name="model">alba.loan.guarantor</field>
+        <field name="arch" type="xml">
+            <form string="Loan Guarantor Assignment">
+                <header>
+                    <button name="action_send_confirmation" string="Send Confirmation SMS" type="object" class="oe_highlight" invisible="status != 'pending'"/>
+                    <button name="action_confirm" string="Confirm" type="object" class="oe_highlight" invisible="status not in ('pending', 'confirmation_sent')"/>
+                    <button name="action_reject" string="Reject" type="object" invisible="status not in ('pending', 'confirmation_sent')"/>
+                    <button name="action_pledge" string="Pledge" type="object" class="oe_highlight" invisible="status != 'confirmed'"/>
+                    <button name="action_release" string="Release" type="object" invisible="status not in ('confirmed', 'pledged')"/>
+                    <field name="status" widget="statusbar" statusbar_visible="pending,confirmation_sent,confirmed,pledged,released"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Loan Application">
+                            <field name="loan_application_id" options="{'no_create': True}"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Guarantor">
+                            <field name="guarantor_id" options="{'no_create': True}"/>
+                            <field name="relationship"/>
+                            <field name="relationship_notes"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Guarantee Details">
+                            <field name="guarantee_amount"/>
+                            <field name="guarantee_type"/>
+                        </group>
+                        <group string="Confirmation">
+                            <field name="confirmation_code" readonly="1"/>
+                            <field name="confirmation_sent_date" readonly="1"/>
+                            <field name="confirmed_date" readonly="1"/>
+                            <field name="confirmed_method"/>
+                        </group>
+                    </group>
+                    <group string="Release" invisible="status not in ('released', 'liability', 'recovered')">
+                        <group>
+                            <field name="release_date" readonly="1"/>
+                            <field name="release_reason"/>
+                        </group>
+                    </group>
+                    <group string="Liability" invisible="status not in ('liability', 'recovered')">
+                        <group>
+                            <field name="liability_amount"/>
+                            <field name="liability_date"/>
+                        </group>
+                        <group>
+                            <field name="recovery_amount"/>
+                        </group>
+                    </group>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Loan Guarantor Search View -->
+    <record id="view_loan_guarantor_search" model="ir.ui.view">
+        <field name="name">alba.loan.guarantor.search</field>
+        <field name="model">alba.loan.guarantor</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="loan_application_id"/>
+                <field name="guarantor_id"/>
+                <field name="customer_id"/>
+                <filter name="pending" string="Pending" domain="[('status', '=', 'pending')]"/>
+                <filter name="confirmed" string="Confirmed" domain="[('status', '=', 'confirmed')]"/>
+                <filter name="pledged" string="Pledged" domain="[('status', '=', 'pledged')]"/>
+                <filter name="liability" string="Under Liability" domain="[('status', '=', 'liability')]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- Actions -->
+    <record id="action_guarantor" model="ir.actions.act_window">
+        <field name="name">Guarantors</field>
+        <field name="res_model">alba.guarantor</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_guarantor_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first guarantor
+            </p>
+        </field>
+    </record>
+
+    <record id="action_loan_guarantor" model="ir.actions.act_window">
+        <field name="name">Loan Guarantees</field>
+        <field name="res_model">alba.loan.guarantor</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_loan_guarantor_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No guarantor assignments yet
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Items -->
+    <menuitem id="menu_guarantor_master"
+              name="Guarantors"
+              parent="menu_alba_loans_config"
+              action="action_guarantor"
+              sequence="25"/>
+
+    <menuitem id="menu_loan_guarantor"
+              name="Loan Guarantees"
+              parent="menu_alba_loans_root_active"
+              action="action_loan_guarantor"
+              sequence="32"/>
+</odoo>

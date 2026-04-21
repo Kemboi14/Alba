@@ -225,6 +225,60 @@ class AlbaLoan(models.Model):
         string="Payments",
         compute="_compute_repayment_count",
     )
+    remaining_tenure = fields.Integer(
+        string="Remaining Tenure (Months)",
+        compute="_compute_remaining_tenure",
+        store=True,
+        help="Number of unpaid installments remaining",
+    )
+    installment_amount = fields.Monetary(
+        string="Installment Amount (EMI)",
+        currency_field="currency_id",
+        compute="_compute_installment_amount",
+        store=True,
+        help="Equal Monthly Installment amount",
+    )
+
+    # ── Loan Modifications ──────────────────────────────────────────────────
+    # Top-Up tracking
+    topup_ids = fields.One2many(
+        "alba.loan.topup",
+        "loan_id",
+        string="Top-Ups",
+    )
+    topup_count = fields.Integer(
+        string="Top-Up Count",
+        compute="_compute_modification_counts",
+    )
+    can_request_topup = fields.Boolean(
+        string="Can Request Top-Up",
+        compute="_compute_modification_counts",
+    )
+
+    # Partial Payoff tracking
+    partial_payoff_ids = fields.One2many(
+        "alba.loan.partial.payoff",
+        "loan_id",
+        string="Partial Payoffs",
+    )
+    payoff_count = fields.Integer(
+        string="Payoff Count",
+        compute="_compute_modification_counts",
+    )
+
+    # ── Guarantors ───────────────────────────────────────────────────────────
+    guarantor_ids = fields.One2many(
+        "alba.loan.guarantor",
+        "loan_application_id",
+        string="Guarantors",
+        related="application_id.loan_guarantor_ids",
+        readonly=True,
+    )
+    guarantor_count = fields.Integer(
+        string="Guarantor Count",
+        related="application_id.guarantor_count",
+        readonly=True,
+    )
 
     # =========================================================================
     # SQL Constraints
@@ -310,6 +364,41 @@ class AlbaLoan(models.Model):
     def _compute_repayment_count(self):
         for rec in self:
             rec.repayment_count = len(rec.repayment_ids)
+
+    @api.depends("topup_ids", "topup_ids.state", "partial_payoff_ids", "state", "days_in_arrears")
+    def _compute_modification_counts(self):
+        for rec in self:
+            # Count completed topups
+            rec.topup_count = len(rec.topup_ids.filtered(lambda t: t.state == "disbursed"))
+            
+            # Count completed payoffs
+            rec.payoff_count = len(rec.partial_payoff_ids.filtered(lambda p: p.state == "applied"))
+            
+            # Check if eligible for topup
+            rec.can_request_topup = (
+                rec.state == "active"
+                and rec.days_in_arrears <= 90
+                and not rec.topup_ids.filtered(lambda t: t.state in ["draft", "pending"])
+            )
+
+    @api.depends("repayment_schedule_ids", "repayment_schedule_ids.status")
+    def _compute_remaining_tenure(self):
+        for rec in self:
+            unpaid = rec.repayment_schedule_ids.filtered(lambda s: s.status != "paid")
+            rec.remaining_tenure = len(unpaid)
+
+    @api.depends("repayment_schedule_ids", "repayment_schedule_ids.total_due")
+    def _compute_installment_amount(self):
+        for rec in self:
+            # Get the installment amount from the first unpaid schedule line
+            unpaid = rec.repayment_schedule_ids.filtered(lambda s: s.status != "paid")
+            if unpaid:
+                rec.installment_amount = unpaid[0].total_due
+            elif rec.repayment_schedule_ids:
+                # All paid - get from first paid
+                rec.installment_amount = rec.repayment_schedule_ids[0].total_due
+            else:
+                rec.installment_amount = 0
 
     # =========================================================================
     # ORM Overrides
@@ -529,6 +618,79 @@ class AlbaLoan(models.Model):
             "view_mode": "list,form",
             "domain": [("loan_id", "=", self.id)],
             "context": {"default_loan_id": self.id},
+        }
+
+    def action_view_topups(self):
+        """View all top-ups for this loan"""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Top-Ups — %s") % self.loan_number,
+            "res_model": "alba.loan.topup",
+            "view_mode": "list,form",
+            "domain": [("loan_id", "=", self.id)],
+            "context": {"default_loan_id": self.id},
+        }
+
+    def action_request_topup(self):
+        """Open wizard to request top-up"""
+        self.ensure_one()
+        if not self.can_request_topup:
+            raise UserError(_("This loan is not eligible for top-up."))
+        
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Request Top-Up"),
+            "res_model": "alba.loan.topup.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "active_id": self.id,
+                "active_model": "alba.loan",
+            },
+        }
+
+    def action_calculate_partial_payoff(self):
+        """Open wizard to calculate partial payoff"""
+        self.ensure_one()
+        if self.state != "active":
+            raise UserError(_("Partial payoff is only available for active loans."))
+        
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Calculate Partial Payoff"),
+            "res_model": "alba.loan.partial.payoff.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "active_id": self.id,
+                "active_model": "alba.loan",
+            },
+        }
+
+    def action_view_partial_payoffs(self):
+        """View all partial payoffs for this loan"""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Partial Payoffs — %s") % self.loan_number,
+            "res_model": "alba.loan.partial.payoff",
+            "view_mode": "list,form",
+            "domain": [("loan_id", "=", self.id)],
+        }
+
+    def action_view_guarantors(self):
+        """View guarantors for this loan"""
+        self.ensure_one()
+        if not self.application_id:
+            raise UserError(_("No loan application linked."))
+        
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Guarantors — %s") % self.loan_number,
+            "res_model": "alba.loan.guarantor",
+            "view_mode": "list,form",
+            "domain": [("loan_application_id", "=", self.application_id.id)],
         }
 
     # =========================================================================

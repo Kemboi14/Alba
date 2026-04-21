@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_loan_refinance_wizard_form" model="ir.ui.view">
+        <field name="name">alba.loan.refinance.wizard.form</field>
+        <field name="model">alba.loan.refinance.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Create Refinance">
+                <sheet>
+                    <group>
+                        <group string="Original Loan">
+                            <field name="original_loan_id" readonly="1"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="original_outstanding" readonly="1"/>
+                            <field name="original_rate" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="New Terms">
+                            <field name="new_product_id" options="{'no_create': True}"/>
+                            <field name="new_principal"/>
+                            <field name="new_interest_rate"/>
+                            <field name="new_tenure_months"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_create_refinance" string="Generate Quote" type="object" class="oe_highlight"/>
+                    <button string="Cancel" class="oe_link" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_loan_refinance_wizard" model="ir.actions.act_window">
+        <field name="name">Create Refinance</field>
+        <field name="res_model">alba.loan.refinance.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>
