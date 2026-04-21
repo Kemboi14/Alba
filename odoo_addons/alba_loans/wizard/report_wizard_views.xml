@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- PAR Report Wizard View -->
+        <record id="view_alba_report_par_wizard" model="ir.ui.view">
+            <field name="name">alba.report.par.wizard.form</field>
+            <field name="model">alba.report.par.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Portfolio at Risk (PAR) Report">
+                    <group>
+                        <field name="as_of_date"/>
+                    </group>
+                    <footer>
+                        <button name="action_generate_report" string="Generate PDF" type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- NPL Report Wizard View -->
+        <record id="view_alba_report_npl_wizard" model="ir.ui.view">
+            <field name="name">alba.report.npl.wizard.form</field>
+            <field name="model">alba.report.npl.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Non-Performing Loans (NPL) Report">
+                    <group>
+                        <field name="as_of_date"/>
+                    </group>
+                    <footer>
+                        <button name="action_generate_report" string="Generate PDF" type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- P&L Report Wizard View -->
+        <record id="view_alba_report_pl_wizard" model="ir.ui.view">
+            <field name="name">alba.report.pl.wizard.form</field>
+            <field name="model">alba.report.pl.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Profit &amp; Loss Report">
+                    <group>
+                        <field name="date_from"/>
+                        <field name="date_to"/>
+                    </group>
+                    <footer>
+                        <button name="action_generate_report" string="Generate PDF" type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- Cash Flow Report Wizard View -->
+        <record id="view_alba_report_cashflow_wizard" model="ir.ui.view">
+            <field name="name">alba.report.cashflow.wizard.form</field>
+            <field name="model">alba.report.cashflow.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Cash Flow Statement">
+                    <group>
+                        <field name="date_from"/>
+                        <field name="date_to"/>
+                    </group>
+                    <footer>
+                        <button name="action_generate_report" string="Generate PDF" type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- Balance Sheet Report Wizard View -->
+        <record id="view_alba_report_balance_sheet_wizard" model="ir.ui.view">
+            <field name="name">alba.report.balance.sheet.wizard.form</field>
+            <field name="model">alba.report.balance.sheet.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Balance Sheet">
+                    <group>
+                        <field name="as_of_date"/>
+                    </group>
+                    <footer>
+                        <button name="action_generate_report" string="Generate PDF" type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+    </data>
+</odoo>
