@@ -6,7 +6,7 @@
         <field name="api_url">https://api.onfonmedia.co.ke/v1/sms/SendBulkSMS</field>
         <field name="api_key">Cc5yZdKLUhunDAGV32rzmbIQtT6iWwXspf87qBSe1o0O9HJ4</field>
         <field name="username">albacapital</field>
-        <field name="sender_id">ALBA</field>
+        <field name="sender_id">AlbaCapital</field>
         <field name="is_active">True</field>
     </record>
 </odoo>
