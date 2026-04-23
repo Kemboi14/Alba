@@ -339,7 +339,7 @@ class AlbaSmsProvider(models.Model):
                 "ClientId": self.username or "",
             }
             headers = {
-                "Accesskey": self.username or "",
+                "AccessKey": self.username or "",
                 "Content-Type": "application/json",
             }
 
