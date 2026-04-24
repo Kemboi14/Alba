@@ -137,6 +137,14 @@ class AlbaSmsBatch(models.Model):
                 getattr(record, "mpesa_number", False)
                 or (record.partner_id and record.partner_id.phone)
             )
+        elif model == "alba.loan.application":
+            customer = record.customer_id
+            if customer:
+                phone = (
+                    getattr(customer, "mpesa_number", False)
+                    or (customer.partner_id and customer.partner_id.mobile)
+                    or (customer.partner_id and customer.partner_id.phone)
+                )
 
         return phone or False
 
@@ -198,6 +206,19 @@ class AlbaSmsBatch(models.Model):
                     ),
                     "investment_number": getattr(record, "name", "") or "",
                     "interest_amount": getattr(record, "interest_amount", 0.0),
+                }
+            )
+
+        elif model == "alba.loan.application":
+            ctx.update(
+                {
+                    "loan_number": getattr(record, "application_number", "") or "",
+                    "customer_name": (
+                        record.customer_id.partner_id.name
+                        if record.customer_id and record.customer_id.partner_id
+                        else ""
+                    ),
+                    "amount": getattr(record, "approved_amount", 0.0),
                 }
             )
 
