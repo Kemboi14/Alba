@@ -1,0 +1,234 @@
+{% extends 'admin/base_admin.html' %}
+{% load humanize %}
+
+{% block content %}
+<!-- Dashboard Overview -->
+<div class="animate-fade-in">
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Users -->
+        <div class="stat-card bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Total Users</p>
+                    <h3 class="text-2xl font-bold text-gray-800">{{ metrics.total_users }}</h3>
+                    <p class="text-xs text-green-600 mt-1">
+                        <span class="font-medium">{{ metrics.active_users }}</span> active
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                    <i data-lucide="users" class="w-6 h-6 text-blue-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pending KYC -->
+        <div class="stat-card bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Pending KYC</p>
+                    <h3 class="text-2xl font-bold text-gray-800">{{ metrics.pending_kyc }}</h3>
+                    <p class="text-xs text-orange-600 mt-1">
+                        Requires verification
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
+                    <i data-lucide="shield-alert" class="w-6 h-6 text-orange-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Loan Applications -->
+        <div class="stat-card bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Pending Applications</p>
+                    <h3 class="text-2xl font-bold text-gray-800">{{ metrics.pending_applications }}</h3>
+                    <p class="text-xs text-blue-600 mt-1">
+                        of {{ metrics.total_applications }} total
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
+                    <i data-lucide="file-text" class="w-6 h-6 text-purple-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Total Disbursed -->
+        <div class="stat-card bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Total Disbursed</p>
+                    <h3 class="text-2xl font-bold text-gray-800">
+                        KES {{ metrics.total_disbursed|floatformat:0|intcomma }}
+                    </h3>
+                    <p class="text-xs text-green-600 mt-1">
+                        {{ metrics.disbursed_loans }} active loans
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
+                    <i data-lucide="banknote" class="w-6 h-6 text-green-600"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Recent Applications -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h3 class="font-semibold text-gray-800">Recent Loan Applications</h3>
+                <a href="{% url 'admin_loan_management' %}" class="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1">
+                    View All
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full data-table">
+                    <thead>
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Application</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for app in recent_applications %}
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="px-6 py-4">
+                                <a href="{% url 'admin_loan_detail' app.id %}" class="font-medium text-gray-900 hover:text-orange-600">
+                                    {{ app.application_number }}
+                                </a>
+                                <p class="text-xs text-gray-500">{{ app.loan_product.name }}</p>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
+                                        {{ app.customer.user.first_name|first|upper }}
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900">{{ app.customer.user.get_full_name }}</p>
+                                        <p class="text-xs text-gray-500">{{ app.customer.user.email }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="text-sm font-medium text-gray-900">
+                                    KES {{ app.requested_amount|floatformat:0|intcomma }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if app.status == 'DRAFT' %}
+                                <span class="badge badge-neutral">Draft</span>
+                                {% elif app.status == 'SUBMITTED' %}
+                                <span class="badge badge-info">Submitted</span>
+                                {% elif app.status == 'UNDER_REVIEW' %}
+                                <span class="badge badge-warning">Under Review</span>
+                                {% elif app.status == 'APPROVED' %}
+                                <span class="badge badge-success">Approved</span>
+                                {% elif app.status == 'DISBURSED' %}
+                                <span class="badge badge-success">Disbursed</span>
+                                {% elif app.status == 'REJECTED' %}
+                                <span class="badge badge-danger">Rejected</span>
+                                {% else %}
+                                <span class="badge badge-neutral">{{ app.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500">
+                                {{ app.created_at|date:"M d, Y" }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                                No recent applications
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Side Column -->
+        <div class="space-y-6">
+            <!-- Quick Actions -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h3 class="font-semibold text-gray-800 mb-4">Quick Actions</h3>
+                <div class="space-y-3">
+                    <a href="{% url 'admin_user_management' %}?status=pending" 
+                       class="flex items-center gap-3 p-3 rounded-lg bg-orange-50 hover:bg-orange-100 transition">
+                        <i data-lucide="user-check" class="w-5 h-5 text-orange-600"></i>
+                        <span class="text-sm font-medium text-gray-700">Approve Pending Users</span>
+                    </a>
+                    <a href="{% url 'admin_loan_management' %}" 
+                       class="flex items-center gap-3 p-3 rounded-lg bg-blue-50 hover:bg-blue-100 transition">
+                        <i data-lucide="file-check" class="w-5 h-5 text-blue-600"></i>
+                        <span class="text-sm font-medium text-gray-700">Review Applications</span>
+                    </a>
+                    <a href="{% url 'admin_audit_logs' %}" 
+                       class="flex items-center gap-3 p-3 rounded-lg bg-purple-50 hover:bg-purple-100 transition">
+                        <i data-lucide="activity" class="w-5 h-5 text-purple-600"></i>
+                        <span class="text-sm font-medium text-gray-700">View Audit Logs</span>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+                <div class="p-6 border-b border-gray-100">
+                    <h3 class="font-semibold text-gray-800">Recent Activity</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    {% for log in recent_audit_logs %}
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            {% if log.action == 'CREATE' %}
+                            <i data-lucide="plus" class="w-4 h-4 text-green-600"></i>
+                            {% elif log.action == 'UPDATE' %}
+                            <i data-lucide="edit" class="w-4 h-4 text-blue-600"></i>
+                            {% elif log.action == 'DELETE' %}
+                            <i data-lucide="trash" class="w-4 h-4 text-red-600"></i>
+                            {% else %}
+                            <i data-lucide="activity" class="w-4 h-4 text-gray-600"></i>
+                            {% endif %}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-gray-800 truncate">{{ log.description }}</p>
+                            <p class="text-xs text-gray-500">
+                                {{ log.user.get_full_name }} • {{ log.timestamp|timesince }} ago
+                            </p>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-center text-gray-500 py-4">No recent activity</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Application Status Breakdown -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h3 class="font-semibold text-gray-800 mb-4">Applications by Status</h3>
+                <div class="space-y-3">
+                    {% for status in applications_by_status %}
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">{{ status.status }}</span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-orange-500 rounded-full" style="width: {% widthratio status.count metrics.total_applications 100 %}%"></div>
+                            </div>
+                            <span class="text-sm font-medium text-gray-800 w-8">{{ status.count }}</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-center text-gray-500 py-2">No data available</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

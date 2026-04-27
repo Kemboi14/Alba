@@ -22,6 +22,9 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 ALLOWED_HOSTS = str(
     config("ALLOWED_HOSTS", default="localhost,127.0.0.1,0.0.0.0")
 ).split(",")
+# Ensure 0.0.0.0 is always allowed for local development
+if "0.0.0.0" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("0.0.0.0")
 
 
 # Application definition
@@ -35,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
+    "django.contrib.humanize",  # For intcomma filter
     # Third-party apps
     "rest_framework",
     "django_extensions",

@@ -1,0 +1,267 @@
+{% extends 'admin/base_admin.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <!-- Back Button & Header -->
+    <div class="mb-6">
+        <a href="{% url 'admin_user_management' %}" class="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Back to Users</span>
+        </a>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                    {{ user_obj.first_name|first|upper }}{{ user_obj.last_name|first|upper }}
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">{{ user_obj.get_full_name }}</h2>
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="badge badge-info">{{ user_obj.get_role_display }}</span>
+                        {% if user_obj.is_active %}
+                        <span class="badge badge-success">Active</span>
+                        {% else %}
+                        <span class="badge badge-danger">Inactive</span>
+                        {% endif %}
+                        <span class="text-sm text-gray-500">ID: {{ user_obj.id }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                {% if user_obj.is_active %}
+                <form method="post" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="deactivate">
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center gap-2">
+                        <i data-lucide="user-x" class="w-4 h-4"></i>
+                        Deactivate
+                    </button>
+                </form>
+                {% else %}
+                <form method="post" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="activate">
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2">
+                        <i data-lucide="user-check" class="w-4 h-4"></i>
+                        Activate
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Info Column -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Personal Information -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="user" class="w-5 h-5 text-gray-400"></i>
+                    Personal Information
+                </h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-500">Email</p>
+                        <p class="font-medium text-gray-800">{{ user_obj.email }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Phone</p>
+                        <p class="font-medium text-gray-800">{{ user_obj.phone|default:"Not provided" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">First Name</p>
+                        <p class="font-medium text-gray-800">{{ user_obj.first_name }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Last Name</p>
+                        <p class="font-medium text-gray-800">{{ user_obj.last_name }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Joined</p>
+                        <p class="font-medium text-gray-800">{{ user_obj.date_joined|date:"F d, Y" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Last Login</p>
+                        <p class="font-medium text-gray-800">
+                            {{ user_obj.last_login|date:"F d, Y H:i"|default:"Never" }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Customer Profile (if exists) -->
+            {% if customer_profile %}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-gray-800 flex items-center gap-2">
+                        <i data-lucide="id-card" class="w-5 h-5 text-gray-400"></i>
+                        Customer Profile
+                    </h3>
+                    {% if not customer_profile.kyc_verified %}
+                    <form method="post" class="inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="approve_kyc">
+                        <button type="submit" class="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
+                            Approve KYC
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-500">ID Number</p>
+                        <p class="font-medium text-gray-800">{{ customer_profile.id_number|default:"Not provided" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Date of Birth</p>
+                        <p class="font-medium text-gray-800">{{ customer_profile.date_of_birth|default:"Not provided" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Employment</p>
+                        <p class="font-medium text-gray-800">{{ customer_profile.get_employment_status_display|default:"Not provided" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Employer</p>
+                        <p class="font-medium text-gray-800">{{ customer_profile.employer_name|default:"Not provided" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Monthly Income</p>
+                        <p class="font-medium text-gray-800">
+                            {% if customer_profile.monthly_income %}
+                            KES {{ customer_profile.monthly_income|floatformat:0|intcomma }}
+                            {% else %}
+                            Not provided
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">KYC Status</p>
+                        <p class="font-medium">
+                            {% if customer_profile.kyc_verified %}
+                            <span class="text-green-600">✓ Verified</span>
+                            {% else %}
+                            <span class="text-orange-600">Pending</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loan Applications -->
+            {% if loan_applications %}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-5 h-5 text-gray-400"></i>
+                    Loan Applications
+                </h3>
+                <div class="space-y-3">
+                    {% for app in loan_applications|slice:":5" %}
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <a href="{% url 'admin_loan_detail' app.id %}" class="font-medium text-gray-900 hover:text-orange-600">
+                                {{ app.application_number }}
+                            </a>
+                            <p class="text-sm text-gray-500">{{ app.loan_product.name }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-medium text-gray-800">KES {{ app.requested_amount|floatformat:0|intcomma }}</p>
+                            {% if app.status == 'DRAFT' %}
+                            <span class="badge badge-neutral text-xs">Draft</span>
+                            {% elif app.status == 'SUBMITTED' %}
+                            <span class="badge badge-info text-xs">Submitted</span>
+                            {% elif app.status == 'APPROVED' %}
+                            <span class="badge badge-success text-xs">Approved</span>
+                            {% elif app.status == 'DISBURSED' %}
+                            <span class="badge badge-success text-xs">Disbursed</span>
+                            {% elif app.status == 'REJECTED' %}
+                            <span class="badge badge-danger text-xs">Rejected</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+            
+            <!-- Audit Logs -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="activity" class="w-5 h-5 text-gray-400"></i>
+                    Recent Activity
+                </h3>
+                <div class="space-y-3">
+                    {% for log in audit_logs %}
+                    <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                            {% if log.action == 'CREATE' %}
+                            <i data-lucide="plus" class="w-4 h-4 text-green-600"></i>
+                            {% elif log.action == 'UPDATE' %}
+                            <i data-lucide="edit" class="w-4 h-4 text-blue-600"></i>
+                            {% elif log.action == 'DELETE' %}
+                            <i data-lucide="trash" class="w-4 h-4 text-red-600"></i>
+                            {% else %}
+                            <i data-lucide="activity" class="w-4 h-4 text-gray-600"></i>
+                            {% endif %}
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-800">{{ log.description }}</p>
+                            <p class="text-xs text-gray-500">{{ log.timestamp|timesince }} ago • {{ log.model_name }}</p>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-center text-gray-500 py-4">No recent activity</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Role Management -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h3 class="font-semibold text-gray-800 mb-4">Role Management</h3>
+                <form method="post" class="space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="change_role">
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Current Role</label>
+                        <select name="new_role" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500">
+                            {% for role_value, role_label in role_choices %}
+                            <option value="{{ role_value }}" {% if user_obj.role == role_value %}selected{% endif %}>
+                                {{ role_label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition">
+                        Update Role
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Account Info -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h3 class="font-semibold text-gray-800 mb-4">Account Status</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500">Staff Status</span>
+                        <span class="text-sm font-medium">{% if user_obj.is_staff %}Yes{% else %}No{% endif %}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500">Superuser</span>
+                        <span class="text-sm font-medium">{% if user_obj.is_superuser %}Yes{% else %}No{% endif %}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500">Approved</span>
+                        <span class="text-sm font-medium">{% if user_obj.is_approved %}Yes{% else %}No{% endif %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

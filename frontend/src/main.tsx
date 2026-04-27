@@ -141,6 +141,9 @@ function autoFillForm(output: VerificationOutput): void {
     id_date_of_birth: clientData.dateOfBirth ?? "",
     id_employer_name: clientData.employer ?? "",
     id_monthly_income: clientData.monthlyIncome ?? "",
+    id_full_name: clientData.fullName ?? "",
+    id_location: clientData.location ?? "",
+    id_gender: clientData.gender ?? "",
   };
 
   Object.entries(fieldMap).forEach(([id, value]) => {
@@ -151,6 +154,8 @@ function autoFillForm(output: VerificationOutput): void {
     if (el && value) {
       el.value = String(value);
       el.dispatchEvent(new Event("change", { bubbles: true }));
+      // Add visual indicator that field was auto-filled
+      el.classList.add("auto-filled-from-id");
     }
   });
 

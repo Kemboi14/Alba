@@ -6,6 +6,18 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from . import views
+from .admin_views import (
+    admin_dashboard,
+    user_management,
+    user_detail,
+    loan_management,
+    loan_detail,
+    product_management,
+    audit_logs,
+    system_settings,
+    api_status,
+    test_odoo_connection,
+)
 
 urlpatterns = [
     # Landing page
@@ -56,4 +68,17 @@ urlpatterns = [
         views.CustomerDashboardView.as_view(),
         name="customer_dashboard",
     ),
+    # ── Admin Panel ─────────────────────────────────────────────────────────
+    path("admin-panel/", admin_dashboard, name="admin_dashboard"),
+    path("admin-panel/users/", user_management, name="admin_user_management"),
+    path("admin-panel/users/<int:user_id>/", user_detail, name="admin_user_detail"),
+    path("admin-panel/loans/", loan_management, name="admin_loan_management"),
+    path("admin-panel/loans/<int:application_id>/", loan_detail, name="admin_loan_detail"),
+    path("admin-panel/products/", product_management, name="admin_product_management"),
+    path("admin-panel/audit-logs/", audit_logs, name="admin_audit_logs"),
+    path("admin-panel/settings/", system_settings, name="admin_settings"),
+    path("admin-panel/api/status/", api_status, name="admin_api_status"),
+    path("admin-panel/api/test-odoo/", test_odoo_connection, name="admin_test_odoo"),
+    # ── Odoo Webhook Receiver ────────────────────────────────────────────────
+    path("api/v1/webhooks/odoo/", views.odoo_webhook, name="odoo_webhook"),
 ]

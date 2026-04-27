@@ -10,6 +10,7 @@ export interface IDVerificationResult {
     dateOfBirth?: string;
     gender?: string;
     serialNumber?: string;
+    location?: string; // District/Division/Location from back of ID
   };
   errors: string[];
   warnings: string[];
@@ -22,6 +23,11 @@ const KENYAN_ID_PATTERNS = {
   dateOfBirth:
     /(\d{2}\/\d{2}\/\d{4})|(\d{2}\.\d{2}\.\d{4})|(\d{2}-\d{2}-\d{4})/g,
   gender: /\b(MALE|FEMALE|M|F)\b/gi,
+  // Location patterns for back of ID
+  district: /(?:district|county)[:\s]+([A-Za-z\s]+?)(?=\n|;|,|division|sub|location|$)/i,
+  division: /(?:division|sub-county)[:\s]+([A-Za-z\s]+?)(?=\n|;|,|location|$)/i,
+  location: /(?:location|ward)[:\s]+([A-Za-z\s]+?)(?=\n|;|,|sub|$)/i,
+  placeOfIssue: /(?:place of issue|issued at)[:\s]+([A-Za-z\s]+)/i,
 };
 
 // Keywords that should appear on a genuine Kenyan National ID
@@ -40,7 +46,8 @@ const ID_KEYWORDS_FRONT = [
   "holder",
 ];
 
-const ID_KEYWORDS_BACK = [
+// Keywords for old generation Kenyan IDs
+const ID_KEYWORDS_BACK_LEGACY = [
   "republic",
   "kenya",
   "national",
@@ -55,10 +62,31 @@ const ID_KEYWORDS_BACK = [
   "serial",
 ];
 
+// Keywords for new eCitizen/Huduma Namba IDs
+const ID_KEYWORDS_BACK_MODERN = [
+  "huduma",
+  "namba",
+  "number",
+  "ecitizen",
+  "smart",
+  "card",
+  "republic of kenya",
+  "jamhuri ya kenya",
+  "government",
+  "gava",
+  "qr", // QR code reference
+  "issue",
+  "expiry",
+  "valid",
+];
+
+// Combine all back keywords
+const ID_KEYWORDS_BACK = [...ID_KEYWORDS_BACK_LEGACY, ...ID_KEYWORDS_BACK_MODERN];
+
 /**
  * Check if OCR text contains enough ID keywords to be a genuine ID
  */
-function hasIDKeywords(text: string, keywords: string[], minMatches: number): { matches: number; matched: string[] } {
+function hasIDKeywords(text: string, keywords: string[], _minMatches: number): { matches: number; matched: string[] } {
   const lowerText = text.toLowerCase();
   const matched = keywords.filter((kw) => lowerText.includes(kw));
   return { matches: matched.length, matched };
@@ -246,7 +274,6 @@ export async function verifyKenyanID(
 export async function verifyKenyanIDBack(
   imageFile: File,
 ): Promise<IDVerificationResult> {
-  const errors: string[] = [];
   const warnings: string[] = [];
 
   try {
@@ -263,15 +290,28 @@ export async function verifyKenyanIDBack(
     const rawText = result.data.text;
     const extractedData: IDVerificationResult["extractedData"] = {};
 
+    // Debug: Log what OCR found
+    console.log("ID Back - OCR Text:", rawText.substring(0, 500));
+
     // Check if document looks like the back of a Kenyan ID
-    const keywordCheck = hasIDKeywords(rawText, ID_KEYWORDS_BACK, 2);
-    if (keywordCheck.matches < 2) {
+    // More flexible: check for legacy keywords OR modern keywords
+    const legacyKeywords = hasIDKeywords(rawText, ID_KEYWORDS_BACK_LEGACY, 1);
+    const modernKeywords = hasIDKeywords(rawText, ID_KEYWORDS_BACK_MODERN, 1);
+    const totalKeywords = hasIDKeywords(rawText, ID_KEYWORDS_BACK, 1);
+
+    console.log("ID Back - Legacy keywords found:", legacyKeywords.matched);
+    console.log("ID Back - Modern keywords found:", modernKeywords.matched);
+
+    // More lenient validation: accept if we find ANY keywords or if it's clearly an ID document
+    const isLikelyKenyanID = legacyKeywords.matches >= 1 || modernKeywords.matches >= 1 || totalKeywords.matches >= 2;
+
+    if (!isLikelyKenyanID) {
       return {
         isValid: false,
         confidence: 0,
         extractedData: {},
         errors: [
-          "This does not appear to be the back of a Kenyan National ID. Please upload a clear photo of the back of your ID card.",
+          "This does not appear to be the back of a Kenyan National ID. Please upload a clear photo of the back of your ID card showing text like 'Republic of Kenya', 'Huduma Namba', or 'Government'.",
         ],
         warnings: [],
         rawText,
@@ -282,50 +322,76 @@ export async function verifyKenyanIDBack(
     let validFields = 0;
 
     // Keywords matched — that's a strong signal
-    confidence += 30;
+    confidence += Math.min(legacyKeywords.matches + modernKeywords.matches, 3) * 15;
     validFields++;
 
-    // Extract Serial Number
+    // Extract Serial Number (common on both old and new IDs)
     const serialNumbers = rawText.match(KENYAN_ID_PATTERNS.serialNumber);
     if (serialNumbers && serialNumbers.length > 0) {
       extractedData.serialNumber = serialNumbers[0];
-      confidence += 30;
-      validFields++;
-    } else {
-      warnings.push("Serial number not clearly detected on back side.");
-    }
-
-    // Check for address/district text (common on back)
-    const addressPattern = /(?:address|district|division|location|province)[:\s]+([A-Za-z\s]+)/i;
-    const addressMatch = rawText.match(addressPattern);
-    if (addressMatch) {
-      confidence += 20;
+      confidence += 25;
       validFields++;
     }
 
-    // Check for ID number on back too (sometimes visible)
-    const idNumbers = rawText.match(KENYAN_ID_PATTERNS.idNumber);
-    if (idNumbers && idNumbers.length > 0) {
-      const validId = idNumbers.find((n: string) => {
-        const num = parseInt(n, 10);
-        return num > 10000000 && num < 99999999;
-      });
-      if (validId) {
-        extractedData.idNumber = validId;
+    // Look for Huduma Namba / ID Number patterns on modern IDs
+    // Modern IDs often have the number in a different format
+    const hudumaPattern = /(?:huduma\s*namba|huduma\s*number|id\s*number|id\s*no)[\s:.]*(\d{8,12})/i;
+    const hudumaMatch = rawText.match(hudumaPattern);
+    if (hudumaMatch && hudumaMatch[1]) {
+      const hudumaNum = hudumaMatch[1];
+      if (!extractedData.idNumber && hudumaNum.length >= 8) {
+        extractedData.idNumber = hudumaNum;
         confidence += 20;
         validFields++;
       }
     }
 
-    if (result.data.confidence < 50) {
-      warnings.push("Image quality is low. Consider retaking the photo.");
+    // Check for ID number on back too (sometimes visible on old IDs)
+    if (!extractedData.idNumber) {
+      const idNumbers = rawText.match(KENYAN_ID_PATTERNS.idNumber);
+      if (idNumbers && idNumbers.length > 0) {
+        const validId = idNumbers.find((n: string) => {
+          const num = parseInt(n, 10);
+          return num > 10000000 && num < 99999999;
+        });
+        if (validId) {
+          extractedData.idNumber = validId;
+          confidence += 20;
+          validFields++;
+        }
+      }
     }
 
+    // Check for address/district text (common on old back)
+    const addressPattern = /(?:address|district|division|location|province)[:\s]+([A-Za-z\s]+)/i;
+    const addressMatch = rawText.match(addressPattern);
+    if (addressMatch) {
+      confidence += 15;
+      validFields++;
+    }
+
+    // Check for expiry/issue date (common on modern IDs)
+    const datePattern = /(?:expiry|issue|valid\s*until|date)[\s:.]*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})/i;
+    const dateMatch = rawText.match(datePattern);
+    if (dateMatch) {
+      confidence += 10;
+    }
+
+    // OCR confidence check
+    if (result.data.confidence < 40) {
+      warnings.push("Image quality is low. Consider retaking the photo in better lighting.");
+    }
+
+    // More lenient validation for backside - as long as we detected keywords and at least one valid field
+    const isValid = validFields >= 1 && (legacyKeywords.matches > 0 || modernKeywords.matches > 0 || totalKeywords.matches >= 2);
+
+    console.log("ID Back - Final validation:", { isValid, validFields, confidence, extractedData });
+
     return {
-      isValid: validFields >= 2,
+      isValid,
       confidence: Math.min(confidence, 100),
       extractedData,
-      errors,
+      errors: isValid ? [] : ["Could not verify as a valid Kenyan ID back side. Please ensure the entire back of your ID is visible and clearly readable."],
       warnings,
       rawText,
     };

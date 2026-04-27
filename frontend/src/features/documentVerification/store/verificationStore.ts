@@ -24,6 +24,7 @@ export interface IDCardState {
     fullName?: string;
     dateOfBirth?: string;
     gender?: string;
+    location?: string;
   } | null;
 }
 
@@ -51,6 +52,7 @@ export interface ExtractedClientData {
   monthlyIncome: number;
   employer: string;
   gender: string;
+  location: string;
 }
 
 interface VerificationState {
@@ -152,6 +154,7 @@ const initialState = {
     monthlyIncome: 0,
     employer: "",
     gender: "",
+    location: "",
   },
 };
 

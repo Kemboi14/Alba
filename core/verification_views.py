@@ -282,11 +282,12 @@ class DocumentUploadView(View):
 class ProfileUpdateView(View):
     """
     Write OCR-extracted data from the React wizard back to the Customer record.
+    ID-verified data overrides existing data to ensure accuracy.
 
     Expected JSON body:
     {
         "extracted_data": {
-            "personalInfo":   { "idNumber", "dateOfBirth", "gender", "fullName" },
+            "personalInfo":   { "idNumber", "dateOfBirth", "gender", "fullName", "location" },
             "employmentInfo": { "employer", "monthlyIncome" }
         },
         "verification_results": { ...full wizard output... },
@@ -308,28 +309,61 @@ class ProfileUpdateView(View):
         personal = extracted.get("personalInfo", {})
         employment = extracted.get("employmentInfo", {})
 
-        # Personal info — only fill blanks, never overwrite manually entered data
-        if personal.get("idNumber") and not customer.id_number:
-            customer.id_number = str(personal["idNumber"])[:50]
+        updated_fields = []
 
-        if personal.get("dateOfBirth") and not customer.date_of_birth:
+        # Personal info — OVERRIDE with ID data (ID is the source of truth)
+        if personal.get("idNumber"):
+            old_value = customer.id_number
+            customer.id_number = str(personal["idNumber"])[:50]
+            if old_value != customer.id_number:
+                updated_fields.append(f"id_number: {old_value} -> {customer.id_number}")
+
+        if personal.get("fullName"):
+            old_value = customer.full_name
+            customer.full_name = str(personal["fullName"])[:100]
+            if old_value != customer.full_name:
+                updated_fields.append(f"full_name: {old_value} -> {customer.full_name}")
+
+        if personal.get("dateOfBirth"):
             try:
                 from datetime import date as date_type
-
                 parts = str(personal["dateOfBirth"]).split("-")
-                customer.date_of_birth = date_type(
-                    int(parts[0]), int(parts[1]), int(parts[2])
-                )
+                new_date = date_type(int(parts[0]), int(parts[1]), int(parts[2]))
+                if customer.date_of_birth != new_date:
+                    updated_fields.append(f"date_of_birth: {customer.date_of_birth} -> {new_date}")
+                customer.date_of_birth = new_date
             except Exception:
                 pass
 
-        # Employment info — only fill blanks
-        if employment.get("employer") and not customer.employer_name:
-            customer.employer_name = str(employment["employer"])[:200]
+        if personal.get("gender"):
+            old_value = customer.gender
+            customer.gender = str(personal["gender"])[:10]
+            if old_value != customer.gender:
+                updated_fields.append(f"gender: {old_value} -> {customer.gender}")
 
-        if employment.get("monthlyIncome") and not customer.monthly_income:
+        if personal.get("location"):
+            old_value = getattr(customer, 'location', None) or getattr(customer, 'address', None)
+            # Map to address field if location doesn't exist on Customer model
+            if hasattr(customer, 'location'):
+                customer.location = str(personal["location"])[:200]
+            elif hasattr(customer, 'address'):
+                customer.address = str(personal["location"])[:200]
+            if old_value != personal["location"]:
+                updated_fields.append(f"location/address: {old_value} -> {personal['location']}")
+
+        # Employment info — OVERRIDE with ID data
+        if employment.get("employer"):
+            old_value = customer.employer_name
+            customer.employer_name = str(employment["employer"])[:200]
+            if old_value != customer.employer_name:
+                updated_fields.append(f"employer_name: {old_value} -> {customer.employer_name}")
+
+        if employment.get("monthlyIncome"):
             try:
+                old_value = customer.monthly_income
                 customer.monthly_income = float(employment["monthlyIncome"])
+                if old_value != customer.monthly_income:
+                    updated_fields.append(f"monthly_income: {old_value} -> {customer.monthly_income}")
             except (TypeError, ValueError):
                 pass
 
@@ -343,9 +377,10 @@ class ProfileUpdateView(View):
         customer.save()
 
         logger.info(
-            "Profile updated from wizard: customer pk=%s confidence=%s",
+            "Profile updated from wizard: customer pk=%s confidence=%s updated_fields=%s",
             customer.pk,
             customer.verification_confidence,
+            updated_fields
         )
         return JsonResponse(
             {
