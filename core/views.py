@@ -118,6 +118,10 @@ class LoginView(TemplateView):
                     request,
                 )
                 messages.success(request, f"Welcome back, {user.get_short_name()}!")
+                
+                # Redirect admins/superusers to admin panel, others to dashboard
+                if user.is_superuser or getattr(user, 'role', '') == 'ADMIN':
+                    return redirect("admin_dashboard")
                 return redirect("dashboard")
             else:
                 messages.error(request, "Invalid email or password.")
@@ -132,6 +136,9 @@ class RegisterView(TemplateView):
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
+            # Redirect admins to admin panel, others to dashboard
+            if request.user.is_superuser or getattr(request.user, 'role', '') == 'ADMIN':
+                return redirect("admin_dashboard")
             return redirect("dashboard")
         return super().dispatch(request, *args, **kwargs)
 
