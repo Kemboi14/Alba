@@ -6,7 +6,7 @@ from django.contrib import admin
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin, GroupAdmin as BaseGroupAdmin
 from django.utils.html import format_html
-from .models import User, AuditLog
+from .models import User, AuditLog, OdooConfig
 
 
 class FixedModelAdmin(admin.ModelAdmin):
@@ -130,3 +130,36 @@ class AuditLogAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+
+@admin.register(OdooConfig)
+class OdooConfigAdmin(FixedModelAdmin):
+    """
+    Admin interface for Odoo API configuration.
+    Allows superusers to manage Odoo integration settings from Django admin.
+    """
+    list_display = ['url', 'database', 'is_active', 'connection_status', 'updated_at']
+    list_filter = ['is_active', 'connection_status', 'created_at']
+    readonly_fields = ['created_at', 'updated_at', 'last_sync', 'connection_status', 'last_error']
+    search_fields = ['url', 'database']
+    
+    fieldsets = (
+        ('Connection Settings', {
+            'fields': ('url', 'api_key', 'database')
+        }),
+        ('Webhook Settings', {
+            'fields': ('webhook_secret', 'webhook_url'),
+            'description': 'Configuration for receiving webhooks from Odoo'
+        }),
+        ('Status', {
+            'fields': ('is_active', 'connection_status', 'last_sync', 'last_error')
+        }),
+        ('Audit', {
+            'fields': ('created_at', 'updated_at', 'updated_by'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        """Set updated_by to current user on save."""
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
