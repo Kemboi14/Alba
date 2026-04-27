@@ -200,6 +200,7 @@ class DocumentUploadView(View):
                 path = default_storage.save(
                     f"kyc/{customer.pk}/id_front{ext}", ContentFile(f.read())
                 )
+                logger.info("ID front saved successfully, path: %s", path)
                 customer.national_id_file = path
                 uploaded["id_front"] = default_storage.url(path)
 
@@ -214,6 +215,7 @@ class DocumentUploadView(View):
                 path = default_storage.save(
                     f"kyc/{customer.pk}/id_back{ext}", ContentFile(f.read())
                 )
+                logger.info("ID back saved successfully, path: %s", path)
                 customer.id_back_file = path
                 uploaded["id_back"] = default_storage.url(path)
 
@@ -232,41 +234,58 @@ class DocumentUploadView(View):
             if not ok:
                 errors.append(err)
                 continue
-            path = default_storage.save(
-                f"kyc/{customer.pk}/payslips/{f.name}", ContentFile(f.read())
-            )
-            url = default_storage.url(path)
-            payslip_paths.append(path)
-            payslip_urls.append(url)
-            # Keep first payslip in legacy bank_statement_file field
-            if not customer.bank_statement_file:
-                customer.bank_statement_file = path
+            try:
+                path = default_storage.save(
+                    f"kyc/{customer.pk}/payslips/{f.name}", ContentFile(f.read())
+                )
+                url = default_storage.url(path)
+                payslip_paths.append(path)
+                payslip_urls.append(url)
+                logger.info("Saved payslip: %s", path)
+                # Keep first payslip in legacy bank_statement_file field
+                if not customer.bank_statement_file:
+                    customer.bank_statement_file = path
+                    logger.info("Set bank_statement_file to: %s", path)
+            except Exception as e:
+                logger.error("Failed to save payslip %s: %s", f.name, e, exc_info=True)
 
         if payslip_urls:
             customer.additional_payslip_files = json.dumps(payslip_paths)
             uploaded["payslips"] = payslip_urls
+            logger.info("Saved %d payslips for customer pk=%s", len(payslip_urls), customer.pk)
 
         # ── Selfie ────────────────────────────────────────────────────────────
-        if "selfie" in request.FILES:
-            f = request.FILES["selfie"]
-            ok, err = _validate_file(f, _ALLOWED_IMAGE_TYPES, "Selfie")
-            if not ok:
-                errors.append(err)
-            else:
-                ext = os.path.splitext(f.name)[1] or ".jpg"
+        selfie = request.FILES.get("selfie")
+        if selfie:
+            try:
+                ext = os.path.splitext(selfie.name)[1] or ".jpg"
+                logger.info("Saving selfie for customer pk=%s", customer.pk)
                 path = default_storage.save(
-                    f"kyc/{customer.pk}/selfie{ext}", ContentFile(f.read())
+                    f"kyc/{customer.pk}/selfie{ext}", ContentFile(selfie.read())
                 )
                 customer.face_recognition_photo = path
                 uploaded["selfie"] = default_storage.url(path)
+                logger.info("Selfie saved successfully, path: %s", path)
+            except Exception as e:
+                logger.error("Failed to save selfie: %s", e, exc_info=True)
+                return _json_error(f"Failed to save selfie: {e}", 500)
 
         if errors:
             return _json_error("; ".join(errors), 422)
 
+        # Log fields before save
+        logger.info("Before save - national_id_file: %s, bank_statement: %s, face_photo: %s",
+                    customer.national_id_file, customer.bank_statement_file, customer.face_recognition_photo)
+
         customer.verification_status = "in_progress"
         customer.save()
+
+        # Log fields after save
+        logger.info("After save - national_id_file: %s, bank_statement: %s, face_photo: %s",
+                    customer.national_id_file, customer.bank_statement_file, customer.face_recognition_photo)
+
         logger.info(
-            "Documents uploaded for customer pk=%s: %s",
+            "Documents uploaded and saved for customer pk=%s: %s",
             customer.pk,
             list(uploaded.keys()),
         )
