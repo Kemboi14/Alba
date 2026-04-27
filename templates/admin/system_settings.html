@@ -1,0 +1,249 @@
+{% extends 'admin/base_admin.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <!-- Header -->
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">System Settings</h2>
+        <p class="text-gray-600">Configure system-wide settings and integrations</p>
+    </div>
+
+    {% if messages %}
+    <div class="mb-6">
+        {% for message in messages %}
+        <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-50 text-green-700 border border-green-200{% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- General Settings -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">General Settings</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Site Name</label>
+                    <input type="text" value="Alba Capital" disabled 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Support Email</label>
+                    <input type="email" value="support@albacapital.com" disabled 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+                    <input type="text" value="Africa/Nairobi" disabled 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600">
+                </div>
+            </div>
+        </div>
+
+        <!-- Odoo Integration Configuration -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:row-span-2">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Odoo Integration</h3>
+                {% if config %}
+                <span class="badge badge-{% if config.connection_status == 'connected' %}success{% elif config.connection_status == 'error' %}error{% else %}neutral{% endif %}">
+                    {{ config.get_connection_status_display }}
+                </span>
+                {% else %}
+                <span class="badge badge-neutral">Not Configured</span>
+                {% endif %}
+            </div>
+
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Odoo URL</label>
+                    <input type="url" name="odoo_url" 
+                           value="{% if config %}{{ config.url }}{% else %}{{ env_config.url }}{% endif %}"
+                           placeholder="https://odoo.albacapital.co.ke"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Base URL of your Odoo instance</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                    <input type="password" name="odoo_api_key" 
+                           value="{% if config %}{{ config.masked_api_key }}{% endif %}"
+                           placeholder="{% if config %}Leave unchanged to keep existing key{% else %}Enter API Key{% endif %}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">X-Alba-API-Key for authentication</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Database Name (Optional)</label>
+                    <input type="text" name="odoo_database"
+                           value="{% if config %}{{ config.database }}{% else %}{{ env_config.database }}{% endif %}"
+                           placeholder="your_odoo_database"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Webhook Secret (Optional)</label>
+                    <input type="password" name="odoo_webhook_secret"
+                           value="{% if config %}{{ config.masked_webhook_secret }}{% endif %}"
+                           placeholder="{% if config %}Leave unchanged to keep existing secret{% else %}Enter Webhook Secret{% endif %}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Outbound Webhook URL (Optional)</label>
+                    <input type="url" name="odoo_webhook_url"
+                           value="{% if config %}{{ config.webhook_url }}{% endif %}"
+                           placeholder="https://yourdomain.com/api/v1/webhooks/odoo/"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">URL where Odoo will send webhooks to Django</p>
+                </div>
+
+                <div class="flex items-center gap-2 pt-2">
+                    <input type="checkbox" name="is_active" id="is_active" {% if not config or config.is_active %}checked{% endif %}
+                           class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="is_active" class="text-sm font-medium text-gray-700">Active</label>
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                        Save Configuration
+                    </button>
+                    <button type="button" id="test-connection-btn" class="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-2">
+                        <i data-lucide="plug" class="w-4 h-4"></i>
+                        Test Connection
+                    </button>
+                </div>
+
+                <!-- Connection Test Result -->
+                <div id="test-result" class="hidden p-4 rounded-lg border"></div>
+            </form>
+
+            {% if config %}
+            <div class="mt-6 pt-4 border-t border-gray-100">
+                <h4 class="text-sm font-semibold text-gray-700 mb-2">Configuration Info</h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Last Updated:</span>
+                        <span class="text-gray-700">{{ config.updated_at|date:"M d, Y H:i" }}</span>
+                    </div>
+                    {% if config.last_sync %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Last Sync:</span>
+                        <span class="text-gray-700">{{ config.last_sync|date:"M d, Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if config.last_error %}
+                    <div class="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs">
+                        <strong>Last Error:</strong> {{ config.last_error }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Security Settings -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Security</h3>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-700">Two-Factor Authentication</span>
+                    <span class="badge badge-neutral">Disabled</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-700">Password Policy</span>
+                    <span class="text-sm font-medium text-gray-900">Strong (8+ chars)</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-700">Session Timeout</span>
+                    <span class="text-sm font-medium text-gray-900">60 minutes</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('test-connection-btn').addEventListener('click', async function() {
+    const btn = this;
+    const resultDiv = document.getElementById('test-result');
+    const urlInput = document.querySelector('input[name="odoo_url"]').value;
+    const apiKeyInput = document.querySelector('input[name="odoo_api_key"]').value;
+    const dbInput = document.querySelector('input[name="odoo_database"]').value;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Testing...';
+
+    try {
+        const response = await fetch('{% url "admin_test_odoo" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                use_test_values: true,
+                url: urlInput,
+                api_key: apiKeyInput,
+                database: dbInput
+            })
+        });
+
+        const data = await response.json();
+
+        resultDiv.classList.remove('hidden', 'bg-green-50', 'bg-red-50', 'border-green-200', 'border-red-200');
+
+        if (data.status === 'success') {
+            resultDiv.classList.add('bg-green-50', 'border', 'border-green-200');
+            resultDiv.innerHTML = `
+                <div class="flex items-center gap-2 text-green-700">
+                    <i data-lucide="check-circle" class="w-5 h-5"></i>
+                    <div>
+                        <strong>Connection Successful!</strong>
+                        <p class="text-sm mt-1">Odoo Version: ${data.version || 'Unknown'}</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            resultDiv.classList.add('bg-red-50', 'border', 'border-red-200');
+            resultDiv.innerHTML = `
+                <div class="flex items-center gap-2 text-red-700">
+                    <i data-lucide="x-circle" class="w-5 h-5"></i>
+                    <div>
+                        <strong>Connection Failed</strong>
+                        <p class="text-sm mt-1">${data.message}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Re-initialize Lucide icons for the new elements
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    } catch (error) {
+        resultDiv.classList.remove('hidden');
+        resultDiv.classList.add('bg-red-50', 'border', 'border-red-200');
+        resultDiv.innerHTML = `
+            <div class="flex items-center gap-2 text-red-700">
+                <i data-lucide="x-circle" class="w-5 h-5"></i>
+                <div>
+                    <strong>Error</strong>
+                    <p class="text-sm mt-1">${error.message}</p>
+                </div>
+            </div>
+        `;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="plug" class="w-4 h-4"></i> Test Connection';
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+});
+</script>
+{% endblock %}

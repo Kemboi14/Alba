@@ -10,6 +10,9 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.views.generic import TemplateView
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 
 from .forms import LoginForm, UserRegistrationForm
 from .models import AuditLog, User
@@ -184,7 +187,7 @@ def logout_view(request):
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
-    """Entry-point dashboard - routes customers to customer portal"""
+    """Entry-point dashboard - routes customers to customer portal, allows admin to Django panel"""
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -195,7 +198,11 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         if user.role == User.CUSTOMER:
             return redirect("customer_dashboard")
 
-        # Non-customer users (staff) should use Odoo admin
+        # Admin role gets access to Django admin panel
+        if user.role == User.ADMIN or user.is_superuser:
+            return redirect("admin_dashboard")
+
+        # Other staff roles (CREDIT_OFFICER, FINANCE_OFFICER, etc.) should use Odoo
         messages.warning(
             request,
             "Staff access is through Odoo. Please use the Odoo portal for administrative functions.",
@@ -333,6 +340,153 @@ class CustomerDashboardView(LoginRequiredMixin, TemplateView):
 
 
 # ---------------------------------------------------------------------------
+# Odoo Webhook Receiver
+# ---------------------------------------------------------------------------
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def odoo_webhook(request):
+    """
+    Receive webhook events from Odoo.
+    Verifies HMAC signature using configured webhook secret.
+    
+    Expected headers:
+        X-Alba-Signature: sha256=<hex_digest>
+    
+    Expected payload (JSON):
+        {
+            "event": "loan.status_changed",
+            "timestamp": "2024-01-15T10:30:00Z",
+            "payload": { ...event specific data... }
+        }
+    """
+    import hashlib
+    import hmac
+    import json
+    from .models import OdooConfig, AuditLog
+    
+    # Get active configuration
+    config = OdooConfig.get_active()
+    if not config or not config.webhook_secret:
+        logger.warning("Odoo webhook received but no configuration or secret found")
+        return JsonResponse(
+            {"error": "Webhook not configured"}, 
+            status=503
+        )
+    
+    # Verify signature
+    signature_header = request.headers.get('X-Alba-Signature', '')
+    if not signature_header.startswith('sha256='):
+        logger.warning("Odoo webhook: invalid signature format")
+        return JsonResponse(
+            {"error": "Invalid signature format"}, 
+            status=401
+        )
+    
+    expected_signature = signature_header[7:]  # Remove 'sha256=' prefix
+    
+    # Calculate expected signature
+    payload_bytes = request.body
+    calculated_signature = hmac.new(
+        config.webhook_secret.encode('utf-8'),
+        payload_bytes,
+        hashlib.sha256
+    ).hexdigest()
+    
+    if not hmac.compare_digest(expected_signature, calculated_signature):
+        logger.warning("Odoo webhook: signature verification failed")
+        return JsonResponse(
+            {"error": "Signature verification failed"}, 
+            status=401
+        )
+    
+    # Parse payload
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        logger.error("Odoo webhook: invalid JSON payload")
+        return JsonResponse(
+            {"error": "Invalid JSON payload"}, 
+            status=400
+        )
+    
+    event_type = data.get('event', 'unknown')
+    event_payload = data.get('payload', {})
+    
+    logger.info(f"Odoo webhook received: {event_type}")
+    
+    # Process different event types
+    try:
+        if event_type == 'loan.status_changed':
+            _handle_loan_status_change(event_payload)
+        elif event_type == 'payment.received':
+            _handle_payment_received(event_payload)
+        elif event_type == 'customer.updated':
+            _handle_customer_updated(event_payload)
+        else:
+            logger.info(f"Odoo webhook: unhandled event type {event_type}")
+        
+        # Log the webhook receipt
+        AuditLog.objects.create(
+            action='WEBHOOK_RECEIVED',
+            model_name='OdooWebhook',
+            description=f"Received {event_type} webhook from Odoo",
+            user=None  # System action
+        )
+        
+        return JsonResponse({
+            "status": "success",
+            "event": event_type,
+            "processed": True
+        })
+        
+    except Exception as e:
+        logger.error(f"Odoo webhook processing error: {e}")
+        return JsonResponse(
+            {"error": "Processing failed", "details": str(e)}, 
+            status=500
+        )
+
+
+def _handle_loan_status_change(payload):
+    """Handle loan status change events from Odoo."""
+    from loans.models import LoanApplication
+    
+    odoo_loan_id = payload.get('loan_id')
+    new_status = payload.get('status')
+    
+    if not odoo_loan_id:
+        return
+    
+    # Find and update local loan application
+    try:
+        loan = LoanApplication.objects.filter(odoo_loan_id=odoo_loan_id).first()
+        if loan and new_status:
+            loan.status = new_status
+            loan.save(update_fields=['status', 'updated_at'])
+            logger.info(f"Updated loan {loan.id} status to {new_status}")
+    except Exception as e:
+        logger.error(f"Failed to update loan status: {e}")
+
+
+def _handle_payment_received(payload):
+    """Handle payment received events from Odoo."""
+    from loans.models import LoanApplication
+    
+    odoo_loan_id = payload.get('loan_id')
+    amount = payload.get('amount')
+    
+    logger.info(f"Payment received for loan {odoo_loan_id}: KES {amount}")
+    # Additional payment processing logic here
+
+
+def _handle_customer_updated(payload):
+    """Handle customer updated events from Odoo."""
+    logger.info(f"Customer update event received: {payload.get('customer_id')}")
+    # Sync customer data from Odoo if needed
+
+
 # Error handlers
 # ---------------------------------------------------------------------------
 

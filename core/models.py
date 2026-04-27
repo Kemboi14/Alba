@@ -228,3 +228,86 @@ class AuditLog(models.Model):
         user_email = self.user.email if self.user else 'System'
         return f"{user_email} - {self.action} - {self.model_name} - {self.timestamp}"
 
+
+class OdooConfig(models.Model):
+    """
+    Odoo API configuration stored in database.
+    Allows admin panel management of Odoo integration settings.
+    Falls back to environment variables if not configured.
+    """
+
+    url = models.URLField(
+        'Odoo URL',
+        help_text='Base URL of the Odoo instance, e.g., https://odoo.albacapital.co.ke'
+    )
+    api_key = models.CharField(
+        'API Key',
+        max_length=255,
+        help_text='X-Alba-API-Key for authenticating with Odoo'
+    )
+    database = models.CharField(
+        'Database',
+        max_length=100,
+        blank=True,
+        help_text='Odoo database name (optional)'
+    )
+    webhook_secret = models.CharField(
+        'Webhook Secret',
+        max_length=255,
+        blank=True,
+        help_text='Secret for verifying webhook signatures'
+    )
+    webhook_url = models.URLField(
+        'Outbound Webhook URL',
+        blank=True,
+        help_text='URL where Odoo sends webhooks (e.g., https://yourdomain.com/api/v1/webhooks/odoo/)'
+    )
+    is_active = models.BooleanField('Active', default=True)
+    connection_status = models.CharField(
+        'Connection Status',
+        max_length=20,
+        default='unknown',
+        choices=[
+            ('unknown', 'Unknown'),
+            ('connected', 'Connected'),
+            ('error', 'Error'),
+        ]
+    )
+    last_sync = models.DateTimeField('Last Sync', null=True, blank=True)
+    last_error = models.TextField('Last Error', blank=True)
+    created_at = models.DateTimeField('Created At', auto_now_add=True)
+    updated_at = models.DateTimeField('Updated At', auto_now=True)
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='odoo_config_updates'
+    )
+
+    class Meta:
+        db_table = 'odoo_config'
+        verbose_name = 'Odoo Configuration'
+        verbose_name_plural = 'Odoo Configuration'
+
+    def __str__(self):
+        return f"Odoo Config ({self.url}) - {'Active' if self.is_active else 'Inactive'}"
+
+    @classmethod
+    def get_active(cls):
+        """Get the active configuration or None."""
+        return cls.objects.filter(is_active=True).first()
+
+    def mask_secret(self, secret):
+        """Mask a secret for display - show only last 4 chars."""
+        if not secret or len(secret) <= 4:
+            return '****'
+        return '*' * (len(secret) - 4) + secret[-4:]
+
+    @property
+    def masked_api_key(self):
+        return self.mask_secret(self.api_key)
+
+    @property
+    def masked_webhook_secret(self):
+        return self.mask_secret(self.webhook_secret)
