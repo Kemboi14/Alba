@@ -650,28 +650,6 @@
                                 Upload your ID, payslips, and face photo. Our AI will extract information and auto-fill form fields.
                             </p>
 
-                            <!-- Uploaded doc badges -->
-                            <div class="flex flex-wrap gap-2 mb-5">
-                                {% if customer.national_id_file %}
-                                <span class="badge {% if customer.national_id_verified %}badge-green{% else %}badge-yellow{% endif %}">
-                                    {% if customer.national_id_verified %}&#10003;{% else %}&#128196;{% endif %} National ID
-                                    <a href="{{ customer.national_id_file.url }}" target="_blank" class="underline ml-1">View</a>
-                                </span>
-                                {% endif %}
-                                {% if customer.bank_statement_file %}
-                                <span class="badge {% if customer.bank_statement_verified %}badge-green{% else %}badge-yellow{% endif %}">
-                                    {% if customer.bank_statement_verified %}&#10003;{% else %}&#128196;{% endif %} Bank Statement
-                                    <a href="{{ customer.bank_statement_file.url }}" target="_blank" class="underline ml-1">View</a>
-                                </span>
-                                {% endif %}
-                                {% if customer.face_recognition_photo %}
-                                <span class="badge {% if customer.face_recognition_verified %}badge-green{% else %}badge-yellow{% endif %}">
-                                    {% if customer.face_recognition_verified %}&#10003;{% else %}&#128247;{% endif %} Face Photo
-                                    <a href="{{ customer.face_recognition_photo.url }}" target="_blank" class="underline ml-1">View</a>
-                                </span>
-                                {% endif %}
-                            </div>
-
                             <!-- ── KYC Verification Status (from Odoo) ── -->
                             {% if kyc_verified %}
                             <div class="mb-5 rounded-lg border border-green-200 bg-green-50 p-4">
@@ -770,74 +748,6 @@
                                 </div>
                             </div>
                             {% endif %}
-
-                            <!-- Upload zones — drag & drop friendly -->
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-                                <!-- National ID Upload -->
-                                <div class="upload-zone {% if customer.national_id_file %}has-file{% endif %}" id="zone-id">
-                                    {{ form.national_id_file }}
-                                    <div class="pointer-events-none">
-                                        {% if customer.national_id_file %}
-                                        <div class="flex flex-col items-center gap-1">
-                                            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                            <span class="text-xs font-medium text-green-700">ID Uploaded</span>
-                                            <span class="text-xs text-gray-400">Drop to replace</span>
-                                        </div>
-                                        {% else %}
-                                        <div class="flex flex-col items-center gap-1.5">
-                                            <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                            <span class="text-xs font-semibold text-gray-600">National ID</span>
-                                            <span class="text-xs text-gray-400">Drop or click</span>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-
-                                <!-- Bank Statement Upload -->
-                                <div class="upload-zone {% if customer.bank_statement_file %}has-file{% endif %}" id="zone-bank">
-                                    {{ form.bank_statement_file }}
-                                    <div class="pointer-events-none">
-                                        {% if customer.bank_statement_file %}
-                                        <div class="flex flex-col items-center gap-1">
-                                            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                            <span class="text-xs font-medium text-green-700">Statement Uploaded</span>
-                                            <span class="text-xs text-gray-400">Drop to replace</span>
-                                        </div>
-                                        {% else %}
-                                        <div class="flex flex-col items-center gap-1.5">
-                                            <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                            <span class="text-xs font-semibold text-gray-600">Bank Statement</span>
-                                            <span class="text-xs text-gray-400">Drop or click</span>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-
-                                <!-- Face Photo Upload -->
-                                <div class="upload-zone {% if customer.face_recognition_photo %}has-file{% endif %}" id="zone-selfie">
-                                    {{ form.face_recognition_photo }}
-                                    <div class="pointer-events-none">
-                                        {% if customer.face_recognition_photo %}
-                                        <div class="flex flex-col items-center gap-1">
-                                            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                            <span class="text-xs font-medium text-green-700">Photo Uploaded</span>
-                                            <span class="text-xs text-gray-400">Drop to replace</span>
-                                        </div>
-                                        {% else %}
-                                        <div class="flex flex-col items-center gap-1.5">
-                                            <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                            <span class="text-xs font-semibold text-gray-600">Face Photo</span>
-                                            <span class="text-xs text-gray-400">Drop or click</span>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Verification banner -->
-                            <div id="verification-banner" class="alert hidden mb-4" role="status" aria-live="polite">
-                                <p id="verification-banner-text" class="text-sm font-medium"></p>
-                            </div>
 
                             <!-- React Verification Wizard -->
                             <div class="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
