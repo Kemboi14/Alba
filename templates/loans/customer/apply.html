@@ -4,15 +4,34 @@
     .loan-product-card {
         transition: all 0.25s ease;
         cursor: pointer;
+        border: 2px solid transparent;
+        position: relative;
     }
     .loan-product-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.12);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12);
+        border-color: #fed7aa;
     }
     .loan-product-card.selected {
         border-color: #ff805d;
-        background-color: #fff7f4;
-        box-shadow: 0 0 0 2px rgba(255, 128, 93, 0.27);
+        background: linear-gradient(135deg, #fff7f4 0%, #fff0eb 100%);
+        box-shadow: 0 4px 20px rgba(255, 128, 93, 0.25), inset 0 0 0 2px #ff805d;
+        transform: translateY(-4px);
+    }
+    .loan-product-card.selected::after {
+        content: "✓ Selected";
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: linear-gradient(135deg, #ff805d 0%, #ff6b3d 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        box-shadow: 0 2px 8px rgba(255, 128, 93, 0.4);
     }
 
     /* ── Range slider — cross-browser reset ────────────────────────────────── */
@@ -62,30 +81,72 @@
         font-weight: 500;
         cursor: pointer;
         white-space: nowrap;
+        position: relative;
     }
     .tenure-btn:hover:not(:disabled) {
         border-color: #ff805d;
         color: #ff805d;
+        transform: translateY(-1px);
     }
     .tenure-btn.active {
-        background: #ff805d;
+        background: linear-gradient(135deg, #ff805d 0%, #ff6b3d 100%);
         border-color: #ff805d;
         color: #fff;
-        box-shadow: 0 1px 4px rgba(255, 128, 93, 0.4);
+        box-shadow: 0 2px 8px rgba(255, 128, 93, 0.4);
+        transform: translateY(-1px);
+    }
+    .tenure-btn.active::after {
+        content: "✓";
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 14px;
+        height: 14px;
+        background: #166534;
+        border-radius: 50%;
+        font-size: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
     }
     .tenure-btn:disabled {
         opacity: 0.35;
         cursor: not-allowed;
+        transform: none;
     }
 
     /* ── Calc product selector buttons ────────────────────────────────────── */
     .calc-product-btn {
         transition: all 0.2s ease;
+        position: relative;
+    }
+    .calc-product-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
     .calc-product-btn.calc-active {
         border-color: #ff805d !important;
-        background-color: #fff7f4;
-        box-shadow: 0 2px 8px rgba(255, 128, 93, 0.25);
+        background: linear-gradient(135deg, #fff7f4 0%, #fff0eb 100%);
+        box-shadow: 0 4px 16px rgba(255, 128, 93, 0.3), inset 0 0 0 2px #ff805d;
+        transform: translateY(-2px);
+    }
+    .calc-product-btn.calc-active::before {
+        content: "✓ Selected";
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #ff805d 0%, #ff6b3d 100%);
+        color: white;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        white-space: nowrap;
+        box-shadow: 0 2px 4px rgba(255, 128, 93, 0.3);
     }
 
     /* ── Result breakdown bar ──────────────────────────────────────────────── */
@@ -1432,16 +1493,25 @@
         buildTenureButtons();
         updateTenureLabel();
 
-        // If the page is returned after a failed POST (Django re-renders form with
-        // errors and the product is already selected), auto-activate it in the widget
+        // Auto-select Salary Advance as default product
+        var defaultProductId = {{ default_product_id|default:'null' }};
         var formProduct = document.getElementById(
             "{{ form.loan_product.id_for_label }}",
         );
+        
+        // Priority: 1) Form value if set, 2) Default Salary Advance product
+        var productToSelect = null;
         if (formProduct && formProduct.value) {
+            productToSelect = formProduct.value;
+        } else if (defaultProductId) {
+            productToSelect = defaultProductId;
+            // Also set the form select to default
+            if (formProduct) formProduct.value = defaultProductId;
+        }
+        
+        if (productToSelect) {
             var preBtn = document.querySelector(
-                '.calc-product-btn[data-product-id="' +
-                    formProduct.value +
-                    '"]',
+                '.calc-product-btn[data-product-id="' + productToSelect + '"]',
             );
             if (preBtn) preBtn.click();
         }

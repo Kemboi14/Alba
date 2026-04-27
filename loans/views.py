@@ -298,7 +298,26 @@ def apply_for_loan(request):
             )
             return redirect("loans:application_detail", pk=application.pk)
     else:
-        form = LoanApplicationForm()
+        # Get default Salary Advance product for initial form data
+        default_product = LoanProduct.objects.filter(
+            category=LoanProduct.SALARY_ADVANCE, is_active=True
+        ).first()
+        
+        initial_data = {}
+        if default_product:
+            initial_data = {
+                "loan_product": default_product.id,
+                "requested_amount": 30000,  # Mid-range default for salary advance
+                "tenure_months": 3,  # Common default tenure
+                "repayment_frequency": LoanProduct.MONTHLY,
+            }
+        
+        form = LoanApplicationForm(initial=initial_data)
+
+    # Get default product for template calculator initialization
+    default_product = LoanProduct.objects.filter(
+        category=LoanProduct.SALARY_ADVANCE, is_active=True
+    ).first()
 
     return render(
         request,
@@ -307,6 +326,8 @@ def apply_for_loan(request):
             "form": form,
             "products": LoanProduct.objects.filter(is_active=True),
             "customer": customer,
+            "default_product": default_product,
+            "default_product_id": default_product.id if default_product else None,
         },
     )
 
