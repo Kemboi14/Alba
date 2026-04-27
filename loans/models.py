@@ -509,8 +509,8 @@ class Customer(models.Model):
     def get_kyc_completion_percentage(self):
         """Calculate KYC completion percentage.
 
-        Profile fields count as filled, but document fields only count
-        when they have been *verified* (not just uploaded).
+        Profile fields and document fields count as filled when they have
+        been provided (uploaded). Verification status is tracked separately.
         """
         fields = [
             bool(self.id_number),
@@ -518,9 +518,9 @@ class Customer(models.Model):
             bool(self.address),
             bool(self.monthly_income),
             bool(self.employer_name),
-            bool(self.national_id_file) and self.national_id_verified,
-            bool(self.bank_statement_file) and self.bank_statement_verified,
-            bool(self.face_recognition_photo) and self.face_recognition_verified,
+            bool(self.national_id_file),  # Count if uploaded, regardless of verification
+            bool(self.bank_statement_file),
+            bool(self.face_recognition_photo),
         ]
         completed = sum(fields)
         total = len(fields)
