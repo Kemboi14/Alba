@@ -261,19 +261,8 @@ class CustomerDashboardView(LoginRequiredMixin, TemplateView):
             context["has_bank_statement"] = bool(customer_profile.bank_statement_file)
             context["has_face_photo"] = bool(customer_profile.face_recognition_photo)
 
-            kyc_fields = [
-                customer_profile.id_number,
-                customer_profile.date_of_birth,
-                customer_profile.address,
-                customer_profile.monthly_income,
-                customer_profile.employer_name,
-                customer_profile.national_id_file,
-                customer_profile.bank_statement_file,
-                customer_profile.face_recognition_photo,
-            ]
-            context["kyc_completion"] = int(
-                sum(1 for f in kyc_fields if f) / len(kyc_fields) * 100
-            )
+            # Use the model's method for consistent calculation
+            context["kyc_completion"] = customer_profile.get_kyc_completion_percentage()
 
             applications = LoanApplication.objects.filter(  # type: ignore[attr-defined]
                 customer=customer_profile
