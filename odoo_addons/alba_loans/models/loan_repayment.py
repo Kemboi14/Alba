@@ -331,14 +331,13 @@ class AlbaLoanRepayment(models.Model):
         principal = 0.0
 
         # Pull overdue/pending schedule entries ordered by due_date asc
-        # Use row-level locking to prevent concurrent payments from over-allocating
         schedule = self.env["alba.repayment.schedule"].search(
             [
                 ("loan_id", "=", self.loan_id.id),
                 ("balance_due", ">", 0),
             ],
             order="due_date asc",
-        ).with_for_update()
+        )
 
         # Calculate other charges and penalties first (based on overdue days)
         for entry in schedule:
