@@ -3,11 +3,11 @@
 <data>
 
     <!-- ================================================================
-         Alba Loans — Top-level Menu
+         Loans — Top-level Menu
          ================================================================ -->
     <menuitem
             id="menu_alba_loans_root"
-            name="Alba Loans"
+            name="Loans"
             sequence="10"
             web_icon="alba_loans,static/description/icon.png"
             groups="alba_loans.group_loan_user"

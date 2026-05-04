@@ -35,6 +35,14 @@
                             invisible="state != 'confirmed'"
                             groups="alba_investors.group_investor_manager"
                         />
+                    <button
+                            name="%(alba_investors.action_report_investment_statement)d"
+                            string="Print / Download"
+                            type="action"
+                            class="btn-info"
+                            icon="fa-file-pdf-o"
+                            invisible="state == 'draft'"
+                        />
                     <field
                             name="state"
                             widget="statusbar"
@@ -184,6 +192,13 @@
                         decoration-muted="state == 'draft'"
                     />
                 <field name="currency_id" column_invisible="1" />
+                <button
+                        name="%(alba_investors.action_report_investment_statement)d"
+                        type="action"
+                        icon="fa-file-pdf-o"
+                        title="Print / Download PDF"
+                        invisible="state == 'draft'"
+                    />
             </list>
         </field>
     </record>

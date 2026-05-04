@@ -3,11 +3,11 @@
 <data>
 
     <!-- ================================================================
-         Root menu — Alba SMS
+         Root menu — SMS
          ================================================================ -->
     <menuitem
             id="menu_alba_sms_root"
-            name="Alba SMS"
+            name="SMS"
             sequence="40"
             web_icon="alba_sms,static/description/icon.png"
             groups="alba_sms.group_sms_user"

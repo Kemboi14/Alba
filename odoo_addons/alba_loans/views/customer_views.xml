@@ -172,8 +172,8 @@
                                     <list string="Documents" decoration-info="state == 'draft'" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'" editable="bottom">
                                         <field name="name"/>
                                         <field name="document_type"/>
-                                        <field name="attachment_id" widget="many2one_binary" string="File"/>
-                                        <field name="create_date" string="Uploaded" widget="date" readonly="1"/>
+                                        <field name="attachment_id" string="File"/>
+                                        <field name="create_date" string="Uploaded" widget="datetime" readonly="1"/>
                                         <field name="state" widget="badge"
                                                decoration-success="state == 'verified'"
                                                decoration-warning="state == 'draft'"

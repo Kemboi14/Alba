@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 {
-    "name": "Alba Capital - Django Integration Bridge",
+    "name": "Integration",
     "version": "19.0.1.0.0",
     "category": "Technical",
     "summary": "REST API bridge, M-Pesa callbacks, webhook retry queue and sync audit log for the Django portal",
     "description": """
-Alba Capital - Django Integration Bridge
-=========================================
+Django Integration Bridge
+========================
 
 This module is the integration layer between the Alba Capital Django customer
 portal and Odoo Enterprise.  It exposes REST API endpoints that the Django

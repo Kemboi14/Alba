@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 {
-    "name": "Alba Capital - Bulk SMS",
+    "name": "SMS",
     "version": "19.0.1.1.0",
     "category": "Technical",
     "summary": "Outbound SMS notifications and bulk campaigns for loans, collections, repayments and investor communications",
     "description": """
-Alba Capital - Bulk SMS Module
-================================
+Bulk SMS Module
+================
 
 Adds a fully configurable outbound SMS layer on top of the Alba Capital loan
 and investor management modules.  All SMS activity is purely additive — the
