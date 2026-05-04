@@ -61,13 +61,11 @@
                             <field name="phone"/>
                             <field name="email"/>
                             <field name="address"/>
-                            <field name="county"/>
-                            <field name="sub_county"/>
                         </group>
                     </group>
                     <group>
                         <group string="Employment">
-                            <field name="employer_name"/>
+                            <field name="employer_id" options="{'no_create_edit': False, 'no_open': False}"/>
                             <field name="employer_phone"/>
                             <field name="job_title"/>
                             <field name="monthly_income"/>

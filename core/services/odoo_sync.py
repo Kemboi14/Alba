@@ -185,6 +185,24 @@ class OdooSyncService:
         """
         return self._get("/alba/api/v1/health")
 
+    def download_report(self, report_xml_id: str, res_id: int) -> str:
+        """
+        Fetch a PDF report from Odoo for a specific record.
+
+        Args:
+            report_xml_id: The full XML ID of the report, e.g. 'alba_loans.loan_application_report'
+            res_id: The ID of the record to generate the report for.
+
+        Returns:
+            str: Base64 encoded PDF content.
+
+        Raises:
+            OdooSyncError: On any API failure.
+        """
+        endpoint = f"/alba/api/v1/reports/{report_xml_id}/{res_id}"
+        result = self._get(endpoint)
+        return result.get("pdf_content", "")
+
     def get_loan_products(self) -> list[dict]:
         """
         Fetch the list of active loan products from Odoo.
@@ -895,7 +913,15 @@ def _build_application_payload(application) -> dict:
         payload["loan_product_code"] = getattr(loan_product, "code", "") or ""
 
     # Optional fields
-    for field in ("approved_amount", "conditions_of_approval", "internal_notes"):
+    for field in (
+        "approved_amount",
+        "conditions_of_approval",
+        "internal_notes",
+        "business_name",
+        "business_registration_number",
+        "business_location",
+        "annual_turnover",
+    ):
         value = getattr(application, field, None)
         if value is not None:
             payload[field] = value

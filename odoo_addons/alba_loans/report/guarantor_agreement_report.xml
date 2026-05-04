@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="action_report_guarantor_agreement" model="ir.actions.report">
+            <field name="name">Guarantor Agreement</field>
+            <field name="model">alba.loan.guarantor</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">alba_loans.report_guarantor_agreement_template</field>
+            <field name="report_file">alba_loans.report_guarantor_agreement_template</field>
+            <field name="print_report_name">'Guarantor Agreement - %s' % (object.guarantor_id.name)</field>
+        </record>
+
+        <template id="report_guarantor_agreement_template">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="o">
+                    <t t-call="web.external_layout">
+                        <div class="page" style="font-family: 'Helvetica', sans-serif; line-height: 1.6;">
+                            <div class="text-center mb-5">
+                                <h2 class="text-primary fw-bold" style="text-decoration: underline;">GUARANTOR AGREEMENT</h2>
+                                <h5 class="text-muted">Application Ref: <span t-field="o.loan_application_id.application_number"/></h5>
+                            </div>
+
+                            <p>This <strong>GUARANTOR AGREEMENT</strong> is made on this <span t-esc="context_today().strftime('%d')"/> day of <span t-esc="context_today().strftime('%B, %Y')"/> by and between:</p>
+
+                            <div class="ms-4">
+                                <p><strong>1. THE GUARANTOR:</strong> <span t-field="o.guarantor_id.name"/> of ID Number <span t-field="o.guarantor_id.id_number"/>, having a physical address at <span t-field="o.guarantor_id.address"/>.</p>
+                                <p><strong>2. THE LENDER:</strong> ALBA CAPITAL LIMITED, a company incorporated in Kenya.</p>
+                            </div>
+
+                            <h5 class="mt-4 text-primary border-bottom pb-1">1. GUARANTEE OBLIGATION</h5>
+                            <p>In consideration of the Lender granting a loan of <strong><span t-field="o.loan_application_id.currency_id.symbol"/> <span t-field="o.loan_application_id.requested_amount"/></strong> to <strong><span t-field="o.customer_id.partner_id.name"/></strong> (the "Borrower"), the Guarantor hereby unconditionally guarantees the repayment of <strong><span t-field="o.currency_id.symbol"/> <span t-field="o.guarantee_amount"/></strong> plus any accrued interest and penalties that may arise should the Borrower default.</p>
+
+                            <h5 class="mt-4 text-primary border-bottom pb-1">2. NATURE OF LIABILITY</h5>
+                            <p>The Guarantor's liability shall be as a primary obligor and not merely as a surety. The Lender shall not be required to exhaust its remedies against the Borrower before proceeding against the Guarantor.</p>
+
+                            <h5 class="mt-4 text-primary border-bottom pb-1">3. RECOVERY</h5>
+                            <p>The Guarantor authorizes the Lender to recover any outstanding amounts from their monthly income, bank accounts, or other assets should the Borrower fail to fulfill the repayment obligations.</p>
+
+                            <div class="row mt-5 pt-5">
+                                <div class="col-6">
+                                    <p class="fw-bold">SIGNED BY THE GUARANTOR:</p>
+                                    <div style="border-bottom: 1px solid #333; width: 80%; margin-top: 50px;"/>
+                                    <p class="mt-2 text-muted">Date: ____________________</p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="fw-bold">FOR ALBA CAPITAL LIMITED:</p>
+                                    <div style="border-bottom: 1px solid #333; width: 80%; margin-top: 50px;"/>
+                                    <p class="mt-2 text-muted">Date: ____________________</p>
+                                </div>
+                            </div>
+
+                            <div class="footer o_standard_footer mt-5 text-center text-muted small">
+                                <p>Alba Capital Ltd • Registered in the Republic of Kenya</p>
+                            </div>
+                        </div>
+                    </t>
+                </t>
+            </t>
+        </template>
+    </data>
+</odoo>

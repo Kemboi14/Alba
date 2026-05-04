@@ -42,6 +42,15 @@
                             <field name="name" readonly="1"/>
                         </h1>
                     </div>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_loan" string="View Loan" type="object" class="oe_stat_button" icon="fa-arrow-right"/>
+                    </div>
+                    <widget name="web_ribbon" text="Draft" bg_color="bg-warning" invisible="state != 'draft'"/>
+                    <widget name="web_ribbon" text="Pending" bg_color="bg-info" invisible="state != 'pending'"/>
+                    <widget name="web_ribbon" text="Approved" bg_color="bg-success" invisible="state != 'approved'"/>
+                    <widget name="web_ribbon" text="Disbursed" bg_color="bg-primary" invisible="state != 'disbursed'"/>
+                    <widget name="web_ribbon" text="Rejected" bg_color="bg-danger" invisible="state != 'rejected'"/>
+                    <widget name="web_ribbon" text="Cancelled" bg_color="bg-secondary" invisible="state != 'cancelled'"/>
                     <group>
                         <group string="Loan Details">
                             <field name="loan_id" options="{'no_create': True}" readonly="state != 'draft'"/>
@@ -157,7 +166,7 @@
     <record id="action_loan_topup" model="ir.actions.act_window">
         <field name="name">Loan Top-Ups</field>
         <field name="res_model">alba.loan.topup</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,form,graph</field>
         <field name="search_view_id" ref="view_loan_topup_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
@@ -166,6 +175,18 @@
             <p>
                 Top-ups allow customers to increase their loan principal without going through a full restructure.
             </p>
+        </field>
+    </record>
+
+    <!-- Top-Up Graph View -->
+    <record id="view_loan_topup_graph" model="ir.ui.view">
+        <field name="name">alba.loan.topup.graph</field>
+        <field name="model">alba.loan.topup</field>
+        <field name="arch" type="xml">
+            <graph string="Loan Top-Ups" type="line">
+                <field name="create_date" type="row"/>
+                <field name="topup_amount" type="measure"/>
+            </graph>
         </field>
     </record>
 

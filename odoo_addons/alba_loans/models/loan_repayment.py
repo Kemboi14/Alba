@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from markupsafe import Markup
 
 
 class AlbaLoanRepayment(models.Model):
@@ -155,6 +156,56 @@ class AlbaLoanRepayment(models.Model):
         copy=False,
         index=True,
     )
+
+    def _log_professional_status_change(self, old_state, new_state):
+        """Post a professional, formatted message to the chatter on status change."""
+        state_labels = dict(self._fields['state'].selection)
+        old_label = state_labels.get(old_state, old_state)
+        new_label = state_labels.get(new_state, new_state)
+        
+        icon = "💸" if new_state == "posted" else "ℹ️"
+        if new_state == "reversed": icon = "🔄"
+        
+        body = (
+            "<div class='o_alba_status_change'>"
+            "<strong>%s Repayment Status Changed</strong><br/>"
+            "From: <span class='badge badge-secondary' style='color: #666;'>%s</span> "
+            "To: <span class='badge badge-primary' style='background-color: #004a99; color: white; padding: 2px 6px; border-radius: 4px;'>%s</span><br/>"
+            "Changed by: %s"
+            "</div>"
+        ) % (icon, old_label.upper(), new_label.upper(), self.env.user.name)
+        
+        self.message_post(body=body, subtype_xmlid="mail.mt_comment")
+
+    def _fire_repayment_webhook(self, event_type):
+        """Fire a webhook to Django when a repayment is posted or reversed."""
+        api_key = self.env["alba.api.key"].sudo().search([("is_active", "=", True)], limit=1)
+        if not api_key:
+            return
+        
+        payload = {
+            "odoo_payment_id": self.id,
+            "payment_reference": self.payment_reference,
+            "django_payment_id": self.django_payment_id or 0,
+            "odoo_loan_id": self.loan_id.id,
+            "django_loan_id": self.loan_id.django_loan_id or 0,
+            "amount_paid": float(self.amount_paid),
+            "state": self.state,
+            "payment_date": str(self.payment_date),
+            "outstanding_balance": float(self.loan_id.outstanding_balance),
+        }
+        api_key.send_webhook(event_type, payload)
+
+    def write(self, vals):
+        if 'state' in vals:
+            for rec in self:
+                if rec.state != vals['state']:
+                    rec._log_professional_status_change(rec.state, vals['state'])
+                    if vals['state'] == 'posted':
+                        rec._fire_repayment_webhook("loan.repayment_posted")
+                    elif vals['state'] == 'reversed':
+                        rec._fire_repayment_webhook("loan.repayment_reversed")
+        return super().write(vals)
 
     # ── Accounting ────────────────────────────────────────────────────────────
     move_id = fields.Many2one(
@@ -672,7 +723,7 @@ class AlbaLoanRepayment(models.Model):
 
         self.write({"state": "reversed"})
         self.message_post(
-            body=_("Repayment <b>reversed</b>. Reason: %s") % self.reversal_reason
+            body=Markup(_("Repayment <b>reversed</b>. Reason: %s")) % self.reversal_reason
         )
         return True
 

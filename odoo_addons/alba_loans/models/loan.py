@@ -3,6 +3,7 @@ from datetime import date
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from markupsafe import Markup
 
 
 class AlbaLoan(models.Model):
@@ -121,6 +122,35 @@ class AlbaLoan(models.Model):
         index=True,
     )
 
+    def _log_professional_status_change(self, old_state, new_state):
+        """Post a professional, formatted message to the chatter on status change."""
+        state_labels = dict(self._fields['state'].selection)
+        old_label = state_labels.get(old_state, old_state)
+        new_label = state_labels.get(new_state, new_state)
+        
+        icon = "📈" if new_state == "active" else "ℹ️"
+        if new_state == "closed": icon = "✅"
+        if new_state == "npl": icon = "🔴"
+        if new_state == "written_off": icon = "🗑️"
+        
+        body = (
+            "<div class='o_alba_status_change'>"
+            "<strong>%s Loan Status Changed</strong><br/>"
+            "From: <span class='badge badge-secondary' style='color: #666;'>%s</span> "
+            "To: <span class='badge badge-primary' style='background-color: #004a99; color: white; padding: 2px 6px; border-radius: 4px;'>%s</span><br/>"
+            "Changed by: %s"
+            "</div>"
+        ) % (icon, old_label.upper(), new_label.upper(), self.env.user.name)
+        
+        self.message_post(body=body, subtype_xmlid="mail.mt_comment")
+
+    def write(self, vals):
+        if 'state' in vals:
+            for rec in self:
+                if rec.state != vals['state']:
+                    rec._log_professional_status_change(rec.state, vals['state'])
+        return super().write(vals)
+
     # ── Financial Totals ──────────────────────────────────────────────────────
     total_repayable = fields.Monetary(
         string="Total Repayable",
@@ -224,6 +254,25 @@ class AlbaLoan(models.Model):
     repayment_count = fields.Integer(
         string="Payments",
         compute="_compute_repayment_count",
+    )
+
+    # ── UX Helpers ────────────────────────────────────────────────────────────
+    repayment_progress = fields.Integer(
+        string="Repayment Progress %",
+        compute="_compute_ux_helpers",
+    )
+    next_payment_due_date = fields.Date(
+        string="Next Payment Due Date",
+        compute="_compute_ux_helpers",
+    )
+    next_payment_amount = fields.Monetary(
+        string="Next Payment Amount",
+        currency_field="currency_id",
+        compute="_compute_ux_helpers",
+    )
+    days_until_due = fields.Integer(
+        string="Days Until Due",
+        compute="_compute_ux_helpers",
     )
     remaining_tenure = fields.Integer(
         string="Remaining Tenure (Months)",
@@ -365,6 +414,27 @@ class AlbaLoan(models.Model):
         for rec in self:
             rec.repayment_count = len(rec.repayment_ids)
 
+    def _compute_ux_helpers(self):
+        today = fields.Date.today()
+        for rec in self:
+            # Repayment Progress
+            if rec.total_repayable > 0:
+                rec.repayment_progress = min(100, int((rec.total_paid / rec.total_repayable) * 100))
+            else:
+                rec.repayment_progress = 0
+            
+            # Next Payment Info
+            unpaid_schedule = rec.repayment_schedule_ids.filtered(lambda s: s.status != "paid").sorted("due_date")
+            if unpaid_schedule:
+                next_item = unpaid_schedule[0]
+                rec.next_payment_due_date = next_item.due_date
+                rec.next_payment_amount = next_item.balance_due
+                rec.days_until_due = (next_item.due_date - today).days
+            else:
+                rec.next_payment_due_date = False
+                rec.next_payment_amount = 0.0
+                rec.days_until_due = 0
+
     @api.depends("topup_ids", "topup_ids.state", "partial_payoff_ids", "state", "days_in_arrears")
     def _compute_modification_counts(self):
         for rec in self:
@@ -492,9 +562,9 @@ class AlbaLoan(models.Model):
                 self.env["alba.repayment.schedule"].create(schedule_vals)
                 rec.write({"schedule_generated": True})
                 rec.message_post(
-                    body=_(
+                    body=Markup(_(
                         "Repayment schedule generated: <b>%d</b> instalments from <b>%s</b> to <b>%s</b>."
-                    )
+                    ))
                     % (
                         len(schedule_vals),
                         schedule_vals[0]["due_date"],
@@ -573,7 +643,7 @@ class AlbaLoan(models.Model):
         move.action_post()
         self.write({"disbursement_move_id": move.id})
         self.message_post(
-            body=_("Disbursement journal entry <a href='#'>%s</a> posted for KES %s.")
+            body=Markup(_("Disbursement journal entry <a href='#'>%s</a> posted for KES %s."))
             % (move.name, f"{self.principal_amount:,.2f}")
         )
         return move
@@ -581,12 +651,12 @@ class AlbaLoan(models.Model):
     def action_mark_npl(self):
         self.ensure_one()
         self.write({"state": "npl"})
-        self.message_post(body=_("Loan marked as <b>Non-Performing (NPL)</b>."))
+        self.message_post(body=Markup(_("Loan marked as <b>Non-Performing (NPL)</b>.")))
 
     def action_write_off(self):
         self.ensure_one()
         self.write({"state": "written_off"})
-        self.message_post(body=_("Loan has been <b>Written Off</b>."))
+        self.message_post(body=Markup(_("Loan has been <b>Written Off</b>.")))
 
     def action_close(self):
         self.ensure_one()
@@ -596,7 +666,7 @@ class AlbaLoan(models.Model):
                 % (self.loan_number, f"{self.outstanding_balance:,.2f}")
             )
         self.write({"state": "closed"})
-        self.message_post(body=_("Loan marked as <b>Closed / Fully Repaid</b>."))
+        self.message_post(body=Markup(_("Loan marked as <b>Closed / Fully Repaid</b>.")))
 
     def action_view_schedule(self):
         self.ensure_one()
@@ -734,11 +804,11 @@ class AlbaLoan(models.Model):
             if loan.days_in_arrears >= npl_threshold:
                 loan.write({"state": "npl"})
                 loan.message_post(
-                    body=_(
+                    body=Markup(_(
                         "Loan automatically flagged as <b>Non-Performing</b> "
                         "by the daily NPL monitor cron — "
                         "<b>%d days</b> in arrears (threshold: %d)."
-                    )
+                    ))
                     % (loan.days_in_arrears, npl_threshold)
                 )
                 newly_npl |= loan
@@ -782,11 +852,11 @@ class AlbaLoan(models.Model):
             for schedule in overdue_schedules:
                 loan = schedule.loan_id
                 loan.message_post(
-                    body=_(
+                    body=Markup(_(
                         "Overdue alert: instalment #<b>%d</b> "
                         "(KES <b>%.2f</b>) was due on <b>%s</b> "
                         "— now <b>%d day(s)</b> overdue."
-                    )
+                    ))
                     % (
                         schedule.installment_number,
                         schedule.balance_due,
@@ -841,11 +911,11 @@ class AlbaLoan(models.Model):
         for loan in maturing:
             days_left = (loan.maturity_date - today).days
             loan.message_post(
-                body=_(
+                body=Markup(_(
                     "Maturity reminder: loan matures on <b>%s</b> "
                     "(<b>%d day(s)</b> remaining).  "
                     "Outstanding balance: <b>KES %.2f</b>."
-                )
+                ))
                 % (loan.maturity_date, days_left, loan.outstanding_balance)
             )
 
@@ -879,7 +949,7 @@ class AlbaLoan(models.Model):
             if loan.outstanding_balance <= 0.01:  # 1-cent tolerance
                 loan.write({"state": "closed"})
                 loan.message_post(
-                    body=_("Loan automatically <b>closed</b> — fully repaid.")
+                    body=Markup(_("Loan automatically <b>closed</b> — fully repaid."))
                 )
                 closed |= loan
 

@@ -67,7 +67,14 @@ class AlbaInterestAccrualSmsHook(models.Model):
                     )
                     continue
 
+                # 🚀 PHASE 5: Omnichannel (Email - Interest Accrued)
+                email_template = rec.env.ref("alba_investors.email_template_interest_accrued", raise_if_not_found=False)
+                if email_template and investor.email:
+                    email_template.send_mail(rec.id, force_send=False)
+                    rec.message_post(body=_("📧 Automated interest email sent to %s") % investor.email)
+
                 # ── 3. Active provider ─────────────────────────────────────
+
                 provider = (
                     rec.env["alba.sms.provider"]
                     .sudo()
@@ -167,3 +174,59 @@ class AlbaInterestAccrualSmsHook(models.Model):
                 )
 
         return result
+
+class AlbaInvestmentStatementSmsHook(models.Model):
+    _inherit = "alba.investment.statement"
+
+    def action_send(self):
+        res = super(AlbaInvestmentStatementSmsHook, self).action_send()
+        for rec in self:
+            try:
+                rec._send_statement_sms()
+            except Exception as e:
+                _logger.error("Failed to send statement SMS: %s", str(e))
+        return res
+
+    def _send_statement_sms(self):
+        """Send SMS when a statement is sent."""
+        self.ensure_one()
+        enabled = self.env["ir.config_parameter"].sudo().get_param("alba_sms.enabled", default="1")
+        if enabled == "0":
+            return
+
+        # 1. Resolve Template
+        template = self.env["alba.sms.template"].sudo().get_by_code("investor_statement")
+        if not template:
+            return
+
+        # 2. Resolve Phone
+        investor = self.investor_id
+        phone = investor.mpesa_number or investor.partner_id.mobile or investor.partner_id.phone
+        if not phone:
+            return
+
+        # 3. Resolve Provider
+        provider = self.env["alba.sms.provider"].sudo().search([("is_active", "=", True)], limit=1)
+        if not provider:
+            return
+
+        # 4. Render and Send
+        ctx = {
+            "investor_name": investor.partner_id.name,
+            "period": "%s to %s" % (self.period_start, self.period_end),
+            "amount": "%.2f" % self.closing_balance,
+            "currency": self.currency_id.name,
+            "company_name": self.env.company.name,
+        }
+        
+        message = template.render(ctx)
+        
+        provider.send_sms(
+            phone,
+            message,
+            res_model="alba.investment.statement",
+            res_id=self.id,
+            template_id=template.id,
+        )
+        
+        self.message_post(body=_("<b>Automated SMS Sent</b>: %s") % message)

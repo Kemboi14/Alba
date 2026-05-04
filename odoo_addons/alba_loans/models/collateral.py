@@ -6,6 +6,7 @@ LTV validation, margin call alerts, release on loan closure
 """
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from markupsafe import Markup
 
 
 class AlbaCollateral(models.Model):
@@ -224,13 +225,13 @@ class AlbaCollateral(models.Model):
                 ) % rec.active_loan_count)
             
             rec.write({"status": "released"})
-            rec.message_post(body=_("<b>COLLATERAL RELEASED</b>"))
+            rec.message_post(body=Markup(_("<b>COLLATERAL RELEASED</b>")))
     
     def action_liquidate(self):
         """Mark for liquidation (recovery)"""
         for rec in self:
             rec.write({"status": "liquidated"})
-            rec.message_post(body=_("<b>COLLATERAL MARKED FOR LIQUIDATION</b>"))
+            rec.message_post(body=Markup(_("<b>COLLATERAL MARKED FOR LIQUIDATION</b>")))
     
     def action_view_active_loans(self):
         """View loans using this collateral"""

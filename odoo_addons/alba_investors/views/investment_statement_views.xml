@@ -49,7 +49,7 @@
                             role="alert"
                             invisible="state != 'sent'"
                         >
-                        <i class="fa fa-check-circle me-1" />
+                        <i class="fa fa-check-circle me-1" title="Sent"/>
                         <strong>Statement sent to investor.</strong>
                     </div>
 

@@ -52,7 +52,7 @@
                         role="alert"
                         invisible="not needs_attention"
                     >
-                        <i class="fa fa-exclamation-triangle me-1" />
+                        <i class="fa fa-exclamation-triangle me-1" title="Attention"/>
                         <strong>Needs attention:</strong> This completed payment
                         has not been reconciled to a repayment record yet.
                         Link a loan and click <b>Reconcile to Loan</b>.
@@ -64,7 +64,7 @@
                         role="alert"
                         invisible="not is_reconciled"
                     >
-                        <i class="fa fa-check-circle me-1" />
+                        <i class="fa fa-check-circle me-1" title="Reconciled"/>
                         <strong>Reconciled</strong> to repayment
                         <a
                             name="repayment_id"

@@ -25,6 +25,8 @@ _DUMMY_CONTEXT = {
     "investor_name": "Jane Investor",
     "investment_number": "INV-0001",
     "interest_amount": "1,250.00",
+    "guarantor_name": "George Guarantor",
+    "code": "123456",
 }
 
 _PLACEHOLDER_HELP = (
@@ -39,18 +41,25 @@ _PLACEHOLDER_HELP = (
     "  {company_name}        — sending company name\n"
     "  {investor_name}       — investor's full name\n"
     "  {investment_number}   — investment reference (e.g. INV-0001)\n"
-    "  {interest_amount}     — interest amount credited or accrued"
+    "  {interest_amount}     — interest amount credited or accrued\n"
+    "  {guarantor_name}      — guarantor's full name\n"
+    "  {code}                — verification or confirmation code"
 )
 
 _CATEGORY_SELECTION = [
     ("loan_overdue", "Loan Overdue Reminder"),
     ("maturity_reminder", "Loan Maturity Reminder"),
+    ("repayment_reminder", "Repayment Reminder"),
     ("payment_confirmation", "Payment Confirmation"),
     ("loan_disbursed", "Loan Disbursed"),
+    ("application_submitted", "Application Submitted"),
     ("application_approved", "Application Approved"),
     ("application_rejected", "Application Rejected"),
     ("collection_reminder", "Collection Stage Reminder"),
     ("investor_interest", "Investor Interest Credited"),
+    ("investor_statement", "Investment Statement Sent"),
+    ("guarantor_confirmation", "Guarantor Confirmation Request"),
+    ("loan_status_change", "Loan Status Change"),
     ("bulk_campaign", "Bulk Campaign"),
 ]
 

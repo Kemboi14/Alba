@@ -30,6 +30,7 @@ from datetime import datetime, timedelta
 import requests as http_client
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from markupsafe import Markup
 
 _logger = logging.getLogger(__name__)
 
@@ -893,17 +894,17 @@ class AlbaMpesaConfig(models.Model):
             notif_type = "success"
             title = _("Daraja Connection OK")
             self.message_post(
-                body=_(
+                body=Markup(_(
                     "Connection test passed — Daraja token obtained for "
                     "environment <b>%s</b>."
-                )
+                ))
                 % self.environment
             )
         except UserError as exc:
             msg = str(exc)
             notif_type = "danger"
             title = _("Daraja Connection Failed")
-            self.message_post(body=_("Connection test <b>failed</b>: %s") % msg)
+            self.message_post(body=Markup(_("Connection test <b>failed</b>: %s")) % msg)
 
         return {
             "type": "ir.actions.client",

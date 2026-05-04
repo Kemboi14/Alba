@@ -54,7 +54,7 @@
 
                     <div class="alert alert-warning" role="alert"
                          invisible="not auto_send">
-                        <i class="fa fa-envelope me-1"/>
+                        <i class="fa fa-envelope me-1" title="Email"/>
                         <strong>Auto-Send is enabled.</strong>
                         Each statement will be emailed to the investor immediately
                         after generation.  Ensure the email template

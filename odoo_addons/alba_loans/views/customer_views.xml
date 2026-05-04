@@ -12,10 +12,16 @@
                 <form string="Customer">
                     <header>
                         <button name="action_verify_kyc"
-                                string="Verify KYC"
+                                string="Manual Verify KYC"
+                                type="object"
+                                class="btn-secondary"
+                                invisible="kyc_status == 'verified'"
+                                groups="alba_loans.group_loan_manager"/>
+                        <button name="action_auto_verify_kyc"
+                                string="Auto-Verify KYC (API)"
                                 type="object"
                                 class="btn-success"
-                                invisible="kyc_status == 'verified'"
+                                invisible="kyc_status == 'verified' or not id_number"
                                 groups="alba_loans.group_loan_officer"/>
                         <button name="action_reject_kyc"
                                 string="Reject KYC"
@@ -52,8 +58,8 @@
                                        widget="statinfo"
                                        string="Active Loans"/>
                             </button>
-                            <button name="%(action_alba_loan_list)d"
-                                    type="action"
+                            <button name="action_view_loans"
+                                    type="object"
                                     class="oe_stat_button"
                                     icon="fa-balance-scale">
                                 <div class="o_stat_info">
@@ -103,7 +109,7 @@
                                 <group>
                                     <group string="Employment Details">
                                         <field name="employment_status"/>
-                                        <field name="employer_name"/>
+                                        <field name="employer_id" options="{'no_create_edit': False, 'no_open': False}"/>
                                         <field name="employer_phone"/>
                                         <field name="job_title"/>
                                         <field name="months_employed"/>
@@ -112,6 +118,18 @@
                                         <field name="monthly_income"/>
                                         <field name="other_income"/>
                                         <field name="currency_id" invisible="1"/>
+                                    </group>
+                                </group>
+                                <group string="Business Details" invisible="employment_status not in ('self_employed', 'business_owner')">
+                                    <group>
+                                        <field name="business_name"/>
+                                        <field name="business_registration_number"/>
+                                        <field name="business_type"/>
+                                    </group>
+                                    <group>
+                                        <field name="business_location"/>
+                                        <field name="years_in_business"/>
+                                        <field name="monthly_business_turnover"/>
                                     </group>
                                 </group>
                             </page>
@@ -146,6 +164,23 @@
                                         <field name="mpesa_number"/>
                                     </group>
                                 </group>
+                            </page>
+
+                            <!-- ── Documents &amp; KYC ────────────────────────── -->
+                            <page string="Documents &amp; KYC" name="documents">
+                                <field name="all_document_ids" nolabel="1" context="{'hide_partner': True}">
+                                    <list string="Documents" decoration-info="state == 'draft'" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'" editable="bottom">
+                                        <field name="name"/>
+                                        <field name="document_type"/>
+                                        <field name="attachment_id" widget="many2one_binary" string="File"/>
+                                        <field name="create_date" string="Uploaded" widget="date" readonly="1"/>
+                                        <field name="state" widget="badge"
+                                               decoration-success="state == 'verified'"
+                                               decoration-warning="state == 'draft'"
+                                               decoration-danger="state == 'rejected'"/>
+                                        <button name="action_verify" string="Verify" type="object" icon="fa-check" class="text-success" invisible="state == 'verified'"/>
+                                    </list>
+                                </field>
                             </page>
 
                             <!-- ── Loan Applications ──────────────────────── -->

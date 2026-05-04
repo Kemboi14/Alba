@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="action_report_investment_statement" model="ir.actions.report">
+            <field name="name">Investment Statement</field>
+            <field name="model">alba.investment</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">alba_investors.report_investment_statement_template</field>
+            <field name="report_file">alba_investors.report_investment_statement_template</field>
+            <field name="print_report_name">'Statement - %s' % (object.investment_number)</field>
+        </record>
+
+        <template id="report_investment_statement_template">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="o">
+                    <t t-call="web.external_layout">
+                        <div class="page" style="font-family: 'Helvetica', sans-serif;">
+                            <div class="row mb-4">
+                                <div class="col-6">
+                                    <h2 class="text-success fw-bold">INVESTMENT STATEMENT</h2>
+                                    <h4 class="text-muted"><span t-field="o.investment_number"/></h4>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <div class="badge rounded-pill bg-success p-2 px-3" style="font-size: 1.1em;">
+                                        STATUS: <span t-field="o.state"/>
+                                    </div>
+                                    <p class="mt-2 text-muted">Statement Date: <span t-esc="context_today().strftime('%Y-%m-%d')"/></p>
+                                </div>
+                            </div>
+
+                            <hr style="border-top: 2px solid #28a745;"/>
+
+                            <div class="row mt-4">
+                                <div class="col-6">
+                                    <h5 class="text-uppercase text-secondary border-bottom pb-1">Investor Information</h5>
+                                    <p>
+                                        <strong><span t-field="o.investor_id.partner_id.name"/></strong><br/>
+                                        <span t-field="o.investor_id.partner_id.street"/><br/>
+                                        <span t-field="o.investor_id.partner_id.phone"/><br/>
+                                        <span t-field="o.investor_id.partner_id.email"/>
+                                    </p>
+                                </div>
+                                <div class="col-6">
+                                    <h5 class="text-uppercase text-secondary border-bottom pb-1">Account Summary</h5>
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td class="fw-bold">Type:</td>
+                                            <td><span t-field="o.investment_type"/></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold">Interest Rate:</td>
+                                            <td><span t-field="o.interest_rate"/>% p.a.</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold">Initial Principal:</td>
+                                            <td><span t-field="o.principal_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                        </tr>
+                                        <tr class="table-success fw-bold">
+                                            <td>Current Value:</td>
+                                            <td><span t-field="o.current_value" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <h5 class="mt-5 text-uppercase text-secondary border-bottom pb-1">Transaction History</h5>
+                            <table class="table table-sm table-striped mt-2">
+                                <thead>
+                                    <tr class="bg-light text-success">
+                                        <th>Date</th>
+                                        <th>Description</th>
+                                        <th class="text-end">Credit</th>
+                                        <th class="text-end">Debit</th>
+                                        <th class="text-end">Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span t-field="o.start_date"/></td>
+                                        <td>Opening Principal</td>
+                                        <td class="text-end"><span t-field="o.principal_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                        <td class="text-end">-</td>
+                                        <td class="text-end fw-bold"><span t-field="o.principal_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    </tr>
+                                    <t t-foreach="o.accrual_ids.sorted(key=lambda a: a.period_end)" t-as="a">
+                                        <tr>
+                                            <td><span t-field="a.period_end"/></td>
+                                            <td>Interest Accrual (<span t-field="a.period_start"/> to <span t-field="a.period_end"/>)</td>
+                                            <td class="text-end text-success">+ <span t-field="a.interest_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                            <td class="text-end">-</td>
+                                            <td class="text-end"><span t-esc="o.principal_amount + sum(o.accrual_ids.filtered(lambda x: x.period_end &lt;= a.period_end).mapped('interest_amount'))" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+
+                            <div class="footer o_standard_footer mt-5 text-center text-muted small">
+                                <p>Alba Capital Investors • www.albacapital.co.ke</p>
+                            </div>
+                        </div>
+                    </t>
+                </t>
+            </t>
+        </template>
+    </data>
+</odoo>

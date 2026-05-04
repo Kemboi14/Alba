@@ -17,7 +17,7 @@
                         role="alert"
                         invisible="status != 'delivered'"
                     >
-                        <i class="fa fa-check-circle me-1"/>
+                        <i class="fa fa-check-circle me-1" title="Delivered"/>
                         <strong>Delivered</strong> — the message was confirmed
                         received by the handset.
                     </div>
@@ -28,7 +28,7 @@
                         role="alert"
                         invisible="status != 'failed'"
                     >
-                        <i class="fa fa-times-circle me-1"/>
+                        <i class="fa fa-times-circle me-1" title="Failed"/>
                         <strong>Delivery failed.</strong>
                         See the <b>Error Details</b> section below for the
                         provider error message.
@@ -40,7 +40,7 @@
                         role="alert"
                         invisible="status != 'sent'"
                     >
-                        <i class="fa fa-paper-plane me-1"/>
+                        <i class="fa fa-paper-plane me-1" title="Sent"/>
                         <strong>Sent</strong> — the message has been accepted
                         by the provider and is awaiting delivery confirmation.
                     </div>
@@ -51,7 +51,7 @@
                         role="alert"
                         invisible="status != 'queued'"
                     >
-                        <i class="fa fa-clock-o me-1"/>
+                        <i class="fa fa-clock-o me-1" title="Queued"/>
                         <strong>Queued</strong> — the message is pending
                         dispatch to the SMS provider.
                     </div>

@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+    <!-- ── Report Actions ────────────────────────────────────────────────── -->
+
+    <!-- Loan Application List Export -->
+    <record id="action_report_loan_application_list" model="ir.actions.report">
+        <field name="name">Export Applications (PDF)</field>
+        <field name="model">alba.loan.application</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_loans.report_application_list_template</field>
+        <field name="report_file">alba_loans.report_application_list_template</field>
+    </record>
+
+    <!-- Active Loan List Export -->
+    <record id="action_report_loan_list" model="ir.actions.report">
+        <field name="name">Export Loans (PDF)</field>
+        <field name="model">alba.loan</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_loans.report_loan_list_template</field>
+        <field name="report_file">alba_loans.report_loan_list_template</field>
+    </record>
+
+    <!-- Customer List Export -->
+    <record id="action_report_customer_list" model="ir.actions.report">
+        <field name="name">Export Customers (PDF)</field>
+        <field name="model">alba.customer</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_loans.report_customer_list_template</field>
+        <field name="report_file">alba_loans.report_customer_list_template</field>
+    </record>
+
+    <!-- ── Report Templates ─────────────────────────────────────────────── -->
+
+    <template id="report_application_list_template">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <div class="text-center mb-4">
+                        <h2>Loan Application Pipeline</h2>
+                        <p class="text-muted">Generated on <span t-esc="context_today().strftime('%Y-%m-%d')"/></p>
+                    </div>
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr class="bg-light">
+                                <th>App #</th>
+                                <th>Borrower</th>
+                                <th>Product</th>
+                                <th class="text-end">Requested</th>
+                                <th class="text-end">Tenure</th>
+                                <th>Status</th>
+                                <th class="text-center">Progress</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="docs" t-as="o">
+                                <tr>
+                                    <td><span t-field="o.application_number"/></td>
+                                    <td><span t-field="o.partner_id.name"/></td>
+                                    <td><span t-field="o.loan_product_id.name"/></td>
+                                    <td class="text-end"><span t-field="o.requested_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td class="text-end"><span t-field="o.tenure_months"/> M</td>
+                                    <td><span t-field="o.state"/></td>
+                                    <td class="text-center"><span t-field="o.application_progress"/>%</td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_loan_list_template">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <div class="text-center mb-4">
+                        <h2>Active Loan Portfolio</h2>
+                        <p class="text-muted">Generated on <span t-esc="context_today().strftime('%Y-%m-%d')"/></p>
+                    </div>
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr class="bg-light">
+                                <th>Loan #</th>
+                                <th>Borrower</th>
+                                <th class="text-end">Principal</th>
+                                <th class="text-end">Outstanding</th>
+                                <th class="text-end">Arrears</th>
+                                <th>Maturity</th>
+                                <th>Status</th>
+                                <th class="text-center">Paid %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="docs" t-as="o">
+                                <tr>
+                                    <td><span t-field="o.loan_number"/></td>
+                                    <td><span t-field="o.customer_id.partner_id.name"/></td>
+                                    <td class="text-end"><span t-field="o.principal_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td class="text-end"><span t-field="o.outstanding_balance" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td class="text-end" t-att-class="'text-danger fw-bold' if o.arrears_amount > 0 else ''">
+                                        <span t-field="o.arrears_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                    </td>
+                                    <td><span t-field="o.maturity_date" t-options='{"widget": "date"}'/></td>
+                                    <td><span t-field="o.state"/></td>
+                                    <td class="text-center"><span t-field="o.repayment_progress"/>%</td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_customer_list_template">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <div class="text-center mb-4">
+                        <h2>Customer Registry</h2>
+                        <p class="text-muted">Generated on <span t-esc="context_today().strftime('%Y-%m-%d')"/></p>
+                    </div>
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr class="bg-light">
+                                <th>Name</th>
+                                <th>ID Number</th>
+                                <th>Employment</th>
+                                <th class="text-end">Monthly Income</th>
+                                <th>KYC Status</th>
+                                <th class="text-end">Active Loans</th>
+                                <th class="text-end">Outstanding</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="docs" t-as="o">
+                                <tr>
+                                    <td><span t-field="o.partner_id.name"/></td>
+                                    <td><span t-field="o.id_number"/></td>
+                                    <td><span t-field="o.employment_status"/></td>
+                                    <td class="text-end"><span t-field="o.monthly_income" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td><span t-field="o.kyc_status"/></td>
+                                    <td class="text-end"><span t-field="o.active_loan_count"/></td>
+                                    <td class="text-end"><span t-field="o.outstanding_balance" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </div>
+            </t>
+        </t>
+    </template>
+
+</data>
+</odoo>

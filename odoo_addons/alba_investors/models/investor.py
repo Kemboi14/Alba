@@ -43,28 +43,12 @@ class AlbaInvestor(models.Model):
         help="Primary key of the corresponding Investor record in the Django portal.",
     )
 
-    # ── Identity ──────────────────────────────────────────────────────────────
-    id_number = fields.Char(string="ID / Passport Number", tracking=True)
-    id_type = fields.Selection(
-        selection=[
-            ("national_id", "National ID"),
-            ("passport", "Passport"),
-            ("alien_id", "Alien ID / Foreign Certificate"),
-        ],
-        string="ID Type",
-        default="national_id",
-        tracking=True,
-    )
-    date_of_birth = fields.Date(string="Date of Birth")
+    # ── Identity (Related to Partner) ────────────────────────────────────────
+    id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
+    id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
+    date_of_birth = fields.Date(related="partner_id.date_of_birth", store=True, readonly=False)
     age = fields.Integer(string="Age", compute="_compute_age", store=False)
-    gender = fields.Selection(
-        selection=[
-            ("male", "Male"),
-            ("female", "Female"),
-            ("other", "Other / Prefer not to say"),
-        ],
-        string="Gender",
-    )
+    gender = fields.Selection(related="partner_id.gender", store=True, readonly=False)
     nationality = fields.Char(string="Nationality", default="Kenyan")
 
     # ── KYC ───────────────────────────────────────────────────────────────────
@@ -181,6 +165,23 @@ class AlbaInvestor(models.Model):
         readonly=True,
     )
 
+    # ── UX Helpers ────────────────────────────────────────────────────────────
+    is_high_value = fields.Boolean(
+        string="High Value Investor",
+        compute="_compute_ux_helpers",
+        store=True,
+        help="Investors with portfolio > 1,000,000",
+    )
+    kyc_progress = fields.Integer(
+        string="KYC Completion %",
+        compute="_compute_kyc_progress",
+    )
+    has_active_investments = fields.Boolean(
+        string="Has Active Investments",
+        compute="_compute_ux_helpers",
+        store=True,
+    )
+
     # ── Notes ─────────────────────────────────────────────────────────────────
     notes = fields.Text(string="Internal Notes")
     active = fields.Boolean(default=True)
@@ -202,6 +203,55 @@ class AlbaInvestor(models.Model):
     # =========================================================================
     # Computed methods
     # =========================================================================
+
+    def action_auto_verify_kyc(self):
+        """🚀 PHASE 5: Automated KYC for Investors"""
+        for rec in self:
+            if not rec.id_number:
+                raise ValidationError(_("Please provide an ID number before verifying KYC."))
+            
+            # Use the KYC Provider architecture from alba_loans
+            provider = self.env["alba.kyc.provider"].search([("is_active", "=", True)], limit=1)
+            if not provider:
+                # If no provider configured, fall back to manual verification or raise warning
+                rec.message_post(body=_("⚠️ No active KYC Provider found. Please configure one in Settings."))
+                return False
+                
+            rec.message_post(body=_("🔍 Initiating automated KYC verification via %s...") % provider.name)
+            
+            # Call the provider
+            result = provider.verify_id(rec.id_number, rec.partner_id.name)
+            
+            # Log full result in chatter
+            log_body = (
+                "<div style='border: 1px solid #dee2e6; padding: 10px; border-radius: 5px; background-color: #f8f9fa;'>"
+                "<b>KYC API Response (%s)</b><br/>"
+                "Status: <span class='badge bg-%s'>%s</span><br/>"
+                "Confidence: %s%%<br/>"
+                "Reference: %s<br/>"
+                "Notes: %s"
+                "</div>"
+            ) % (
+                provider.name,
+                "success" if result['status'] == 'verified' else "warning" if result['status'] == 'review' else "danger",
+                result['status'].upper(),
+                result['confidence'],
+                result['provider_ref'],
+                result['notes']
+            )
+            rec.message_post(body=log_body)
+            
+            # Update Investor Status
+            if result['status'] == 'verified':
+                rec.write({
+                    'kyc_status': 'verified',
+                    'kyc_verified_by': self.env.uid,
+                    'kyc_verified_date': fields.Datetime.now(),
+                })
+            elif result['status'] == 'rejected':
+                rec.write({'kyc_status': 'rejected'})
+            
+        return True
 
     @api.depends("partner_id", "partner_id.name")
     def _compute_display_name(self):
@@ -225,6 +275,15 @@ class AlbaInvestor(models.Model):
         "investment_ids.total_interest_accrued",
         "investment_ids.total_interest_paid",
     )
+    @api.depends(
+        "investment_ids",
+        "investment_ids.state",
+        "investment_ids.principal_amount",
+        "investment_ids.current_value",
+        "investment_ids.total_interest_accrued",
+        "investment_ids.total_interest_paid",
+        "kyc_status",
+    )
     def _compute_portfolio(self):
         for rec in self:
             active = rec.investment_ids.filtered(lambda i: i.state == "active")
@@ -235,6 +294,27 @@ class AlbaInvestor(models.Model):
             rec.total_interest_earned = sum(all_inv.mapped("total_interest_accrued"))
             rec.current_portfolio_value = sum(active.mapped("current_value"))
             rec.total_interest_paid_out = sum(all_inv.mapped("total_interest_paid"))
+
+    @api.depends("current_portfolio_value", "kyc_status", "active_investment_count")
+    def _compute_ux_helpers(self):
+        for rec in self:
+            rec.is_high_value = rec.current_portfolio_value >= 1000000
+            rec.has_active_investments = rec.active_investment_count > 0
+
+    @api.depends("kyc_status")
+    def _compute_kyc_progress(self):
+        for rec in self:
+            # Simple KYC progress calculation
+            progress = 0
+            if rec.kyc_status == "verified":
+                progress = 100
+            elif rec.kyc_status == "complete":
+                progress = 80
+            elif rec.kyc_status == "partial":
+                progress = 50
+            elif rec.kyc_status == "pending":
+                progress = 10
+            rec.kyc_progress = progress
 
     # =========================================================================
     # Constraint methods
@@ -264,6 +344,10 @@ class AlbaInvestor(models.Model):
         self.message_post(
             body=_("KYC status marked as <b>Verified</b> by %s.") % self.env.user.name
         )
+        # Automation: Send Welcome Notification
+        template = self.env.ref("alba_investors.email_template_investor_welcome", raise_if_not_found=False)
+        if template and self.partner_id.email:
+            template.send_mail(self.id, force_send=False)
 
     def action_reject_kyc(self):
         self.ensure_one()

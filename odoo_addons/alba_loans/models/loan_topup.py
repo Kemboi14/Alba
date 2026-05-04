@@ -289,6 +289,11 @@ class AlbaLoanTopup(models.Model):
                 "disbursement_date": fields.Date.today(),
             })
             
+            # Send Email
+            template = self.env.ref('alba_loans.email_template_loan_topup', raise_if_not_found=False)
+            if template:
+                template.send_mail(rec.id, force_send=True)
+
             rec.message_post(body=_(
                 "<b>TOP-UP DISBURSED</b><br/>"
                 "Amount: %s %s<br/>"
@@ -376,3 +381,14 @@ class AlbaLoanTopup(models.Model):
                 "approved_by": False,
                 "approved_date": False,
             })
+
+    def action_view_loan(self):
+        """Navigate to the linked loan"""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Loan"),
+            "res_model": "alba.loan",
+            "view_mode": "form",
+            "res_id": self.loan_id.id,
+        }

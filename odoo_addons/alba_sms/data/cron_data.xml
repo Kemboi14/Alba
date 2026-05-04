@@ -36,5 +36,17 @@ env['alba.sms.batch'].cron_process_scheduled_batches()
         <field name="value">1</field>
     </record>
 
-</data>
+    <record id="ir_cron_alba_sms_pre_due_reminders" model="ir.cron">
+        <field name="name">Alba SMS — Daily Repayment Reminders (3 Days Before)</field>
+        <field name="model_id" ref="alba_loans.model_alba_loan" />
+        <field name="state">code</field>
+        <field name="code">env['alba.loan'].cron_send_pre_due_reminders()</field>
+        <field name="user_id" ref="base.user_root" />
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+        <field name="priority">25</field>
+    </record>
+
+    </data>
 </odoo>

@@ -52,7 +52,7 @@
                         role="alert"
                         invisible="status != 'dead'"
                     >
-                        <i class="fa fa-times-circle me-1" />
+                        <i class="fa fa-times-circle me-1" title="Error"/>
                         <strong>Dead — max retries exceeded.</strong>
                         This webhook payload could not be delivered after
                         <field name="attempt_count" readonly="1" nolabel="1" />
@@ -66,7 +66,7 @@
                         role="alert"
                         invisible="status != 'delivered'"
                     >
-                        <i class="fa fa-check-circle me-1" />
+                        <i class="fa fa-check-circle me-1" title="Success"/>
                         <strong>Delivered successfully</strong> at
                         <field name="delivered_at" readonly="1" nolabel="1" />.
                     </div>

@@ -330,19 +330,12 @@ class AlbaLoanDisburseWizard(models.TransientModel):
                 "loan_id": loan.id,
             }
         )
-        application.message_post(
-            body=_(
-                "Loan <b>%(loan_number)s</b> disbursed for "
-                "<b>%(currency)s %(amount).2f</b> on %(date)s via %(journal)s. "
-                "%(notes)s",
-                loan_number=loan.loan_number,
-                currency=self.currency_id.name,
-                amount=self.approved_amount,
-                date=self.disbursement_date,
-                journal=self.journal_id.name,
-                notes=self.notes or "",
-            )
-        )
+
+        # 🚀 PHASE 5: Omnichannel (Email - Disbursed)
+        template = self.env.ref("alba_loans.email_template_loan_disbursed", raise_if_not_found=False)
+        if template and application.customer_id.email:
+            template.send_mail(application.id, force_send=False)
+            application.message_post(body=_("📧 Automated disbursement email sent to %s") % application.customer_id.email)
 
         # ── 5. Return form view of the new loan ───────────────────────────────
         return {

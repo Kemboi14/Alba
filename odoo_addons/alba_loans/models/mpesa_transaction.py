@@ -25,6 +25,7 @@ import logging
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from markupsafe import Markup
 
 _logger = logging.getLogger(__name__)
 
@@ -513,7 +514,7 @@ class AlbaMpesaTransaction(models.Model):
         if loan:
             self.write({"loan_id": loan.id})
             self.message_post(
-                body=_("Auto-matched to loan <b>%s</b> via account reference.")
+                body=Markup(_("Auto-matched to loan <b>%s</b> via account reference."))
                 % loan.loan_number
             )
             return {
@@ -851,6 +852,58 @@ class AlbaMpesaTransaction(models.Model):
             )
 
         txn.write(update_vals)
+        
+        # Futuristic Automation: Auto-Disburse Completion
+        if result_code == "0" and txn.account_reference:
+            # Check if this reference matches a pending loan application
+            app = self.env["alba.loan.application"].sudo().search([
+                ("application_number", "=", txn.account_reference),
+                ("state", "in", ("approved", "employer_verification", "guarantor_confirmation"))
+            ], limit=1)
+            
+            if app and not app.loan_id:
+                _logger.info("Auto-Disbursing Loan for Application %s", app.application_number)
+                
+                # Default to a bank journal for disbursement (first available)
+                journal = self.env["account.journal"].search([("type", "in", ["bank", "cash"])], limit=1)
+                
+                # 1. Create the loan
+                loan = self.env["alba.loan"].sudo().create({
+                    "application_id": app.id,
+                    "principal_amount": app.approved_amount or app.requested_amount,
+                    "interest_rate": app.loan_product_id.interest_rate,
+                    "interest_method": app.loan_product_id.interest_method,
+                    "tenure_months": app.tenure_months,
+                    "repayment_frequency": app.repayment_frequency,
+                    "disbursement_date": fields.Date.today(),
+                    "journal_id": journal.id if journal else False,
+                    "state": "active",
+                    "notes": f"Auto-disbursed via M-Pesa B2C (Txn: {mpesa_code})",
+                })
+                
+                # 2. Post accounting entry and generate schedule
+                if journal:
+                    loan.action_post_disbursement_entry()
+                loan.action_generate_schedule()
+                
+                # 3. Finalize application
+                app.write({
+                    "state": "disbursed",
+                    "disbursed_date": fields.Datetime.now(),
+                    "loan_id": loan.id,
+                })
+                
+                app.message_post(body=_(
+                    "✅ <b>Auto-Disbursement Successful</b><br/>"
+                    "Funds delivered to M-Pesa wallet. Loan <b>%s</b> activated."
+                ) % loan.loan_number)
+
+                # 🚀 PHASE 5: Omnichannel (Email - Disbursed)
+                template = self.env.ref("alba_loans.email_template_loan_disbursed", raise_if_not_found=False)
+                if template and app.customer_id.email:
+                    template.send_mail(app.id, force_send=False)
+                    app.message_post(body=_("📧 Automated disbursement email sent to %s") % app.customer_id.email)
+
         return txn
 
     # =========================================================================

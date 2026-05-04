@@ -63,4 +63,10 @@ urlpatterns = [
     ),
     # AJAX
     path("api/calculate-loan/", views.calculate_loan, name="calculate_loan"),
+    # Official Odoo Reports (PDF Proxy)
+    path(
+        "report/<str:report_type>/<int:res_id>/",
+        views.download_official_report,
+        name="download_official_report",
+    ),
 ]

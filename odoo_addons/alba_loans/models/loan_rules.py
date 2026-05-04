@@ -11,6 +11,7 @@ Implements:
 """
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from markupsafe import Markup
 from datetime import date, timedelta
 
 
@@ -315,7 +316,7 @@ class AlbaLoanEarlySettlement(models.Model):
             rec.loan_id.action_close()
             
             rec.state = "paid"
-            rec.loan_id.message_post(body=_("<b>LOAN SETTLED EARLY</b><br/>Settlement Reference: %s<br/>Final Amount: KES %s") % (rec.name, rec.final_settlement_amount))
+            rec.loan_id.message_post(body=Markup(_("<b>LOAN SETTLED EARLY</b><br/>Settlement Reference: %s<br/>Final Amount: KES %s")) % (rec.name, rec.final_settlement_amount))
 
 
 class AlbaLoanFee(models.Model):

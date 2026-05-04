@@ -18,7 +18,7 @@
                         role="alert"
                         invisible="status != 'success'"
                     >
-                        <i class="fa fa-check-circle me-1" />
+                        <i class="fa fa-check-circle me-1" title="Success"/>
                         <strong>Sync successful.</strong>
                     </div>
                     <div
@@ -26,7 +26,7 @@
                         role="alert"
                         invisible="status != 'partial'"
                     >
-                        <i class="fa fa-exclamation-triangle me-1" />
+                        <i class="fa fa-exclamation-triangle me-1" title="Warning"/>
                         <strong>Partial success</strong> — some data may not have synced correctly.
                         Review the detail field below.
                     </div>
@@ -35,7 +35,7 @@
                         role="alert"
                         invisible="status != 'failure'"
                     >
-                        <i class="fa fa-times-circle me-1" />
+                        <i class="fa fa-times-circle me-1" title="Error"/>
                         <strong>Sync failed.</strong> See the detail and payload sections below.
                     </div>
                     <div
@@ -43,7 +43,7 @@
                         role="alert"
                         invisible="status != 'skipped'"
                     >
-                        <i class="fa fa-info-circle me-1" />
+                        <i class="fa fa-info-circle me-1" title="Info"/>
                         <strong>Skipped</strong> — duplicate or no-op.
                     </div>
 

@@ -384,6 +384,11 @@ class AlbaLoanPaymentHoliday(models.Model):
                 "affected_installment_ids": [(6, 0, affected.ids)],
             })
             
+            # Send Email
+            template = self.env.ref('alba_loans.email_template_payment_holiday', raise_if_not_found=False)
+            if template:
+                template.send_mail(rec.id, force_send=True)
+
             rec.message_post(body=_(
                 "<b>PAYMENT HOLIDAY ACTIVATED</b><br/>"
                 "Period: %s to %s<br/>"
@@ -419,3 +424,14 @@ class AlbaLoanPaymentHoliday(models.Model):
             if rec.state not in ["draft", "pending"]:
                 raise UserError(_("Only draft or pending holidays can be cancelled."))
             rec.write({"state": "cancelled"})
+
+    def action_view_loan(self):
+        """Navigate to the linked loan"""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Loan"),
+            "res_model": "alba.loan",
+            "view_mode": "form",
+            "res_id": self.loan_id.id,
+        }

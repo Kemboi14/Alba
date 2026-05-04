@@ -10,6 +10,7 @@ Implements:
 """
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from markupsafe import Markup
 
 
 class AlbaApprovalLimit(models.Model):
@@ -241,7 +242,7 @@ class AlbaLoanApplication(models.Model):
                 "approved_by_role_id": limit.approver_group_id.id if limit else False,
             })
             rec.message_post(
-                body=_("Application <b>approved</b> for %s %s by %s.")
+                body=Markup(_("Application <b>approved</b> for %s %s by %s."))
                 % (rec.currency_id.name, rec.approved_amount, self.env.user.name)
             )
             if limit and limit.require_second_approval:

@@ -107,6 +107,17 @@ class CustomerAdmin(admin.ModelAdmin):
                 'employment_date',
             )
         }),
+        ('Business Information', {
+            'fields': (
+                'is_business_entity',
+                'business_name',
+                'business_registration_number',
+                'business_location',
+                'business_industry',
+                'annual_turnover',
+            ),
+            'classes': ('collapse',)
+        }),
         ('Financial Information', {
             'fields': ('existing_loans', 'bank_name', 'bank_account')
         }),
@@ -248,6 +259,15 @@ class LoanApplicationAdmin(admin.ModelAdmin):
                 'repayment_frequency',
                 'purpose',
             )
+        }),
+        ('Business Details', {
+            'fields': (
+                'business_name',
+                'business_registration_number',
+                'business_location',
+                'annual_turnover',
+            ),
+            'classes': ('collapse',)
         }),
         ('Status & Workflow', {
             'fields': (

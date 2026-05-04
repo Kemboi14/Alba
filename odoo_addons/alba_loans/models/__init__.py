@@ -3,6 +3,8 @@
 from . import (
     # Base models first (no dependencies)
     loan_product,
+    employer,
+    kyc_provider,
     customer,
     mpesa_config,
     loan_document,
@@ -20,10 +22,12 @@ from . import (
     investor,
     mpesa_transaction,
     report_financials,
+    res_partner,
     # Loan modifications
     loan_topup,
     loan_partial_payoff,
     loan_payment_holiday,
     loan_refinance,
     loan_consolidation,
+    notification_hooks,
 )
