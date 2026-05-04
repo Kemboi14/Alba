@@ -14,7 +14,7 @@
 
                     <!-- Info banner -->
                     <div class="alert alert-info" role="alert">
-                        <i class="fa fa-mobile me-1" />
+                        <i class="fa fa-mobile me-1" title="Mobile"/>
                         <strong>M-Pesa STK Push</strong> — The customer will receive
                         a payment prompt on their phone.  They must enter their
                         M-Pesa PIN to complete the payment.  You will be notified
@@ -74,7 +74,7 @@
                         class="mt-2"
                     >
                         <div class="alert alert-success" role="alert">
-                            <i class="fa fa-check-circle me-1" />
+                            <i class="fa fa-check-circle me-1" title="Success"/>
                             <strong>STK Push submitted successfully.</strong>
                             The customer should receive a prompt on their phone shortly.
                         </div>

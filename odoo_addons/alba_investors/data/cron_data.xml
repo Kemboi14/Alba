@@ -43,5 +43,19 @@
             <field name="nextcall" eval="(datetime.now().replace(day=2, hour=3, minute=0, second=0) + timedelta(days=32)).replace(day=2)"/>
         </record>
 
+        <!-- ── 3. Investment Maturity Reminder ────────────────────────── -->
+        <!-- Runs daily to find investments maturing in 7 days and notify. -->
+        <record id="ir_cron_alba_investment_maturity_reminder" model="ir.cron">
+            <field name="name">Alba: Investment Maturity Reminder (7 Days)</field>
+            <field name="model_id" ref="alba_investors.model_alba_investment"/>
+            <field name="state">code</field>
+            <field name="code">model.action_check_maturing_investments()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active" eval="True"/>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="priority">20</field>
+        </record>
+
     </data>
 </odoo>

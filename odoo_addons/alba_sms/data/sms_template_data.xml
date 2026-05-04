@@ -43,7 +43,15 @@
             <field name="content">Dear {customer_name}, congratulations! Your loan application {loan_number} has been approved for KES {amount}. We will contact you for disbursement. - {company_name}</field>
         </record>
 
-        <!-- 6. Application Rejected -->
+        <!-- 6. Application Submitted -->
+        <record id="sms_template_application_submitted" model="alba.sms.template">
+            <field name="name">Application Submitted</field>
+            <field name="code">application_submitted</field>
+            <field name="category">application_submitted</field>
+            <field name="content">Dear {customer_name}, your loan application {application_number} for KES {amount} has been submitted successfully. We will review and notify you of the outcome. - {company_name}</field>
+        </record>
+
+        <!-- 7. Application Rejected -->
         <record id="sms_template_application_rejected" model="alba.sms.template">
             <field name="name">Application Rejected</field>
             <field name="code">application_rejected</field>
@@ -51,7 +59,15 @@
             <field name="content">Dear {customer_name}, we regret to inform you that your loan application {loan_number} was not approved at this time. Please visit our offices for more information. - {company_name}</field>
         </record>
 
-        <!-- 7. Collection Stage Reminder -->
+        <!-- 8. Application Disbursed -->
+        <record id="sms_template_application_disbursed" model="alba.sms.template">
+            <field name="name">Application Disbursed</field>
+            <field name="code">application_disbursed</field>
+            <field name="category">loan_disbursed</field>
+            <field name="content">Dear {customer_name}, your loan {loan_number} of KES {amount} has been disbursed. Repayment begins on {due_date}. For queries call us. - {company_name}</field>
+        </record>
+
+        <!-- 9. Collection Stage Reminder -->
         <record id="sms_template_collection_reminder" model="alba.sms.template">
             <field name="name">Collection Stage Reminder</field>
             <field name="code">collection_reminder</field>
@@ -59,12 +75,76 @@
             <field name="content">Dear {customer_name}, your loan {loan_number} payment of KES {amount} is {days_overdue} days overdue. Please pay immediately to avoid further action. Balance: KES {outstanding_balance}. - {company_name}</field>
         </record>
 
-        <!-- 8. Investor Interest Credited -->
+        <!-- 10. Investor Interest Credited -->
         <record id="sms_template_investor_interest" model="alba.sms.template">
             <field name="name">Investor Interest Credited</field>
             <field name="code">investor_interest</field>
             <field name="category">investor_interest</field>
             <field name="content">Dear {investor_name}, KES {interest_amount} interest has been credited to your investment account {investment_number}. Thank you for investing with us. - {company_name}</field>
+        </record>
+
+        <!-- 11. Investment Statement Sent -->
+        <record id="sms_template_investor_statement" model="alba.sms.template">
+            <field name="name">Investment Statement Sent</field>
+            <field name="code">investor_statement</field>
+            <field name="category">investor_statement</field>
+            <field name="content">Dear {investor_name}, your investment statement for {period} has been generated and sent to your email. Closing balance: {currency} {amount}. - {company_name}</field>
+        </record>
+
+        <!-- 12. Repayment Reminder (Pre-due) -->
+        <record id="sms_template_repayment_reminder" model="alba.sms.template">
+            <field name="name">Repayment Reminder (3 Days Before)</field>
+            <field name="code">repayment_reminder</field>
+            <field name="category">repayment_reminder</field>
+            <field name="content">Dear {customer_name}, your installment of KES {amount} for loan {loan_number} is due on {due_date}. Please ensure your account is funded. Thank you. - {company_name}</field>
+        </record>
+
+        <!-- 13. Guarantor Confirmation Request -->
+        <record id="sms_template_guarantor_confirmation" model="alba.sms.template">
+            <field name="name">Guarantor Confirmation Request</field>
+            <field name="code">guarantor_confirmation_request</field>
+            <field name="category">guarantor_confirmation</field>
+            <field name="content">Dear {guarantor_name}, you have been named as a guarantor for {customer_name}'s loan application. Reply with code {code} to confirm or CALL to decline. - {company_name}</field>
+        </record>
+
+        <!-- 14. Loan Top-Up Disbursed -->
+        <record id="sms_template_loan_topup" model="alba.sms.template">
+            <field name="name">Loan Top-Up Disbursed</field>
+            <field name="code">LOAN_TOPUP_DISBURSED</field>
+            <field name="category">loan_disbursed</field>
+            <field name="content">Dear {customer_name}, your loan top-up of KES {amount} has been disbursed. Your new principal balance is KES {new_principal}. - {company_name}</field>
+        </record>
+
+        <!-- 15. Loan Partial Payoff Applied -->
+        <record id="sms_template_partial_payoff" model="alba.sms.template">
+            <field name="name">Partial Payoff Applied</field>
+            <field name="code">LOAN_PARTIAL_PAYOFF_APPLIED</field>
+            <field name="category">payment_confirmation</field>
+            <field name="content">Dear {customer_name}, we have applied your partial payoff of KES {amount}. You have saved KES {savings} in future interest. New balance: KES {outstanding_balance}. - {company_name}</field>
+        </record>
+
+        <!-- 16. Loan Payment Holiday Activated -->
+        <record id="sms_template_payment_holiday" model="alba.sms.template">
+            <field name="name">Payment Holiday Activated</field>
+            <field name="code">LOAN_PAYMENT_HOLIDAY_ACTIVATED</field>
+            <field name="category">loan_status_change</field>
+            <field name="content">Dear {customer_name}, your payment holiday for {months} months has been activated. Repayments will resume after {end_date}. - {company_name}</field>
+        </record>
+
+        <!-- 17. Loan Refinance Completed -->
+        <record id="sms_template_refinance" model="alba.sms.template">
+            <field name="name">Loan Refinance Completed</field>
+            <field name="code">LOAN_REFINANCE_COMPLETED</field>
+            <field name="category">loan_status_change</field>
+            <field name="content">Dear {customer_name}, your loan refinance is complete. Old loan has been settled and new loan {new_loan} is now active. - {company_name}</field>
+        </record>
+
+        <!-- 18. Loan Consolidation Completed -->
+        <record id="sms_template_consolidation" model="alba.sms.template">
+            <field name="name">Loan Consolidation Completed</field>
+            <field name="code">LOAN_CONSOLIDATION_COMPLETED</field>
+            <field name="category">loan_status_change</field>
+            <field name="content">Dear {customer_name}, your {loan_count} loans have been consolidated into a single account {new_loan}. Check your email for the new schedule. - {company_name}</field>
         </record>
 
     </data>

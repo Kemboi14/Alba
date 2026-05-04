@@ -305,6 +305,11 @@ class AlbaInvestmentStatement(models.Model):
             }
             stmt = self.create(stmt_vals)
             stmt.action_confirm()
+            # Auto-send statement to investor
+            try:
+                stmt.action_send()
+            except Exception as e:
+                _logger.error("Failed to auto-send statement %s: %s", stmt.reference, str(e))
             created_count += 1
 
         import logging

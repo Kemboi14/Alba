@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="action_report_loan_application_summary" model="ir.actions.report">
+            <field name="name">Loan Application Summary</field>
+            <field name="model">alba.loan.application</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">alba_loans.report_application_summary_template</field>
+            <field name="report_file">alba_loans.report_application_summary_template</field>
+            <field name="print_report_name">'Application Summary - %s' % (object.application_number)</field>
+        </record>
+
+        <template id="report_application_summary_template">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="o">
+                    <t t-call="web.external_layout">
+                        <div class="page" style="font-family: 'Helvetica', sans-serif;">
+                            <div class="row mb-4">
+                                <div class="col-6">
+                                    <h2 class="text-primary fw-bold">LOAN APPLICATION</h2>
+                                    <h4 class="text-muted"><span t-field="o.application_number"/></h4>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <div class="badge rounded-pill bg-primary p-2 px-3" style="font-size: 1.1em;">
+                                        STATUS: <span t-field="o.state"/>
+                                    </div>
+                                    <p class="mt-2 text-muted">Submitted on: <span t-field="o.submitted_date" t-options='{"widget": "date"}'/></p>
+                                </div>
+                            </div>
+
+                            <hr style="border-top: 2px solid #004a99;"/>
+
+                            <div class="row mt-4">
+                                <div class="col-6">
+                                    <h5 class="text-uppercase text-secondary border-bottom pb-1">Borrower Details</h5>
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td class="fw-bold" style="width: 40%;">Name:</td>
+                                            <td><span t-field="o.customer_id.partner_id.name"/></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold">ID Number:</td>
+                                            <td><span t-field="o.customer_id.id_number"/></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold">Phone:</td>
+                                            <td><span t-field="o.customer_id.partner_id.phone"/></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold">Email:</td>
+                                            <td><span t-field="o.customer_id.partner_id.email"/></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-6">
+                                    <h5 class="text-uppercase text-secondary border-bottom pb-1">Loan Terms</h5>
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td class="fw-bold" style="width: 40%;">Product:</td>
+                                            <td><span t-field="o.loan_product_id.name"/></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold">Requested:</td>
+                                            <td class="fw-bold"><span t-field="o.requested_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold">Tenure:</td>
+                                            <td><span t-field="o.tenure_months"/> Months</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold">Interest:</td>
+                                            <td><span t-field="o.loan_product_id.interest_rate"/>% per month</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <h5 class="text-uppercase text-secondary border-bottom pb-1">Application Summary</h5>
+                                <p class="bg-light p-3 rounded shadow-sm border">
+                                    <span t-field="o.purpose"/>
+                                </p>
+                            </div>
+
+                            <t t-if="o.loan_guarantor_ids">
+                                <div class="mt-4">
+                                    <h5 class="text-uppercase text-secondary border-bottom pb-1">Guarantors</h5>
+                                    <table class="table table-sm table-striped">
+                                        <thead>
+                                            <tr class="bg-light">
+                                                <th>Guarantor</th>
+                                                <th>Relationship</th>
+                                                <th class="text-end">Amount</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="o.loan_guarantor_ids" t-as="g">
+                                                <tr>
+                                                    <td><span t-field="g.guarantor_id.name"/></td>
+                                                    <td><span t-field="g.relationship"/></td>
+                                                    <td class="text-end"><span t-field="g.guarantee_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                                    <td><span t-field="g.status"/></td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+
+                            <div class="row mt-5 pt-5">
+                                <div class="col-6 text-center">
+                                    <div style="border-top: 1px solid #333; width: 70%; margin: 0 auto; margin-top: 40px;"/>
+                                    <p class="mt-2 fw-bold">Customer Signature</p>
+                                </div>
+                                <div class="col-6 text-center">
+                                    <div style="border-top: 1px solid #333; width: 70%; margin: 0 auto; margin-top: 40px;"/>
+                                    <p class="mt-2 fw-bold">Alba Capital Authorisation</p>
+                                </div>
+                            </div>
+
+                            <div class="footer o_standard_footer mt-5 text-center text-muted small">
+                                <p>Alba Capital Ltd • www.albacapital.co.ke • info@albacapital.co.ke</p>
+                                <div class="text-end">Page: <span class="page"/> / <span class="topage"/></div>
+                            </div>
+                        </div>
+                    </t>
+                </t>
+            </t>
+        </template>
+    </data>
+</odoo>

@@ -72,7 +72,9 @@ Accounting
         "views/actions.xml",
         # ── Loan management views (load basic views first) ───────────────────
         "views/customer_views.xml",
+        "views/loan_document_views.xml",
         "views/loan_product_views.xml",
+        "views/kyc_provider_views.xml",
         "views/loan_application_views.xml",
         "views/repayment_views.xml",
         # ── M-Pesa views ────────────────────────────────────────────────────
@@ -89,6 +91,8 @@ Accounting
         "report/report_pl_template.xml",
         "report/report_cashflow_template.xml",
         "report/report_balance_sheet_template.xml",
+        "report/loan_application_summary_report.xml",
+        "report/guarantor_agreement_report.xml",
         # ── Menus (after all actions are defined) ────────────────────────────
         "views/menus.xml",
         # ── Wizards ──────────────────────────────────────────────────────────
@@ -113,6 +117,7 @@ Accounting
         # ── Reports ──────────────────────────────────────────────────────────
         "report/loan_statement_report.xml",
         "report/loan_statement_template.xml",
+        "report/loan_export_reports.xml",
         # ── Security access (load after models are created) ─────────────────────
         "security/ir.model.access.csv",
     ],

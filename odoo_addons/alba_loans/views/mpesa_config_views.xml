@@ -49,7 +49,7 @@
                         role="alert"
                         invisible="environment != 'production'"
                     >
-                        <i class="fa fa-exclamation-triangle me-1" />
+                        <i class="fa fa-exclamation-triangle me-1" title="Warning"/>
                         <strong>PRODUCTION environment — real money transactions.</strong>
                         Ensure all credentials are correct before initiating any M-Pesa requests.
                     </div>
@@ -58,7 +58,7 @@
                         role="alert"
                         invisible="environment != 'sandbox'"
                     >
-                        <i class="fa fa-flask me-1" />
+                        <i class="fa fa-flask me-1" title="Sandbox"/>
                         <strong>Sandbox environment</strong> — test transactions only.
                         No real money will be moved.
                     </div>

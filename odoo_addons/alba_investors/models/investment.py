@@ -127,9 +127,29 @@ class AlbaInvestment(models.Model):
         compute="_compute_accrual_count",
     )
     statement_count = fields.Integer(
-        string="Statements",
+        string="Number of Statements",
         compute="_compute_statement_count",
     )
+    investment_progress = fields.Float(
+        string="Investment Progress",
+        compute="_compute_investment_progress",
+        help="Percentage of the investment term that has elapsed.",
+    )
+
+    def _compute_investment_progress(self):
+        today = fields.Date.today()
+        for rec in self:
+            if rec.investment_type == 'fixed_term' and rec.start_date and rec.maturity_date:
+                total_days = (rec.maturity_date - rec.start_date).days
+                if total_days > 0:
+                    elapsed_days = (today - rec.start_date).days
+                    progress = (elapsed_days / total_days) * 100
+                    rec.investment_progress = max(0, min(100, progress))
+                else:
+                    rec.investment_progress = 0
+            else:
+                rec.investment_progress = 0
+
 
     # ── Relationships ─────────────────────────────────────────────────────────
     accrual_ids = fields.One2many(
@@ -187,6 +207,21 @@ class AlbaInvestment(models.Model):
         readonly=True,
     )
 
+    # ── UX Helpers ────────────────────────────────────────────────────────────
+    maturity_progress = fields.Integer(
+        string="Maturity Progress %",
+        compute="_compute_maturity",
+    )
+    is_high_yield = fields.Boolean(
+        string="High Yield Investment",
+        compute="_compute_is_high_yield",
+        store=True,
+    )
+    days_to_maturity = fields.Integer(
+        string="Days to Maturity",
+        compute="_compute_maturity",
+    )
+
     # ── Notes ─────────────────────────────────────────────────────────────────
     notes = fields.Text(string="Notes")
 
@@ -231,6 +266,29 @@ class AlbaInvestment(models.Model):
     def _compute_statement_count(self):
         for rec in self:
             rec.statement_count = len(rec.statement_ids)
+
+    @api.depends("interest_rate")
+    def _compute_is_high_yield(self):
+        for rec in self:
+            rec.is_high_yield = rec.interest_rate >= 15.0
+
+    @api.depends("start_date", "maturity_date", "investment_type")
+    def _compute_maturity(self):
+        today = fields.Date.today()
+        for rec in self:
+            if rec.investment_type == "fixed_term" and rec.start_date and rec.maturity_date:
+                total_days = (rec.maturity_date - rec.start_date).days
+                elapsed_days = (today - rec.start_date).days
+                
+                if total_days > 0:
+                    rec.maturity_progress = min(100, max(0, int((elapsed_days / total_days) * 100)))
+                    rec.days_to_maturity = max(0, (rec.maturity_date - today).days)
+                else:
+                    rec.maturity_progress = 0
+                    rec.days_to_maturity = 0
+            else:
+                rec.maturity_progress = 0
+                rec.days_to_maturity = 0
 
     # =========================================================================
     # Constraints
@@ -347,6 +405,35 @@ class AlbaInvestment(models.Model):
         )
         return accrual
 
+    def _log_professional_status_change(self, old_state, new_state):
+        """Post a professional, formatted message to the chatter on status change."""
+        state_labels = dict(self._fields['state'].selection)
+        old_label = state_labels.get(old_state, old_state)
+        new_label = state_labels.get(new_state, new_state)
+        
+        icon = "📈" if new_state == "active" else "ℹ️"
+        if new_state == "matured": icon = "🔔"
+        if new_state == "withdrawn": icon = "💸"
+        if new_state == "suspended": icon = "⚠️"
+        
+        body = _(
+            "<div class='o_alba_status_change'>"
+            "<strong>%s Investment Status Changed</strong><br/>"
+            "From: <span class='badge badge-secondary'>%s</span> "
+            "To: <span class='badge badge-primary' style='background-color: #004a99;'>%s</span><br/>"
+            "Changed by: %s"
+            "</div>"
+        ) % (icon, old_label.upper(), new_label.upper(), self.env.user.name)
+        
+        self.message_post(body=body, subtype_xmlid="mail.mt_comment")
+
+    def write(self, vals):
+        if 'state' in vals:
+            for rec in self:
+                if rec.state != vals['state']:
+                    rec._log_professional_status_change(rec.state, vals['state'])
+        return super().write(vals)
+
     def action_mature(self):
         """Mark the investment as matured."""
         self.ensure_one()
@@ -391,14 +478,34 @@ class AlbaInvestment(models.Model):
 
         if errors:
             import logging
-
             _logger = logging.getLogger(__name__)
             _logger.warning(
                 "alba.investment: Monthly accrual completed with errors:\n%s",
                 "\n".join(errors),
             )
-
         return True
+
+    @api.model
+    def action_check_maturing_investments(self):
+        """Daily cron to find investments maturing in 7 days and notify investors."""
+        from dateutil.relativedelta import relativedelta
+        reminder_date = fields.Date.today() + relativedelta(days=7)
+        maturing = self.search([
+            ("state", "=", "active"),
+            ("investment_type", "=", "fixed_term"),
+            ("maturity_date", "=", reminder_date)
+        ])
+        for inv in maturing:
+            inv._send_maturity_notification()
+        return True
+
+    def _send_maturity_notification(self):
+        """Helper to send maturity reminder email/SMS."""
+        self.ensure_one()
+        template = self.env.ref("alba_investors.email_template_investment_maturing", raise_if_not_found=False)
+        if template and self.investor_id.partner_id.email:
+            template.send_mail(self.id, force_send=False)
+            self.message_post(body=_("Maturity reminder email sent to investor."))
 
     # =========================================================================
     # ORM overrides
@@ -412,7 +519,36 @@ class AlbaInvestment(models.Model):
                 vals["investment_number"] = seq.next_by_code(
                     "alba.investment.seq"
                 ) or _("New")
-        return super().create(vals_list)
+        records = super(AlbaInvestment, self).create(vals_list)
+        return records
+
+    def write(self, vals):
+        if 'state' in vals:
+            for rec in self:
+                if rec.state != vals['state']:
+                    rec._log_professional_status_change(rec.state, vals['state'])
+        return super(AlbaInvestment, self).write(vals)
+
+    def _log_professional_status_change(self, old_state, new_state):
+        """Post a professional, formatted message to the chatter on status change."""
+        state_labels = dict(self._fields['state'].selection)
+        old_label = state_labels.get(old_state, old_state)
+        new_label = state_labels.get(new_state, new_state)
+        
+        icon = "📈"
+        if new_state == "active": icon = "✅"
+        if new_state == "suspended": icon = "⚠️"
+        if new_state == "blacklisted": icon = "🔴"
+        
+        body = (
+            "<div class='o_alba_status_change'>"
+            "<strong>%s Investment Status Changed</strong><br/>"
+            "From: <span class='badge badge-secondary' style='color: #666;'>%s</span> "
+            "To: <span class='badge badge-primary' style='background-color: #004a99; color: white; padding: 2px 6px; border-radius: 4px;'>%s</span><br/>"
+            "Changed by: %s"
+            "</div>"
+        ) % (icon, old_label.upper(), new_label.upper(), self.env.user.name)
+        self.message_post(body=body)
 
     def name_get(self):
         return [

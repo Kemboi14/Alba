@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+    <!-- ── Report Actions ────────────────────────────────────────────────── -->
+
+    <!-- Investor List Export -->
+    <record id="action_report_investor_list" model="ir.actions.report">
+        <field name="name">Export Investors (PDF)</field>
+        <field name="model">alba.investor</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_investors.report_investor_list_template</field>
+        <field name="report_file">alba_investors.report_investor_list_template</field>
+    </record>
+
+    <!-- Investment List Export -->
+    <record id="action_report_investment_list" model="ir.actions.report">
+        <field name="name">Export Investments (PDF)</field>
+        <field name="model">alba.investment</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_investors.report_investment_list_template</field>
+        <field name="report_file">alba_investors.report_investment_list_template</field>
+    </record>
+
+    <!-- ── Report Templates ─────────────────────────────────────────────── -->
+
+    <template id="report_investor_list_template">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <div class="text-center mb-4">
+                        <h2>Investor Registry</h2>
+                        <p class="text-muted">Generated on <span t-esc="context_today().strftime('%Y-%m-%d')"/></p>
+                    </div>
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr class="bg-light">
+                                <th>Investor #</th>
+                                <th>Name</th>
+                                <th>KYC Status</th>
+                                <th class="text-end">Active Investments</th>
+                                <th class="text-end">Portfolio Value</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="docs" t-as="o">
+                                <tr>
+                                    <td><span t-field="o.investor_number"/></td>
+                                    <td><span t-field="o.partner_id.name"/></td>
+                                    <td><span t-field="o.kyc_status"/></td>
+                                    <td class="text-end"><span t-field="o.active_investment_count"/></td>
+                                    <td class="text-end"><span t-field="o.current_portfolio_value" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td><span t-field="o.state"/></td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_investment_list_template">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <div class="text-center mb-4">
+                        <h2>Investment Portfolio Report</h2>
+                        <p class="text-muted">Generated on <span t-esc="context_today().strftime('%Y-%m-%d')"/></p>
+                    </div>
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr class="bg-light">
+                                <th>Account #</th>
+                                <th>Investor</th>
+                                <th>Type</th>
+                                <th class="text-end">Principal</th>
+                                <th class="text-end">Interest Rate</th>
+                                <th class="text-end">Current Value</th>
+                                <th>Maturity</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="docs" t-as="o">
+                                <tr>
+                                    <td><span t-field="o.investment_number"/></td>
+                                    <td><span t-field="o.investor_id.partner_id.name"/></td>
+                                    <td><span t-field="o.investment_type"/></td>
+                                    <td class="text-end"><span t-field="o.principal_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td class="text-end"><span t-field="o.interest_rate"/>%</td>
+                                    <td class="text-end"><span t-field="o.current_value" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td><span t-field="o.maturity_date" t-if="o.investment_type == 'fixed_term'" t-options='{"widget": "date"}'/></td>
+                                    <td><span t-field="o.state"/></td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </div>
+            </t>
+        </t>
+    </template>
+
+</data>
+</odoo>

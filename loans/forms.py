@@ -36,6 +36,12 @@ class CustomerProfileForm(forms.ModelForm):
             "employer_email",
             "monthly_income",
             "employment_date",
+            "is_business_entity",
+            "business_name",
+            "business_registration_number",
+            "business_location",
+            "business_industry",
+            "annual_turnover",
             "existing_loans",
             "bank_name",
             "bank_account",
@@ -217,6 +223,10 @@ class LoanApplicationForm(forms.ModelForm):
             "tenure_months",
             "repayment_frequency",
             "purpose",
+            "business_name",
+            "business_registration_number",
+            "business_location",
+            "annual_turnover",
         ]
         widgets = {
             "loan_product": forms.Select(

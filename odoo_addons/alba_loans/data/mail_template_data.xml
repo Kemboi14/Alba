@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- ── Employer Verification Email ────────────────────────── -->
+        <record id="email_template_employer_verification" model="mail.template">
+            <field name="name">Loan Application: Employer Verification</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_application"/>
+            <field name="subject">Employment Verification Request - {{ object.customer_id.display_name }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.customer_id.employer_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.customer_id.employer_id.name }}</strong>,<br/><br/>
+                        We have received a loan application from your employee, <strong>{{ object.customer_id.display_name }}</strong>, 
+                        who has listed your organization as their current employer.<br/><br/>
+                        Please confirm the following details for our credit assessment:<br/>
+                        - Job Title: {{ object.customer_id.job_title or 'N/A' }}<br/>
+                        - Employment Type: {{ object.customer_id.employment_type or 'N/A' }}<br/>
+                        - Monthly Net Income: {{ object.currency_id.symbol }} {{ object.customer_id.monthly_income or '0.00' }}<br/><br/>
+                        You can reply to this email to confirm or provide further details.<br/><br/>
+                        Thank you,<br/>
+                        The Credit Team<br/>
+                        <strong>{{ object.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+        <!-- ── Guarantor Confirmation Email ────────────────────────── -->
+        <record id="email_template_guarantor_confirmation" model="mail.template">
+            <field name="name">Loan Application: Guarantor Confirmation</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_guarantor"/>
+            <field name="subject">Guarantor Confirmation Request - {{ object.customer_id.display_name }}</field>
+            <field name="email_from">{{ (object.loan_application_id.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.guarantor_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.guarantor_id.name }}</strong>,<br/><br/>
+                        You have been listed as a guarantor for a loan application by <strong>{{ object.customer_id.display_name }}</strong> 
+                        for the amount of <strong>{{ object.currency_id.symbol }} {{ object.guarantee_amount }}</strong>.<br/><br/>
+                        Please confirm your willingness to act as a guarantor for this loan.<br/><br/>
+                        Your confirmation code is: <strong style="font-size: 18px; color: #004a99;">{{ object.confirmation_code }}</strong><br/><br/>
+                        Thank you,<br/>
+                        <strong>{{ object.loan_application_id.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Application Submitted ────────────────────────────── -->
+        <record id="email_template_application_submitted" model="mail.template">
+            <field name="name">Loan Application: Submitted</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_application"/>
+            <field name="subject">Loan Application Submitted - {{ object.application_number }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.customer_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        Your loan application <strong>{{ object.application_number }}</strong> has been successfully submitted 
+                        and is now under review by our credit team.<br/><br/>
+                        <strong>Application Details:</strong><br/>
+                        - Product: {{ object.loan_product_id.name }}<br/>
+                        - Amount: {{ object.currency_id.symbol }} {{ object.requested_amount }}<br/>
+                        - Tenure: {{ object.tenure_months }} Months<br/><br/>
+                        We will notify you once the review is complete.<br/><br/>
+                        Thank you,<br/>
+                        <strong>{{ object.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Application Approved ────────────────────────────── -->
+        <record id="email_template_application_approved" model="mail.template">
+            <field name="name">Loan Application: Approved</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_application"/>
+            <field name="subject">Loan Application Approved - {{ object.application_number }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.customer_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        Great news! Your loan application <strong>{{ object.application_number }}</strong> has been 
+                        <strong>APPROVED</strong> for the amount of <strong>{{ object.currency_id.symbol }} {{ object.approved_amount }}</strong>.<br/><br/>
+                        Our team will contact you shortly regarding the next steps for disbursement.<br/><br/>
+                        Thank you,<br/>
+                        <strong>{{ object.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Application Rejected ────────────────────────────── -->
+        <record id="email_template_application_rejected" model="mail.template">
+            <field name="name">Loan Application: Rejected</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_application"/>
+            <field name="subject">Update on your Loan Application - {{ object.application_number }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.customer_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        We regret to inform you that your loan application <strong>{{ object.application_number }}</strong> 
+                        has not been approved at this time.<br/><br/>
+                        % if object.rejection_reason:
+                        <strong>Reason:</strong> {{ object.rejection_reason }}<br/><br/>
+                        % endif
+                        Thank you for considering us for your financial needs.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Loan Disbursed ─────────────────────────────────── -->
+        <record id="email_template_loan_disbursed" model="mail.template">
+            <field name="name">Loan Application: Disbursed</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_application"/>
+            <field name="subject">Loan Disbursed - {{ object.application_number }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.customer_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        Your loan <strong>{{ object.application_number }}</strong> has been 
+                        <strong>DISBURSED</strong>. The funds should be available in your account shortly.<br/><br/>
+                        Your first repayment is due on {{ object.loan_id.next_payment_date or 'the scheduled date' }}.<br/><br/>
+                        Thank you,<br/>
+                        <strong>{{ object.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Loan Top-Up ─────────────────────────────────── -->
+        <record id="email_template_loan_topup" model="mail.template">
+            <field name="name">Loan: Top-Up Disbursed</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_topup"/>
+            <field name="subject">Loan Top-Up Disbursed - {{ object.name }}</field>
+            <field name="email_from">{{ (object.loan_id.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.partner_id.name }}</strong>,<br/><br/>
+                        Your loan top-up request <strong>{{ object.name }}</strong> has been disbursed.<br/><br/>
+                        <strong>Details:</strong><br/>
+                        - Top-Up Amount: {{ object.currency_id.symbol }} {{ object.topup_amount }}<br/>
+                        - New Principal: {{ object.currency_id.symbol }} {{ object.new_principal }}<br/><br/>
+                        Thank you for choosing us.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.loan_id.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Partial Payoff ─────────────────────────────────── -->
+        <record id="email_template_partial_payoff" model="mail.template">
+            <field name="name">Loan: Partial Payoff Applied</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_partial_payoff"/>
+            <field name="subject">Partial Payoff Applied - {{ object.name }}</field>
+            <field name="email_from">{{ (object.loan_id.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.partner_id.name }}</strong>,<br/><br/>
+                        We have successfully applied your partial payoff of <strong>{{ object.currency_id.symbol }} {{ object.payoff_amount }}</strong> to your loan.<br/><br/>
+                        <strong>Impact:</strong><br/>
+                        - Interest Saved: {{ object.currency_id.symbol }} {{ object.interest_saved }}<br/>
+                        - New Outstanding: {{ object.currency_id.symbol }} {{ object.new_outstanding }}<br/>
+                        {{ '- New EMI: ' + object.currency_id.symbol + ' ' + str(object.new_emi) if object.reduction_mode == 'reduce_emi' else '- New Tenure: ' + str(object.new_tenure) + ' months' }}<br/><br/>
+                        Thank you for your timely payment.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.loan_id.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Payment Holiday ─────────────────────────────────── -->
+        <record id="email_template_payment_holiday" model="mail.template">
+            <field name="name">Loan: Payment Holiday Activated</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_payment_holiday"/>
+            <field name="subject">Payment Holiday Activated - {{ object.name }}</field>
+            <field name="email_from">{{ (object.loan_id.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.partner_id.name }}</strong>,<br/><br/>
+                        Your payment holiday request has been <strong>ACTIVATED</strong>.<br/><br/>
+                        <strong>Period:</strong><br/>
+                        - Start Date: {{ object.start_date }}<br/>
+                        - End Date: {{ object.end_date }}<br/>
+                        - Duration: {{ object.holiday_months }} Months<br/><br/>
+                        Your repayments will resume after the holiday period ends.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.loan_id.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Refinance ─────────────────────────────────── -->
+        <record id="email_template_refinance" model="mail.template">
+            <field name="name">Loan: Refinance Completed</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_refinance"/>
+            <field name="subject">Loan Refinance Completed - {{ object.name }}</field>
+            <field name="email_from">{{ (object.original_loan_id.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.partner_id.name }}</strong>,<br/><br/>
+                        Your loan refinance process is now <strong>COMPLETE</strong>.<br/><br/>
+                        <strong>Summary:</strong><br/>
+                        - Old Loan: {{ object.original_loan_id.loan_number }} (Settled)<br/>
+                        - New Loan: {{ object.new_loan_id.loan_number }} (Active)<br/>
+                        - New Principal: {{ object.currency_id.symbol }} {{ object.new_principal }}<br/>
+                        - Monthly Savings: {{ object.currency_id.symbol }} {{ object.monthly_savings }}<br/><br/>
+                        Thank you for your continued trust in us.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.original_loan_id.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Consolidation ─────────────────────────────────── -->
+        <record id="email_template_consolidation" model="mail.template">
+            <field name="name">Loan: Consolidation Completed</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_consolidation"/>
+            <field name="subject">Loan Consolidation Completed - {{ object.name }}</field>
+            <field name="email_from">{{ (object.customer_id.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.partner_id.name }}</strong>,<br/><br/>
+                        We have successfully consolidated your loans into a single account.<br/><br/>
+                        <strong>Summary:</strong><br/>
+                        - Loans Merged: {{ object.loan_count }}<br/>
+                        - New Loan Account: {{ object.new_loan_id.loan_number }}<br/>
+                        - New Monthly EMI: {{ object.currency_id.symbol }} {{ object.new_emi }}<br/>
+                        - Monthly Savings: {{ object.currency_id.symbol }} {{ object.monthly_savings }}<br/><br/>
+                        Please refer to the attached schedule for your new repayment plan.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.customer_id.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+    </data>
+</odoo>

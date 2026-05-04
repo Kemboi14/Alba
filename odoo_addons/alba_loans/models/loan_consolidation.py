@@ -6,6 +6,7 @@ Fee: 1% of total outstanding
 """
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from markupsafe import Markup
 
 
 class AlbaLoanConsolidation(models.Model):
@@ -386,7 +387,7 @@ class AlbaLoanConsolidation(models.Model):
                 
                 # Close loan
                 loan.write({"state": "closed"})
-                loan.message_post(body=_("<b>LOAN CONSOLIDATED</b><br/>Consolidation Ref: %s") % rec.name)
+                loan.message_post(body=Markup(_("<b>LOAN CONSOLIDATED</b><br/>Consolidation Ref: %s")) % rec.name)
             
             rec.write({"state": "settled"})
             rec.message_post(body=_("All %s loans settled.") % len(rec.loan_ids))
@@ -452,10 +453,38 @@ class AlbaLoanConsolidation(models.Model):
                 raise UserError(_("New loan must be disbursed first."))
             
             rec.write({"state": "completed"})
-            rec.message_post(body=_("<b>CONSOLIDATION COMPLETED</b>"))
+            
+            # Send Email
+            template = self.env.ref('alba_loans.email_template_consolidation', raise_if_not_found=False)
+            if template:
+                template.send_mail(rec.id, force_send=True)
+
+            rec.message_post(body=Markup(_("<b>CONSOLIDATION COMPLETED</b>")))
     
     def action_reject(self):
         """Reject consolidation"""
         for rec in self:
             rec.write({"state": "rejected"})
             rec.message_post(body=_("Consolidation rejected by %s.") % self.env.user.name)
+
+    def action_view_customer(self):
+        """Navigate to the customer"""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Customer"),
+            "res_model": "alba.customer",
+            "view_mode": "form",
+            "res_id": self.customer_id.id,
+        }
+
+    def action_view_loans(self):
+        """Navigate to the loans being consolidated"""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Loans"),
+            "res_model": "alba.loan",
+            "view_mode": "tree,form",
+            "domain": [("id", "in", self.loan_ids.ids)],
+        }

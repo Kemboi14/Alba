@@ -42,6 +42,15 @@
                             <field name="name" readonly="1"/>
                         </h1>
                     </div>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_loan" string="View Loan" type="object" class="oe_stat_button" icon="fa-arrow-right"/>
+                    </div>
+                    <widget name="web_ribbon" text="Draft" bg_color="bg-warning" invisible="state != 'draft'"/>
+                    <widget name="web_ribbon" text="Quoted" bg_color="bg-info" invisible="state != 'quoted'"/>
+                    <widget name="web_ribbon" text="Accepted" bg_color="bg-primary" invisible="state != 'accepted'"/>
+                    <widget name="web_ribbon" text="Applied" bg_color="bg-success" invisible="state != 'applied'"/>
+                    <widget name="web_ribbon" text="Cancelled" bg_color="bg-secondary" invisible="state != 'cancelled'"/>
+                    <widget name="web_ribbon" text="Expired" bg_color="bg-danger" invisible="state != 'expired'"/>
                     <group>
                         <group string="Loan Details">
                             <field name="loan_id" options="{'no_create': True}" readonly="state != 'draft'"/>
@@ -160,7 +169,7 @@
     <record id="action_loan_partial_payoff" model="ir.actions.act_window">
         <field name="name">Partial Payoffs</field>
         <field name="res_model">alba.loan.partial.payoff</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,form,graph</field>
         <field name="search_view_id" ref="view_loan_partial_payoff_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
@@ -169,6 +178,18 @@
             <p>
                 Partial payoffs allow customers to pay extra to reduce principal without full settlement.
             </p>
+        </field>
+    </record>
+
+    <!-- Partial Payoff Graph View -->
+    <record id="view_loan_partial_payoff_graph" model="ir.ui.view">
+        <field name="name">alba.loan.partial.payoff.graph</field>
+        <field name="model">alba.loan.partial.payoff</field>
+        <field name="arch" type="xml">
+            <graph string="Partial Payoffs" type="line">
+                <field name="create_date" type="row"/>
+                <field name="payoff_amount" type="measure"/>
+            </graph>
         </field>
     </record>
 

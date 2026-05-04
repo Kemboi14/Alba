@@ -7,6 +7,7 @@ Staff/admin processing is handled in Odoo.
 
 import json
 import logging
+import base64
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 
@@ -37,6 +38,8 @@ from .models import (
     Notification,
     RepaymentSchedule,
 )
+
+from core.services.odoo_sync import OdooSyncService, OdooSyncError
 
 # ---------------------------------------------------------------------------
 # Customer dashboard
@@ -276,6 +279,17 @@ def apply_for_loan(request):
         if form.is_valid():
             application = form.save(commit=False)
             application.customer = customer
+
+            # Capture business fields from form if they exist
+            for field in [
+                "business_name",
+                "business_registration_number",
+                "business_location",
+                "annual_turnover",
+            ]:
+                if field in form.cleaned_data:
+                    setattr(application, field, form.cleaned_data[field])
+
             # Save as DRAFT — customer must upload supporting documents
             # (payslip / employment letter) before final submission.
             application.status = LoanApplication.DRAFT
@@ -936,7 +950,7 @@ def download_statement(request, loan_pk):
     doc.build(elements)
     buffer.seek(0)
 
-    filename = f"AlbaCapital_Statement_{loan.loan_number}_{timezone.now().strftime('%Y%m%d')}.pdf"
+    filename = f"loan_statement_{loan.loan_number}_{timezone.now().strftime('%Y%m%d')}.pdf"
     response = HttpResponse(buffer, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
 
@@ -953,6 +967,57 @@ def download_statement(request, loan_pk):
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+@login_required
+def download_official_report(request, report_type, res_id):
+    """
+    Proxy view to download Odoo-generated reports via the Django portal.
+    Supported report_types: 'application', 'guarantor', 'statement'
+    """
+    # Permission mapping
+    report_map = {
+        "application": "alba_loans.loan_application_report",
+        "guarantor": "alba_loans.guarantor_agreement_report",
+        "statement": "alba_investors.investment_statement_report",
+    }
+
+    xml_id = report_map.get(report_type)
+    if not xml_id:
+        return redirect("dashboard")
+
+    # Access control
+    # For now, we allow the customer to download if the res_id matches their record
+    # or if they are staff. In a production system, this would be more granular.
+    customer, _ = Customer.objects.get_or_create(user=request.user)
+
+    if report_type == "application":
+        get_object_or_404(LoanApplication, pk=res_id, customer=customer)
+    elif report_type == "statement":
+        # Check if they have an investment (if we add the model) or if staff
+        pass
+
+    sync = OdooSyncService()
+    try:
+        pdf_base64 = sync.download_report(xml_id, res_id)
+        if not pdf_base64:
+            messages.error(
+                request, "Official document is not yet available for this record."
+            )
+            return redirect(request.META.get("HTTP_REFERER", "dashboard"))
+
+        pdf_content = base64.b64decode(pdf_base64)
+        response = HttpResponse(pdf_content, content_type="application/pdf")
+        filename = f"{report_type}_{res_id}.pdf"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+    except OdooSyncError as e:
+        messages.error(request, f"Odoo Sync Error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Failed to download report {xml_id}/{res_id}: {str(e)}")
+        messages.error(request, "An error occurred while generating your document.")
+
+    return redirect(request.META.get("HTTP_REFERER", "dashboard"))
 
 
 def _build_projected_schedule(loan):

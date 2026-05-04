@@ -226,5 +226,14 @@
             groups="alba_loans.group_loan_manager"
         />
 
+    <menuitem
+            id="menu_alba_loan_categories"
+            name="Loan Categories"
+            parent="menu_alba_loans_config"
+            action="action_alba_loan_category"
+            sequence="20"
+            groups="alba_loans.group_loan_manager"
+        />
+
 </data>
 </odoo>

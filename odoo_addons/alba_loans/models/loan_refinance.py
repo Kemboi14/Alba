@@ -6,6 +6,7 @@ Fee: 1% of new principal (lower than restructure 3%)
 """
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from markupsafe import Markup
 
 
 class AlbaLoanRefinance(models.Model):
@@ -424,10 +425,40 @@ class AlbaLoanRefinance(models.Model):
                 raise UserError(_("New loan must be disbursed first."))
             
             rec.write({"state": "completed"})
-            rec.message_post(body=_("<b>REFINANCE COMPLETED</b>"))
+            
+            # Send Email
+            template = self.env.ref('alba_loans.email_template_refinance', raise_if_not_found=False)
+            if template:
+                template.send_mail(rec.id, force_send=True)
+
+            rec.message_post(body=Markup(_("<b>REFINANCE COMPLETED</b>")))
     
     def action_reject(self):
         """Reject refinance"""
         for rec in self:
             rec.write({"state": "rejected"})
             rec.message_post(body=_("Refinance rejected by %s.") % self.env.user.name)
+
+    def action_view_original_loan(self):
+        """Navigate to the original loan"""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Original Loan"),
+            "res_model": "alba.loan",
+            "view_mode": "form",
+            "res_id": self.original_loan_id.id,
+        }
+
+    def action_view_new_loan(self):
+        """Navigate to the new loan"""
+        self.ensure_one()
+        if not self.new_loan_id:
+            raise UserError(_("New loan has not been created yet."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("New Loan"),
+            "res_model": "alba.loan",
+            "view_mode": "form",
+            "res_id": self.new_loan_id.id,
+        }

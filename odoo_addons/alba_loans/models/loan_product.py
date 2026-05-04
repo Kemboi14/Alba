@@ -3,6 +3,26 @@ from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 
+class AlbaLoanCategory(models.Model):
+    """Loan Category - Defines grouping and defaults for products"""
+    _name = "alba.loan.category"
+    _description = "Loan Category"
+    _order = "sequence, name"
+    
+    name = fields.Char(string="Category Name", required=True, translate=True)
+    code = fields.Char(string="Category Code", required=True)
+    sequence = fields.Integer(default=10)
+    color = fields.Integer(string="Color Index", default=0)
+    description = fields.Text(string="Description")
+    active = fields.Boolean(default=True)
+    
+    product_count = fields.Integer(compute="_compute_product_count")
+    
+    def _compute_product_count(self):
+        for rec in self:
+            rec.product_count = self.env["alba.loan.product"].search_count([("category_id", "=", rec.id)])
+
+
 class AlbaLoanProduct(models.Model):
     _name = "alba.loan.product"
     _description = "Alba Capital Loan Product"
@@ -23,6 +43,13 @@ class AlbaLoanProduct(models.Model):
         tracking=True,
         copy=False,
     )
+    category_id = fields.Many2one(
+        "alba.loan.category",
+        string="Category",
+        required=False,
+        tracking=True,
+        default=lambda self: self.env["alba.loan.category"].search([], limit=1).id,
+    )
     category = fields.Selection(
         selection=[
             ("salary_advance", "Salary Advance"),
@@ -35,9 +62,13 @@ class AlbaLoanProduct(models.Model):
             ("investor_loan", "Investor Loan"),
             ("asset_financing", "Asset Financing"),
         ],
-        string="Category",
-        required=True,
-        tracking=True,
+        string="Old Category (Legacy)",
+        help="Maintained for migration/legacy sync",
+    )
+    color = fields.Integer(
+        string="Color Index",
+        default=0,
+        help="Color used in Kanban and Tree views.",
     )
     description = fields.Text(string="Description")
     is_active = fields.Boolean(
@@ -118,6 +149,63 @@ class AlbaLoanProduct(models.Model):
         help="Number of days after due date before penalties apply.",
     )
     
+    # ─── Automation ───────────────────────────────────────────────────────────
+    auto_approve_score_threshold = fields.Integer(
+        string="Auto-Approve Score Threshold",
+        default=85,
+        help="Applications with a credit score above this threshold can be auto-approved.",
+    )
+    auto_disburse = fields.Boolean(
+        string="Auto-Disburse via M-Pesa B2C",
+        default=False,
+        help="If ticked, approved applications will automatically trigger a B2C API call to disburse funds instantly.",
+    )
+
+    # ─── Product Requirements (drive UI visibility) ───────────────────────────
+    # These flags tell the loan application form EXACTLY what to show/hide.
+    # Set these when configuring a product — zero guessing for staff.
+    requires_employer = fields.Boolean(
+        string="Requires Employer Details",
+        default=False,
+        tracking=True,
+        help="Show employer, job title, and payslip fields on the application.",
+    )
+    requires_guarantor = fields.Boolean(
+        string="Requires Guarantor",
+        default=False,
+        tracking=True,
+        help="Show guarantors tab and enforce guarantor confirmation before disbursement.",
+    )
+    min_guarantors = fields.Integer(
+        string="Minimum Guarantors",
+        default=0,
+        help="Minimum number of confirmed guarantors required before disbursement.",
+    )
+    requires_collateral = fields.Boolean(
+        string="Requires Collateral",
+        default=False,
+        tracking=True,
+        help="Show collateral tab and enforce collateral pledge before disbursement.",
+    )
+    requires_business_info = fields.Boolean(
+        string="Requires Business Information",
+        default=False,
+        tracking=True,
+        help="Show business name, registration, type, and revenue fields.",
+    )
+    requires_payslip = fields.Boolean(
+        string="Requires Payslip / Proof of Income",
+        default=False,
+        tracking=True,
+        help="Enforce payslip document upload before submission.",
+    )
+    requires_business_reg = fields.Boolean(
+        string="Requires Business Registration Docs",
+        default=False,
+        tracking=True,
+        help="Enforce business registration certificate upload.",
+    )
+
     # ─── Other Charges ────────────────────────────────────────────────────────
     other_charges_percentage = fields.Float(
         string="Other Charges (%)",

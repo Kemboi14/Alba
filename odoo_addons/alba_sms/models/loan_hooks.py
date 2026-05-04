@@ -301,3 +301,53 @@ class AlbaLoanSmsHook(models.Model):
             "cron_send_maturity_reminders SMS: %d SMS message(s) dispatched.",
             sent_count,
         )
+
+    @api.model
+    def cron_send_pre_due_reminders(self):
+        """
+        Scan for loan installments due in exactly 3 days and send reminders.
+        """
+        if not self._sms_enabled():
+            return
+
+        target_date = fields.Date.today() + timedelta(days=3)
+        
+        # Search for upcoming installments in the schedule
+        schedules = self.env["alba.repayment.schedule"].sudo().search([
+            ("due_date", "=", target_date),
+            ("status", "=", "unpaid"),
+            ("loan_id.state", "=", "active"),
+        ])
+        
+        provider = self.env["alba.sms.provider"].sudo().search([("is_active", "=", True)], limit=1)
+        template = self.env["alba.sms.template"].sudo().get_by_code("repayment_reminder")
+        
+        if not provider or not template:
+            return
+
+        for sched in schedules:
+            customer = sched.loan_id.customer_id
+            phone = customer.mpesa_number or customer.partner_id.mobile or customer.partner_id.phone
+            if not phone:
+                continue
+
+            ctx = {
+                "customer_name": customer.partner_id.name,
+                "amount": "{:,.2f}".format(sched.total_installment),
+                "loan_number": sched.loan_id.loan_number,
+                "due_date": str(sched.due_date),
+                "company_name": self.env.company.name,
+            }
+            
+            try:
+                message = template.render(ctx)
+                provider.send_sms(
+                    phone,
+                    message,
+                    res_model="alba.loan",
+                    res_id=sched.loan_id.id,
+                    template_id=template.id,
+                )
+                sched.loan_id.message_post(body=_("<b>Automated Reminder Sent</b>: %s") % message)
+            except Exception as e:
+                _logger.error("Failed to send pre-due reminder for loan %s: %s", sched.loan_id.loan_number, str(e))

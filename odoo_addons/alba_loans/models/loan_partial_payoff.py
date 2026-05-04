@@ -361,6 +361,11 @@ class AlbaLoanPartialPayoff(models.Model):
                 "processed_date": fields.Date.today(),
             })
             
+            # Send Email
+            template = self.env.ref('alba_loans.email_template_partial_payoff', raise_if_not_found=False)
+            if template:
+                template.send_mail(rec.id, force_send=True)
+
             # Log
             if rec.reduction_mode == "reduce_emi":
                 mode_result = _(
@@ -412,3 +417,14 @@ class AlbaLoanPartialPayoff(models.Model):
                 "state": "draft",
                 "quote_date": False,
             })
+
+    def action_view_loan(self):
+        """Navigate to the linked loan"""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Loan"),
+            "res_model": "alba.loan",
+            "view_mode": "form",
+            "res_id": self.loan_id.id,
+        }

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- ── Investment Activated ────────────────────────────── -->
+        <record id="email_template_investment_active" model="mail.template">
+            <field name="name">Investment: Activated</field>
+            <field name="model_id" ref="alba_investors.model_alba_investment"/>
+            <field name="subject">Investment Account Activated - {{ object.investment_number }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.investor_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.investor_id.display_name }}</strong>,<br/><br/>
+                        Your investment account <strong>{{ object.investment_number }}</strong> has been successfully activated.<br/><br/>
+                        <strong>Investment Details:</strong><br/>
+                        - Principal Amount: {{ object.currency_id.symbol }} {{ object.principal_amount }}<br/>
+                        - Interest Rate: {{ object.interest_rate }}% per annum<br/>
+                        - Compounding: {{ object.compounding_frequency }}<br/>
+                        - Start Date: {{ object.start_date }}<br/><br/>
+                        Thank you for investing with us.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Interest Accrued ────────────────────────────────── -->
+        <record id="email_template_interest_accrued" model="mail.template">
+            <field name="name">Investment: Interest Accrued</field>
+            <field name="model_id" ref="alba_investors.model_alba_interest_accrual"/>
+            <field name="subject">Interest Credited to {{ object.investment_id.investment_number }}</field>
+            <field name="email_from">{{ (object.investment_id.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.investment_id.investor_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.investment_id.investor_id.display_name }}</strong>,<br/><br/>
+                        Interest has been credited to your investment account <strong>{{ object.investment_id.investment_number }}</strong>.<br/><br/>
+                        <strong>Accrual Details:</strong><br/>
+                        - Amount: {{ object.currency_id.symbol }} {{ object.interest_amount }}<br/>
+                        - Period: {{ object.period_start }} to {{ object.period_end }}<br/>
+                        - New Portfolio Value: {{ object.currency_id.symbol }} {{ object.investment_id.current_value }}<br/><br/>
+                        Thank you for your continued partnership.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.investment_id.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Investment Statement ───────────────────────────── -->
+        <record id="email_template_investment_statement" model="mail.template">
+            <field name="name">Investment: Statement Sent</field>
+            <field name="model_id" ref="alba_investors.model_alba_investment_statement"/>
+            <field name="subject">Investment Statement - {{ object.reference }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.investor_id.display_name }}</strong>,<br/><br/>
+                        Please find below your investment statement for the period <strong>{{ object.period_start }}</strong> to <strong>{{ object.period_end }}</strong>.<br/><br/>
+                        <strong>Summary:</strong><br/>
+                        - Opening Balance: {{ object.currency_id.symbol }} {{ object.opening_balance }}<br/>
+                        - Interest Accrued: {{ object.currency_id.symbol }} {{ object.interest_accrued }}<br/>
+                        - Deposits: {{ object.currency_id.symbol }} {{ object.deposits }}<br/>
+                        - Withdrawals: {{ object.currency_id.symbol }} {{ object.withdrawals }}<br/>
+                        - Closing Balance: {{ object.currency_id.symbol }} {{ object.closing_balance }}<br/><br/>
+                        The full details are available on your online portal.<br/><br/>
+                        Thank you,<br/>
+                        <strong>{{ object.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+    </data>
+</odoo>

@@ -34,6 +34,18 @@
                 </header>
                 <sheet>
                     <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_original_loan" string="View Original Loan" type="object" class="oe_stat_button" icon="fa-arrow-left"/>
+                        <button name="action_view_new_loan" string="View New Loan" type="object" class="oe_stat_button" icon="fa-arrow-right" invisible="not new_loan_id"/>
+                    </div>
+                    <widget name="web_ribbon" text="Draft" bg_color="bg-warning" invisible="state != 'draft'"/>
+                    <widget name="web_ribbon" text="Quoted" bg_color="bg-info" invisible="state != 'quoted'"/>
+                    <widget name="web_ribbon" text="Customer Accepted" bg_color="bg-primary" invisible="state != 'customer_accepted'"/>
+                    <widget name="web_ribbon" text="Approved" bg_color="bg-success" invisible="state != 'approved'"/>
+                    <widget name="web_ribbon" text="Settled" bg_color="bg-secondary" invisible="state != 'settled'"/>
+                    <widget name="web_ribbon" text="Disbursed" bg_color="bg-primary" invisible="state != 'disbursed'"/>
+                    <widget name="web_ribbon" text="Completed" bg_color="bg-success" invisible="state != 'completed'"/>
+                    <widget name="web_ribbon" text="Rejected" bg_color="bg-danger" invisible="state != 'rejected'"/>
                     <group>
                         <group string="Original Loan">
                             <field name="original_loan_id" options="{'no_create': True}" readonly="state != 'draft'"/>
@@ -77,10 +89,22 @@
         </field>
     </record>
 
+    <!-- Loan Refinance Graph View -->
+    <record id="view_loan_refinance_graph" model="ir.ui.view">
+        <field name="name">alba.loan.refinance.graph</field>
+        <field name="model">alba.loan.refinance</field>
+        <field name="arch" type="xml">
+            <graph string="Loan Refinances" type="line">
+                <field name="create_date" type="row"/>
+                <field name="monthly_savings" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
     <record id="action_loan_refinance" model="ir.actions.act_window">
         <field name="name">Refinances</field>
         <field name="res_model">alba.loan.refinance</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,form,graph</field>
     </record>
 
     <menuitem id="menu_loan_refinance" name="Refinances" parent="menu_alba_loans_root_active" action="action_loan_refinance" sequence="34"/>

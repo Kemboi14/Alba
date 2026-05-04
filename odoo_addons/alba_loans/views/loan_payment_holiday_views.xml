@@ -34,6 +34,16 @@
                 </header>
                 <sheet>
                     <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_loan" string="View Loan" type="object" class="oe_stat_button" icon="fa-arrow-right"/>
+                    </div>
+                    <widget name="web_ribbon" text="Draft" bg_color="bg-warning" invisible="state != 'draft'"/>
+                    <widget name="web_ribbon" text="Pending" bg_color="bg-info" invisible="state != 'pending'"/>
+                    <widget name="web_ribbon" text="Approved" bg_color="bg-success" invisible="state != 'approved'"/>
+                    <widget name="web_ribbon" text="Active" bg_color="bg-primary" invisible="state != 'active'"/>
+                    <widget name="web_ribbon" text="Completed" bg_color="bg-success" invisible="state != 'completed'"/>
+                    <widget name="web_ribbon" text="Rejected" bg_color="bg-danger" invisible="state != 'rejected'"/>
+                    <widget name="web_ribbon" text="Cancelled" bg_color="bg-secondary" invisible="state != 'cancelled'"/>
                     <group>
                         <group string="Loan">
                             <field name="loan_id" options="{'no_create': True}" readonly="state != 'draft'"/>
@@ -80,10 +90,22 @@
         </field>
     </record>
 
+    <!-- Payment Holiday Graph View -->
+    <record id="view_loan_payment_holiday_graph" model="ir.ui.view">
+        <field name="name">alba.loan.payment.holiday.graph</field>
+        <field name="model">alba.loan.payment.holiday</field>
+        <field name="arch" type="xml">
+            <graph string="Payment Holidays" type="line">
+                <field name="create_date" type="row"/>
+                <field name="holiday_months" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
     <record id="action_loan_payment_holiday" model="ir.actions.act_window">
         <field name="name">Payment Holidays</field>
         <field name="res_model">alba.loan.payment.holiday</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,form,graph</field>
     </record>
 
     <menuitem id="menu_loan_payment_holiday" name="Payment Holidays" parent="menu_alba_loans_root_active" action="action_loan_payment_holiday" sequence="33"/>

@@ -11,6 +11,7 @@ Implements escalation buckets:
 """
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from markupsafe import Markup
 from datetime import date, timedelta
 
 
@@ -229,7 +230,7 @@ class AlbaLoan(models.Model):
             "escalated"
         )
         
-        self.message_post(body=_("<b>ESCALATED TO LEGAL</b><br/>Loan escalated to legal department after %s days overdue.") % self.days_in_arrears)
+        self.message_post(body=Markup(_("<b>ESCALATED TO LEGAL</b><br/>Loan escalated to legal department after %s days overdue.")) % self.days_in_arrears)
 
 
 class AlbaLoanCollectionCron(models.Model):
@@ -285,7 +286,7 @@ class AlbaLoanCollectionCron(models.Model):
             
             # Notify management
             loan.message_post(
-                body=_("<b>NPL CLASSIFICATION</b><br/>Loan classified as Non-Performing after %s days overdue.") % loan.days_overdue,
+                body=Markup(_("<b>NPL CLASSIFICATION</b><br/>Loan classified as Non-Performing after %s days overdue.")) % loan.days_overdue,
                 subtype_xmlid="mail.mt_note",
             )
             

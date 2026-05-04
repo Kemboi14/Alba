@@ -6,4 +6,5 @@ from . import (
     investment_statement,
     investor,
     mpesa_transaction_investor,
+    notification_hooks,
 )

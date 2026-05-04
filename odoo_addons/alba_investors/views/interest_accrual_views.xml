@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+    <!-- ================================================================
+         alba.interest.accrual — Tree View
+         ================================================================ -->
+    <record id="view_alba_interest_accrual_tree" model="ir.ui.view">
+        <field name="name">alba.interest.accrual.tree</field>
+        <field name="model">alba.interest.accrual</field>
+        <field name="arch" type="xml">
+            <list string="Interest Accruals" decoration-success="state == 'posted'" decoration-danger="state == 'reversed'">
+                <field name="accrual_date"/>
+                <field name="investment_id"/>
+                <field name="investor_id"/>
+                <field name="period_start"/>
+                <field name="period_end"/>
+                <field name="opening_balance" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="interest_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="closing_balance" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="state"/>
+                <button name="action_post" string="Post" type="object" icon="fa-check" invisible="state != 'draft'" groups="alba_investors.group_investor_manager"/>
+                <button name="action_reverse" string="Reverse" type="object" icon="fa-undo" invisible="state != 'posted'" groups="alba_investors.group_investor_manager"/>
+                <button name="action_reset_to_draft" string="Reset to Draft" type="object" icon="fa-refresh" invisible="state != 'reversed'" groups="alba_investors.group_investor_manager"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         alba.interest.accrual — Form View
+         ================================================================ -->
+    <record id="view_alba_interest_accrual_form" model="ir.ui.view">
+        <field name="name">alba.interest.accrual.form</field>
+        <field name="model">alba.interest.accrual</field>
+        <field name="arch" type="xml">
+            <form string="Interest Accrual">
+                <header>
+                    <button name="action_post" string="Post" type="object" class="btn-primary" invisible="state != 'draft'" groups="alba_investors.group_investor_manager"/>
+                    <button name="action_reverse" string="Reverse" type="object" class="btn-warning" invisible="state != 'posted'" groups="alba_investors.group_investor_manager"/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object" class="btn-secondary" invisible="state != 'reversed'" groups="alba_investors.group_investor_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,posted,reversed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="investment_id" string="Investment"/>
+                        <h2>
+                            <field name="investment_id" required="1" readonly="1"/>
+                        </h2>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="investor_id" readonly="1"/>
+                            <field name="accrual_date"/>
+                        </group>
+                        <group>
+                            <field name="currency_id" readonly="1"/>
+                            <field name="state"/>
+                        </group>
+                    </group>
+                    <group string="Period">
+                        <group>
+                            <field name="period_start"/>
+                        </group>
+                        <group>
+                            <field name="period_end"/>
+                        </group>
+                    </group>
+                    <group string="Amounts">
+                        <group>
+                            <field name="opening_balance"/>
+                            <field name="interest_amount"/>
+                        </group>
+                        <group>
+                            <field name="closing_balance" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Accounting" groups="account.group_account_user">
+                        <group>
+                            <field name="move_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="reversal_move_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Notes">
+                        <field name="notes"/>
+                        <field name="reversal_reason" invisible="state != 'reversed'"/>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids" widget="mail_followers"/>
+                    <field name="message_ids" widget="mail_thread"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         alba.interest.accrual — Search View
+         ================================================================ -->
+    <record id="view_alba_interest_accrual_search" model="ir.ui.view">
+        <field name="name">alba.interest.accrual.search</field>
+        <field name="model">alba.interest.accrual</field>
+        <field name="arch" type="xml">
+            <search string="Interest Accruals">
+                <field name="investment_id"/>
+                <field name="investor_id"/>
+                <field name="accrual_date"/>
+                <field name="state"/>
+                <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <filter name="posted" string="Posted" domain="[('state', '=', 'posted')]"/>
+                <filter name="reversed" string="Reversed" domain="[('state', '=', 'reversed')]"/>
+                <separator/>
+                <filter name="this_month" string="This Month" domain="[('accrual_date', '&gt;=', (context_today() - relativedelta(days=1)).replace(day=1)), ('accrual_date', '&lt;=', (context_today() + relativedelta(months=1, day=1)) - relativedelta(days=1))]"/>
+                <filter name="last_month" string="Last Month" domain="[('accrual_date', '&gt;=', (context_today() - relativedelta(months=1, day=1)).replace(day=1)), ('accrual_date', '&lt;=', (context_today()).replace(day=1) - relativedelta(days=1))]"/>
+                <group>
+                    <filter name="investor" string="Investor" domain="[]" context="{'group_by': 'investor_id'}"/>
+                    <filter name="investment" string="Investment" domain="[]" context="{'group_by': 'investment_id'}"/>
+                    <filter name="state" string="Status" domain="[]" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         alba.interest.accrual — Action
+         ================================================================ -->
+    <record id="action_alba_interest_accrual" model="ir.actions.act_window">
+        <field name="name">Interest Accruals</field>
+        <field name="res_model">alba.interest.accrual</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[]</field>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first interest accrual
+            </p>
+            <p>
+                Interest accruals track compound interest earned on investments.
+                They are typically generated automatically by the monthly accrual cron job.
+            </p>
+        </field>
+    </record>
+
+</data>
+</odoo>

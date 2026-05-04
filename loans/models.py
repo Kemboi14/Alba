@@ -315,6 +315,23 @@ class Customer(models.Model):
     )
     employment_date = models.DateField("Date of Employment", null=True, blank=True)
 
+    # Business Information (SRS 3.1.2 - Business Loans)
+    is_business_entity = models.BooleanField("Is Business Entity", default=False)
+    business_name = models.CharField("Business Name", max_length=200, blank=True)
+    business_registration_number = models.CharField(
+        "Business Registration Number", max_length=100, blank=True
+    )
+    business_location = models.CharField("Business Location", max_length=200, blank=True)
+    business_industry = models.CharField("Industry/Sector", max_length=100, blank=True)
+    annual_turnover = models.DecimalField(
+        "Annual Turnover",
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+
     # Financial Information
     existing_loans = models.DecimalField(
         "Existing Loan Obligations",
@@ -704,6 +721,21 @@ class LoanApplication(models.Model):
         "Repayment Frequency", max_length=15, choices=LoanProduct.FREQUENCY_CHOICES
     )
     purpose = models.TextField("Loan Purpose")
+
+    # Business Specific Data (Captured at time of application)
+    business_name = models.CharField("Business Name", max_length=200, blank=True)
+    business_registration_number = models.CharField(
+        "Business Registration Number", max_length=100, blank=True
+    )
+    business_location = models.CharField("Business Location", max_length=200, blank=True)
+    annual_turnover = models.DecimalField(
+        "Annual Turnover",
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
 
     # Status and Workflow
     status = models.CharField(

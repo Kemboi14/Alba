@@ -6,6 +6,7 @@ Syncs with Django portal guarantor data
 """
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from markupsafe import Markup
 
 
 class AlbaGuarantor(models.Model):
@@ -17,29 +18,28 @@ class AlbaGuarantor(models.Model):
     _inherit = ["mail.thread", "mail.activity.mixin"]
     
     # Basic Information
-    name = fields.Char(string="Full Name", required=True, tracking=True)
-    id_number = fields.Char(string="ID/Passport Number", required=True, tracking=True, index=True)
-    id_type = fields.Selection([
-        ("national_id", "National ID"),
-        ("passport", "Passport"),
-        ("alien_id", "Alien ID / Foreign Certificate"),
-    ], string="ID Type", default="national_id", required=True)
-    
-    # Contact
-    phone = fields.Char(string="Phone Number", required=True, tracking=True)
-    email = fields.Char(string="Email")
-    address = fields.Text(string="Physical Address")
-    county = fields.Char(string="County")
-    sub_county = fields.Char(string="Sub-County")
-    
-    # Employment
-    employer_name = fields.Char(string="Employer / Business Name")
-    employer_phone = fields.Char(string="Employer Phone")
-    job_title = fields.Char(string="Job Title")
-    monthly_income = fields.Monetary(
-        string="Monthly Net Income",
-        currency_field="currency_id",
+    partner_id = fields.Many2one(
+        "res.partner",
+        string="Related Contact",
+        required=True,
+        ondelete="restrict",
+        help="The partner record for this guarantor. Stores name, phone, email, and documents.",
     )
+    name = fields.Char(related="partner_id.name", store=True, readonly=False)
+    id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
+    id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
+    
+    # Contact (Related to Partner)
+    phone = fields.Char(related="partner_id.phone", store=True, readonly=False)
+    email = fields.Char(related="partner_id.email", store=True, readonly=False)
+    address = fields.Char(related="partner_id.street", string="Physical Address", readonly=False)
+    
+    # Employment (Related to Partner)
+    employer_id = fields.Many2one(related="partner_id.employer_id", store=True, readonly=False)
+    employer_name = fields.Char(related="employer_id.name", string="Employer Name", readonly=True)
+    employer_phone = fields.Char(related="employer_id.phone", string="Employer Phone", readonly=True)
+    job_title = fields.Char(related="partner_id.job_title", store=True, readonly=False)
+    monthly_income = fields.Monetary(related="partner_id.monthly_income", store=True, readonly=False)
     
     # Currency
     currency_id = fields.Many2one(
@@ -159,7 +159,11 @@ class AlbaGuarantor(models.Model):
             rec.write({
                 "blacklisted": True,
             })
-            rec.message_post(body=_("<b>GUARANTOR BLACKLISTED</b><br/>Reason: %s") % rec.blacklist_reason)
+            body = (
+                "<b>GUARANTOR BLACKLISTED</b><br/>"
+                "Reason: %s"
+            ) % rec.blacklist_reason
+            rec.message_post(body=body)
     
     def action_unblacklist(self):
         """Remove guarantor from blacklist"""
@@ -363,19 +367,20 @@ class AlbaLoanGuarantor(models.Model):
                 "status": "confirmation_sent",
             })
             
-            # TODO: Integrate with SMS gateway
-            # message = _(
-            #     "You have been named as a guarantor for %s's loan. "
-            #     "Reply with code %s to confirm or CALL to decline. "
-            #     "Alba Capital"
-            # ) % (rec.customer_id.display_name, code)
             
-            rec.message_post(body=_(
+            body = (
                 "<b>CONFIRMATION REQUEST SENT</b><br/>"
                 "Code: %s<br/>"
                 "Sent to: %s<br/>"
                 "Guarantor: %s"
-            ) % (code, rec.guarantor_id.phone, rec.guarantor_id.name))
+            ) % (code, rec.guarantor_id.phone, rec.guarantor_id.name)
+            rec.message_post(body=body)
+            
+            # 🚀 PHASE 5: Omnichannel (Email)
+            template = self.env.ref("alba_loans.email_template_guarantor_confirmation", raise_if_not_found=False)
+            if template and rec.guarantor_id.email:
+                template.send_mail(rec.id, force_send=False)
+                rec.message_post(body=_("📧 Automated guarantor confirmation email sent to %s") % rec.guarantor_id.email)
     
     def action_confirm(self, method="phone"):
         """Confirm guarantor acceptance"""
@@ -390,12 +395,13 @@ class AlbaLoanGuarantor(models.Model):
             if rec.guarantor_id.kyc_status == "pending":
                 rec.guarantor_id.action_verify()
             
-            rec.message_post(body=_(
+            body = (
                 "<b>GUARANTOR CONFIRMED</b><br/>"
                 "Confirmed by: %s<br/>"
                 "Method: %s<br/>"
                 "Amount: %s %s"
-            ) % (rec.guarantor_id.name, method, rec.currency_id.symbol, rec.guarantee_amount))
+            ) % (rec.guarantor_id.name, method, rec.currency_id.symbol, rec.guarantee_amount)
+            rec.message_post(body=body)
             
             # Update loan application
             rec.loan_application_id.message_post(body=_(
@@ -466,7 +472,7 @@ class AlbaLoanGuarantor(models.Model):
                 rec.write({
                     "status": "recovered",
                 })
-                rec.message_post(body=_("<b>FULLY RECOVERED</b>"))
+                rec.message_post(body=Markup(_("<b>FULLY RECOVERED</b>")))
             else:
                 remaining = (rec.liability_amount or 0) - new_total
                 rec.message_post(body=_(

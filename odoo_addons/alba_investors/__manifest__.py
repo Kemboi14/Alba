@@ -36,12 +36,17 @@ Manages the full investor lifecycle for Alba Capital:
         # Master data / sequences / crons
         "data/sequence_data.xml",
         "data/cron_data.xml",
+        "data/mail_template_data.xml",
         # Views
         "views/investor_views.xml",
         "views/investment_statement_views.xml",
         "views/investment_views.xml",
+        "views/interest_accrual_views.xml",
         # Wizards
         "wizard/generate_statement_wizard_views.xml",
+        # Reports
+        "report/investor_reports.xml",
+        "report/investment_statement_report.xml",
         # Menus last
         "views/menus.xml",
     ],
