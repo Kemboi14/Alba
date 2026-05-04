@@ -3,10 +3,10 @@
 <data>
 
     <!-- ================================================================
-         Alba Investors — Top-level Menu
+         Investors — Top-level Menu
          ================================================================ -->
     <menuitem id="menu_alba_investors_root"
-              name="Alba Investors"
+              name="Investors"
               sequence="20"
               web_icon="alba_investors,static/description/icon.png"
               groups="alba_investors.group_investor_user"/>

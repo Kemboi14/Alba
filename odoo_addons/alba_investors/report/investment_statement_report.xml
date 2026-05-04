@@ -3,99 +3,162 @@
     <data>
         <record id="action_report_investment_statement" model="ir.actions.report">
             <field name="name">Investment Statement</field>
-            <field name="model">alba.investment</field>
+            <field name="model">alba.investment.statement</field>
             <field name="report_type">qweb-pdf</field>
             <field name="report_name">alba_investors.report_investment_statement_template</field>
             <field name="report_file">alba_investors.report_investment_statement_template</field>
-            <field name="print_report_name">'Statement - %s' % (object.investment_number)</field>
+            <field name="print_report_name">'Statement - %s' % (object.reference)</field>
         </record>
 
         <template id="report_investment_statement_template">
             <t t-call="web.html_container">
-                <t t-foreach="docs" t-as="o">
+                <t t-foreach="docs" t-as="stmt">
                     <t t-call="web.external_layout">
                         <div class="page" style="font-family: 'Helvetica', sans-serif;">
+                            <!-- ── Header ─────────────────────────────────────── -->
                             <div class="row mb-4">
                                 <div class="col-6">
                                     <h2 class="text-success fw-bold">INVESTMENT STATEMENT</h2>
-                                    <h4 class="text-muted"><span t-field="o.investment_number"/></h4>
+                                    <h4 class="text-muted"><span t-field="stmt.reference"/></h4>
                                 </div>
                                 <div class="col-6 text-end">
                                     <div class="badge rounded-pill bg-success p-2 px-3" style="font-size: 1.1em;">
-                                        STATUS: <span t-field="o.state"/>
+                                        STATUS: <span t-field="stmt.state" t-options='{"widget": "badge"}' class="badge badge-pill"/>
                                     </div>
-                                    <p class="mt-2 text-muted">Statement Date: <span t-esc="context_today().strftime('%Y-%m-%d')"/></p>
+                                    <p class="mt-2 text-muted">
+                                        Statement Date: <span t-field="stmt.statement_date" t-options='{"format": "MMM d, y"}'/>
+                                    </p>
                                 </div>
                             </div>
 
                             <hr style="border-top: 2px solid #28a745;"/>
 
-                            <div class="row mt-4">
+                            <!-- ── Investor &amp; Investment Info ──────────────── -->
+                            <div class="row mt-4 mb-4">
                                 <div class="col-6">
                                     <h5 class="text-uppercase text-secondary border-bottom pb-1">Investor Information</h5>
                                     <p>
-                                        <strong><span t-field="o.investor_id.partner_id.name"/></strong><br/>
-                                        <span t-field="o.investor_id.partner_id.street"/><br/>
-                                        <span t-field="o.investor_id.partner_id.phone"/><br/>
-                                        <span t-field="o.investor_id.partner_id.email"/>
+                                        <strong><span t-field="stmt.partner_id.name"/></strong><br/>
+                                        <t t-if="stmt.partner_id.street">
+                                            <span t-field="stmt.partner_id.street"/><br/>
+                                        </t>
+                                        <t t-if="stmt.partner_id.phone">
+                                            <span t-field="stmt.partner_id.phone"/><br/>
+                                        </t>
+                                        <t t-if="stmt.partner_id.email">
+                                            <span t-field="stmt.partner_id.email"/>
+                                        </t>
                                     </p>
                                 </div>
                                 <div class="col-6">
-                                    <h5 class="text-uppercase text-secondary border-bottom pb-1">Account Summary</h5>
+                                    <h5 class="text-uppercase text-secondary border-bottom pb-1">Investment Account</h5>
                                     <table class="table table-sm table-borderless">
                                         <tr>
+                                            <td class="fw-bold">Account #:</td>
+                                            <td><span t-field="stmt.investment_id.investment_number"/></td>
+                                        </tr>
+                                        <tr>
                                             <td class="fw-bold">Type:</td>
-                                            <td><span t-field="o.investment_type"/></td>
+                                            <td><span t-field="stmt.investment_id.investment_type"/></td>
                                         </tr>
                                         <tr>
-                                            <td class="fw-bold">Interest Rate:</td>
-                                            <td><span t-field="o.interest_rate"/>% p.a.</td>
-                                        </tr>
-                                        <tr>
-                                            <td class="fw-bold">Initial Principal:</td>
-                                            <td><span t-field="o.principal_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
-                                        </tr>
-                                        <tr class="table-success fw-bold">
-                                            <td>Current Value:</td>
-                                            <td><span t-field="o.current_value" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                            <td class="fw-bold">Rate:</td>
+                                            <td><span t-field="stmt.investment_id.interest_rate"/>% p.a.</td>
                                         </tr>
                                     </table>
                                 </div>
                             </div>
 
-                            <h5 class="mt-5 text-uppercase text-secondary border-bottom pb-1">Transaction History</h5>
-                            <table class="table table-sm table-striped mt-2">
-                                <thead>
-                                    <tr class="bg-light text-success">
-                                        <th>Date</th>
-                                        <th>Description</th>
-                                        <th class="text-end">Credit</th>
-                                        <th class="text-end">Debit</th>
-                                        <th class="text-end">Balance</th>
-                                    </tr>
-                                </thead>
+                            <!-- ── Statement Period &amp; Summary ──────────────── -->
+                            <h5 class="text-uppercase text-secondary border-bottom pb-1 mt-4">Statement Period</h5>
+                            <div class="row mt-2 mb-3">
+                                <div class="col-2">
+                                    <strong>From:</strong> <span t-field="stmt.period_start" t-options='{"format": "MMM d, y"}'/>
+                                </div>
+                                <div class="col-2">
+                                    <strong>To:</strong> <span t-field="stmt.period_end" t-options='{"format": "MMM d, y"}'/>
+                                </div>
+                            </div>
+
+                            <!-- ── Financial Summary ──────────────────────────── -->
+                            <h5 class="text-uppercase text-secondary border-bottom pb-1 mt-4">Financial Summary</h5>
+                            <table class="table table-sm mt-2">
                                 <tbody>
-                                    <tr>
-                                        <td><span t-field="o.start_date"/></td>
-                                        <td>Opening Principal</td>
-                                        <td class="text-end"><span t-field="o.principal_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
-                                        <td class="text-end">-</td>
-                                        <td class="text-end fw-bold"><span t-field="o.principal_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <tr class="table-light">
+                                        <td class="fw-bold">Opening Balance</td>
+                                        <td class="text-end">
+                                            <span t-field="stmt.opening_balance" t-options='{"widget": "monetary", "display_currency": stmt.currency_id}'/>
+                                        </td>
                                     </tr>
-                                    <t t-foreach="o.accrual_ids.sorted(key=lambda a: a.period_end)" t-as="a">
-                                        <tr>
-                                            <td><span t-field="a.period_end"/></td>
-                                            <td>Interest Accrual (<span t-field="a.period_start"/> to <span t-field="a.period_end"/>)</td>
-                                            <td class="text-end text-success">+ <span t-field="a.interest_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
-                                            <td class="text-end">-</td>
-                                            <td class="text-end"><span t-esc="o.principal_amount + sum(o.accrual_ids.filtered(lambda x: x.period_end &lt;= a.period_end).mapped('interest_amount'))" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
-                                        </tr>
-                                    </t>
+                                    <tr>
+                                        <td class="fw-bold">+ Deposits</td>
+                                        <td class="text-end text-success">
+                                            <span t-field="stmt.deposits" t-options='{"widget": "monetary", "display_currency": stmt.currency_id}'/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">- Withdrawals</td>
+                                        <td class="text-end text-danger">
+                                            <span t-field="stmt.withdrawals" t-options='{"widget": "monetary", "display_currency": stmt.currency_id}'/>
+                                        </td>
+                                    </tr>
+                                    <tr class="table-success">
+                                        <td class="fw-bold">+ Interest Accrued</td>
+                                        <td class="text-end">
+                                            <span t-field="stmt.interest_accrued" t-options='{"widget": "monetary", "display_currency": stmt.currency_id}'/>
+                                        </td>
+                                    </tr>
+                                    <tr class="table-info fw-bold">
+                                        <td>Closing Balance</td>
+                                        <td class="text-end">
+                                            <span t-field="stmt.closing_balance" t-options='{"widget": "monetary", "display_currency": stmt.currency_id}'/>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
 
+                            <!-- ── Interest Accruals Included ─────────────────── -->
+                            <h5 class="text-uppercase text-secondary border-bottom pb-1 mt-4">Interest Accruals Included</h5>
+                            <t t-if="stmt.accrual_ids">
+                                <table class="table table-sm table-striped mt-2">
+                                    <thead>
+                                        <tr class="bg-light text-success fw-bold">
+                                            <th>Date</th>
+                                            <th>Period Start</th>
+                                            <th>Period End</th>
+                                            <th class="text-end">Opening</th>
+                                            <th class="text-end">Interest</th>
+                                            <th class="text-end">Closing</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="stmt.accrual_ids.sorted(key=lambda a: a.accrual_date)" t-as="accrual">
+                                            <tr>
+                                                <td><span t-field="accrual.accrual_date" t-options='{"format": "MMM d, y"}'/></td>
+                                                <td><span t-field="accrual.period_start" t-options='{"format": "MMM d, y"}'/></td>
+                                                <td><span t-field="accrual.period_end" t-options='{"format": "MMM d, y"}'/></td>
+                                                <td class="text-end"><span t-field="accrual.opening_balance" t-options='{"widget": "monetary", "display_currency": stmt.currency_id}'/></td>
+                                                <td class="text-end text-success fw-bold"><span t-field="accrual.interest_amount" t-options='{"widget": "monetary", "display_currency": stmt.currency_id}'/></td>
+                                                <td class="text-end"><span t-field="accrual.closing_balance" t-options='{"widget": "monetary", "display_currency": stmt.currency_id}'/></td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </t>
+                            <t t-else="">
+                                <p class="text-muted italic">No interest accruals in this period.</p>
+                            </t>
+
+                            <!-- ── Notes ──────────────────────────────────────── -->
+                            <t t-if="stmt.notes">
+                                <h5 class="text-uppercase text-secondary border-bottom pb-1 mt-4">Notes</h5>
+                                <p><span t-field="stmt.notes"/></p>
+                            </t>
+
+                            <!-- ── Footer ────────────────────────────────────── -->
                             <div class="footer o_standard_footer mt-5 text-center text-muted small">
                                 <p>Alba Capital Investors • www.albacapital.co.ke</p>
+                                <p>This is an automated statement. For questions, contact our investor support team.</p>
                             </div>
                         </div>
                     </t>

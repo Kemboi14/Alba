@@ -13,9 +13,9 @@
                     <field name="name"/>
                     <field name="document_type"/>
                     <field name="partner_id" string="Owner" column_invisible="context.get('hide_partner')"/>
-                    <field name="attachment_id" widget="many2one_binary" string="File"/>
+                    <field name="attachment_id" string="File"/>
                     <field name="uploaded_by" optional="hide"/>
-                    <field name="create_date" string="Uploaded On" widget="date"/>
+                    <field name="create_date" string="Uploaded On" widget="datetime"/>
                     <field name="state" widget="badge" 
                            decoration-success="state == 'verified'" 
                            decoration-warning="state == 'draft'" 
@@ -68,7 +68,7 @@
                                                 invisible="state == 'verified'">
                                             <i class="fa fa-check me-1"/> Verify
                                         </button>
-                                        <field name="attachment_id" widget="many2one_binary" string="Download"/>
+                                        <field name="attachment_id" string="Download"/>
                                     </div>
                                 </div>
                             </div>
@@ -99,7 +99,7 @@
                                 <field name="partner_id"/>
                             </group>
                             <group>
-                                <field name="attachment_id" widget="many2one_binary"/>
+                                <field name="attachment_id"/>
                                 <field name="uploaded_by"/>
                                 <field name="create_date" string="Uploaded On" readonly="1"/>
                             </group>

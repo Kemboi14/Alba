@@ -3,11 +3,11 @@
 <data>
 
     <!-- ================================================================
-         Root menu — Alba Integration
+         Root menu — Integration
          ================================================================ -->
     <menuitem
             id="menu_alba_integration_root"
-            name="Alba Integration"
+            name="Integration"
             sequence="30"
             web_icon="alba_integration,static/description/icon.png"
             groups="alba_integration.group_integration_user"

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 {
-    "name": "Alba Capital - Investor Management",
+    "name": "Investors",
     "version": "19.0.1.0.0",
     "category": "Finance",
     "summary": "Investor profiles, investment accounts, compound interest accrual and monthly statement generation",
     "description": """
-Alba Capital Investor Management
-==================================
-Manages the full investor lifecycle for Alba Capital:
+Investor Management
+===================
+Manages the full investor lifecycle:
 
 * Investor profiles linked to Odoo contacts (res.partner)
 * KYC management with verification workflow

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 {
-    "name": "Alba Capital - Loan Management",
+    "name": "Loans",
     "version": "19.0.1.8.0",
     "category": "Finance",
     "summary": "Core loan management: products, applications, disbursements, repayments, M-Pesa integration and accounting automation",
     "description": """
-Alba Capital Loan Management
-==============================
-Manages the full loan lifecycle for Alba Capital:
+Loans Management
+==================
+Manages the full loan lifecycle:
 
 * Configurable loan products (salary advance, business loan, asset financing)
 * Customer KYC profiles linked to res.partner

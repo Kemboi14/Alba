@@ -58,7 +58,7 @@
                     <div class="row mt-4 mb-4 border rounded p-3 bg-light mx-0 shadow-sm">
                         <div class="col-md-3 border-end text-center">
                             <div class="text-muted small text-uppercase">Requested Amount</div>
-                            <div class="h4 mb-0 fw-bold"><field name="requested_amount"/></div>
+                            <div class="h4 mb-0 fw-bold"><field name="requested_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/></div>
                         </div>
                         <div class="col-md-3 border-end text-center text-primary">
                             <div class="text-muted small text-uppercase">Loan Product</div>
@@ -150,7 +150,7 @@
                                     <list string="Application Documents" editable="bottom" decoration-info="state == 'draft'" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'">
                                         <field name="name" placeholder="e.g. Payslip"/>
                                         <field name="document_type"/>
-                                        <field name="attachment_id" widget="many2one_binary" string="Upload File"/>
+                                        <field name="attachment_id" string="Upload File"/>
                                         <field name="state" widget="badge" 
                                                decoration-success="state == 'verified'" 
                                                decoration-warning="state == 'draft'" 
@@ -165,8 +165,8 @@
                                         <field name="partner_id" string="Owner"/>
                                         <field name="name"/>
                                         <field name="document_type"/>
-                                        <field name="attachment_id" widget="many2one_binary" string="File"/>
-                                        <field name="create_date" string="Uploaded" widget="date"/>
+                                        <field name="attachment_id" string="File"/>
+                                        <field name="create_date" string="Uploaded" widget="datetime"/>
                                         <field name="state" widget="badge" 
                                                decoration-success="state == 'verified'" 
                                                decoration-warning="state == 'draft'" 
