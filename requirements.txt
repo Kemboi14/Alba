@@ -1,5 +1,5 @@
 # Core Framework
-Django==5.2.8
+Django==5.2.12
 python-decouple==3.8
 
 # Database
@@ -30,5 +30,5 @@ djangorestframework-stubs==3.16.8
 reportlab==4.2.2
 
 # Production
-gunicorn==22.0.0
+gunicorn==23.0.0
 whitenoise==6.6.0
