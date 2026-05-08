@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-    <record id="view_loan_refinance_tree" model="ir.ui.view">
+    <record id="view_loan_refinance_list" model="ir.ui.view">
         <field name="name">alba.loan.refinance.tree</field>
         <field name="model">alba.loan.refinance</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list decoration-muted="state=='rejected'" decoration-success="state=='completed'" decoration-info="state=='quoted'">
                 <field name="name"/>
@@ -20,6 +21,7 @@
     <record id="view_loan_refinance_form" model="ir.ui.view">
         <field name="name">alba.loan.refinance.form</field>
         <field name="model">alba.loan.refinance</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Loan Refinance">
                 <header>
@@ -47,7 +49,7 @@
                     <widget name="web_ribbon" text="Completed" bg_color="bg-success" invisible="state != 'completed'"/>
                     <widget name="web_ribbon" text="Rejected" bg_color="bg-danger" invisible="state != 'rejected'"/>
                     <group>
-                        <group string="Original Loan">
+                        <group>
                             <field name="original_loan_id" options="{'no_create': True}" readonly="state != 'draft'"/>
                             <field name="customer_id" readonly="1"/>
                             <field name="original_product_id" readonly="1"/>
@@ -55,7 +57,7 @@
                             <field name="original_rate" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="New Terms">
+                        <group>
                             <field name="new_product_id" readonly="state != 'draft'"/>
                             <field name="new_principal" readonly="state != 'draft'"/>
                             <field name="new_interest_rate" readonly="state != 'draft'"/>
@@ -64,7 +66,7 @@
                             <field name="new_emi" readonly="1"/>
                         </group>
                     </group>
-                    <group string="Settlement">
+                    <group>
                         <group>
                             <field name="settlement_amount" readonly="1"/>
                             <field name="refinance_fee_rate" readonly="state != 'draft'"/>
@@ -76,7 +78,7 @@
                             <field name="monthly_savings" readonly="1"/>
                         </group>
                     </group>
-                    <group string="Links" invisible="not new_loan_id">
+                    <group invisible="not new_loan_id">
                         <field name="new_loan_application_id" readonly="1"/>
                         <field name="new_loan_id" readonly="1"/>
                     </group>
@@ -93,6 +95,7 @@
     <record id="view_loan_refinance_graph" model="ir.ui.view">
         <field name="name">alba.loan.refinance.graph</field>
         <field name="model">alba.loan.refinance</field>
+        <field name="type">graph</field>
         <field name="arch" type="xml">
             <graph string="Loan Refinances" type="line">
                 <field name="create_date" type="row"/>

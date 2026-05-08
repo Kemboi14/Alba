@@ -8,6 +8,7 @@
         <record id="view_alba_customer_form" model="ir.ui.view">
             <field name="name">alba.customer.form</field>
             <field name="model">alba.customer</field>
+            <field name="type">form</field>
             <field name="arch" type="xml">
                 <form string="Customer">
                     <header>
@@ -86,7 +87,7 @@
                         </div>
 
                         <group>
-                            <group string="Identity">
+                            <group>
                                 <field name="id_type"/>
                                 <field name="id_number"/>
                                 <field name="date_of_birth"/>
@@ -95,10 +96,14 @@
                                 <field name="marital_status"/>
                                 <field name="nationality"/>
                             </group>
-                            <group string="Location (Kenya)">
-                                <field name="county"/>
-                                <field name="sub_county"/>
-                                <field name="ward"/>
+                            <group>
+                                <field name="county_id"/>
+                                <field name="sub_county_id"/>
+                                <field name="ward_id"/>
+                                <field name="referral_source"/>
+                                <field name="referral_name"
+                                       placeholder="e.g. John Kamau"
+                                       invisible="not referral_source"/>
                             </group>
                         </group>
 
@@ -107,20 +112,20 @@
                             <!-- ── Employment ─────────────────────────────── -->
                             <page string="Employment" name="employment">
                                 <group>
-                                    <group string="Employment Details">
+                                    <group>
                                         <field name="employment_status"/>
                                         <field name="employer_id" options="{'no_create_edit': False, 'no_open': False}"/>
                                         <field name="employer_phone"/>
                                         <field name="job_title"/>
                                         <field name="months_employed"/>
                                     </group>
-                                    <group string="Income">
+                                    <group>
                                         <field name="monthly_income"/>
                                         <field name="other_income"/>
                                         <field name="currency_id" invisible="1"/>
                                     </group>
                                 </group>
-                                <group string="Business Details" invisible="employment_status not in ('self_employed', 'business_owner')">
+                                <group invisible="employment_status not in ('self_employed', 'business_owner')">
                                     <group>
                                         <field name="business_name"/>
                                         <field name="business_registration_number"/>
@@ -132,18 +137,24 @@
                                         <field name="monthly_business_turnover"/>
                                     </group>
                                 </group>
+                                <group>
+                                    <group>
+                                        <field name="sector_id" options="{'no_create_edit': True}"/>
+                                        <field name="subsector_id" options="{'no_create_edit': True}"/>
+                                    </group>
+                                </group>
                             </page>
 
                             <!-- ── KYC &amp; Risk ──────────────────────────── -->
                             <page string="KYC &amp; Risk" name="kyc_risk">
                                 <group>
-                                    <group string="KYC Status">
+                                    <group>
                                         <field name="kyc_status"/>
                                         <field name="kyc_verified_by" readonly="1"/>
                                         <field name="kyc_verified_date" readonly="1"/>
                                         <field name="blacklisted"/>
                                     </group>
-                                    <group string="Credit &amp; Risk">
+                                    <group>
                                         <field name="credit_score"/>
                                         <field name="risk_rating"/>
                                         <field name="django_customer_id"
@@ -155,12 +166,12 @@
                             <!-- ── Banking ────────────────────────────────── -->
                             <page string="Banking" name="banking">
                                 <group>
-                                    <group string="Bank Details">
+                                    <group>
                                         <field name="bank_name"/>
                                         <field name="bank_account_number"/>
                                         <field name="bank_branch"/>
                                     </group>
-                                    <group string="Mobile Money">
+                                    <group>
                                         <field name="mpesa_number"/>
                                     </group>
                                 </group>
@@ -168,19 +179,7 @@
 
                             <!-- ── Documents &amp; KYC ────────────────────────── -->
                             <page string="Documents &amp; KYC" name="documents">
-                                <field name="all_document_ids" nolabel="1" context="{'hide_partner': True}">
-                                    <list string="Documents" decoration-info="state == 'draft'" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'" editable="bottom">
-                                        <field name="name"/>
-                                        <field name="document_type"/>
-                                        <field name="attachment_id" string="File"/>
-                                        <field name="create_date" string="Uploaded" widget="datetime" readonly="1"/>
-                                        <field name="state" widget="badge"
-                                               decoration-success="state == 'verified'"
-                                               decoration-warning="state == 'draft'"
-                                               decoration-danger="state == 'rejected'"/>
-                                        <button name="action_verify" string="Verify" type="object" icon="fa-check" class="text-success" invisible="state == 'verified'"/>
-                                    </list>
-                                </field>
+                                <field name="all_document_ids" nolabel="1" context="{'hide_partner': True}"/>
                             </page>
 
                             <!-- ── Loan Applications ──────────────────────── -->
@@ -188,19 +187,7 @@
                                 <field name="loan_application_ids"
                                        mode="list"
                                        readonly="1"
-                                       context="{'default_customer_id': id}">
-                                    <list string="Applications" decoration-success="state=='disbursed'"
-                                          decoration-danger="state in ('rejected','cancelled')"
-                                          decoration-info="state not in ('disbursed','rejected','cancelled')">
-                                        <field name="application_number"/>
-                                        <field name="loan_product_id"/>
-                                        <field name="requested_amount"/>
-                                        <field name="approved_amount"/>
-                                        <field name="tenure_months"/>
-                                        <field name="state"/>
-                                        <field name="create_date" string="Applied On"/>
-                                    </list>
-                                </field>
+                                       context="{'default_customer_id': id}"/>
                             </page>
 
                             <!-- ── Notes ─────────────────────────────────── -->
@@ -224,6 +211,7 @@
         <record id="view_alba_customer_list" model="ir.ui.view">
             <field name="name">alba.customer.list</field>
             <field name="model">alba.customer</field>
+            <field name="type">list</field>
             <field name="arch" type="xml">
                 <list string="Customers"
                       decoration-danger="blacklisted == True"
@@ -232,6 +220,10 @@
                     <field name="id_type"/>
                     <field name="id_number"/>
                     <field name="employment_status"/>
+                    <field name="referral_source" optional="show"/>
+                    <field name="referral_name" optional="show"/>
+                    <field name="sector_id" optional="show"/>
+                    <field name="subsector_id" optional="hide"/>
                     <field name="monthly_income"/>
                     <field name="kyc_status" widget="badge"
                            decoration-success="kyc_status == 'verified'"
@@ -257,6 +249,7 @@
         <record id="view_alba_customer_kanban" model="ir.ui.view">
             <field name="name">alba.customer.kanban</field>
             <field name="model">alba.customer</field>
+            <field name="type">kanban</field>
             <field name="arch" type="xml">
                 <kanban default_group_by="kyc_status" class="o_kanban_small_column">
                     <field name="partner_id"/>
@@ -297,12 +290,17 @@
         <record id="view_alba_customer_search" model="ir.ui.view">
             <field name="name">alba.customer.search</field>
             <field name="model">alba.customer</field>
+            <field name="type">search</field>
             <field name="arch" type="xml">
                 <search string="Search Customers">
                     <field name="partner_id"/>
                     <field name="id_number"/>
                     <field name="employer_name"/>
-                    <field name="county"/>
+                    <field name="county_id"/>
+                    <field name="referral_source"/>
+                    <field name="referral_name" string="Referred By"/>
+                    <field name="sector_id"/>
+                    <field name="subsector_id"/>
                     <separator/>
                     <filter name="kyc_pending" string="KYC Pending" domain="[('kyc_status','=','pending')]"/>
                     <filter name="kyc_partial" string="KYC Partial" domain="[('kyc_status','=','partial')]"/>
@@ -314,6 +312,12 @@
                     <separator/>
                     <filter name="employed" string="Employed" domain="[('employment_status','=','employed')]"/>
                     <filter name="self_employed" string="Self-Employed" domain="[('employment_status','=','self_employed')]"/>
+                    <separator/>
+                    <group>
+                        <field name="referral_source"/>
+                        <field name="sector_id"/>
+                        <field name="subsector_id"/>
+                    </group>
                 </search>
             </field>
         </record>

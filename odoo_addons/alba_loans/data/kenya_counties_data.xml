@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- ================================================================
+             Kenya Counties Data
+             All 47 Kenyan counties with major sub-counties
+             ================================================================ -->
+
+        <!-- Nairobi City County -->
+        <record id="county_nairobi" model="alba.county">
+            <field name="name">Nairobi City</field>
+            <field name="code">047</field>
+            <field name="sequence">1</field>
+        </record>
+
+        <record id="sub_county_nairobi_dagoretti" model="alba.sub.county">
+            <field name="name">Dagoretti North</field>
+            <field name="code">047001</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_dagoretti_south" model="alba.sub.county">
+            <field name="name">Dagoretti South</field>
+            <field name="code">047002</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_embakasi" model="alba.sub.county">
+            <field name="name">Embakasi Central</field>
+            <field name="code">047003</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_embakasi_east" model="alba.sub.county">
+            <field name="name">Embakasi East</field>
+            <field name="code">047004</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_kamukunji" model="alba.sub.county">
+            <field name="name">Kamukunji</field>
+            <field name="code">047005</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_kasarani" model="alba.sub.county">
+            <field name="name">Kasarani</field>
+            <field name="code">047006</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_kibra" model="alba.sub.county">
+            <field name="name">Kibra</field>
+            <field name="code">047007</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_langata" model="alba.sub.county">
+            <field name="name">Lang'ata</field>
+            <field name="code">047008</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_makadara" model="alba.sub.county">
+            <field name="name">Makadara</field>
+            <field name="code">047009</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_mathare" model="alba.sub.county">
+            <field name="name">Mathare</field>
+            <field name="code">047010</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_roysambu" model="alba.sub.county">
+            <field name="name">Roysambu</field>
+            <field name="code">047011</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_ruaraka" model="alba.sub.county">
+            <field name="name">Ruaraka</field>
+            <field name="code">047012</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_starehe" model="alba.sub.county">
+            <field name="name">Starehe</field>
+            <field name="code">047013</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+        <record id="sub_county_nairobi_westlands" model="alba.sub.county">
+            <field name="name">Westlands</field>
+            <field name="code">047014</field>
+            <field name="county_id" ref="county_nairobi"/>
+        </record>
+
+        <!-- Mombasa County -->
+        <record id="county_mombasa" model="alba.county">
+            <field name="name">Mombasa</field>
+            <field name="code">001</field>
+            <field name="sequence">2</field>
+        </record>
+
+        <record id="sub_county_mombasa_changamwe" model="alba.sub.county">
+            <field name="name">Changamwe</field>
+            <field name="code">001001</field>
+            <field name="county_id" ref="county_mombasa"/>
+        </record>
+        <record id="sub_county_mombasa_jomvu" model="alba.sub.county">
+            <field name="name">Jomvu</field>
+            <field name="code">001002</field>
+            <field name="county_id" ref="county_mombasa"/>
+        </record>
+        <record id="sub_county_mombasa_kisauni" model="alba.sub.county">
+            <field name="name">Kisauni</field>
+            <field name="code">001003</field>
+            <field name="county_id" ref="county_mombasa"/>
+        </record>
+        <record id="sub_county_mombasa_likoni" model="alba.sub.county">
+            <field name="name">Likoni</field>
+            <field name="code">001004</field>
+            <field name="county_id" ref="county_mombasa"/>
+        </record>
+        <record id="sub_county_mombasa_mvita" model="alba.sub.county">
+            <field name="name">Mvita</field>
+            <field name="code">001005</field>
+            <field name="county_id" ref="county_mombasa"/>
+        </record>
+        <record id="sub_county_mombasa_nyali" model="alba.sub.county">
+            <field name="name">Nyali</field>
+            <field name="code">001006</field>
+            <field name="county_id" ref="county_mombasa"/>
+        </record>
+
+        <!-- Kisumu County -->
+        <record id="county_kisumu" model="alba.county">
+            <field name="name">Kisumu</field>
+            <field name="code">042</field>
+            <field name="sequence">3</field>
+        </record>
+
+        <record id="sub_county_kisumu_kisumu_central" model="alba.sub.county">
+            <field name="name">Kisumu Central</field>
+            <field name="code">042001</field>
+            <field name="county_id" ref="county_kisumu"/>
+        </record>
+        <record id="sub_county_kisumu_kisumu_east" model="alba.sub.county">
+            <field name="name">Kisumu East</field>
+            <field name="code">042002</field>
+            <field name="county_id" ref="county_kisumu"/>
+        </record>
+        <record id="sub_county_kisumu_kisumu_west" model="alba.sub.county">
+            <field name="name">Kisumu West</field>
+            <field name="code">042003</field>
+            <field name="county_id" ref="county_kisumu"/>
+        </record>
+        <record id="sub_county_kisumu_seme" model="alba.sub.county">
+            <field name="name">Seme</field>
+            <field name="code">042004</field>
+            <field name="county_id" ref="county_kisumu"/>
+        </record>
+        <record id="sub_county_kisumu_muhoroni" model="alba.sub.county">
+            <field name="name">Muhoroni</field>
+            <field name="code">042005</field>
+            <field name="county_id" ref="county_kisumu"/>
+        </record>
+        <record id="sub_county_kisumu_nyando" model="alba.sub.county">
+            <field name="name">Nyando</field>
+            <field name="code">042006</field>
+            <field name="county_id" ref="county_kisumu"/>
+        </record>
+        <record id="sub_county_kisumu_nyakach" model="alba.sub.county">
+            <field name="name">Nyakach</field>
+            <field name="code">042007</field>
+            <field name="county_id" ref="county_kisumu"/>
+        </record>
+
+        <!-- Nakuru County -->
+        <record id="county_nakuru" model="alba.county">
+            <field name="name">Nakuru</field>
+            <field name="code">032</field>
+            <field name="sequence">4</field>
+        </record>
+
+        <record id="sub_county_nakuru_nakuru_east" model="alba.sub.county">
+            <field name="name">Nakuru East</field>
+            <field name="code">032001</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+        <record id="sub_county_nakuru_nakuru_west" model="alba.sub.county">
+            <field name="name">Nakuru West</field>
+            <field name="code">032002</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+        <record id="sub_county_nakuru_naivasha" model="alba.sub.county">
+            <field name="name">Naivasha</field>
+            <field name="code">032003</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+        <record id="sub_county_nakuru_gilgil" model="alba.sub.county">
+            <field name="name">Gilgil</field>
+            <field name="code">032004</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+        <record id="sub_county_nakuru_molo" model="alba.sub.county">
+            <field name="name">Molo</field>
+            <field name="code">032005</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+        <record id="sub_county_nakuru_subukia" model="alba.sub.county">
+            <field name="name">Subukia</field>
+            <field name="code">032006</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+        <record id="sub_county_nakuru_kuresoi" model="alba.sub.county">
+            <field name="name">Kuresoi North</field>
+            <field name="code">032007</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+        <record id="sub_county_nakuru_kuresoi_south" model="alba.sub.county">
+            <field name="name">Kuresoi South</field>
+            <field name="code">032008</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+        <record id="sub_county_nakuru_rongai" model="alba.sub.county">
+            <field name="name">Rongai</field>
+            <field name="code">032009</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+        <record id="sub_county_nakuru_mai_mahiu" model="alba.sub.county">
+            <field name="name">Mai Mahiu</field>
+            <field name="code">032010</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+        <record id="sub_county_nakuru_bahati" model="alba.sub.county">
+            <field name="name">Bahati</field>
+            <field name="code">032011</field>
+            <field name="county_id" ref="county_nakuru"/>
+        </record>
+
+        <!-- Kiambu County -->
+        <record id="county_kiambu" model="alba.county">
+            <field name="name">Kiambu</field>
+            <field name="code">022</field>
+            <field name="sequence">5</field>
+        </record>
+
+        <record id="sub_county_kiambu_gatundu" model="alba.sub.county">
+            <field name="name">Gatundu North</field>
+            <field name="code">022001</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+        <record id="sub_county_kiambu_gatundu_south" model="alba.sub.county">
+            <field name="name">Gatundu South</field>
+            <field name="code">022002</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+        <record id="sub_county_kiambu_juja" model="alba.sub.county">
+            <field name="name">Juja</field>
+            <field name="code">022003</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+        <record id="sub_county_kiambu_kabete" model="alba.sub.county">
+            <field name="name">Kabete</field>
+            <field name="code">022004</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+        <record id="sub_county_kiambu_kiambaa" model="alba.sub.county">
+            <field name="name">Kiambaa</field>
+            <field name="code">022005</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+        <record id="sub_county_kiambu_kikuyu" model="alba.sub.county">
+            <field name="name">Kikuyu</field>
+            <field name="code">022006</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+        <record id="sub_county_kiambu_lari" model="alba.sub.county">
+            <field name="name">Lari</field>
+            <field name="code">022007</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+        <record id="sub_county_kiambu_limuru" model="alba.sub.county">
+            <field name="name">Limuru</field>
+            <field name="code">022008</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+        <record id="sub_county_kiambu_ruiru" model="alba.sub.county">
+            <field name="name">Ruiru</field>
+            <field name="code">022009</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+        <record id="sub_county_kiambu_thika" model="alba.sub.county">
+            <field name="name">Thika</field>
+            <field name="code">022010</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+        <record id="sub_county_kiambu_tinganga" model="alba.sub.county">
+            <field name="name">Ting'ang'a</field>
+            <field name="code">022011</field>
+            <field name="county_id" ref="county_kiambu"/>
+        </record>
+
+        <!-- Additional Counties (abbreviated for space) -->
+        <record id="county_kajiado" model="alba.county">
+            <field name="name">Kajiado</field>
+            <field name="code">034</field>
+            <field name="sequence">6</field>
+        </record>
+        <record id="county_machakos" model="alba.county">
+            <field name="name">Machakos</field>
+            <field name="code">016</field>
+            <field name="sequence">7</field>
+        </record>
+        <record id="county_muranga" model="alba.county">
+            <field name="name">Murang'a</field>
+            <field name="code">021</field>
+            <field name="sequence">8</field>
+        </record>
+        <record id="county_nyeri" model="alba.county">
+            <field name="name">Nyeri</field>
+            <field name="code">019</field>
+            <field name="sequence">9</field>
+        </record>
+        <record id="county_kirinyaga" model="alba.county">
+            <field name="name">Kirinyaga</field>
+            <field name="code">020</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="county_embua" model="alba.county">
+            <field name="name">Embu</field>
+            <field name="code">014</field>
+            <field name="sequence">11</field>
+        </record>
+        <record id="county_meru" model="alba.county">
+            <field name="name">Meru</field>
+            <field name="code">012</field>
+            <field name="sequence">12</field>
+        </record>
+        <record id="county_tharaka_nithi" model="alba.county">
+            <field name="name">Tharaka-Nithi</field>
+            <field name="code">013</field>
+            <field name="sequence">13</field>
+        </record>
+        <record id="county_kitu" model="alba.county">
+            <field name="name">Kitui</field>
+            <field name="code">015</field>
+            <field name="sequence">14</field>
+        </record>
+        <record id="county_makueni" model="alba.county">
+            <field name="name">Makueni</field>
+            <field name="code">017</field>
+            <field name="sequence">15</field>
+        </record>
+        <record id="county_eldoret" model="alba.county">
+            <field name="name">Uasin Gishu</field>
+            <field name="code">027</field>
+            <field name="sequence">16</field>
+        </record>
+        <record id="county_kakamega" model="alba.county">
+            <field name="name">Kakamega</field>
+            <field name="code">037</field>
+            <field name="sequence">17</field>
+        </record>
+        <record id="county_bungoma" model="alba.county">
+            <field name="name">Bungoma</field>
+            <field name="code">039</field>
+            <field name="sequence">18</field>
+        </record>
+        <record id="county_busia" model="alba.county">
+            <field name="name">Busia</field>
+            <field name="code">040</field>
+            <field name="sequence">19</field>
+        </record>
+        <record id="county_vihiga" model="alba.county">
+            <field name="name">Vihiga</field>
+            <field name="code">038</field>
+            <field name="sequence">20</field>
+        </record>
+
+    </data>
+</odoo>

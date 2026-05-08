@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_alba_loan_dashboard_form" model="ir.ui.view">
+            <field name="name">alba.loan.dashboard.form</field>
+            <field name="model">alba.loan.dashboard</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="Loans Dashboard" create="0" edit="1">
+                    <header>
+                        <button name="action_refresh" string="Refresh" type="object" class="btn-primary"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="date_from"/>
+                                <field name="date_to"/>
+                            </group>
+                            <group>
+                                <field name="company_id" groups="base.group_multi_company"/>
+                                <field name="group_by"/>
+                                <field name="currency_id" invisible="1"/>
+                            </group>
+                        </group>
+
+                        <div class="row mt-4 mb-4 mx-0">
+                            <div class="col-md-3 border rounded p-3 me-2 mb-2 bg-light">
+                                <div class="text-muted small text-uppercase">Applications</div>
+                                <div class="h3 mb-2"><field name="application_count"/></div>
+                                <button name="action_view_applications" type="object" string="Open" class="btn btn-link p-0"/>
+                            </div>
+                            <div class="col-md-3 border rounded p-3 me-2 mb-2 bg-light">
+                                <div class="text-muted small text-uppercase">Loans Disbursed</div>
+                                <div class="h3 mb-2"><field name="loan_count"/></div>
+                                <button name="action_view_loans" type="object" string="Open" class="btn btn-link p-0"/>
+                            </div>
+                            <div class="col-md-3 border rounded p-3 me-2 mb-2 bg-light">
+                                <div class="text-muted small text-uppercase">Customers Served</div>
+                                <div class="h3 mb-2"><field name="customer_count"/></div>
+                                <button name="action_view_loans" type="object" string="Open" class="btn btn-link p-0"/>
+                            </div>
+                        </div>
+
+                        <group>
+                            <group>
+                                <field name="disbursed_amount" readonly="1"/>
+                                <field name="outstanding_amount" readonly="1"/>
+                                <field name="collected_amount" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="arrears_amount" readonly="1"/>
+                                <field name="par_30_amount" readonly="1"/>
+                                <field name="par_90_amount" readonly="1"/>
+                                <field name="npl_count" readonly="1"/>
+                            </group>
+                        </group>
+
+                        <group>
+                            <button name="action_view_loans" type="object" string="Loan Listing" class="btn-secondary"/>
+                            <button name="action_view_par" type="object" string="Portfolio at Risk" class="btn-secondary"/>
+                            <button name="action_view_repayments" type="object" string="Repayments" class="btn-secondary"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_alba_loan_dashboard" model="ir.actions.act_window">
+            <field name="name">Dashboard</field>
+            <field name="res_model">alba.loan.dashboard</field>
+            <field name="view_mode">form</field>
+            <field name="target">current</field>
+            <field name="context">{}</field>
+        </record>
+    </data>
+</odoo>

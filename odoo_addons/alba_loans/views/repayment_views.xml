@@ -8,6 +8,7 @@
         <record id="view_alba_loan_repayment_form" model="ir.ui.view">
             <field name="name">alba.loan.repayment.form</field>
             <field name="model">alba.loan.repayment</field>
+            <field name="type">form</field>
             <field name="arch" type="xml">
                 <form string="Loan Repayment">
                     <header>
@@ -49,7 +50,7 @@
                         <widget name="web_ribbon" text="Reversed" bg_color="bg-danger" invisible="state != 'reversed'"/>
 
                         <group>
-                            <group string="Payment Details">
+                            <group>
                                 <field name="loan_id"
                                        options="{'no_create': True}"
                                        readonly="state != 'draft'"/>
@@ -61,7 +62,7 @@
                                 <field name="amount_paid"
                                        readonly="state != 'draft'"/>
                             </group>
-                            <group string="Payment Method">
+                            <group>
                                 <field name="payment_method"
                                        readonly="state != 'draft'"/>
                                 <field name="mpesa_transaction_id"
@@ -90,7 +91,7 @@
                                     components manually.
                                 </div>
                                 <group>
-                                    <group string="Components">
+                                    <group>
                                         <field name="principal_component"
                                                readonly="state != 'draft'"/>
                                         <field name="interest_component"
@@ -100,7 +101,7 @@
                                         <field name="penalty_component"
                                                readonly="state != 'draft'"/>
                                     </group>
-                                    <group string="Summary">
+                                    <group>
                                         <field name="total_allocated"   readonly="1"/>
                                         <field name="unallocated_amount" readonly="1"/>
                                     </group>
@@ -111,12 +112,12 @@
                             <page string="Accounting" name="accounting"
                                   groups="account.group_account_user">
                                 <group>
-                                    <group string="Journal Entry">
+                                    <group>
                                         <field name="move_id"          readonly="1"/>
                                         <field name="reversal_move_id" readonly="1"
                                                invisible="not reversal_move_id"/>
                                     </group>
-                                    <group string="Integration">
+                                    <group>
                                         <field name="django_payment_id"
                                                groups="base.group_system"
                                                readonly="1"/>
@@ -158,6 +159,7 @@
         <record id="view_alba_loan_repayment_list" model="ir.ui.view">
             <field name="name">alba.loan.repayment.list</field>
             <field name="model">alba.loan.repayment</field>
+            <field name="type">list</field>
             <field name="arch" type="xml">
                 <list string="Repayments"
                       decoration-success="state == 'posted'"
@@ -196,6 +198,7 @@
         <record id="view_alba_loan_repayment_search" model="ir.ui.view">
             <field name="name">alba.loan.repayment.search</field>
             <field name="model">alba.loan.repayment</field>
+            <field name="type">search</field>
             <field name="arch" type="xml">
                 <search string="Search Repayments">
                     <field name="payment_reference"     string="Reference"/>
@@ -261,6 +264,7 @@
         <record id="view_alba_repayment_schedule_list" model="ir.ui.view">
             <field name="name">alba.repayment.schedule.list</field>
             <field name="model">alba.repayment.schedule</field>
+            <field name="type">list</field>
             <field name="arch" type="xml">
                 <list string="Repayment Schedule"
                       decoration-danger="status == 'overdue'"
@@ -294,6 +298,7 @@
         <record id="view_alba_repayment_schedule_search" model="ir.ui.view">
             <field name="name">alba.repayment.schedule.search</field>
             <field name="model">alba.repayment.schedule</field>
+            <field name="type">search</field>
             <field name="arch" type="xml">
                 <search string="Search Schedule">
                     <field name="loan_id"     string="Loan #"/>
@@ -326,6 +331,7 @@
     <record id="view_alba_loan_repayment_graph" model="ir.ui.view">
         <field name="name">alba.loan.repayment.graph</field>
         <field name="model">alba.loan.repayment</field>
+        <field name="type">graph</field>
         <field name="arch" type="xml">
             <graph string="Loan Repayments" type="line">
                 <field name="payment_date" type="row"/>

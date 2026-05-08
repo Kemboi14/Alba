@@ -8,6 +8,7 @@
     <record id="view_alba_mpesa_transaction_form" model="ir.ui.view">
         <field name="name">alba.mpesa.transaction.form</field>
         <field name="model">alba.mpesa.transaction</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="M-Pesa Transaction">
                 <header>
@@ -85,7 +86,7 @@
                     </div>
 
                     <group>
-                        <group string="Transaction Details">
+                        <group>
                             <field name="transaction_type"
                                 widget="badge"
                                 decoration-info="transaction_type in ('stk_push','stk_callback')"
@@ -106,7 +107,7 @@
                             <field name="description" />
                             <field name="sender_name" invisible="not sender_name" />
                         </group>
-                        <group string="Timestamps &amp; Identifiers">
+                        <group>
                             <field name="initiated_at" />
                             <field name="completed_at" />
                             <field name="checkout_request_id" />
@@ -118,7 +119,7 @@
                     </group>
 
                     <group>
-                        <group string="Links">
+                        <group>
                             <field name="loan_id" options="{'no_create': True}" />
                             <field name="repayment_id" readonly="1" />
                             <field name="investor_id"
@@ -128,7 +129,7 @@
                             <field name="config_id" options="{'no_create': True}" />
                             <field name="company_id" options="{'no_create': True}" />
                         </group>
-                        <group string="Daraja Result">
+                        <group>
                             <field name="result_code" />
                             <field name="result_desc" />
                             <field
@@ -174,6 +175,7 @@
     <record id="view_alba_mpesa_transaction_list" model="ir.ui.view">
         <field name="name">alba.mpesa.transaction.list</field>
         <field name="model">alba.mpesa.transaction</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list
                 string="M-Pesa Transactions"
@@ -216,6 +218,7 @@
     <record id="view_alba_mpesa_transaction_kanban" model="ir.ui.view">
         <field name="name">alba.mpesa.transaction.kanban</field>
         <field name="model">alba.mpesa.transaction</field>
+        <field name="type">kanban</field>
         <field name="arch" type="xml">
             <kanban
                 default_group_by="status"
@@ -276,6 +279,7 @@
     <record id="view_alba_mpesa_transaction_search" model="ir.ui.view">
         <field name="name">alba.mpesa.transaction.search</field>
         <field name="model">alba.mpesa.transaction</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Search M-Pesa Transactions">
                 <field name="mpesa_code" string="M-Pesa Code" />

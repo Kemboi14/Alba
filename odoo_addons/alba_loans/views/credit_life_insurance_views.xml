@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ==================== CREDIT LIFE INSURANCE VIEWS ==================== -->
+    <record id="view_alba_credit_life_insurance_list" model="ir.ui.view">
+        <field name="name">Credit Life Insurance - List</field>
+        <field name="model">alba.credit.life.insurance</field>
+        <field name="arch" type="xml">
+            <list string="Insurance Events">
+                <field name="insurance_number"/>
+                <field name="loan_number"/>
+                <field name="customer_id"/>
+                <field name="event_type"/>
+                <field name="event_date"/>
+                <field name="outstanding_balance"/>
+                <field name="compensation_amount" sum="Total Compensation"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'compensated'"
+                       decoration-info="state in ('submitted','under_review','approved')"
+                       decoration-danger="state == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_alba_credit_life_insurance_form" model="ir.ui.view">
+        <field name="name">Credit Life Insurance - Form</field>
+        <field name="model">alba.credit.life.insurance</field>
+        <field name="arch" type="xml">
+            <form string="Insurance Event">
+                <header>
+                    <button name="action_submit" type="object" string="Submit" class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_approve" type="object" string="Approve" class="btn-primary" invisible="state not in ('submitted','under_review')" groups="alba_loans.group_operations_manager,alba_loans.group_director"/>
+                    <button name="action_compensate" type="object" string="Mark Compensated" invisible="state != 'approved'" groups="alba_loans.group_finance_officer,alba_loans.group_finance_admin,alba_loans.group_director"/>
+                    <button name="action_cancel" type="object" string="Cancel" invisible="state in ('compensated','cancelled')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,under_review,approved,compensated"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="insurance_number" readonly="1" class="oe_inline"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="loan_id" domain="[('state', '=', 'active')]"/>
+                            <field name="loan_number" readonly="1"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="outstanding_balance" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="event_type" required="1"/>
+                            <field name="event_date" required="1"/>
+                        </group>
+                    </group>
+                    <field name="event_description" placeholder="Provide details about the event..."/>
+                    <separator string="Compensation Details"/>
+                    <group>
+                        <group>
+                            <field name="compensation_amount" required="1"/>
+                            <field name="compensation_date"/>
+                        </group>
+                        <group>
+                            <field name="submitted_by" readonly="1"/>
+                            <field name="submitted_date" readonly="1"/>
+                        </group>
+                    </group>
+                    <group invisible="state not in ('approved','compensated','rejected')">
+                        <group>
+                            <field name="approved_by" readonly="1"/>
+                            <field name="approved_date" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="move_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <field name="rejection_reason" placeholder="Reason for rejection if applicable..." invisible="state != 'rejected'"/>
+                    <separator string="Internal Notes"/>
+                    <field name="internal_notes" placeholder="Internal staff notes..."/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_alba_credit_life_insurance_search" model="ir.ui.view">
+        <field name="name">Credit Life Insurance - Search</field>
+        <field name="model">alba.credit.life.insurance</field>
+        <field name="arch" type="xml">
+            <search string="Insurance Events">
+                <field name="insurance_number" string="Event #"/>
+                <field name="loan_id" string="Loan"/>
+                <field name="customer_id" string="Customer"/>
+                <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Submitted" name="submitted" domain="[('state', '=', 'submitted')]"/>
+                <filter string="Under Review" name="under_review" domain="[('state', '=', 'under_review')]"/>
+                <filter string="Approved" name="approved" domain="[('state', '=', 'approved')]"/>
+                <filter string="Compensated" name="compensated" domain="[('state', '=', 'compensated')]"/>
+                <filter string="Rejected" name="rejected" domain="[('state', '=', 'rejected')]"/>
+                <separator/>
+                <group>
+                    <field name="event_type"/>
+                    <field name="state"/>
+                    <field name="event_date"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_alba_credit_life_insurance" model="ir.actions.act_window">
+        <field name="name">Insurance Events</field>
+        <field name="res_model">alba.credit.life.insurance</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Record a credit life insurance event for a loan.
+            </p>
+        </field>
+    </record>
+</odoo>

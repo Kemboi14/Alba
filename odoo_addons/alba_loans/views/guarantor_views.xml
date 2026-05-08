@@ -5,9 +5,10 @@
 -->
 <odoo>
     <!-- Guarantor Master Tree View -->
-    <record id="view_guarantor_tree" model="ir.ui.view">
+    <record id="view_guarantor_list" model="ir.ui.view">
         <field name="name">alba.guarantor.tree</field>
         <field name="model">alba.guarantor</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list decoration-danger="blacklisted==True" decoration-success="kyc_status=='verified' and not blacklisted">
                 <field name="name"/>
@@ -28,6 +29,7 @@
     <record id="view_guarantor_form" model="ir.ui.view">
         <field name="name">alba.guarantor.form</field>
         <field name="model">alba.guarantor</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Guarantor">
                 <header>
@@ -49,7 +51,7 @@
                         </h1>
                     </div>
                     <group>
-                        <group string="Identification">
+                        <group>
                             <field name="id_number"/>
                             <field name="id_type"/>
                             <field name="kyc_status"/>
@@ -57,20 +59,20 @@
                             <field name="blacklist_reason" invisible="not blacklisted"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="Contact">
+                        <group>
                             <field name="phone"/>
                             <field name="email"/>
                             <field name="address"/>
                         </group>
                     </group>
                     <group>
-                        <group string="Employment">
+                        <group>
                             <field name="employer_id" options="{'no_create_edit': False, 'no_open': False}"/>
                             <field name="employer_phone"/>
                             <field name="job_title"/>
                             <field name="monthly_income"/>
                         </group>
-                        <group string="Guarantee Limits">
+                        <group>
                             <field name="max_guarantee_limit"/>
                             <field name="total_guaranteed"/>
                             <field name="available_capacity"/>
@@ -113,6 +115,7 @@
     <record id="view_guarantor_search" model="ir.ui.view">
         <field name="name">alba.guarantor.search</field>
         <field name="model">alba.guarantor</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
@@ -128,9 +131,10 @@
     </record>
 
     <!-- Loan Guarantor (Assignment) Tree View -->
-    <record id="view_loan_guarantor_tree" model="ir.ui.view">
+    <record id="view_loan_guarantor_list" model="ir.ui.view">
         <field name="name">alba.loan.guarantor.tree</field>
         <field name="model">alba.loan.guarantor</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list decoration-success="status=='confirmed'" decoration-muted="status=='released'" decoration-danger="status=='liability'">
                 <field name="loan_application_id"/>
@@ -149,6 +153,7 @@
     <record id="view_loan_guarantor_form" model="ir.ui.view">
         <field name="name">alba.loan.guarantor.form</field>
         <field name="model">alba.loan.guarantor</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Loan Guarantor Assignment">
                 <header>
@@ -161,36 +166,36 @@
                 </header>
                 <sheet>
                     <group>
-                        <group string="Loan Application">
+                        <group>
                             <field name="loan_application_id" options="{'no_create': True}"/>
                             <field name="customer_id" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="Guarantor">
+                        <group>
                             <field name="guarantor_id" options="{'no_create': True}"/>
                             <field name="relationship"/>
                             <field name="relationship_notes"/>
                         </group>
                     </group>
                     <group>
-                        <group string="Guarantee Details">
+                        <group>
                             <field name="guarantee_amount"/>
                             <field name="guarantee_type"/>
                         </group>
-                        <group string="Confirmation">
+                        <group>
                             <field name="confirmation_code" readonly="1"/>
                             <field name="confirmation_sent_date" readonly="1"/>
                             <field name="confirmed_date" readonly="1"/>
                             <field name="confirmed_method"/>
                         </group>
                     </group>
-                    <group string="Release" invisible="status not in ('released', 'liability', 'recovered')">
+                    <group invisible="status not in ('released', 'liability', 'recovered')">
                         <group>
                             <field name="release_date" readonly="1"/>
                             <field name="release_reason"/>
                         </group>
                     </group>
-                    <group string="Liability" invisible="status not in ('liability', 'recovered')">
+                    <group invisible="status not in ('liability', 'recovered')">
                         <group>
                             <field name="liability_amount"/>
                             <field name="liability_date"/>
@@ -212,6 +217,7 @@
     <record id="view_loan_guarantor_search" model="ir.ui.view">
         <field name="name">alba.loan.guarantor.search</field>
         <field name="model">alba.loan.guarantor</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search>
                 <field name="loan_application_id"/>

@@ -3,6 +3,42 @@ from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
 
+class AlbaLoanDisburseWizardLine(models.TransientModel):
+    _name = "alba.loan.disburse.wizard.line"
+    _description = "Loan Disbursement Split Line"
+    _order = "sequence, id"
+
+    wizard_id = fields.Many2one(
+        "alba.loan.disburse.wizard",
+        string="Disbursement Wizard",
+        required=True,
+        ondelete="cascade",
+    )
+    sequence = fields.Integer(default=10)
+    journal_id = fields.Many2one(
+        "account.journal",
+        string="Source Journal",
+        required=True,
+        domain="[('type', 'in', ['bank', 'cash'])]",
+    )
+    amount = fields.Monetary(
+        string="Amount",
+        required=True,
+        currency_field="currency_id",
+    )
+    currency_id = fields.Many2one(
+        "res.currency",
+        related="wizard_id.currency_id",
+        readonly=True,
+    )
+
+    @api.constrains("amount")
+    def _check_amount_positive(self):
+        for rec in self:
+            if rec.amount <= 0:
+                raise ValidationError(_("Split amount must be greater than zero."))
+
+
 class AlbaLoanDisburseWizard(models.TransientModel):
     _name = "alba.loan.disburse.wizard"
     _description = "Alba Capital — Loan Disbursement Wizard"
@@ -86,9 +122,24 @@ class AlbaLoanDisburseWizard(models.TransientModel):
     journal_id = fields.Many2one(
         "account.journal",
         string="Disbursement Journal",
-        required=True,
         domain="[('type', 'in', ['bank', 'cash'])]",
-        help="Bank or Cash journal from which the loan amount will be paid out.",
+        help="Bank or Cash journal used for a single-source disbursement.",
+    )
+    split_line_ids = fields.One2many(
+        "alba.loan.disburse.wizard.line",
+        "wizard_id",
+        string="Disbursement Splits",
+        help="Use these lines when one loan is funded from more than one bank or cash journal.",
+    )
+    split_total = fields.Monetary(
+        string="Split Total",
+        currency_field="currency_id",
+        compute="_compute_split_totals",
+    )
+    split_balance = fields.Monetary(
+        string="Unallocated Balance",
+        currency_field="currency_id",
+        compute="_compute_split_totals",
     )
 
     # ── Schedule preview ──────────────────────────────────────────────────────
@@ -206,6 +257,33 @@ class AlbaLoanDisburseWizard(models.TransientModel):
             rec.estimated_total_repayable = total_repayable
             rec.estimated_monthly_instalment = monthly
 
+    @api.depends("approved_amount", "split_line_ids.amount")
+    def _compute_split_totals(self):
+        for rec in self:
+            rec.split_total = sum(rec.split_line_ids.mapped("amount"))
+            rec.split_balance = (rec.approved_amount or 0.0) - rec.split_total
+
+    @api.onchange("journal_id", "approved_amount")
+    def _onchange_single_journal_split(self):
+        """Keep the split tab useful for the common one-journal case."""
+        for rec in self:
+            if rec.journal_id and rec.approved_amount and not rec.split_line_ids:
+                rec.split_line_ids = [
+                    (
+                        0,
+                        0,
+                        {
+                            "sequence": 10,
+                            "journal_id": rec.journal_id.id,
+                            "amount": rec.approved_amount,
+                        },
+                    )
+                ]
+            elif rec.journal_id and rec.approved_amount and len(rec.split_line_ids) == 1:
+                line = rec.split_line_ids[0]
+                if line.journal_id == rec.journal_id:
+                    line.amount = rec.approved_amount
+
     # =========================================================================
     # Constraints
     # =========================================================================
@@ -247,6 +325,58 @@ class AlbaLoanDisburseWizard(models.TransientModel):
         for rec in self:
             if rec.interest_rate < 0:
                 raise ValidationError(_("Interest rate cannot be negative."))
+
+    @api.constrains("approved_amount", "split_line_ids", "split_line_ids.amount")
+    def _check_split_total(self):
+        for rec in self:
+            if not rec.split_line_ids:
+                continue
+            total = sum(rec.split_line_ids.mapped("amount"))
+            if abs(total - rec.approved_amount) > 0.01:
+                raise ValidationError(
+                    _("Disbursement splits must total exactly %s. Current total is %s.")
+                    % (rec.approved_amount, total)
+                )
+
+    def _prepare_disbursement_split_vals(self, loan):
+        self.ensure_one()
+        lines = self.split_line_ids
+        if lines:
+            total = sum(lines.mapped("amount"))
+            if abs(total - self.approved_amount) > 0.01:
+                raise UserError(
+                    _("Disbursement splits must total exactly %s. Current total is %s.")
+                    % (self.approved_amount, total)
+                )
+        elif self.journal_id:
+            lines = self.env["alba.loan.disburse.wizard.line"].new(
+                {
+                    "wizard_id": self.id,
+                    "sequence": 10,
+                    "journal_id": self.journal_id.id,
+                    "amount": self.approved_amount,
+                }
+            )
+        else:
+            raise UserError(_("Please select a disbursement journal or add split lines."))
+
+        vals_list = []
+        for line in lines:
+            if not line.journal_id.default_account_id:
+                raise UserError(
+                    _("The selected journal '%s' has no default account configured.")
+                    % line.journal_id.name
+                )
+            vals_list.append(
+                {
+                    "loan_id": loan.id,
+                    "sequence": line.sequence,
+                    "journal_id": line.journal_id.id,
+                    "amount": line.amount,
+                    "state": "approved",
+                }
+            )
+        return vals_list
 
     # =========================================================================
     # Main disbursement action
@@ -307,11 +437,15 @@ class AlbaLoanDisburseWizard(models.TransientModel):
             "tenure_months": self.tenure_months,
             "repayment_frequency": self.repayment_frequency,
             "disbursement_date": self.disbursement_date,
-            "journal_id": self.journal_id.id,
+            "journal_id": self.journal_id.id
+            or (self.split_line_ids[:1].journal_id.id if self.split_line_ids else False),
             "state": "active",
             "notes": self.notes or "",
         }
         loan = self.env["alba.loan"].create(loan_vals)
+
+        split_vals = self._prepare_disbursement_split_vals(loan)
+        self.env["alba.loan.disbursement.split"].create(split_vals)
 
         # ── 2. Post disbursement journal entry ───────────────────────────────
         loan.action_post_disbursement_entry()

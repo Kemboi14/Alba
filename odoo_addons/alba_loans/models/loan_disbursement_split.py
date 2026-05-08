@@ -1,0 +1,186 @@
+# -*- coding: utf-8 -*-
+from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError, UserError
+
+
+class AlbaLoanDisbursementSplit(models.Model):
+    """
+    Loan Disbursement Split (Req #2)
+    Allows a single loan to be split across multiple Alba accounts.
+    Example: KES 100,000 split as 50,000 from Account A + 50,000 from Account B
+    """
+    _name = "alba.loan.disbursement.split"
+    _description = "Loan Disbursement Account Split"
+    _order = "loan_id, sequence"
+
+    # ── Loan Link ─────────────────────────────────────────────────────────────
+    loan_id = fields.Many2one(
+        "alba.loan",
+        string="Loan",
+        required=True,
+        ondelete="cascade",
+        tracking=True,
+        index=True,
+    )
+    sequence = fields.Integer(
+        string="Sequence",
+        default=10,
+        help="Order of disbursement splits",
+    )
+
+    # ── Source Journal ────────────────────────────────────────────────────────
+    journal_id = fields.Many2one(
+        "account.journal",
+        string="Source Journal",
+        required=True,
+        ondelete="restrict",
+        tracking=True,
+        domain="[('type', 'in', ['bank', 'cash'])]",
+        help="Alba Capital account from which funds are disbursed",
+    )
+    account_name = fields.Char(
+        string="Account Name",
+        related="journal_id.name",
+        store=True,
+        readonly=True,
+    )
+    account_number = fields.Char(
+        string="Account Number",
+        compute="_compute_account_number",
+        store=True,
+    )
+
+    # ── Disbursement Amount ───────────────────────────────────────────────────
+    amount = fields.Monetary(
+        string="Disbursement Amount",
+        currency_field="currency_id",
+        required=True,
+        tracking=True,
+        help="Amount to disburse from this account",
+    )
+    percentage = fields.Float(
+        string="Percentage (%)",
+        compute="_compute_percentage",
+        store=True,
+        readonly=True,
+        help="Percentage of total loan amount",
+    )
+
+    # ── Status ────────────────────────────────────────────────────────────────
+    STATE_CHOICES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("disbursed", "Disbursed"),
+        ("failed", "Failed"),
+    ]
+
+    state = fields.Selection(
+        selection=STATE_CHOICES,
+        string="Status",
+        default="pending",
+        tracking=True,
+        index=True,
+    )
+    disbursement_date = fields.Date(
+        string="Disbursement Date",
+        tracking=True,
+        help="Date when funds were actually disbursed",
+    )
+    reference_number = fields.Char(
+        string="Disbursement Reference",
+        tracking=True,
+        help="Reference from the disbursing bank/system",
+    )
+
+    # ── Company & Currency ────────────────────────────────────────────────────
+    company_id = fields.Many2one(
+        "res.company",
+        string="Company",
+        related="loan_id.company_id",
+        store=True,
+        readonly=True,
+    )
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency",
+        related="company_id.currency_id",
+        store=True,
+        readonly=True,
+    )
+
+    # ── Computed Fields ───────────────────────────────────────────────────────
+    principal_amount = fields.Monetary(
+        string="Principal Amount",
+        related="loan_id.principal_amount",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("amount", "loan_id.principal_amount")
+    def _compute_percentage(self):
+        for rec in self:
+            if rec.loan_id.principal_amount > 0:
+                rec.percentage = (rec.amount / rec.loan_id.principal_amount) * 100
+            else:
+                rec.percentage = 0
+
+    @api.depends("journal_id", "journal_id.bank_account_id")
+    def _compute_account_number(self):
+        for rec in self:
+            bank_account = rec.journal_id.bank_account_id
+            rec.account_number = bank_account.acc_number if bank_account else ""
+
+    class Meta:
+        db_table = "alba_loan_disbursement_split"
+
+    def __str__(self):
+        return f"{self.loan_id.loan_number} - {self.account_name}: {self.amount}"
+
+    @api.constrains("amount")
+    def _check_amount_positive(self):
+        for rec in self:
+            if rec.amount <= 0:
+                raise ValidationError(
+                    _("Disbursement amount must be greater than zero!")
+                )
+
+    @api.constrains("amount")
+    def _check_total_not_exceeded(self):
+        """Ensure total disbursement splits don't exceed principal"""
+        for rec in self:
+            total_splits = sum(
+                split.amount
+                for split in rec.loan_id.disbursement_split_ids
+                if split != rec
+            ) + rec.amount
+            if total_splits > rec.loan_id.principal_amount:
+                raise ValidationError(
+                    _(
+                        f"Total disbursement splits ({total_splits}) exceed "
+                        f"loan principal ({rec.loan_id.principal_amount})!"
+                    )
+                )
+
+    def action_approve(self):
+        """Approve this disbursement split"""
+        if self.state != "pending":
+            raise UserError(_("Only pending splits can be approved."))
+        self.state = "approved"
+
+    def action_disburse(self):
+        """Mark this split as disbursed"""
+        if self.state != "approved":
+            raise UserError(_("Only approved splits can be disbursed."))
+        if not self.journal_id.default_account_id:
+            raise UserError(
+                _("The selected journal '%s' has no default account configured.")
+                % self.journal_id.name
+            )
+        self.write({
+            "state": "disbursed",
+            "disbursement_date": fields.Date.today(),
+        })
+
+    def action_mark_failed(self):
+        """Mark this split as failed"""
+        self.state = "failed"

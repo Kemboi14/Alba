@@ -3,6 +3,7 @@
     <record id="view_loan_payment_holiday_wizard_form" model="ir.ui.view">
         <field name="name">alba.loan.payment.holiday.wizard.form</field>
         <field name="model">alba.loan.payment.holiday.wizard</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Request Payment Holiday">
                 <sheet>

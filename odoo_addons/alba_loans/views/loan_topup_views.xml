@@ -4,9 +4,10 @@
 -->
 <odoo>
     <!-- Top-Up Tree View -->
-    <record id="view_loan_topup_tree" model="ir.ui.view">
+    <record id="view_loan_topup_list" model="ir.ui.view">
         <field name="name">alba.loan.topup.tree</field>
         <field name="model">alba.loan.topup</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list decoration-muted="state=='cancelled'" decoration-success="state=='disbursed'" decoration-info="state=='pending'" decoration-danger="state=='rejected'">
                 <field name="name"/>
@@ -25,6 +26,7 @@
     <record id="view_loan_topup_form" model="ir.ui.view">
         <field name="name">alba.loan.topup.form</field>
         <field name="model">alba.loan.topup</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Loan Top-Up">
                 <header>
@@ -52,32 +54,32 @@
                     <widget name="web_ribbon" text="Rejected" bg_color="bg-danger" invisible="state != 'rejected'"/>
                     <widget name="web_ribbon" text="Cancelled" bg_color="bg-secondary" invisible="state != 'cancelled'"/>
                     <group>
-                        <group string="Loan Details">
+                        <group>
                             <field name="loan_id" options="{'no_create': True}" readonly="state != 'draft'"/>
                             <field name="customer_id" readonly="1"/>
                             <field name="current_outstanding" readonly="1"/>
                             <field name="current_principal" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="Eligibility">
+                        <group>
                             <field name="is_eligible" readonly="1"/>
                             <field name="eligibility_warnings" readonly="1"/>
                         </group>
                     </group>
                     <group>
-                        <group string="Top-Up Details">
+                        <group>
                             <field name="topup_amount" readonly="state != 'draft'"/>
                             <field name="new_principal" readonly="1"/>
                             <field name="purpose" readonly="state != 'draft'"/>
                             <field name="purpose_notes" readonly="state != 'draft'"/>
                         </group>
-                        <group string="Disbursement">
+                        <group>
                             <field name="disbursement_method" readonly="state != 'draft'"/>
                             <field name="disbursement_date" readonly="state != 'draft'"/>
                             <field name="journal_id" readonly="state != 'draft'" options="{'no_create': True}"/>
                         </group>
                     </group>
-                    <group string="Approval" invisible="state == 'draft'">
+                    <group invisible="state == 'draft'">
                         <group>
                             <field name="requested_by" readonly="1"/>
                             <field name="approved_by" readonly="1"/>
@@ -88,7 +90,7 @@
                             <field name="schedule_regenerated" readonly="1"/>
                         </group>
                     </group>
-                    <group string="Rejection" invisible="state != 'rejected'">
+                    <group invisible="state != 'rejected'">
                         <field name="rejection_reason" readonly="1"/>
                     </group>
                     <div class="oe_chatter">
@@ -105,6 +107,7 @@
     <record id="view_loan_topup_search" model="ir.ui.view">
         <field name="name">alba.loan.topup.search</field>
         <field name="model">alba.loan.topup</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
@@ -123,30 +126,31 @@
     <record id="view_loan_topup_wizard_form" model="ir.ui.view">
         <field name="name">alba.loan.topup.wizard.form</field>
         <field name="model">alba.loan.topup.wizard</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Request Top-Up">
                 <sheet>
                     <group>
-                        <group string="Loan Information">
+                        <group>
                             <field name="loan_id" readonly="1" options="{'no_create': True}"/>
                             <field name="customer_id" readonly="1"/>
                             <field name="current_outstanding" readonly="1"/>
                             <field name="current_principal" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="Eligibility">
+                        <group>
                             <field name="is_eligible" readonly="1"/>
                             <field name="eligibility_message" readonly="1"/>
                         </group>
                     </group>
                     <group>
-                        <group string="Top-Up Details">
+                        <group>
                             <field name="topup_amount"/>
                             <field name="new_principal" readonly="1"/>
                             <field name="purpose"/>
                             <field name="purpose_notes"/>
                         </group>
-                        <group string="Disbursement">
+                        <group>
                             <field name="disbursement_method"/>
                             <field name="disbursement_date"/>
                             <field name="journal_id" options="{'no_create': True}"/>
@@ -182,6 +186,7 @@
     <record id="view_loan_topup_graph" model="ir.ui.view">
         <field name="name">alba.loan.topup.graph</field>
         <field name="model">alba.loan.topup</field>
+        <field name="type">graph</field>
         <field name="arch" type="xml">
             <graph string="Loan Top-Ups" type="line">
                 <field name="create_date" type="row"/>

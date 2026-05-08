@@ -8,6 +8,7 @@
     <record id="view_alba_mpesa_config_form" model="ir.ui.view">
         <field name="name">alba.mpesa.config.form</field>
         <field name="model">alba.mpesa.config</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="M-Pesa Configuration">
                 <header>
@@ -78,12 +79,12 @@
                     </div>
 
                     <group>
-                        <group string="Company &amp; Environment">
+                        <group>
                             <field name="company_id" options="{'no_create': True}" />
                             <field name="environment" />
                             <field name="account_type" />
                         </group>
-                        <group string="HTTP Settings">
+                        <group>
                             <field name="request_timeout" />
                             <field name="max_stk_retries" />
                             <field
@@ -98,7 +99,7 @@
                         <!-- ── Daraja Credentials ────────────────────────────── -->
                         <page string="Daraja Credentials" name="credentials">
                             <group>
-                                <group string="OAuth">
+                                <group>
                                     <field name="consumer_key" />
                                     <field
                                         name="consumer_secret"
@@ -106,7 +107,7 @@
                                         groups="alba_loans.group_loan_manager"
                                     />
                                 </group>
-                                <group string="Business Codes">
+                                <group>
                                     <field name="shortcode" />
                                     <field name="till_number" />
                                     <field name="stk_transaction_type" />
@@ -117,7 +118,7 @@
                                     />
                                 </group>
                             </group>
-                            <group string="B2C Credentials"
+                            <group
                                 groups="alba_loans.group_loan_manager">
                                 <group>
                                     <field name="initiator_name" />
@@ -132,13 +133,13 @@
 
                         <!-- ── Callback URLs ─────────────────────────────────── -->
                         <page string="Callback URLs" name="callbacks">
-                            <group string="Base URL">
+                            <group>
                                 <field
                                     name="callback_base_url"
                                     placeholder="https://odoo.albacapital.co.ke"
                                 />
                             </group>
-                            <group string="Computed Endpoints (read-only — register these with Safaricom)">
+                            <group>
                                 <field name="stk_callback_url" readonly="1" />
                                 <field name="c2b_validation_url" readonly="1" />
                                 <field name="c2b_confirmation_url" readonly="1" />
@@ -178,11 +179,9 @@
     <record id="view_alba_mpesa_config_list" model="ir.ui.view">
         <field name="name">alba.mpesa.config.list</field>
         <field name="model">alba.mpesa.config</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
-            <list
-                string="M-Pesa Configurations"
-                decoration-muted="not is_active"
-            >
+            <list string="M-Pesa Configurations" decoration-muted="not is_active">
                 <field name="sequence" widget="handle" />
                 <field name="name" />
                 <field name="environment"
@@ -207,6 +206,7 @@
     <record id="view_alba_mpesa_config_search" model="ir.ui.view">
         <field name="name">alba.mpesa.config.search</field>
         <field name="model">alba.mpesa.config</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Search M-Pesa Configurations">
                 <field name="name" string="Name" />

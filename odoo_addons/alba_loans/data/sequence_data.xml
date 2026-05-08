@@ -41,5 +41,18 @@
             <field name="company_id" ref="base.main_company"/>
         </record>
 
+        <!-- Credit Life Insurance Sequence: INS-0001 -->
+        <record id="seq_alba_credit_life_insurance" model="ir.sequence">
+            <field name="name">Alba Credit Life Insurance Event Number</field>
+            <field name="code">alba.credit.life.insurance</field>
+            <field name="prefix">INS-</field>
+            <field name="suffix"></field>
+            <field name="padding">5</field>
+            <field name="number_increment">1</field>
+            <field name="number_next">1</field>
+            <field name="use_date_range">False</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
     </data>
 </odoo>

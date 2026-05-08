@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ==================== BUSINESS SECTOR VIEWS ==================== -->
+    <record id="view_alba_business_sector_list" model="ir.ui.view">
+        <field name="name">Alba Business Sector - List</field>
+        <field name="model">alba.business.sector</field>
+        <field name="arch" type="xml">
+            <list string="Business Sectors" editable="top">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="active"/>
+                <field name="subsector_count"/>
+                <field name="customer_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_alba_business_sector_form" model="ir.ui.view">
+        <field name="name">Alba Business Sector - Form</field>
+        <field name="model">alba.business.sector</field>
+        <field name="arch" type="xml">
+            <form string="Business Sector">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" class="oe_inline"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="subsector_count"/>
+                            <field name="customer_count"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="Enter sector description..."/>
+                    <separator string="Subsectors"/>
+                    <field name="subsector_ids" readonly="1">
+                        <list>
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="customer_count"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_alba_business_sector_search" model="ir.ui.view">
+        <field name="name">Alba Business Sector - Search</field>
+        <field name="model">alba.business.sector</field>
+        <field name="arch" type="xml">
+            <search string="Business Sectors">
+                <filter string="Active" name="active" domain="[('active', '=', True)]"/>
+                <filter string="Inactive" name="inactive" domain="[('active', '=', False)]"/>
+                <separator/>
+                <group>
+                    <field name="active"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_alba_business_sector" model="ir.actions.act_window">
+        <field name="name">Business Sectors</field>
+        <field name="res_model">alba.business.sector</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new business sector for CBK compliance classification.
+            </p>
+        </field>
+    </record>
+
+    <!-- ==================== BUSINESS SUBSECTOR VIEWS ==================== -->
+    <record id="view_alba_business_subsector_list" model="ir.ui.view">
+        <field name="name">Alba Business Subsector - List</field>
+        <field name="model">alba.business.subsector</field>
+        <field name="arch" type="xml">
+            <list string="Business Subsectors" editable="top">
+                <field name="sequence" widget="handle"/>
+                <field name="sector_id"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="active"/>
+                <field name="customer_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_alba_business_subsector_form" model="ir.ui.view">
+        <field name="name">Alba Business Subsector - Form</field>
+        <field name="model">alba.business.subsector</field>
+        <field name="arch" type="xml">
+            <form string="Business Subsector">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="sector_name" class="oe_inline" readonly="1"/>
+                            <span class="oe_inline"> &gt; </span>
+                            <field name="name" class="oe_inline"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="sector_id"/>
+                            <field name="code"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="customer_count"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="Enter subsector description..."/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_alba_business_subsector_search" model="ir.ui.view">
+        <field name="name">Alba Business Subsector - Search</field>
+        <field name="model">alba.business.subsector</field>
+        <field name="arch" type="xml">
+            <search string="Business Subsectors">
+                <field name="sector_id" string="Sector"/>
+                <filter string="Active" name="active" domain="[('active', '=', True)]"/>
+                <filter string="Inactive" name="inactive" domain="[('active', '=', False)]"/>
+                <separator/>
+                <group>
+                    <field name="sector_id"/>
+                    <field name="active"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_alba_business_subsector" model="ir.actions.act_window">
+        <field name="name">Business Subsectors</field>
+        <field name="res_model">alba.business.subsector</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new business subsector for customer classification.
+            </p>
+        </field>
+    </record>
+</odoo>

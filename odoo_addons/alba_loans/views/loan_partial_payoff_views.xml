@@ -4,9 +4,10 @@
 -->
 <odoo>
     <!-- Partial Payoff Tree View -->
-    <record id="view_loan_partial_payoff_tree" model="ir.ui.view">
+    <record id="view_loan_partial_payoff_list" model="ir.ui.view">
         <field name="name">alba.loan.partial.payoff.tree</field>
         <field name="model">alba.loan.partial.payoff</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list decoration-muted="state=='cancelled'" decoration-success="state=='applied'" decoration-info="state=='quoted'" decoration-warning="state=='expired'">
                 <field name="name"/>
@@ -26,6 +27,7 @@
     <record id="view_loan_partial_payoff_form" model="ir.ui.view">
         <field name="name">alba.loan.partial.payoff.form</field>
         <field name="model">alba.loan.partial.payoff</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Loan Partial Payoff">
                 <header>
@@ -52,7 +54,7 @@
                     <widget name="web_ribbon" text="Cancelled" bg_color="bg-secondary" invisible="state != 'cancelled'"/>
                     <widget name="web_ribbon" text="Expired" bg_color="bg-danger" invisible="state != 'expired'"/>
                     <group>
-                        <group string="Loan Details">
+                        <group>
                             <field name="loan_id" options="{'no_create': True}" readonly="state != 'draft'"/>
                             <field name="customer_id" readonly="1"/>
                             <field name="current_outstanding" readonly="1"/>
@@ -60,27 +62,27 @@
                             <field name="remaining_tenure" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="Quote Validity">
+                        <group>
                             <field name="quote_date" readonly="1"/>
                             <field name="quote_valid_until" readonly="1"/>
                         </group>
                     </group>
                     <group>
-                        <group string="Payoff Details">
+                        <group>
                             <field name="payoff_amount" readonly="state != 'draft'"/>
                             <field name="reduction_mode" readonly="state != 'draft'"/>
                             <field name="principal_reduction" readonly="1"/>
                             <field name="interest_saved" readonly="1"/>
                             <field name="new_outstanding" readonly="1"/>
                         </group>
-                        <group string="New Terms">
+                        <group>
                             <field name="new_emi" readonly="1"/>
                             <field name="new_tenure" readonly="1"/>
                             <field name="emi_reduction" readonly="1" invisible="emi_reduction == 0"/>
                             <field name="tenure_reduction" readonly="1" invisible="tenure_reduction == 0"/>
                         </group>
                     </group>
-                    <group string="Payment" invisible="state in ('draft', 'cancelled')">
+                    <group invisible="state in ('draft', 'cancelled')">
                         <group>
                             <field name="payment_date"/>
                             <field name="payment_method"/>
@@ -106,6 +108,7 @@
     <record id="view_loan_partial_payoff_search" model="ir.ui.view">
         <field name="name">alba.loan.partial.payoff.search</field>
         <field name="model">alba.loan.partial.payoff</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
@@ -123,11 +126,12 @@
     <record id="view_loan_partial_payoff_wizard_form" model="ir.ui.view">
         <field name="name">alba.loan.partial.payoff.wizard.form</field>
         <field name="model">alba.loan.partial.payoff.wizard</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Calculate Partial Payoff">
                 <sheet>
                     <group>
-                        <group string="Loan Information">
+                        <group>
                             <field name="loan_id" readonly="1" options="{'no_create': True}"/>
                             <field name="customer_id" readonly="1"/>
                             <field name="current_outstanding" readonly="1"/>
@@ -135,17 +139,17 @@
                             <field name="remaining_tenure" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="Validation">
+                        <group>
                             <field name="is_valid" readonly="1"/>
                             <field name="validation_message" readonly="1"/>
                         </group>
                     </group>
                     <group>
-                        <group string="Payoff Details">
+                        <group>
                             <field name="payoff_amount"/>
                             <field name="reduction_mode"/>
                         </group>
-                        <group string="Results Preview">
+                        <group>
                             <field name="principal_reduction" readonly="1"/>
                             <field name="interest_saved" readonly="1"/>
                             <field name="new_outstanding" readonly="1"/>
@@ -185,6 +189,7 @@
     <record id="view_loan_partial_payoff_graph" model="ir.ui.view">
         <field name="name">alba.loan.partial.payoff.graph</field>
         <field name="model">alba.loan.partial.payoff</field>
+        <field name="type">graph</field>
         <field name="arch" type="xml">
             <graph string="Partial Payoffs" type="line">
                 <field name="create_date" type="row"/>

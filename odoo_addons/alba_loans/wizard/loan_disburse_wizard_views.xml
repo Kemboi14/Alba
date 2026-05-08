@@ -8,6 +8,7 @@
         <record id="view_alba_loan_disburse_wizard_form" model="ir.ui.view">
             <field name="name">alba.loan.disburse.wizard.form</field>
             <field name="model">alba.loan.disburse.wizard</field>
+            <field name="type">form</field>
             <field name="arch" type="xml">
                 <form string="Disburse Loan">
 
@@ -44,6 +45,23 @@
                             <field name="estimated_total_interest"     readonly="1"/>
                             <field name="estimated_total_repayable"    readonly="1"/>
                         </group>
+
+                        <notebook>
+                            <page string="Funding Sources" name="funding_sources">
+                                <field name="split_line_ids" nolabel="1">
+                                    <list editable="bottom">
+                                        <field name="sequence" widget="handle"/>
+                                        <field name="journal_id"/>
+                                        <field name="amount" sum="Total"/>
+                                        <field name="currency_id" column_invisible="1"/>
+                                    </list>
+                                </field>
+                                <group col="4">
+                                    <field name="split_total" readonly="1"/>
+                                    <field name="split_balance" readonly="1"/>
+                                </group>
+                            </page>
+                        </notebook>
 
                         <group string="Notes">
                             <field name="notes" nolabel="1" placeholder="Optional internal notes recorded on the loan record…"/>

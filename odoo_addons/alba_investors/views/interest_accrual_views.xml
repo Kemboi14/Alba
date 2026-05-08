@@ -5,9 +5,10 @@
     <!-- ================================================================
          alba.interest.accrual — Tree View
          ================================================================ -->
-    <record id="view_alba_interest_accrual_tree" model="ir.ui.view">
+    <record id="view_alba_interest_accrual_list" model="ir.ui.view">
         <field name="name">alba.interest.accrual.tree</field>
         <field name="model">alba.interest.accrual</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list string="Interest Accruals" decoration-success="state == 'posted'" decoration-danger="state == 'reversed'">
                 <field name="accrual_date"/>
@@ -32,6 +33,7 @@
     <record id="view_alba_interest_accrual_form" model="ir.ui.view">
         <field name="name">alba.interest.accrual.form</field>
         <field name="model">alba.interest.accrual</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Interest Accrual">
                 <header>
@@ -101,6 +103,7 @@
     <record id="view_alba_interest_accrual_search" model="ir.ui.view">
         <field name="name">alba.interest.accrual.search</field>
         <field name="model">alba.interest.accrual</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Interest Accruals">
                 <field name="investment_id"/>

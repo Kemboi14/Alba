@@ -485,6 +485,6 @@ class AlbaLoanConsolidation(models.Model):
             "type": "ir.actions.act_window",
             "name": _("Loans"),
             "res_model": "alba.loan",
-            "view_mode": "tree,form",
+            "view_mode": "list,form",
             "domain": [("id", "in", self.loan_ids.ids)],
         }

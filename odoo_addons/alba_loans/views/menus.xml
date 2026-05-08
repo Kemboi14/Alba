@@ -20,7 +20,7 @@
             id="menu_alba_loans_dashboard"
             name="Dashboard"
             parent="menu_alba_loans_root"
-            action="action_alba_loan_application"
+            action="action_alba_loan_dashboard"
             sequence="5"
             groups="alba_loans.group_loan_user"
         />
@@ -92,6 +92,15 @@
             parent="menu_alba_loans_root_active"
             action="action_alba_loan_all"
             sequence="20"
+            groups="alba_loans.group_loan_officer"
+        />
+
+    <menuitem
+            id="menu_alba_credit_life_insurance"
+            name="Credit Life Insurance"
+            parent="menu_alba_loans_root_active"
+            action="action_alba_credit_life_insurance"
+            sequence="30"
             groups="alba_loans.group_loan_officer"
         />
 
@@ -217,6 +226,7 @@
             groups="alba_loans.group_loan_manager"
         />
 
+    
     <menuitem
             id="menu_alba_loan_products"
             name="Loan Products"
@@ -231,6 +241,115 @@
             name="Loan Categories"
             parent="menu_alba_loans_config"
             action="action_alba_loan_category"
+            sequence="20"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <menuitem
+            id="menu_alba_loan_status_reasons"
+            name="Deferred/Declined Reasons"
+            parent="menu_alba_loans_config"
+            action="action_alba_loan_status_reason"
+            sequence="25"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <!-- Location Management -->
+    <menuitem
+            id="menu_alba_location_root"
+            name="Locations"
+            parent="menu_alba_loans_config"
+            sequence="30"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <menuitem
+            id="menu_alba_counties"
+            name="Counties"
+            parent="menu_alba_location_root"
+            action="action_alba_county"
+            sequence="10"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <menuitem
+            id="menu_alba_sub_counties"
+            name="Sub-Counties"
+            parent="menu_alba_location_root"
+            action="action_alba_sub_county"
+            sequence="20"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <menuitem
+            id="menu_alba_wards"
+            name="Wards"
+            parent="menu_alba_location_root"
+            action="action_alba_ward"
+            sequence="30"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <!-- Customer Tags -->
+    <menuitem
+            id="menu_alba_customer_tags"
+            name="Customer Tags"
+            parent="menu_alba_loans_config"
+            action="action_alba_customer_tag"
+            sequence="40"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <!-- CBK Sector Classification -->
+    <menuitem
+            id="menu_alba_business_classification_root"
+            name="Business Classification"
+            parent="menu_alba_loans_config"
+            sequence="45"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <menuitem
+            id="menu_alba_business_sectors"
+            name="Sectors"
+            parent="menu_alba_business_classification_root"
+            action="action_alba_business_sector"
+            sequence="10"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <menuitem
+            id="menu_alba_business_subsectors"
+            name="Subsectors"
+            parent="menu_alba_business_classification_root"
+            action="action_alba_business_subsector"
+            sequence="20"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <!-- Currency Management -->
+    <menuitem
+            id="menu_alba_currency_root"
+            name="Currency Management"
+            parent="menu_alba_loans_config"
+            sequence="50"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <menuitem
+            id="menu_alba_currency_config"
+            name="Currency Configuration"
+            parent="menu_alba_currency_root"
+            action="action_alba_currency_config"
+            sequence="10"
+            groups="alba_loans.group_loan_manager"
+        />
+
+    <menuitem
+            id="menu_alba_exchange_rates"
+            name="Exchange Rate History"
+            parent="menu_alba_currency_root"
+            action="action_alba_exchange_rate_history"
             sequence="20"
             groups="alba_loans.group_loan_manager"
         />

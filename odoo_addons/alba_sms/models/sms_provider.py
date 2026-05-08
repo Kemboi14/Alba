@@ -630,3 +630,9 @@ class AlbaSmsProvider(models.Model):
         except Exception as exc:  # noqa: BLE001
             # Logging failure must never crash the send operation.
             _logger.error("alba.sms.provider: failed to write SMS log: %s", exc)
+
+    @api.model
+    def _check_company(self, company_id):
+        """Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id

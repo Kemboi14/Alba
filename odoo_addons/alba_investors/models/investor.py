@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
-class AlbaInvestor(models.Model):
-    _name = "alba.investor"
-    _description = "Alba Capital Investor"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+class AlbaInvestorPro(models.Model):
+    _inherit = "alba.investor"
     _rec_name = "display_name"
     _order = "create_date desc"
 
@@ -43,6 +44,13 @@ class AlbaInvestor(models.Model):
         help="Primary key of the corresponding Investor record in the Django portal.",
     )
 
+    company_id = fields.Many2one(
+        "res.company",
+        string="Company",
+        required=True,
+        default=lambda self: self.env.company,
+    )
+
     # ── Identity (Related to Partner) ────────────────────────────────────────
     id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
     id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
@@ -50,6 +58,43 @@ class AlbaInvestor(models.Model):
     age = fields.Integer(string="Age", compute="_compute_age", store=False)
     gender = fields.Selection(related="partner_id.gender", store=True, readonly=False)
     nationality = fields.Char(string="Nationality", default="Kenyan")
+
+    # ── Location ─────────────────────────────────────────────────────────────
+    county_id = fields.Many2one(
+        "alba.county",
+        string="County",
+        tracking=True,
+        index=True,
+    )
+    sub_county_id = fields.Many2one(
+        "alba.sub.county",
+        string="Sub-County",
+        domain="[('county_id', '=', county_id)]",
+        tracking=True,
+        index=True,
+    )
+    ward_id = fields.Many2one(
+        "alba.ward",
+        string="Ward",
+        domain="[('sub_county_id', '=', sub_county_id)]",
+        tracking=True,
+        index=True,
+    )
+    location_display = fields.Char(
+        string="Location",
+        compute="_compute_location_display",
+        store=True,
+    )
+
+    # ── Tags ─────────────────────────────────────────────────────────────────
+    tag_ids = fields.Many2many(
+        "alba.customer.tag",
+        "alba_investor_tag_rel",
+        "investor_id",
+        "tag_id",
+        string="Tags",
+        tracking=True,
+    )
 
     # ── KYC ───────────────────────────────────────────────────────────────────
     kyc_status = fields.Selection(
@@ -76,19 +121,21 @@ class AlbaInvestor(models.Model):
         readonly=True,
         tracking=True,
     )
+    document_ids = fields.One2many(
+        "alba.investor.document",
+        "investor_id",
+        string="Documents",
+    )
+    document_count = fields.Integer(
+        string="Document Count",
+        compute="_compute_document_count",
+    )
 
-    # ── Status ────────────────────────────────────────────────────────────────
     state = fields.Selection(
-        selection=[
-            ("active", "Active"),
-            ("suspended", "Suspended"),
+        selection_add=[
             ("blacklisted", "Blacklisted"),
         ],
-        string="Status",
-        default="active",
-        required=True,
-        tracking=True,
-        index=True,
+        ondelete={'blacklisted': 'set default'}
     )
 
     # ── Banking / Payout ──────────────────────────────────────────────────────
@@ -149,20 +196,14 @@ class AlbaInvestor(models.Model):
         currency_field="currency_id",
     )
 
-    # ── Currency / Company ────────────────────────────────────────────────────
-    company_id = fields.Many2one(
-        "res.company",
-        string="Company",
-        default=lambda self: self.env.company,
-        required=True,
-        index=True,
-    )
+    # ── Currency ──────────────────────────────────────────────────────────────
     currency_id = fields.Many2one(
         "res.currency",
-        related="company_id.currency_id",
-        string="Currency",
-        store=True,
-        readonly=True,
+        string="Preferred Currency",
+        default=lambda self: self.env.company.currency_id,
+        required=True,
+        tracking=True,
+        help="Currency the investor typically uses for investments.",
     )
 
     # ── UX Helpers ────────────────────────────────────────────────────────────
@@ -220,7 +261,7 @@ class AlbaInvestor(models.Model):
             rec.message_post(body=_("🔍 Initiating automated KYC verification via %s...") % provider.name)
             
             # Call the provider
-            result = provider.verify_id(rec.id_number, rec.partner_id.name)
+            result = provider.verify_identity(rec.id_number, rec.partner_id.name)
             
             # Log full result in chatter
             log_body = (
@@ -233,10 +274,10 @@ class AlbaInvestor(models.Model):
                 "</div>"
             ) % (
                 provider.name,
-                "success" if result['status'] == 'verified' else "warning" if result['status'] == 'review' else "danger",
+                "success" if result['status'] == 'verified' else "warning" if result['status'] == 'manual_review' else "danger",
                 result['status'].upper(),
-                result['confidence'],
-                result['provider_ref'],
+                result['confidence_score'],
+                result['provider_reference'],
                 result['notes']
             )
             rec.message_post(body=log_body)
@@ -258,6 +299,18 @@ class AlbaInvestor(models.Model):
         for rec in self:
             rec.display_name = rec.partner_id.name or _("New Investor")
 
+    @api.depends("county_id", "sub_county_id", "ward_id")
+    def _compute_location_display(self):
+        for rec in self:
+            parts = []
+            if rec.ward_id:
+                parts.append(rec.ward_id.name)
+            if rec.sub_county_id:
+                parts.append(rec.sub_county_id.name)
+            if rec.county_id:
+                parts.append(rec.county_id.name)
+            rec.location_display = ", ".join(parts) if parts else ""
+
     @api.depends("date_of_birth")
     def _compute_age(self):
         today = fields.Date.today()
@@ -267,14 +320,6 @@ class AlbaInvestor(models.Model):
             else:
                 rec.age = 0
 
-    @api.depends(
-        "investment_ids",
-        "investment_ids.state",
-        "investment_ids.principal_amount",
-        "investment_ids.current_value",
-        "investment_ids.total_interest_accrued",
-        "investment_ids.total_interest_paid",
-    )
     @api.depends(
         "investment_ids",
         "investment_ids.state",
@@ -301,10 +346,9 @@ class AlbaInvestor(models.Model):
             rec.is_high_value = rec.current_portfolio_value >= 1000000
             rec.has_active_investments = rec.active_investment_count > 0
 
-    @api.depends("kyc_status")
     def _compute_kyc_progress(self):
         for rec in self:
-            # Simple KYC progress calculation
+            # Base progress from selection
             progress = 0
             if rec.kyc_status == "verified":
                 progress = 100
@@ -314,7 +358,19 @@ class AlbaInvestor(models.Model):
                 progress = 50
             elif rec.kyc_status == "pending":
                 progress = 10
+            
+            # Boost progress if documents are uploaded
+            if rec.document_ids:
+                verified_docs = rec.document_ids.filtered(lambda d: d.status == 'verified')
+                if verified_docs:
+                    progress = max(progress, 90 if rec.kyc_status != 'verified' else 100)
+            
             rec.kyc_progress = progress
+
+    @api.depends("document_ids")
+    def _compute_document_count(self):
+        for rec in self:
+            rec.document_count = len(rec.document_ids)
 
     # =========================================================================
     # Constraint methods
@@ -416,3 +472,71 @@ class AlbaInvestor(models.Model):
             )
             for rec in self
         ]
+
+
+class AlbaInvestorDocument(models.Model):
+    _name = "alba.investor.document"
+    _description = "Investor Document"
+    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "create_date desc"
+
+    investor_id = fields.Many2one(
+        "alba.investor",
+        string="Investor",
+        required=True,
+        ondelete="cascade",
+    )
+    name = fields.Char(string="Document Name", required=True)
+    document_type = fields.Selection(
+        [
+            ("id_card", "ID Card / Passport"),
+            ("agreement", "Investment Agreement"),
+            ("nda", "NDA"),
+            ("tax_certificate", "Tax Certificate (KRA PIN)"),
+            ("proof_of_funds", "Proof of Funds"),
+            ("other", "Other"),
+        ],
+        string="Document Type",
+        required=True,
+        tracking=True,
+    )
+    attachment = fields.Binary(string="File Content", required=True)
+    filename = fields.Char(string="Filename")
+    
+    status = fields.Selection(
+        [
+            ("pending", "Pending Verification"),
+            ("verified", "Verified"),
+            ("rejected", "Rejected"),
+            ("expired", "Expired"),
+        ],
+        string="Verification Status",
+        default="pending",
+        tracking=True,
+    )
+    expiry_date = fields.Date(string="Expiry Date")
+    verified_by = fields.Many2one("res.users", string="Verified By", readonly=True)
+    verified_date = fields.Datetime(string="Verified On", readonly=True)
+    notes = fields.Text(string="Notes")
+
+    def action_verify(self):
+        self.write({
+            "status": "verified",
+            "verified_by": self.env.uid,
+            "verified_date": fields.Datetime.now(),
+        })
+        # If this is the first verified doc, maybe update investor KYC
+        if self.investor_id.kyc_status == 'pending':
+            self.investor_id.write({'kyc_status': 'partial'})
+        
+        self.message_post(body=_("Document verified successfully."))
+
+    @api.model
+    def _check_company(self, company_id):
+        """Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id
+    
+    def action_reject(self):
+        self.write({"status": "rejected"})
+        self.message_post(body=_("Document rejected."))

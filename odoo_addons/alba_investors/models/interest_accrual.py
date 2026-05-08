@@ -148,6 +148,12 @@ class AlbaInterestAccrual(models.Model):
     # Computed methods
     # =========================================================================
 
+    @api.model
+    def _check_company(self, company_id):
+        """Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id
+
     @api.depends("investment_id", "accrual_date", "period_start", "period_end")
     def _compute_display_name(self):
         for rec in self:

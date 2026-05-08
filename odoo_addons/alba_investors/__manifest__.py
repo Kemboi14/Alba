@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Investors",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "category": "Finance",
     "summary": "Investor profiles, investment accounts, compound interest accrual and monthly statement generation",
     "description": """

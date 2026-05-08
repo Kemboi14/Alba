@@ -8,6 +8,7 @@
         <record id="view_alba_loan_document_list" model="ir.ui.view">
             <field name="name">alba.loan.document.list</field>
             <field name="model">alba.loan.document</field>
+            <field name="type">list</field>
             <field name="arch" type="xml">
                 <list string="Documents" decoration-info="state == 'draft'" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'">
                     <field name="name"/>
@@ -32,6 +33,7 @@
         <record id="view_alba_loan_document_kanban" model="ir.ui.view">
             <field name="name">alba.loan.document.kanban</field>
             <field name="model">alba.loan.document</field>
+            <field name="type">kanban</field>
             <field name="arch" type="xml">
                 <kanban class="o_kanban_mobile">
                     <field name="id"/>
@@ -84,6 +86,7 @@
         <record id="view_alba_loan_document_form" model="ir.ui.view">
             <field name="name">alba.loan.document.form</field>
             <field name="model">alba.loan.document</field>
+            <field name="type">form</field>
             <field name="arch" type="xml">
                 <form string="Document">
                     <header>
@@ -104,7 +107,7 @@
                                 <field name="create_date" string="Uploaded On" readonly="1"/>
                             </group>
                         </group>
-                        <group string="Verification Details" invisible="state == 'draft'">
+                        <group invisible="state == 'draft'">
                             <field name="verified_by"/>
                             <field name="verified_date"/>
                             <field name="rejection_reason" invisible="state != 'rejected'"/>

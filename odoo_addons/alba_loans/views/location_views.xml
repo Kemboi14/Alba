@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+<data>
+
+    <!-- ================================================================
+         County Views
+         ================================================================ -->
+
+    <record id="view_alba_county_list" model="ir.ui.view">
+        <field name="name">alba.county.tree</field>
+        <field name="model">alba.county</field>
+        <field name="type">list</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="sub_county_count"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_alba_county_form" model="ir.ui.view">
+        <field name="name">alba.county.form</field>
+        <field name="model">alba.county</field>
+        <field name="type">form</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="color" widget="color_picker"/>
+                            <field name="sequence"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="Description..."/>
+                    <separator string="Sub-Counties"/>
+                    <field name="sub_county_ids">
+                        <list>
+                            <field name="code"/>
+                            <field name="name"/>
+                            <field name="ward_count"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_alba_county_search" model="ir.ui.view">
+        <field name="name">alba.county.search</field>
+        <field name="model">alba.county</field>
+        <field name="type">search</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <separator/>
+                <filter name="active" string="Active" domain="[('active', '=', True)]"/>
+                <filter name="inactive" string="Archived" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Sub-County Views
+         ================================================================ -->
+
+    <record id="view_alba_sub_county_list" model="ir.ui.view">
+        <field name="name">alba.sub.county.tree</field>
+        <field name="model">alba.sub.county</field>
+        <field name="type">list</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="county_id"/>
+                <field name="ward_count"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_alba_sub_county_form" model="ir.ui.view">
+        <field name="name">alba.sub.county.form</field>
+        <field name="model">alba.sub.county</field>
+        <field name="type">form</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="county_id"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="color" widget="color_picker"/>
+                            <field name="sequence"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="Description..."/>
+                    <separator string="Wards"/>
+                    <field name="ward_ids">
+                        <list>
+                            <field name="code"/>
+                            <field name="name"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_alba_sub_county_search" model="ir.ui.view">
+        <field name="name">alba.sub.county.search</field>
+        <field name="model">alba.sub.county</field>
+        <field name="type">search</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="county_id"/>
+                <filter name="active" string="Active" domain="[('active', '=', True)]"/>
+                <filter name="inactive" string="Archived" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Ward Views
+         ================================================================ -->
+
+    <record id="view_alba_ward_list" model="ir.ui.view">
+        <field name="name">alba.ward.tree</field>
+        <field name="model">alba.ward</field>
+        <field name="type">list</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="sub_county_id"/>
+                <field name="county_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_alba_ward_form" model="ir.ui.view">
+        <field name="name">alba.ward.form</field>
+        <field name="model">alba.ward</field>
+        <field name="type">form</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="sub_county_id"/>
+                            <field name="county_id" readonly="1"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="color" widget="color_picker"/>
+                            <field name="sequence"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="Description..."/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_alba_ward_search" model="ir.ui.view">
+        <field name="name">alba.ward.search</field>
+        <field name="model">alba.ward</field>
+        <field name="type">search</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="sub_county_id"/>
+                <field name="county_id"/>
+                <filter name="active" string="Active" domain="[('active', '=', True)]"/>
+                <filter name="inactive" string="Archived" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Window Actions
+         ================================================================ -->
+
+    <record id="action_alba_county" model="ir.actions.act_window">
+        <field name="name">Counties</field>
+        <field name="res_model">alba.county</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_alba_county_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first County
+            </p>
+        </field>
+    </record>
+
+    <record id="action_alba_sub_county" model="ir.actions.act_window">
+        <field name="name">Sub-Counties</field>
+        <field name="res_model">alba.sub.county</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_alba_sub_county_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first Sub-County
+            </p>
+        </field>
+    </record>
+
+    <record id="action_alba_ward" model="ir.actions.act_window">
+        <field name="name">Wards</field>
+        <field name="res_model">alba.ward</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_alba_ward_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first Ward
+            </p>
+        </field>
+    </record>
+
+</data>
+</odoo>

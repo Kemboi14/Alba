@@ -7,6 +7,7 @@
     <record id="view_alba_api_key_form" model="ir.ui.view">
         <field name="name">alba.api.key.form</field>
         <field name="model">alba.api.key</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="API Key">
 
@@ -158,12 +159,11 @@
                                 readonly="1"
                                 context="{'default_api_key_id': id}"
                             >
-                                <list
-                                    string="Webhook Logs"
-                                    decoration-success="status == 'success'"
-                                    decoration-danger="status == 'failed'"
-                                    decoration-warning="status == 'pending'"
-                                    limit="50"
+                                <list string="Webhook Logs"
+                                      decoration-success="status == 'success'"
+                                      decoration-danger="status == 'failed'"
+                                      decoration-warning="status == 'pending'"
+                                      limit="50"
                                 >
                                     <field name="timestamp"/>
                                     <field name="direction"/>
@@ -204,10 +204,10 @@
     <record id="view_alba_api_key_list" model="ir.ui.view">
         <field name="name">alba.api.key.list</field>
         <field name="model">alba.api.key</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
-            <list
-                string="API Keys"
-                decoration-muted="is_active == False"
+            <list string="API Keys"
+                  decoration-muted="is_active == False"
             >
                 <field name="name"/>
                 <field name="django_base_url" string="Django Portal URL"/>
@@ -229,6 +229,7 @@
     <record id="view_alba_api_key_search" model="ir.ui.view">
         <field name="name">alba.api.key.search</field>
         <field name="model">alba.api.key</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Search API Keys">
 

@@ -53,9 +53,41 @@ class AlbaCustomer(models.Model):
     nationality = fields.Char(string="Nationality", default="Kenyan")
 
     # ── Location (Kenya) ──────────────────────────────────────────────────────
-    county = fields.Char(string="County")
-    sub_county = fields.Char(string="Sub-County")
-    ward = fields.Char(string="Ward")
+    county_id = fields.Many2one(
+        "alba.county",
+        string="County",
+        tracking=True,
+        index=True,
+    )
+    sub_county_id = fields.Many2one(
+        "alba.sub.county",
+        string="Sub-County",
+        domain="[('county_id', '=', county_id)]",
+        tracking=True,
+        index=True,
+    )
+    ward_id = fields.Many2one(
+        "alba.ward",
+        string="Ward",
+        domain="[('sub_county_id', '=', sub_county_id)]",
+        tracking=True,
+        index=True,
+    )
+    location_display = fields.Char(
+        string="Location",
+        compute="_compute_location_display",
+        store=True,
+    )
+
+    # ── Tags ─────────────────────────────────────────────────────────────────
+    tag_ids = fields.Many2many(
+        "alba.customer.tag",
+        "alba_customer_tag_rel",
+        "customer_id",
+        "tag_id",
+        string="Tags",
+        tracking=True,
+    )
 
     # ── Employment ────────────────────────────────────────────────────────────
     employment_status = fields.Selection(
@@ -93,6 +125,40 @@ class AlbaCustomer(models.Model):
     monthly_business_turnover = fields.Monetary(
         string="Monthly Business Turnover",
         currency_field="currency_id",
+    )
+
+    # ── Sector & Subsector Classification (CBK Compliance - Req #5) ──────────
+    sector_id = fields.Many2one(
+        "alba.business.sector",
+        string="Sector",
+        tracking=True,
+        index=True,
+        help="Customer's primary business sector",
+    )
+    subsector_id = fields.Many2one(
+        "alba.business.subsector",
+        string="Subsector",
+        tracking=True,
+        index=True,
+        domain="[('sector_id', '=', sector_id)]",
+        help="Specific subsector within the sector",
+    )
+
+    # ── Customer Referral Source (Req #3) ─────────────────────────────────────
+    referral_source = fields.Selection(
+        selection=[
+            ("agent", "Agent"),
+            ("staff", "Staff"),
+            ("director", "Director"),
+        ],
+        string="Referral Source",
+        tracking=True,
+        help="How this customer was referred to Alba Capital",
+    )
+    referral_name = fields.Char(
+        string="Referred By",
+        tracking=True,
+        help="Name of the person who referred this customer",
     )
 
     # ── KYC & Risk ────────────────────────────────────────────────────────────
@@ -195,6 +261,7 @@ class AlbaCustomer(models.Model):
     company_id = fields.Many2one(
         "res.company",
         string="Company",
+        required=True,
         default=lambda self: self.env.company,
         index=True,
     )
@@ -235,6 +302,18 @@ class AlbaCustomer(models.Model):
     def _compute_display_name(self):
         for rec in self:
             rec.display_name = rec.partner_id.name or _("New Customer")
+
+    @api.depends("county_id", "sub_county_id", "ward_id")
+    def _compute_location_display(self):
+        for rec in self:
+            parts = []
+            if rec.ward_id:
+                parts.append(rec.ward_id.name)
+            if rec.sub_county_id:
+                parts.append(rec.sub_county_id.name)
+            if rec.county_id:
+                parts.append(rec.county_id.name)
+            rec.location_display = ", ".join(parts) if parts else ""
 
     @api.depends("date_of_birth")
     def _compute_age(self):
@@ -387,5 +466,11 @@ class AlbaCustomer(models.Model):
         records = super().create(vals_list)
         return records
 
+    @api.model
+    def _check_company(self, company_id):
+        """Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id
+    
     def name_get(self):
         return [(rec.id, rec.partner_id.name or _("New Customer")) for rec in self]

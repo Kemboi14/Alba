@@ -8,6 +8,7 @@
         <record id="view_alba_sms_wizard_form" model="ir.ui.view">
             <field name="name">alba.sms.wizard.form</field>
             <field name="model">alba.sms.wizard</field>
+            <field name="type">form</field>
             <field name="arch" type="xml">
                 <form string="Send SMS">
 

@@ -8,6 +8,7 @@
     <record id="view_alba_generate_statement_wizard_form" model="ir.ui.view">
         <field name="name">alba.generate.statement.wizard.form</field>
         <field name="model">alba.generate.statement.wizard</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Generate Investment Statements">
 

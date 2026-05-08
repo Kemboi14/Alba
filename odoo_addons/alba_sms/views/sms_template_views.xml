@@ -7,6 +7,7 @@
     <record id="view_alba_sms_template_form" model="ir.ui.view">
         <field name="name">alba.sms.template.form</field>
         <field name="model">alba.sms.template</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="SMS Template">
                 <sheet>
@@ -83,6 +84,7 @@
     <record id="view_alba_sms_template_list" model="ir.ui.view">
         <field name="name">alba.sms.template.list</field>
         <field name="model">alba.sms.template</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list
                 string="SMS Templates"
@@ -104,6 +106,7 @@
     <record id="view_alba_sms_template_search" model="ir.ui.view">
         <field name="name">alba.sms.template.search</field>
         <field name="model">alba.sms.template</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Search SMS Templates">
 

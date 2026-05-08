@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+<data>
+
+    <!-- ================================================================
+         Currency Configuration Views
+         ================================================================ -->
+
+    <record id="view_alba_currency_config_list" model="ir.ui.view">
+        <field name="name">alba.currency.config.tree</field>
+        <field name="model">alba.currency.config</field>
+        <field name="type">list</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="currency_id"/>
+                <field name="symbol"/>
+                <field name="is_default"/>
+                <field name="is_active"/>
+                <field name="use_manual_rate"/>
+                <field name="exchange_rate_manual"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_alba_currency_config_form" model="ir.ui.view">
+        <field name="name">alba.currency.config.form</field>
+        <field name="model">alba.currency.config</field>
+        <field name="type">form</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="currency_id"/>
+                            <field name="symbol" readonly="1"/>
+                            <field name="is_default"/>
+                            <field name="is_active"/>
+                        </group>
+                        <group>
+                            <field name="use_manual_rate"/>
+                            <field name="exchange_rate_manual" invisible="not use_manual_rate"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="account_receivable_id"/>
+                        <field name="account_payable_id"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_alba_currency_config_search" model="ir.ui.view">
+        <field name="name">alba.currency.config.search</field>
+        <field name="model">alba.currency.config</field>
+        <field name="type">search</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="currency_id"/>
+                <field name="name"/>
+                <filter name="default" string="Default" domain="[('is_default', '=', True)]"/>
+                <filter name="active" string="Active" domain="[('is_active', '=', True)]"/>
+                <filter name="manual_rate" string="Manual Rate" domain="[('use_manual_rate', '=', True)]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Exchange Rate History Views
+         ================================================================ -->
+
+    <record id="view_alba_exchange_rate_history_list" model="ir.ui.view">
+        <field name="name">alba.exchange.rate.history.tree</field>
+        <field name="model">alba.exchange.rate.history</field>
+        <field name="type">list</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="date"/>
+                <field name="from_currency_id"/>
+                <field name="to_currency_id"/>
+                <field name="rate"/>
+                <field name="source"/>
+                <field name="created_by"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_alba_exchange_rate_history_form" model="ir.ui.view">
+        <field name="name">alba.exchange.rate.history.form</field>
+        <field name="model">alba.exchange.rate.history</field>
+        <field name="type">form</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="date"/>
+                            <field name="from_currency_id"/>
+                            <field name="to_currency_id"/>
+                        </group>
+                        <group>
+                            <field name="rate"/>
+                            <field name="inverse_rate" readonly="1"/>
+                            <field name="source"/>
+                        </group>
+                    </group>
+                    <field name="notes" placeholder="Notes..."/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_alba_exchange_rate_history_search" model="ir.ui.view">
+        <field name="name">alba.exchange.rate.history.search</field>
+        <field name="model">alba.exchange.rate.history</field>
+        <field name="type">search</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="from_currency_id"/>
+                <field name="to_currency_id"/>
+                <field name="date"/>
+                <filter name="today" string="Today" domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="this_week" string="This Week" domain="[('date', '>=', (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                <filter name="this_month" string="This Month" domain="[('date', '>=', (context_today() - datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Window Actions
+         ================================================================ -->
+
+    <record id="action_alba_currency_config" model="ir.actions.act_window">
+        <field name="name">Currency Configuration</field>
+        <field name="res_model">alba.currency.config</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_alba_currency_config_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Configure your currencies
+            </p>
+            <p>
+                Set up multi-currency support with exchange rates and currency-specific accounts.
+            </p>
+        </field>
+    </record>
+
+    <record id="action_alba_exchange_rate_history" model="ir.actions.act_window">
+        <field name="name">Exchange Rate History</field>
+        <field name="res_model">alba.exchange.rate.history</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_alba_exchange_rate_history_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Add an exchange rate entry
+            </p>
+            <p>
+                Track historical exchange rates for audit and reporting purposes.
+            </p>
+        </field>
+    </record>
+
+</data>
+</odoo>

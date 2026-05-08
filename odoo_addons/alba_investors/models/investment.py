@@ -36,6 +36,7 @@ class AlbaInvestment(models.Model):
         readonly=True,
     )
 
+    
     # ── Investment Type ───────────────────────────────────────────────────────
     investment_type = fields.Selection(
         selection=[
@@ -202,9 +203,10 @@ class AlbaInvestment(models.Model):
     )
     currency_id = fields.Many2one(
         "res.currency",
-        related="company_id.currency_id",
-        store=True,
-        readonly=True,
+        string="Currency",
+        default=lambda self: self.env.company.currency_id,
+        required=True,
+        tracking=True,
     )
 
     # ── UX Helpers ────────────────────────────────────────────────────────────
@@ -558,3 +560,9 @@ class AlbaInvestment(models.Model):
             )
             for rec in self
         ]
+
+    @api.model
+    def _check_company(self, company_id):
+        """Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id

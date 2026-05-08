@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ==================== LOAN STATUS REASON VIEWS ==================== -->
+    <record id="view_alba_loan_status_reason_list" model="ir.ui.view">
+        <field name="name">Loan Status Reason - List</field>
+        <field name="model">alba.loan.status.reason</field>
+        <field name="arch" type="xml">
+            <list string="Loan Status Reasons" editable="top">
+                <field name="category"/>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="active"/>
+                <field name="application_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_alba_loan_status_reason_form" model="ir.ui.view">
+        <field name="name">Loan Status Reason - Form</field>
+        <field name="model">alba.loan.status.reason</field>
+        <field name="arch" type="xml">
+            <form string="Loan Status Reason">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" class="oe_inline"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="category"/>
+                            <field name="code"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="application_count" readonly="1"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="Enter reason description..."/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_alba_loan_status_reason_search" model="ir.ui.view">
+        <field name="name">Loan Status Reason - Search</field>
+        <field name="model">alba.loan.status.reason</field>
+        <field name="arch" type="xml">
+            <search string="Loan Status Reasons">
+                <field name="name" string="Reason"/>
+                <field name="category"/>
+                <filter string="Active" name="active" domain="[('active', '=', True)]"/>
+                <filter string="Inactive" name="inactive" domain="[('active', '=', False)]"/>
+                <separator/>
+                <group>
+                    <field name="category"/>
+                    <field name="active"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_alba_loan_status_reason" model="ir.actions.act_window">
+        <field name="name">Loan Status Reasons</field>
+        <field name="res_model">alba.loan.status.reason</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new reason for loan application deferral or decline.
+            </p>
+        </field>
+    </record>
+</odoo>

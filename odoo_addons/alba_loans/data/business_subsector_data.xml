@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- ==================== AGRICULTURE SUBSECTORS ==================== -->
+        <record id="subsector_01_01_crop_farming" model="alba.business.subsector">
+            <field name="name">Crop Farming</field>
+            <field name="code">01.1</field>
+            <field name="sector_id" ref="sector_01_agriculture"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_01_02_livestock" model="alba.business.subsector">
+            <field name="name">Livestock</field>
+            <field name="code">01.2</field>
+            <field name="sector_id" ref="sector_01_agriculture"/>
+            <field name="sequence">20</field>
+        </record>
+        <record id="subsector_01_03_hunting_fishing" model="alba.business.subsector">
+            <field name="name">Hunting and Fishing</field>
+            <field name="code">01.3</field>
+            <field name="sector_id" ref="sector_01_agriculture"/>
+            <field name="sequence">30</field>
+        </record>
+        <record id="subsector_01_04_forestry" model="alba.business.subsector">
+            <field name="name">Forestry</field>
+            <field name="code">01.4</field>
+            <field name="sector_id" ref="sector_01_agriculture"/>
+            <field name="sequence">40</field>
+        </record>
+
+        <!-- ==================== MANUFACTURING SUBSECTORS ==================== -->
+        <record id="subsector_02_01_food_beverages" model="alba.business.subsector">
+            <field name="name">Processing of Food, Beverages and Tobacco</field>
+            <field name="code">02.1</field>
+            <field name="sector_id" ref="sector_02_manufacturing"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_02_02_textile" model="alba.business.subsector">
+            <field name="name">Manufacture of Textile, clothing and Leather</field>
+            <field name="code">02.2</field>
+            <field name="sector_id" ref="sector_02_manufacturing"/>
+            <field name="sequence">20</field>
+        </record>
+        <record id="subsector_02_03_wood" model="alba.business.subsector">
+            <field name="name">Manufacture of wood, wood products and Furniture</field>
+            <field name="code">02.3</field>
+            <field name="sector_id" ref="sector_02_manufacturing"/>
+            <field name="sequence">30</field>
+        </record>
+        <record id="subsector_02_04_paper" model="alba.business.subsector">
+            <field name="name">Manufacture of Paper, Paper Products, Printing and Publishing</field>
+            <field name="code">02.4</field>
+            <field name="sector_id" ref="sector_02_manufacturing"/>
+            <field name="sequence">40</field>
+        </record>
+        <record id="subsector_02_05_chemicals" model="alba.business.subsector">
+            <field name="name">Manufacture of Chemicals, Petroleum, Rubber and Plastics</field>
+            <field name="code">02.5</field>
+            <field name="sector_id" ref="sector_02_manufacturing"/>
+            <field name="sequence">50</field>
+        </record>
+        <record id="subsector_02_06_minerals" model="alba.business.subsector">
+            <field name="name">Manufacture of Non metallic Mineral products, except Petroleum products</field>
+            <field name="code">02.6</field>
+            <field name="sector_id" ref="sector_02_manufacturing"/>
+            <field name="sequence">60</field>
+        </record>
+        <record id="subsector_02_07_metals" model="alba.business.subsector">
+            <field name="name">Manufacture of Basic Metals like iron and steel basic industries</field>
+            <field name="code">02.7</field>
+            <field name="sector_id" ref="sector_02_manufacturing"/>
+            <field name="sequence">70</field>
+        </record>
+        <record id="subsector_02_08_fabricated" model="alba.business.subsector">
+            <field name="name">Manufacture of Fabricated metal products, machinery and equipment</field>
+            <field name="code">02.8</field>
+            <field name="sector_id" ref="sector_02_manufacturing"/>
+            <field name="sequence">80</field>
+        </record>
+        <record id="subsector_02_09_other" model="alba.business.subsector">
+            <field name="name">Other Manufacturing Industries</field>
+            <field name="code">02.9</field>
+            <field name="sector_id" ref="sector_02_manufacturing"/>
+            <field name="sequence">90</field>
+        </record>
+
+        <!-- ==================== BUILDING AND CONSTRUCTION SUBSECTORS ==================== -->
+        <record id="subsector_03_01_building_service" model="alba.business.subsector">
+            <field name="name">Building and Construction Service Providers</field>
+            <field name="code">03.1</field>
+            <field name="sector_id" ref="sector_03_building_construction"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_03_02_general_contractors" model="alba.business.subsector">
+            <field name="name">General Trade Contractors</field>
+            <field name="code">03.2</field>
+            <field name="sector_id" ref="sector_03_building_construction"/>
+            <field name="sequence">20</field>
+        </record>
+
+        <!-- ==================== MINING AND QUARRYING SUBSECTORS ==================== -->
+        <record id="subsector_04_01_extraction" model="alba.business.subsector">
+            <field name="name">Extraction and Dressing of Natural Minerals and Ores</field>
+            <field name="code">04.1</field>
+            <field name="sector_id" ref="sector_04_mining"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_04_02_building_materials" model="alba.business.subsector">
+            <field name="name">Extraction and dressing of Building materials</field>
+            <field name="code">04.2</field>
+            <field name="sector_id" ref="sector_04_mining"/>
+            <field name="sequence">20</field>
+        </record>
+
+        <!-- ==================== ELECTRICITY AND WATER SUBSECTORS ==================== -->
+        <record id="subsector_05_01_power_generation" model="alba.business.subsector">
+            <field name="name">Commercial Generation of Power</field>
+            <field name="code">05.1</field>
+            <field name="sector_id" ref="sector_05_utilities"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_05_02_water_distribution" model="alba.business.subsector">
+            <field name="name">Commercial Collection, purification and Distribution of Water</field>
+            <field name="code">05.2</field>
+            <field name="sector_id" ref="sector_05_utilities"/>
+            <field name="sequence">20</field>
+        </record>
+        <record id="subsector_05_03_household_power" model="alba.business.subsector">
+            <field name="name">Household/Community Generation of Power</field>
+            <field name="code">05.3</field>
+            <field name="sector_id" ref="sector_05_utilities"/>
+            <field name="sequence">30</field>
+        </record>
+        <record id="subsector_05_04_household_water" model="alba.business.subsector">
+            <field name="name">Household/Community Harvesting or collection and Distribution of water for Domestic or Irrigation</field>
+            <field name="code">05.4</field>
+            <field name="sector_id" ref="sector_05_utilities"/>
+            <field name="sequence">40</field>
+        </record>
+
+        <!-- ==================== TRADE SUBSECTORS ==================== -->
+        <record id="subsector_06_01_imports" model="alba.business.subsector">
+            <field name="name">Imports</field>
+            <field name="code">06.1</field>
+            <field name="sector_id" ref="sector_06_trade"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_06_02_exports" model="alba.business.subsector">
+            <field name="name">Exports and re-exports</field>
+            <field name="code">06.2</field>
+            <field name="sector_id" ref="sector_06_trade"/>
+            <field name="sequence">20</field>
+        </record>
+        <record id="subsector_06_03_wholesale_retail" model="alba.business.subsector">
+            <field name="name">Wholesale and Retail</field>
+            <field name="code">06.3</field>
+            <field name="sector_id" ref="sector_06_trade"/>
+            <field name="sequence">30</field>
+        </record>
+        <record id="subsector_06_04_professional" model="alba.business.subsector">
+            <field name="name">Professional Bodies and Trading in Services</field>
+            <field name="code">06.4</field>
+            <field name="sector_id" ref="sector_06_trade"/>
+            <field name="sequence">40</field>
+        </record>
+        <record id="subsector_06_05_social" model="alba.business.subsector">
+            <field name="name">Social entities</field>
+            <field name="code">06.5</field>
+            <field name="sector_id" ref="sector_06_trade"/>
+            <field name="sequence">50</field>
+        </record>
+
+        <!-- ==================== TOURISM, RESTAURANT AND HOTELS SUBSECTORS ==================== -->
+        <record id="subsector_07_01_hotels_restaurants" model="alba.business.subsector">
+            <field name="name">Hotels and Restaurants</field>
+            <field name="code">07.1</field>
+            <field name="sector_id" ref="sector_07_tourism"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_07_02_travel_agents" model="alba.business.subsector">
+            <field name="name">Travel agents and Tour Guides</field>
+            <field name="code">07.2</field>
+            <field name="sector_id" ref="sector_07_tourism"/>
+            <field name="sequence">20</field>
+        </record>
+        <record id="subsector_07_03_curio_shops" model="alba.business.subsector">
+            <field name="name">Wood carving and Curio shop dealers</field>
+            <field name="code">07.3</field>
+            <field name="sector_id" ref="sector_07_tourism"/>
+            <field name="sequence">30</field>
+        </record>
+
+        <!-- ==================== TRANSPORT AND COMMUNICATION SUBSECTORS ==================== -->
+        <record id="subsector_08_01_transport_infrastructure" model="alba.business.subsector">
+            <field name="name">Transport and Infrastructure Development and Services</field>
+            <field name="code">08.1</field>
+            <field name="sector_id" ref="sector_08_transport"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_08_02_communication" model="alba.business.subsector">
+            <field name="name">Communication Network Systems</field>
+            <field name="code">08.2</field>
+            <field name="sector_id" ref="sector_08_transport"/>
+            <field name="sequence">20</field>
+        </record>
+
+        <!-- ==================== REAL ESTATE AND HOME IMPROVEMENT SUBSECTORS ==================== -->
+        <record id="subsector_09_01_real_estate_dev" model="alba.business.subsector">
+            <field name="name">Real estate development</field>
+            <field name="code">09.1</field>
+            <field name="sector_id" ref="sector_09_realestate"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_09_02_home_development" model="alba.business.subsector">
+            <field name="name">Home Development</field>
+            <field name="code">09.2</field>
+            <field name="sector_id" ref="sector_09_realestate"/>
+            <field name="sequence">20</field>
+        </record>
+        <record id="subsector_09_03_home_improvements" model="alba.business.subsector">
+            <field name="name">Home Improvements</field>
+            <field name="code">09.3</field>
+            <field name="sector_id" ref="sector_09_realestate"/>
+            <field name="sequence">30</field>
+        </record>
+
+        <!-- ==================== FINANCIAL SERVICES SUBSECTORS ==================== -->
+        <record id="subsector_10_01_banking" model="alba.business.subsector">
+            <field name="name">Institutions licensed under the banking Act</field>
+            <field name="code">10.1</field>
+            <field name="sector_id" ref="sector_10_finance"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_10_02_building_societies" model="alba.business.subsector">
+            <field name="name">Institutions licensed under Building Societies act</field>
+            <field name="code">10.2</field>
+            <field name="sector_id" ref="sector_10_finance"/>
+            <field name="sequence">20</field>
+        </record>
+        <record id="subsector_10_03_microfinance" model="alba.business.subsector">
+            <field name="name">Institutions licensed under Microfinance act</field>
+            <field name="code">10.3</field>
+            <field name="sector_id" ref="sector_10_finance"/>
+            <field name="sequence">30</field>
+        </record>
+        <record id="subsector_10_04_cooperatives" model="alba.business.subsector">
+            <field name="name">Institutions licensed under The Co-operative act and Sacco society act</field>
+            <field name="code">10.4</field>
+            <field name="sector_id" ref="sector_10_finance"/>
+            <field name="sequence">40</field>
+        </record>
+        <record id="subsector_10_05_insurance" model="alba.business.subsector">
+            <field name="name">Insurance industry practitioners</field>
+            <field name="code">10.5</field>
+            <field name="sector_id" ref="sector_10_finance"/>
+            <field name="sequence">50</field>
+        </record>
+        <record id="subsector_10_06_others" model="alba.business.subsector">
+            <field name="name">Others e.g. hire purchase companies, forex bureaus</field>
+            <field name="code">10.6</field>
+            <field name="sector_id" ref="sector_10_finance"/>
+            <field name="sequence">60</field>
+        </record>
+
+        <!-- ==================== PERSONAL/HOUSEHOLD CONSUMER LOANS SUBSECTORS ==================== -->
+        <record id="subsector_11_01_household_goods" model="alba.business.subsector">
+            <field name="name">Household goods and Services</field>
+            <field name="code">11.1</field>
+            <field name="sector_id" ref="sector_11_personal"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="subsector_11_02_health" model="alba.business.subsector">
+            <field name="name">Health</field>
+            <field name="code">11.2</field>
+            <field name="sector_id" ref="sector_11_personal"/>
+            <field name="sequence">20</field>
+        </record>
+        <record id="subsector_11_03_education" model="alba.business.subsector">
+            <field name="name">Education</field>
+            <field name="code">11.3</field>
+            <field name="sector_id" ref="sector_11_personal"/>
+            <field name="sequence">30</field>
+        </record>
+        <record id="subsector_11_04_social_functions" model="alba.business.subsector">
+            <field name="name">Social Functions and Funeral Expenses</field>
+            <field name="code">11.4</field>
+            <field name="sector_id" ref="sector_11_personal"/>
+            <field name="sequence">40</field>
+        </record>
+    </data>
+</odoo>

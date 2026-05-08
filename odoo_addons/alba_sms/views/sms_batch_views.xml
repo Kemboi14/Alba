@@ -8,6 +8,7 @@
     <record id="view_alba_sms_batch_kanban" model="ir.ui.view">
         <field name="name">alba.sms.batch.kanban</field>
         <field name="model">alba.sms.batch</field>
+        <field name="type">kanban</field>
         <field name="arch" type="xml">
             <kanban
                 string="SMS Campaigns"
@@ -116,6 +117,7 @@
     <record id="view_alba_sms_batch_form" model="ir.ui.view">
         <field name="name">alba.sms.batch.form</field>
         <field name="model">alba.sms.batch</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="SMS Campaign">
 
@@ -393,6 +395,7 @@
     <record id="view_alba_sms_batch_list" model="ir.ui.view">
         <field name="name">alba.sms.batch.list</field>
         <field name="model">alba.sms.batch</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list
                 string="SMS Campaigns"
@@ -438,6 +441,7 @@
     <record id="view_alba_sms_batch_search" model="ir.ui.view">
         <field name="name">alba.sms.batch.search</field>
         <field name="model">alba.sms.batch</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Search SMS Campaigns">
 

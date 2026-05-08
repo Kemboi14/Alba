@@ -82,9 +82,9 @@ class AlbaLoanApplication(models.Model):
     # ── Loan Details ──────────────────────────────────────────────────────────
     currency_id = fields.Many2one(
         "res.currency",
-        related="company_id.currency_id",
-        store=True,
-        readonly=True,
+        string="Currency",
+        default=lambda self: self.env.company.currency_id,
+        required=True,
     )
     requested_amount = fields.Monetary(
         string="Requested Amount",
@@ -147,9 +147,11 @@ class AlbaLoanApplication(models.Model):
             ("credit_analysis", "Credit Analysis"),
             ("pending_approval", "Pending Approval"),
             ("approved", "Approved"),
+            ("deferred", "Deferred"),
             ("employer_verification", "Employer Verification"),
             ("guarantor_confirmation", "Guarantor Confirmation"),
             ("disbursed", "Disbursed"),
+            ("declined", "Declined"),
             ("rejected", "Rejected"),
             ("cancelled", "Cancelled"),
         ],
@@ -160,6 +162,19 @@ class AlbaLoanApplication(models.Model):
         index=True,
         copy=False,
     )
+
+    # ── Deferred/Declined Reason (Req #8) ─────────────────────────────────────
+    status_reason_id = fields.Many2one(
+        "alba.loan.status.reason",
+        string="Status Reason",
+        tracking=True,
+        help="Reason for deferral or decline",
+    )
+
+    @api.model
+    def _get_status_reason_category(self):
+        """Get applicable status reason category based on current state"""
+        return self.state if self.state in ['deferred', 'declined'] else 'deferred'
 
     # ── Stage Timestamps ──────────────────────────────────────────────────────
     submitted_date = fields.Datetime(string="Submitted On", readonly=True, copy=False)
@@ -185,6 +200,8 @@ class AlbaLoanApplication(models.Model):
     disbursed_date = fields.Datetime(string="Disbursed On", readonly=True, copy=False)
     rejected_date = fields.Datetime(string="Rejected On", readonly=True, copy=False)
     cancelled_date = fields.Datetime(string="Cancelled On", readonly=True, copy=False)
+    deferred_date = fields.Datetime(string="Deferred On", readonly=True, copy=False)
+    declined_date = fields.Datetime(string="Declined On", readonly=True, copy=False)
 
     # ── Personnel ─────────────────────────────────────────────────────────────
     reviewed_by = fields.Many2one(
@@ -359,6 +376,8 @@ class AlbaLoanApplication(models.Model):
     can_employer_verify = fields.Boolean(compute="_compute_button_visibility")
     can_guarantor_confirm = fields.Boolean(compute="_compute_button_visibility")
     can_disburse = fields.Boolean(compute="_compute_button_visibility")
+    can_defer = fields.Boolean(compute="_compute_button_visibility")
+    can_decline = fields.Boolean(compute="_compute_button_visibility")
     can_reject = fields.Boolean(compute="_compute_button_visibility")
     can_cancel = fields.Boolean(compute="_compute_button_visibility")
 
@@ -369,20 +388,32 @@ class AlbaLoanApplication(models.Model):
     _VALID_TRANSITIONS = {
         "draft": ["submitted", "cancelled"],
         "submitted": ["under_review", "cancelled"],
-        "under_review": ["credit_analysis", "rejected"],
-        "credit_analysis": ["pending_approval", "rejected"],
-        "pending_approval": ["approved", "rejected"],
-        "approved": ["employer_verification", "disbursed"],
-        "employer_verification": ["guarantor_confirmation", "disbursed", "rejected"],
-        "guarantor_confirmation": ["disbursed", "rejected"],
+        "under_review": ["credit_analysis", "deferred", "declined", "rejected"],
+        "credit_analysis": ["pending_approval", "deferred", "declined", "rejected"],
+        "pending_approval": ["approved", "deferred", "declined", "rejected"],
+        "approved": ["employer_verification", "disbursed", "deferred", "declined"],
+        "deferred": ["under_review", "credit_analysis", "pending_approval", "cancelled"],
+        "employer_verification": ["guarantor_confirmation", "disbursed", "deferred", "declined", "rejected"],
+        "guarantor_confirmation": ["disbursed", "deferred", "declined", "rejected"],
         "disbursed": [],
+        "declined": [],
         "rejected": [],
         "cancelled": [],
     }
 
     def can_transition_to(self, new_state):
         self.ensure_one()
+        if self._has_admin_override() and self.state not in (
+            "disbursed",
+            "declined",
+            "rejected",
+            "cancelled",
+        ):
+            return True
         return new_state in self._VALID_TRANSITIONS.get(self.state, [])
+
+    def _has_admin_override(self):
+        return self.env.user.has_group("alba_loans.group_director") or self.env.user.has_group("base.group_system")
 
     # =========================================================================
     # Computed methods
@@ -394,6 +425,7 @@ class AlbaLoanApplication(models.Model):
             "credit_analysis": 55, "pending_approval": 70,
             "approved": 85, "employer_verification": 90,
             "guarantor_confirmation": 95, "disbursed": 100,
+            "deferred": 60, "declined": 100,
             "rejected": 100, "cancelled": 100
         }
         for rec in self:
@@ -463,12 +495,19 @@ class AlbaLoanApplication(models.Model):
             product = rec.loan_product_id
             needs_employer = product.requires_employer if product else False
             needs_guarantor = product.requires_guarantor if product else False
+            admin_override = rec._has_admin_override()
+            open_state = rec.state not in (
+                "disbursed",
+                "declined",
+                "rejected",
+                "cancelled",
+            )
 
             rec.can_submit = rec.state == "draft"
             rec.can_review = rec.state == "submitted"
             rec.can_credit_analysis = rec.state == "under_review"
             rec.can_pending_approval = rec.state == "credit_analysis"
-            rec.can_approve = rec.state == "pending_approval"
+            rec.can_approve = rec.state == "pending_approval" or (admin_override and open_state)
             # Employer verification only shown when product requires it
             rec.can_employer_verify = rec.state == "approved" and needs_employer
             # Guarantor confirmation only shown when product requires it
@@ -481,8 +520,17 @@ class AlbaLoanApplication(models.Model):
                 "approved",
                 "employer_verification",
                 "guarantor_confirmation",
-            )
+            ) or (admin_override and rec.state == "approved")
             rec.can_auto_disburse = rec.can_disburse and (product.auto_disburse if product else False)
+            rec.can_defer = rec.state in (
+                "under_review",
+                "credit_analysis",
+                "pending_approval",
+                "approved",
+                "employer_verification",
+                "guarantor_confirmation",
+            )
+            rec.can_decline = rec.can_defer
             rec.can_reject = rec.state in (
                 "under_review",
                 "credit_analysis",
@@ -640,13 +688,14 @@ class AlbaLoanApplication(models.Model):
     def action_approve(self):
         for rec in self:
             rec._assert_transition("approved")
+            admin_override = rec._has_admin_override()
             
             # Enforce collateral if required by product
-            if rec.loan_product_id.requires_collateral and not rec.loan_collateral_ids:
+            if rec.loan_product_id.requires_collateral and not rec.loan_collateral_ids and not admin_override:
                 raise UserError(_("This product requires collateral. Please add collateral details before approving."))
             
             # Enforce minimum guarantors if required
-            if rec.loan_product_id.requires_guarantor:
+            if rec.loan_product_id.requires_guarantor and not admin_override:
                 min_g = rec.loan_product_id.min_guarantors or 1
                 if rec.guarantor_count < min_g:
                     raise UserError(_("This product requires at least %d guarantor(s). Current count: %d") % (min_g, rec.guarantor_count))
@@ -668,10 +717,10 @@ class AlbaLoanApplication(models.Model):
                 template.send_mail(rec.id, force_send=False)
                 rec.message_post(body=_("📧 Automated approval email sent to %s") % rec.customer_id.email)
 
-            if rec.loan_product_id.requires_guarantor:
+            if rec.loan_product_id.requires_guarantor and not admin_override:
                 rec.action_guarantor_confirmation()
 
-            elif rec.loan_product_id.requires_employer:
+            elif rec.loan_product_id.requires_employer and not admin_override:
                 rec.action_employer_verification()
             elif rec.loan_product_id.auto_disburse:
                 rec.action_auto_disburse()
@@ -749,6 +798,66 @@ class AlbaLoanApplication(models.Model):
                 rec.message_post(body=_("Automated confirmation requests sent to %d guarantor(s).") % len(pending_g))
         return True
 
+    def action_open_defer_wizard(self):
+        self.ensure_one()
+        if not self.can_transition_to("deferred"):
+            raise UserError(_("This application cannot be deferred from its current stage."))
+        return self._open_decision_wizard("deferred")
+
+    def action_open_decline_wizard(self):
+        self.ensure_one()
+        if not self.can_transition_to("declined"):
+            raise UserError(_("This application cannot be declined from its current stage."))
+        return self._open_decision_wizard("declined")
+
+    def _open_decision_wizard(self, decision):
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Defer Application") if decision == "deferred" else _("Decline Application"),
+            "res_model": "alba.loan.application.decision.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_application_id": self.id,
+                "default_decision": decision,
+            },
+        }
+
+    def _apply_status_decision(self, decision, reason, notes=False):
+        for rec in self:
+            rec._assert_transition(decision)
+            if not reason:
+                raise UserError(_("Please select a reason before continuing."))
+            if reason.category != decision:
+                raise UserError(
+                    _("Reason '%s' is configured for %s decisions, not %s.")
+                    % (reason.name, reason.category, decision)
+                )
+            vals = {
+                "state": decision,
+                "status_reason_id": reason.id,
+                "internal_notes": "\n\n".join(
+                    item for item in [rec.internal_notes or "", notes or ""] if item
+                ),
+            }
+            if decision == "deferred":
+                vals["deferred_date"] = fields.Datetime.now()
+            else:
+                vals["declined_date"] = fields.Datetime.now()
+                vals["rejection_reason"] = reason.name
+            rec.write(vals)
+            rec.message_post(
+                body=Markup(_(
+                    "<b>Application %(decision)s</b><br/>Reason: %(reason)s%(notes)s"
+                ))
+                % {
+                    "decision": dict(rec._fields["state"].selection).get(decision, decision),
+                    "reason": reason.name,
+                    "notes": Markup("<br/>Notes: %s") % notes if notes else "",
+                }
+            )
+        return True
+
     def action_reject(self):
         for rec in self:
             rec._assert_transition("rejected")
@@ -792,8 +901,9 @@ class AlbaLoanApplication(models.Model):
             raise UserError(_("Only approved applications can be disbursed."))
 
         # -- ENFORCEMENT CHECKS --
+        admin_override = self._has_admin_override()
         # 1. Guarantors
-        if self.loan_product_id.requires_guarantor:
+        if self.loan_product_id.requires_guarantor and not admin_override:
             min_g = self.loan_product_id.min_guarantors or 1
             if self.confirmed_guarantor_count < min_g:
                 raise UserError(_(
@@ -801,7 +911,7 @@ class AlbaLoanApplication(models.Model):
                 ) % (min_g, self.confirmed_guarantor_count))
 
         # 2. Collateral
-        if self.loan_product_id.requires_collateral:
+        if self.loan_product_id.requires_collateral and not admin_override:
             if not self.loan_collateral_ids:
                 raise UserError(_("Disbursement Blocked: This product requires collateral to be pledged."))
             
@@ -930,6 +1040,12 @@ class AlbaLoanApplication(models.Model):
                 ) or _("New")
         return super().create(vals_list)
 
+    @api.model
+    def _check_company(self, company_id):
+        """Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id
+    
     def name_get(self):
         return [
             (rec.id, "%s — %s" % (rec.application_number, rec.customer_id.display_name))

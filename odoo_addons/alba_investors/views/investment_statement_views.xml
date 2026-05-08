@@ -8,6 +8,7 @@
     <record id="view_alba_investment_statement_form" model="ir.ui.view">
         <field name="name">alba.investment.statement.form</field>
         <field name="model">alba.investment.statement</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Investment Statement">
                 <header>
@@ -166,6 +167,7 @@
     <record id="view_alba_investment_statement_list" model="ir.ui.view">
         <field name="name">alba.investment.statement.list</field>
         <field name="model">alba.investment.statement</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list
                     string="Investment Statements"
@@ -209,6 +211,7 @@
     <record id="view_alba_investment_statement_search" model="ir.ui.view">
         <field name="name">alba.investment.statement.search</field>
         <field name="model">alba.investment.statement</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Search Statements">
                 <field name="reference" string="Reference" />

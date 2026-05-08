@@ -8,6 +8,7 @@
     <record id="view_alba_webhook_retry_form" model="ir.ui.view">
         <field name="name">alba.webhook.retry.form</field>
         <field name="model">alba.webhook.retry</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Webhook Retry Entry">
                 <header>
@@ -128,9 +129,9 @@
     <record id="view_alba_webhook_retry_list" model="ir.ui.view">
         <field name="name">alba.webhook.retry.list</field>
         <field name="model">alba.webhook.retry</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
-            <list
-                string="Webhook Retry Queue"
+            <list string="Webhook Retry Queue"
                 decoration-success="status == 'delivered'"
                 decoration-warning="status == 'pending'"
                 decoration-danger="status == 'dead'"
@@ -171,6 +172,7 @@
     <record id="view_alba_webhook_retry_search" model="ir.ui.view">
         <field name="name">alba.webhook.retry.search</field>
         <field name="model">alba.webhook.retry</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Search Retry Queue">
                 <field name="event_type" string="Event Type" />

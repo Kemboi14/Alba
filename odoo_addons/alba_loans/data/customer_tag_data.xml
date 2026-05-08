@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- ================================================================
+             Default Customer Tags
+             ================================================================ -->
+
+        <!-- Risk Level Tags -->
+        <record id="tag_risk_low" model="alba.customer.tag">
+            <field name="name">Low Risk</field>
+            <field name="category">risk</field>
+            <field name="color">10</field>
+            <field name="description">Customer with excellent credit history and low default risk</field>
+        </record>
+
+        <record id="tag_risk_medium" model="alba.customer.tag">
+            <field name="name">Medium Risk</field>
+            <field name="category">risk</field>
+            <field name="color">3</field>
+            <field name="description">Customer with acceptable credit history</field>
+        </record>
+
+        <record id="tag_risk_high" model="alba.customer.tag">
+            <field name="name">High Risk</field>
+            <field name="category">risk</field>
+            <field name="color">1</field>
+            <field name="description">Customer with poor credit history requiring close monitoring</field>
+        </record>
+
+        <!-- Customer Segment Tags -->
+        <record id="tag_segment_vip" model="alba.customer.tag">
+            <field name="name">VIP</field>
+            <field name="category">segment</field>
+            <field name="color">11</field>
+            <field name="description">High-value customers with special privileges</field>
+        </record>
+
+        <record id="tag_segment_regular" model="alba.customer.tag">
+            <field name="name">Regular</field>
+            <field name="category">segment</field>
+            <field name="color">7</field>
+            <field name="description">Standard customers with regular activity</field>
+        </record>
+
+        <record id="tag_segment_new" model="alba.customer.tag">
+            <field name="name">New Customer</field>
+            <field name="category">segment</field>
+            <field name="color">4</field>
+            <field name="description">Recently onboarded customers</field>
+        </record>
+
+        <record id="tag_segment_inactive" model="alba.customer.tag">
+            <field name="name">Inactive</field>
+            <field name="category">segment</field>
+            <field name="color">8</field>
+            <field name="description">Customers with no recent activity</field>
+        </record>
+
+        <!-- Lead Source Tags -->
+        <record id="tag_source_referral" model="alba.customer.tag">
+            <field name="name">Referral</field>
+            <field name="category">source</field>
+            <field name="color">5</field>
+            <field name="description">Customer acquired through referral program</field>
+        </record>
+
+        <record id="tag_source_online" model="alba.customer.tag">
+            <field name="name">Online</field>
+            <field name="category">source</field>
+            <field name="color">9</field>
+            <field name="description">Customer acquired through online channels (website, social media)</field>
+        </record>
+
+        <record id="tag_source_walkin" model="alba.customer.tag">
+            <field name="name">Walk-in</field>
+            <field name="category">source</field>
+            <field name="color">6</field>
+            <field name="description">Customer who walked into the branch</field>
+        </record>
+
+        <record id="tag_source_agent" model="alba.customer.tag">
+            <field name="name">Agent</field>
+            <field name="category">source</field>
+            <field name="color">2</field>
+            <field name="description">Customer acquired through field agent</field>
+        </record>
+
+        <record id="tag_source_partner" model="alba.customer.tag">
+            <field name="name">Partner</field>
+            <field name="category">source</field>
+            <field name="color">12</field>
+            <field name="description">Customer referred by business partner</field>
+        </record>
+
+    </data>
+</odoo>

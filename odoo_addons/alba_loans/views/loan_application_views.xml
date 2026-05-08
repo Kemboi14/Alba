@@ -8,6 +8,7 @@
     <record id="view_alba_loan_application_form" model="ir.ui.view">
         <field name="name">alba.loan.application.form</field>
         <field name="model">alba.loan.application</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Loan Application">
                 <header>
@@ -20,9 +21,10 @@
                     <button name="action_guarantor_confirmation" string="Send for Guarantor Confirmation" type="object" class="btn-primary" invisible="not can_guarantor_confirm" groups="alba_loans.group_loan_officer"/>
                     <button name="action_open_disburse_wizard" string="Manual Disburse" type="object" class="btn-secondary" invisible="not can_disburse" groups="alba_loans.group_loan_manager"/>
                     <button name="action_auto_disburse" string="Auto-Disburse (M-Pesa)" type="object" class="btn-success" invisible="not can_auto_disburse" groups="alba_loans.group_loan_manager" confirm="This will instantly trigger a B2C transfer to the customer's M-Pesa wallet. Continue?"/>
-                    <button name="action_reject" string="Reject" type="object" class="btn-danger" invisible="not can_reject" groups="alba_loans.group_loan_officer"/>
+                    <button name="action_open_defer_wizard" string="Defer" type="object" class="btn-secondary" invisible="not can_defer" groups="alba_loans.group_loan_officer"/>
+                    <button name="action_open_decline_wizard" string="Decline" type="object" class="btn-danger" invisible="not can_decline" groups="alba_loans.group_loan_officer"/>
                     <button name="action_cancel" string="Cancel" type="object" class="btn-secondary" invisible="not can_cancel"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,under_review,credit_analysis,pending_approval,approved,disbursed"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,under_review,credit_analysis,pending_approval,approved,deferred,disbursed,declined"/>
                 </header>
 
                 <sheet>
@@ -33,6 +35,8 @@
                     </div>
 
                     <widget name="web_ribbon" title="Disbursed" bg_color="bg-success" invisible="state != 'disbursed'"/>
+                    <widget name="web_ribbon" title="Deferred" bg_color="bg-warning" invisible="state != 'deferred'"/>
+                    <widget name="web_ribbon" title="Declined" bg_color="bg-danger" invisible="state != 'declined'"/>
                     <widget name="web_ribbon" title="Rejected" bg_color="bg-danger" invisible="state != 'rejected'"/>
 
                     <div class="oe_title">
@@ -77,12 +81,12 @@
                     </div>
 
                     <group>
-                        <group string="Borrower Information">
+                        <group>
                             <field name="customer_id" options="{'no_create': False}" readonly="state != 'draft'"/>
                             <field name="partner_id" readonly="1"/>
-                            <field name="currency_id" invisible="1"/>
+                            <field name="currency_id" options="{'no_create': True, 'no_open': True}" readonly="state != 'draft'"/>
                         </group>
-                        <group string="Financial Breakdown">
+                        <group>
                             <field name="approved_amount" readonly="state not in ('pending_approval','approved','employer_verification','guarantor_confirmation')" groups="alba_loans.group_loan_manager"/>
                             <field name="repayment_frequency" readonly="state != 'draft'"/>
                             <field name="estimated_total_repayable" widget="monetary" string="Indicative Total"/>
@@ -96,12 +100,12 @@
 
                         <page string="Dynamic Requirements" name="kyc">
                             <group>
-                                <group string="Employment Details" invisible="not product_requires_employer">
+                                <group invisible="not product_requires_employer">
                                     <field name="employer_id" readonly="1"/>
                                     <field name="monthly_income" readonly="1" widget="monetary"/>
                                     <field name="job_title" readonly="1"/>
                                 </group>
-                                <group string="Business Details" invisible="not product_requires_business">
+                                <group invisible="not product_requires_business">
                                     <field name="business_name" readonly="1"/>
                                     <field name="monthly_business_turnover" readonly="1" widget="monetary"/>
                                 </group>
@@ -118,15 +122,7 @@
                                 <i class="fa fa-info-circle me-1" aria-label="Info"/> 
                                 This product requires at least <field name="product_min_guarantors"/> confirmed guarantor(s).
                             </div>
-                            <field name="loan_guarantor_ids" nolabel="1">
-                                <list string="Guarantors" editable="bottom">
-                                    <field name="guarantor_id"/>
-                                    <field name="relationship"/>
-                                    <field name="guarantee_amount" widget="monetary"/>
-                                    <field name="status" widget="badge" decoration-success="status == 'confirmed'" decoration-warning="status == 'pending'"/>
-                                    <button name="action_send_confirmation" string="Send Request" type="object" icon="fa-paper-plane" invisible="status != 'pending'"/>
-                                </list>
-                            </field>
+                            <field name="loan_guarantor_ids" nolabel="1"/>
                         </page>
 
                         <page string="Collateral" name="collateral" invisible="not product_requires_collateral">
@@ -134,45 +130,15 @@
                                 <field name="total_collateral_value" widget="monetary"/>
                                 <field name="overall_ltv" widget="progressbar" string="Loan to Value %"/>
                             </group>
-                            <field name="loan_collateral_ids" nolabel="1">
-                                <list string="Collateral Items" editable="bottom">
-                                    <field name="collateral_id"/>
-                                    <field name="collateral_value" widget="monetary"/>
-                                    <field name="ltv_ratio" string="LTV %"/>
-                                    <field name="ltv_status" widget="badge" decoration-success="ltv_status == 'good'" decoration-danger="ltv_status == 'exceeded'"/>
-                                </list>
-                            </field>
+                            <field name="loan_collateral_ids" nolabel="1"/>
                         </page>
 
                         <page string="Documents &amp; Verification" name="documents">
-                            <group string="Application Documents">
-                                <field name="loan_document_ids" nolabel="1" context="{'default_partner_id': partner_id}">
-                                    <list string="Application Documents" editable="bottom" decoration-info="state == 'draft'" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'">
-                                        <field name="name" placeholder="e.g. Payslip"/>
-                                        <field name="document_type"/>
-                                        <field name="attachment_id" string="Upload File"/>
-                                        <field name="state" widget="badge" 
-                                               decoration-success="state == 'verified'" 
-                                               decoration-warning="state == 'draft'" 
-                                               decoration-danger="state == 'rejected'"/>
-                                        <button name="action_verify" string="Verify" type="object" icon="fa-check" class="text-success" invisible="state == 'verified'"/>
-                                    </list>
-                                </field>
+                            <group>
+                                <field name="loan_document_ids" nolabel="1" context="{'default_partner_id': partner_id}"/>
                             </group>
-                            <group string="All Customer Documents (Reference)">
-                                <field name="all_partner_document_ids" nolabel="1" context="{'hide_partner': False}">
-                                    <list string="Documents" decoration-info="state == 'draft'" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'" create="0">
-                                        <field name="partner_id" string="Owner"/>
-                                        <field name="name"/>
-                                        <field name="document_type"/>
-                                        <field name="attachment_id" string="File"/>
-                                        <field name="create_date" string="Uploaded" widget="datetime"/>
-                                        <field name="state" widget="badge" 
-                                               decoration-success="state == 'verified'" 
-                                               decoration-warning="state == 'draft'" 
-                                               decoration-danger="state == 'rejected'"/>
-                                    </list>
-                                </field>
+                            <group>
+                                <field name="all_partner_document_ids" nolabel="1" context="{'hide_partner': False}"/>
                             </group>
                         </page>
 
@@ -182,6 +148,9 @@
                                 <field name="reviewed_date" readonly="1"/>
                                 <field name="approved_date" readonly="1"/>
                                 <field name="disbursed_date" readonly="1"/>
+                                <field name="deferred_date" readonly="1"/>
+                                <field name="declined_date" readonly="1"/>
+                                <field name="status_reason_id" readonly="1" invisible="state not in ('deferred','declined')"/>
                             </group>
                         </page>
 
@@ -203,23 +172,26 @@
     <record id="view_alba_loan_application_list" model="ir.ui.view">
         <field name="name">alba.loan.application.list</field>
         <field name="model">alba.loan.application</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list string="Loan Applications"
                   decoration-success="state == 'disbursed'"
-                  decoration-danger="state == 'rejected'"
-                  decoration-warning="state == 'pending_approval'">
+                  decoration-danger="state in ('rejected','declined')"
+                  decoration-warning="state in ('pending_approval','deferred')">
                 <field name="application_number"/>
                 <field name="customer_id"/>
                 <field name="loan_product_id"/>
+                <field name="currency_id"/>
                 <field name="requested_amount" sum="Total Requested"/>
                 <field name="approved_amount" sum="Total Approved"/>
                 <field name="application_progress" widget="progressbar" string="Progress"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'disbursed'"
-                       decoration-danger="state == 'rejected'"
-                       decoration-info="state not in ('disbursed','rejected')"/>
+                       decoration-warning="state == 'deferred'"
+                       decoration-danger="state in ('rejected','declined')"
+                       decoration-info="state not in ('disbursed','rejected','declined','deferred')"/>
+                <field name="status_reason_id" optional="hide"/>
                 <field name="submitted_date" widget="date"/>
-                <field name="currency_id" column_invisible="1"/>
             </list>
         </field>
     </record>
@@ -230,6 +202,7 @@
     <record id="view_alba_loan_application_kanban" model="ir.ui.view">
         <field name="name">alba.loan.application.kanban</field>
         <field name="model">alba.loan.application</field>
+        <field name="type">kanban</field>
         <field name="arch" type="xml">
             <kanban default_group_by="state" class="o_kanban_small_column" sample="1">
                 <field name="application_number"/>
@@ -288,6 +261,7 @@
     <record id="view_alba_loan_application_search" model="ir.ui.view">
         <field name="name">alba.loan.application.search</field>
         <field name="model">alba.loan.application</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search>
                 <field name="application_number"/>
@@ -295,13 +269,16 @@
                 <field name="loan_product_id"/>
                 <filter string="In Progress" name="in_progress" domain="[('state','not in',['disbursed','rejected','cancelled'])]"/>
                 <filter string="Pending Approval" name="pending_approval" domain="[('state','=','pending_approval')]"/>
+                <filter string="Deferred" name="deferred" domain="[('state','=','deferred')]"/>
+                <filter string="Declined" name="declined" domain="[('state','=','declined')]"/>
                 <separator/>
                 <filter string="Large Loans (> 1M)" name="high_value" domain="[('requested_amount','>',1000000)]"/>
                 <separator/>
                 <group>
-                    <filter string="Status" name="group_status" context="{'group_by': 'state'}"/>
-                    <filter string="Product" name="group_product" context="{'group_by': 'loan_product_id'}"/>
-                    <filter string="Customer" name="group_customer" context="{'group_by': 'customer_id'}"/>
+                    <field name="state"/>
+                    <field name="status_reason_id"/>
+                    <field name="loan_product_id"/>
+                    <field name="customer_id"/>
                 </group>
             </search>
         </field>
@@ -311,6 +288,7 @@
     <record id="view_loan_application_graph" model="ir.ui.view">
         <field name="name">alba.loan.application.graph</field>
         <field name="model">alba.loan.application</field>
+        <field name="type">graph</field>
         <field name="arch" type="xml">
             <graph string="Loan Applications" type="line">
                 <field name="submitted_date" type="row"/>

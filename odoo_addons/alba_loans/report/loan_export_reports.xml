@@ -80,17 +80,24 @@
                         <h2>Active Loan Portfolio</h2>
                         <p class="text-muted">Generated on <span t-esc="context_today().strftime('%Y-%m-%d')"/></p>
                     </div>
-                    <table class="table table-sm table-striped">
+                    <table class="table table-sm table-striped" style="font-size: 9px;">
                         <thead>
                             <tr class="bg-light">
                                 <th>Loan #</th>
                                 <th>Borrower</th>
-                                <th class="text-end">Principal</th>
-                                <th class="text-end">Outstanding</th>
-                                <th class="text-end">Arrears</th>
-                                <th>Maturity</th>
+                                <th>Disbursed</th>
+                                <th class="text-end">Loan Amount</th>
+                                <th class="text-end">Top Up</th>
+                                <th class="text-end">Rate</th>
+                                <th class="text-end">Installment</th>
+                                <th>First Inst.</th>
+                                <th>Last Inst.</th>
+                                <th>Next Due</th>
+                                <th class="text-end">Outstanding Principal</th>
+                                <th class="text-end">Outstanding Interest</th>
+                                <th class="text-end">Outstanding Charges</th>
+                                <th class="text-end">Prepayments</th>
                                 <th>Status</th>
-                                <th class="text-center">Paid %</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -98,14 +105,19 @@
                                 <tr>
                                     <td><span t-field="o.loan_number"/></td>
                                     <td><span t-field="o.customer_id.partner_id.name"/></td>
+                                    <td><span t-field="o.disbursement_date" t-options='{"widget": "date"}'/></td>
                                     <td class="text-end"><span t-field="o.principal_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
-                                    <td class="text-end"><span t-field="o.outstanding_balance" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
-                                    <td class="text-end" t-att-class="'text-danger fw-bold' if o.arrears_amount > 0 else ''">
-                                        <span t-field="o.arrears_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
-                                    </td>
-                                    <td><span t-field="o.maturity_date" t-options='{"widget": "date"}'/></td>
+                                    <td class="text-end"><span t-field="o.total_topup_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td class="text-end"><span t-field="o.interest_rate"/>%</td>
+                                    <td class="text-end"><span t-field="o.installment_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td><span t-field="o.first_installment_date" t-options='{"widget": "date"}'/></td>
+                                    <td><span t-field="o.last_installment_date" t-options='{"widget": "date"}'/></td>
+                                    <td><span t-field="o.next_payment_due_date" t-options='{"widget": "date"}'/></td>
+                                    <td class="text-end"><span t-field="o.outstanding_principal" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td class="text-end"><span t-field="o.outstanding_interest" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td class="text-end"><span t-field="o.outstanding_charges" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+                                    <td class="text-end"><span t-field="o.prepayment_amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
                                     <td><span t-field="o.state"/></td>
-                                    <td class="text-center"><span t-field="o.repayment_progress"/>%</td>
                                 </tr>
                             </t>
                         </tbody>

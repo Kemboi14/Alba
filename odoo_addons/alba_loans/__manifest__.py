@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Loans",
-    "version": "19.0.1.8.0",
+    "version": "19.0.1.8.1",
     "category": "Finance",
     "summary": "Core loan management: products, applications, disbursements, repayments, M-Pesa integration and accounting automation",
     "description": """
@@ -64,6 +64,13 @@ Accounting
         "data/loan_product_data.xml",
         "data/collection_stage_data.xml",
         "data/approval_limit_data.xml",
+        # ── Location and Tagging data ───────────────────────────────────────
+        "data/kenya_counties_data.xml",
+        "data/customer_tag_data.xml",
+        "data/currency_data.xml",
+        "data/business_sector_data.xml",
+        "data/business_subsector_data.xml",
+        "data/loan_status_reason_data.xml",
         # ── Scheduled actions (crons) ────────────────────────────────────────
         "data/cron_data.xml",
         # ── Paperformat ─────────────────────────────────────────────────────
@@ -75,11 +82,18 @@ Accounting
         "views/loan_document_views.xml",
         "views/loan_product_views.xml",
         "views/kyc_provider_views.xml",
+        "views/location_views.xml",
+        "views/customer_tag_views.xml",
+        "views/currency_views.xml",
+        "views/business_sector_views.xml",
+        "views/loan_status_reason_views.xml",
         "views/loan_application_views.xml",
         "views/repayment_views.xml",
         # ── M-Pesa views ────────────────────────────────────────────────────
         "views/mpesa_config_views.xml",
         "views/mpesa_transaction_views.xml",
+        "views/credit_life_insurance_views.xml",
+        "views/loan_dashboard_views.xml",
         # ── Loan views with computed fields (load last to ensure models ready) ─
         "views/loan_views.xml",
         # ── Financial Reports — security + views must come before menus.xml ──
@@ -97,6 +111,7 @@ Accounting
         "views/menus.xml",
         # ── Wizards ──────────────────────────────────────────────────────────
         "wizard/loan_disburse_wizard_views.xml",
+        "wizard/loan_application_decision_wizard_views.xml",
         "wizard/mpesa_stk_push_wizard_views.xml",
         "wizard/loan_topup_wizard_views.xml",
         "wizard/loan_partial_payoff_wizard_views.xml",

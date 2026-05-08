@@ -8,6 +8,7 @@
     <record id="view_alba_sync_log_form" model="ir.ui.view">
         <field name="name">alba.sync.log.form</field>
         <field name="model">alba.sync.log</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Sync Log Entry" create="false" edit="false">
                 <sheet>
@@ -152,55 +153,9 @@
     <record id="view_alba_sync_log_list" model="ir.ui.view">
         <field name="name">alba.sync.log.list</field>
         <field name="model">alba.sync.log</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
-            <list
-                string="Sync Logs"
-                create="false"
-                edit="false"
-                decoration-success="status == 'success'"
-                decoration-warning="status in ('partial','skipped')"
-                decoration-danger="status == 'failure'"
-                decoration-muted="status == 'pending'"
-            >
-                <field name="create_date" string="Timestamp" />
-                <field name="direction"
-                    widget="badge"
-                    decoration-info="direction == 'inbound'"
-                    decoration-warning="direction == 'outbound'"
-                />
-                <field name="operation" />
-                <field name="event_type" optional="show" />
-                <field name="odoo_model" />
-                <field name="odoo_record_id" string="Odoo ID" />
-                <field name="django_record_id" string="Django ID" optional="show" />
-                <field name="status"
-                    widget="badge"
-                    decoration-success="status == 'success'"
-                    decoration-warning="status in ('partial','skipped')"
-                    decoration-danger="status == 'failure'"
-                    decoration-info="status == 'pending'"
-                />
-                <field name="http_status_code" string="HTTP" optional="show" />
-                <field name="duration_ms" string="ms" optional="show" />
-                <field name="api_key_id" string="API Key" optional="hide" />
-                <field name="remote_ip" optional="hide" />
-                <field name="company_id" optional="hide" />
-                <field name="detail" optional="hide" />
-            </list>
-        </field>
-    </record>
-
-    <!-- ================================================================
-         alba.sync.log — List View
-         ================================================================ -->
-    <record id="view_alba_sync_log_list" model="ir.ui.view">
-        <field name="name">alba.sync.log.list</field>
-        <field name="model">alba.sync.log</field>
-        <field name="arch" type="xml">
-            <list
-                string="Sync Logs"
-                create="false"
-                edit="false"
+            <list string="Sync Logs" create="false" edit="false"
                 decoration-success="status == 'success'"
                 decoration-warning="status in ('partial','skipped')"
                 decoration-danger="status == 'failure'"
@@ -240,6 +195,7 @@
     <record id="view_alba_sync_log_search" model="ir.ui.view">
         <field name="name">alba.sync.log.search</field>
         <field name="model">alba.sync.log</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Search Sync Logs">
                 <field name="odoo_model" string="Odoo Model" />

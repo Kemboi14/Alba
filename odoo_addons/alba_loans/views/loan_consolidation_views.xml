@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-    <record id="view_loan_consolidation_tree" model="ir.ui.view">
+    <record id="view_loan_consolidation_list" model="ir.ui.view">
         <field name="name">alba.loan.consolidation.tree</field>
         <field name="model">alba.loan.consolidation</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list decoration-muted="state=='rejected'" decoration-success="state=='completed'" decoration-info="state=='quoted'">
                 <field name="name"/>
@@ -19,6 +20,7 @@
     <record id="view_loan_consolidation_form" model="ir.ui.view">
         <field name="name">alba.loan.consolidation.form</field>
         <field name="model">alba.loan.consolidation</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Loan Consolidation">
                 <header>
@@ -44,25 +46,25 @@
                     <widget name="web_ribbon" text="Completed" bg_color="bg-success" invisible="state != 'completed'"/>
                     <widget name="web_ribbon" text="Rejected" bg_color="bg-danger" invisible="state != 'rejected'"/>
                     <group>
-                        <group string="Customer &amp; Loans">
+                        <group>
                             <field name="customer_id" options="{'no_create': True}" readonly="state != 'draft'"/>
                             <field name="loan_ids" widget="many2many_tags" domain="[('customer_id', '=', customer_id), ('state', 'in', ['active', 'overdue'])]" readonly="state != 'draft'"/>
                             <field name="loan_count" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="Eligibility">
+                        <group>
                             <field name="is_eligible" readonly="1"/>
                             <field name="eligibility_warnings" readonly="1"/>
                         </group>
                     </group>
                     <group>
-                        <group string="Current Totals">
+                        <group>
                             <field name="total_outstanding" readonly="1"/>
                             <field name="total_principal" readonly="1"/>
                             <field name="old_combined_emi" readonly="1"/>
                             <field name="weighted_avg_rate" readonly="1"/>
                         </group>
-                        <group string="New Terms">
+                        <group>
                             <field name="consolidation_type" readonly="state != 'draft'"/>
                             <field name="consolidated_amount" readonly="state != 'draft'"/>
                             <field name="new_interest_rate" readonly="state != 'draft'"/>
@@ -71,11 +73,11 @@
                             <field name="monthly_savings" readonly="1"/>
                         </group>
                     </group>
-                    <group string="Fees">
+                    <group>
                         <field name="consolidation_fee_rate" readonly="state != 'draft'"/>
                         <field name="consolidation_fee_amount" readonly="1"/>
                     </group>
-                    <group string="Links" invisible="not new_loan_id">
+                    <group invisible="not new_loan_id">
                         <field name="new_loan_application_id" readonly="1"/>
                         <field name="new_loan_id" readonly="1"/>
                     </group>
@@ -92,6 +94,7 @@
     <record id="view_loan_consolidation_graph" model="ir.ui.view">
         <field name="name">alba.loan.consolidation.graph</field>
         <field name="model">alba.loan.consolidation</field>
+        <field name="type">graph</field>
         <field name="arch" type="xml">
             <graph string="Loan Consolidations" type="line">
                 <field name="create_date" type="row"/>

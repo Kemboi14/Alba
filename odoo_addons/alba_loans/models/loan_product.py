@@ -80,9 +80,9 @@ class AlbaLoanProduct(models.Model):
     # ─── Amount Limits ────────────────────────────────────────────────────────
     currency_id = fields.Many2one(
         comodel_name="res.currency",
-        related="company_id.currency_id",
-        store=True,
-        readonly=True,
+        string="Currency",
+        default=lambda self: self.env.company.currency_id,
+        required=True,
     )
     min_amount = fields.Monetary(
         string="Minimum Loan Amount",
@@ -250,6 +250,20 @@ class AlbaLoanProduct(models.Model):
         tracking=True,
         domain="[('account_type', '=', 'income')]",
         help="Account credited when fees are collected.",
+    )
+    account_insurance_receivable_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Insurance Receivable Account",
+        tracking=True,
+        domain="[('account_type', 'in', ['asset_receivable', 'asset_current', 'asset_non_current'])]",
+        help="Account debited when a credit life insurance compensation claim is approved.",
+    )
+    account_insurance_income_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Insurance Compensation Income Account",
+        tracking=True,
+        domain="[('account_type', 'in', ['income', 'income_other'])]",
+        help="Account credited when a credit life insurance compensation claim is approved.",
     )
 
     # ─── Company ──────────────────────────────────────────────────────────────
@@ -497,6 +511,28 @@ class AlbaLoanProduct(models.Model):
                 "income_other",
             )
             changes["account_fees_income_id"] = acc.id
+
+        if not self.account_insurance_receivable_id:
+            acc = _get_or_create(
+                ["asset_receivable", "asset_current", "asset_non_current", "asset_prepayments"],
+                "insurance",
+                ["receivable", "claim"],
+                "Insurance Claims Receivable",
+                "110300",
+                "asset_current",
+            )
+            changes["account_insurance_receivable_id"] = acc.id
+
+        if not self.account_insurance_income_id:
+            acc = _get_or_create(
+                ["income", "income_other"],
+                "insurance",
+                ["compensation", "income"],
+                "Credit Life Insurance Compensation",
+                "410300",
+                "income_other",
+            )
+            changes["account_insurance_income_id"] = acc.id
 
         if changes:
             self.write(changes)

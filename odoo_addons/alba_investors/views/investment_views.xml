@@ -8,6 +8,7 @@
     <record id="view_alba_investment_form" model="ir.ui.view">
         <field name="name">alba.investment.form</field>
         <field name="model">alba.investment</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Investment Account">
                 <header>
@@ -68,6 +69,7 @@
                             <field name="investment_number" readonly="1"/>
                         </h1>
                         <div class="o_row">
+                            <field name="currency_id" options="{'no_create': True, 'no_open': True}"/>
                             <field name="is_high_yield" invisible="1"/>
                             <span class="badge text-bg-success" invisible="not is_high_yield">
                                 <i class="fa fa-bolt"/> High Yield
@@ -154,6 +156,7 @@
     <record id="view_alba_investment_list" model="ir.ui.view">
         <field name="name">alba.investment.list</field>
         <field name="model">alba.investment</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list string="Investments"
                   decoration-success="state == 'active'"
@@ -163,6 +166,7 @@
                 <field name="investor_id"/>
                 <field name="investment_type" widget="badge" decoration-info="investment_type == 'fixed_term'"/>
                 <field name="principal_amount" sum="Total Principal"/>
+                <field name="currency_id"/>
                 <field name="interest_rate" string="Rate (%)"/>
                 <field name="total_interest_accrued" sum="Total Accrued"/>
                 <field name="current_value" sum="Grand Portfolio"/>
@@ -181,6 +185,7 @@
     <record id="view_alba_investment_kanban" model="ir.ui.view">
         <field name="name">alba.investment.kanban</field>
         <field name="model">alba.investment</field>
+        <field name="type">kanban</field>
         <field name="arch" type="xml">
             <kanban default_group_by="state" class="o_kanban_small_column" sample="1">
                 <field name="investment_number"/>
@@ -242,6 +247,7 @@
     <record id="view_alba_investment_search" model="ir.ui.view">
         <field name="name">alba.investment.search</field>
         <field name="model">alba.investment</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search>
                 <field name="investment_number"/>

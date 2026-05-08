@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
     <!-- Collateral Master Tree -->
-    <record id="view_collateral_tree" model="ir.ui.view">
+    <record id="view_collateral_list" model="ir.ui.view">
         <field name="name">alba.collateral.tree</field>
         <field name="model">alba.collateral</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list decoration-success="status=='pledged'" decoration-muted="status=='released'">
                 <field name="name"/>
@@ -22,6 +23,7 @@
     <record id="view_collateral_form" model="ir.ui.view">
         <field name="name">alba.collateral.form</field>
         <field name="model">alba.collateral</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Collateral">
                 <header>
@@ -32,12 +34,12 @@
                 <sheet>
                     <div class="oe_title"><h1><field name="name"/></h1></div>
                     <group>
-                        <group string="Basic Info">
+                        <group>
                             <field name="collateral_type"/>
                             <field name="registration_number"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="Valuation">
+                        <group>
                             <field name="valuation_amount"/>
                             <field name="forced_sale_value"/>
                             <field name="valuation_date"/>
@@ -107,9 +109,10 @@
     </record>
 
     <!-- Loan Collateral Tree -->
-    <record id="view_loan_collateral_tree" model="ir.ui.view">
+    <record id="view_loan_collateral_list" model="ir.ui.view">
         <field name="name">alba.loan.collateral.tree</field>
         <field name="model">alba.loan.collateral</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list decoration-danger="ltv_status=='exceeded'" decoration-warning="ltv_status=='caution'" decoration-success="ltv_status=='good'">
                 <field name="loan_id"/>
@@ -128,6 +131,7 @@
     <record id="view_loan_collateral_form" model="ir.ui.view">
         <field name="name">alba.loan.collateral.form</field>
         <field name="model">alba.loan.collateral</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Loan Collateral Assignment">
                 <header>
@@ -144,7 +148,7 @@
                             <field name="customer_id" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="LTV Analysis">
+                        <group>
                             <field name="loan_amount" readonly="1"/>
                             <field name="collateral_value" readonly="1"/>
                             <field name="forced_sale_value" readonly="1"/>

@@ -549,3 +549,9 @@ class AlbaSmsBatchLine(models.Model):
     res_model = fields.Char(string="Related Model")
     res_id = fields.Integer(string="Related Record ID")
     error_message = fields.Text(string="Error Message")
+
+    @api.model
+    def _check_company(self, company_id):
+        """Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id

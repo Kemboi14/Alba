@@ -4,6 +4,8 @@ SRS Section 3.1 - Loan Management System
 
 Models include:
 - LoanProduct: Configurable loan products (SRS 3.1.1)
+- Sector: Business sector classification (CBK compliance)
+- Subsector: Business subsector classification (CBK compliance)
 - Customer: Customer profile linked to User
 - LoanApplication: Loan application workflow (SRS 3.1.2)
 - Loan: Active loans
@@ -254,6 +256,69 @@ class LoanProduct(models.Model):
         return total_interest.quantize(Decimal("0.01"))
 
 
+class Sector(models.Model):
+    """
+    Business Sector/Industry Classification
+    CBK compliance requirement for customer segmentation
+    """
+    
+    name = models.CharField("Sector Name", max_length=200, unique=True)
+    code = models.CharField("Sector Code", max_length=50, unique=True)
+    description = models.TextField("Description", blank=True)
+    is_active = models.BooleanField("Active", default=True)
+    
+    created_at = models.DateTimeField("Created At", auto_now_add=True)
+    updated_at = models.DateTimeField("Updated At", auto_now=True)
+    
+    class Meta:
+        db_table = "sectors"
+        verbose_name = "Sector"
+        verbose_name_plural = "Sectors"
+        ordering = ["name"]
+        indexes = [
+            models.Index(fields=["code"]),
+            models.Index(fields=["is_active"]),
+        ]
+    
+    def __str__(self):
+        return self.name
+
+
+class Subsector(models.Model):
+    """
+    Business Subsector/Industry Specialization
+    Child of Sector with dynamic filtering
+    CBK compliance requirement
+    """
+    
+    sector = models.ForeignKey(
+        Sector,
+        on_delete=models.CASCADE,
+        related_name="subsectors"
+    )
+    name = models.CharField("Subsector Name", max_length=200)
+    code = models.CharField("Subsector Code", max_length=50)
+    description = models.TextField("Description", blank=True)
+    is_active = models.BooleanField("Active", default=True)
+    
+    created_at = models.DateTimeField("Created At", auto_now_add=True)
+    updated_at = models.DateTimeField("Updated At", auto_now=True)
+    
+    class Meta:
+        db_table = "subsectors"
+        verbose_name = "Subsector"
+        verbose_name_plural = "Subsectors"
+        ordering = ["sector", "name"]
+        unique_together = [["sector", "code"]]
+        indexes = [
+            models.Index(fields=["sector", "is_active"]),
+            models.Index(fields=["code"]),
+        ]
+    
+    def __str__(self):
+        return f"{self.sector.name} > {self.name}"
+
+
 class Customer(models.Model):
     """
     Customer Profile Model
@@ -323,6 +388,23 @@ class Customer(models.Model):
     )
     business_location = models.CharField("Business Location", max_length=200, blank=True)
     business_industry = models.CharField("Industry/Sector", max_length=100, blank=True)
+    
+    # CBK Compliance - Sector & Subsector Classification (Req #5)
+    sector = models.ForeignKey(
+        Sector,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="customers"
+    )
+    subsector = models.ForeignKey(
+        Subsector,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="customers"
+    )
+    
     annual_turnover = models.DecimalField(
         "Annual Turnover",
         max_digits=15,
@@ -331,6 +413,27 @@ class Customer(models.Model):
         blank=True,
         validators=[MinValueValidator(Decimal("0"))],
     )
+
+    # Customer Referral Source (Req #3)
+    REFERRAL_AGENT = "AGENT"
+    REFERRAL_STAFF = "STAFF"
+    REFERRAL_DIRECTOR = "DIRECTOR"
+    
+    REFERRAL_SOURCE_CHOICES = [
+        (REFERRAL_AGENT, "Agent"),
+        (REFERRAL_STAFF, "Staff"),
+        (REFERRAL_DIRECTOR, "Director"),
+    ]
+    
+    referral_source = models.CharField(
+        "Referral Source",
+        max_length=20,
+        choices=REFERRAL_SOURCE_CHOICES,
+        null=True,
+        blank=True,
+        help_text="How the customer was referred to Alba Capital"
+    )
+
 
     # Financial Information
     existing_loans = models.DecimalField(

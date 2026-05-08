@@ -8,6 +8,7 @@
     <record id="view_alba_loan_form" model="ir.ui.view">
         <field name="name">alba.loan.form</field>
         <field name="model">alba.loan</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Loan">
                 <header>
@@ -30,6 +31,9 @@
                         <button name="action_view_repayments" type="object" class="oe_stat_button" icon="fa-credit-card">
                             <field name="repayment_count" widget="statinfo" string="Payments"/>
                         </button>
+                        <button name="action_view_credit_life_claims" type="object" class="oe_stat_button" icon="fa-heartbeat">
+                            <field name="credit_life_insurance_count" widget="statinfo" string="Insurance"/>
+                        </button>
                         <button type="object" name="action_view_repayments" class="oe_stat_button" icon="fa-balance-scale">
                             <div class="o_stat_info">
                                 <field name="outstanding_balance" widget="monetary"/>
@@ -47,6 +51,7 @@
                             <field name="loan_number" readonly="1"/>
                         </h1>
                         <div class="o_row">
+                            <field name="currency_id" options="{'no_create': True, 'no_open': True}"/>
                             <field name="par_bucket" invisible="1"/>
                             <span class="badge text-bg-success" invisible="par_bucket != 'current'">
                                 <i class="fa fa-check-circle"/> Account Current
@@ -99,12 +104,12 @@
                     </div>
 
                     <group>
-                        <group string="Borrower &amp; Product">
+                        <group>
                             <field name="customer_id" readonly="1"/>
                             <field name="loan_product_id" readonly="1"/>
                             <field name="application_id" readonly="1"/>
                         </group>
-                        <group string="Loan Terms">
+                        <group>
                             <field name="principal_amount" readonly="1"/>
                             <field name="interest_rate" readonly="1"/>
                             <field name="interest_method" readonly="1"/>
@@ -143,6 +148,40 @@
                             </field>
                         </page>
 
+                        <page string="Funding Sources" name="funding_sources">
+                            <field name="disbursement_split_ids" mode="list" readonly="disbursement_move_id">
+                                <list string="Disbursement Splits">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="journal_id"/>
+                                    <field name="account_number"/>
+                                    <field name="amount" sum="Total"/>
+                                    <field name="percentage"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'disbursed'"
+                                           decoration-info="state in ('pending','approved')"
+                                           decoration-danger="state == 'failed'"/>
+                                    <field name="disbursement_date"/>
+                                    <field name="reference_number"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Credit Life Insurance" name="credit_life">
+                            <field name="credit_life_insurance_ids" mode="list" context="{'default_loan_id': id}">
+                                <list string="Credit Life Insurance Events">
+                                    <field name="insurance_number"/>
+                                    <field name="event_type"/>
+                                    <field name="event_date"/>
+                                    <field name="outstanding_balance"/>
+                                    <field name="compensation_amount"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'compensated'"
+                                           decoration-info="state in ('submitted','under_review','approved')"
+                                           decoration-danger="state == 'rejected'"/>
+                                </list>
+                            </field>
+                        </page>
+
                         <page string="Portfolio Quality" name="par">
                             <group>
                                 <field name="days_in_arrears"/>
@@ -153,11 +192,11 @@
 
                         <page string="Accounting" name="accounting" groups="account.group_account_user">
                             <group>
-                                <group string="Ledger Entries">
+                                <group>
                                     <field name="journal_id"/>
                                     <field name="disbursement_move_id"/>
                                 </group>
-                                <group string="Portal Link">
+                                <group>
                                     <field name="django_loan_id" readonly="1"/>
                                 </group>
                             </group>
@@ -175,20 +214,35 @@
     <record id="view_alba_loan_list" model="ir.ui.view">
         <field name="name">alba.loan.list</field>
         <field name="model">alba.loan</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list string="Loans"
                   decoration-danger="state in ('npl','written_off')"
                   decoration-success="state == 'closed'">
                 <field name="loan_number"/>
                 <field name="customer_id"/>
+                <field name="sector_id" optional="hide"/>
+                <field name="subsector_id" optional="hide"/>
+                <field name="referral_source" optional="hide"/>
+                <field name="currency_id"/>
                 <field name="principal_amount" sum="Total Principal"/>
+                <field name="total_topup_amount" optional="hide" sum="Total Top-Ups"/>
+                <field name="disbursement_date" optional="show"/>
+                <field name="interest_rate" optional="show"/>
+                <field name="installment_amount" optional="show"/>
+                <field name="first_installment_date" optional="hide"/>
+                <field name="last_installment_date" optional="hide"/>
+                <field name="next_payment_due_date" optional="show"/>
                 <field name="repayment_progress" widget="progressbar" string="Progress"/>
                 <field name="outstanding_balance" sum="Total Outstanding"/>
+                <field name="outstanding_principal" optional="hide" sum="Outstanding Principal"/>
+                <field name="outstanding_interest" optional="hide" sum="Outstanding Interest"/>
+                <field name="outstanding_charges" optional="hide" sum="Outstanding Charges"/>
+                <field name="prepayment_amount" optional="hide" sum="Prepayments"/>
                 <field name="arrears_amount" sum="Total Arrears" decoration-danger="arrears_amount > 0"/>
                 <field name="days_in_arrears" string="Overdue"/>
                 <field name="par_bucket" widget="badge" decoration-success="par_bucket == 'current'" decoration-danger="par_bucket != 'current'"/>
                 <field name="state" widget="badge" decoration-success="state == 'closed'" decoration-danger="state == 'npl'" decoration-info="state == 'active'"/>
-                <field name="currency_id" column_invisible="1"/>
             </list>
         </field>
     </record>
@@ -199,10 +253,16 @@
     <record id="view_alba_loan_search" model="ir.ui.view">
         <field name="name">alba.loan.search</field>
         <field name="model">alba.loan</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search>
                 <field name="loan_number"/>
                 <field name="customer_id"/>
+                <field name="sector_id"/>
+                <field name="subsector_id"/>
+                <field name="referral_source"/>
+                <field name="disbursement_date"/>
+                <field name="next_payment_due_date"/>
                 <separator/>
                 <filter string="Active" name="active" domain="[('state','=','active')]"/>
                 <filter string="Non-Performing (NPL)" name="npl" domain="[('state','=','npl')]"/>
@@ -210,9 +270,13 @@
                 <filter string="Overdue" name="overdue" domain="[('arrears_amount','>',0)]"/>
                 <separator/>
                 <group>
-                    <filter string="Product" name="group_product" context="{'group_by': 'loan_product_id'}"/>
-                    <filter string="Status" name="group_status" context="{'group_by': 'state'}"/>
-                    <filter string="PAR Bucket" name="group_par" context="{'group_by': 'par_bucket'}"/>
+                    <field name="loan_product_id"/>
+                    <field name="state"/>
+                    <field name="par_bucket"/>
+                    <field name="sector_id"/>
+                    <field name="subsector_id"/>
+                    <field name="referral_source"/>
+                    <field name="disbursement_date"/>
                 </group>
             </search>
         </field>

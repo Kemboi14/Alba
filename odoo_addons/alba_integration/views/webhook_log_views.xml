@@ -7,6 +7,7 @@
     <record id="view_alba_webhook_log_form" model="ir.ui.view">
         <field name="name">alba.webhook.log.form</field>
         <field name="model">alba.webhook.log</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Webhook Log" create="false" edit="false" delete="false">
                 <sheet>
@@ -97,6 +98,7 @@
     <record id="view_alba_webhook_log_list" model="ir.ui.view">
         <field name="name">alba.webhook.log.list</field>
         <field name="model">alba.webhook.log</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <!--
                 decoration-danger    → red row    for failed deliveries
@@ -152,6 +154,7 @@
     <record id="view_alba_webhook_log_search" model="ir.ui.view">
         <field name="name">alba.webhook.log.search</field>
         <field name="model">alba.webhook.log</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Search Webhook Logs">
 

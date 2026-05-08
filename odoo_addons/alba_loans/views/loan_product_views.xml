@@ -7,6 +7,7 @@
         <record id="view_alba_loan_category_list" model="ir.ui.view">
             <field name="name">alba.loan.category.list</field>
             <field name="model">alba.loan.category</field>
+            <field name="type">list</field>
             <field name="arch" type="xml">
                 <list string="Loan Categories" editable="bottom">
                     <field name="sequence" widget="handle"/>
@@ -32,6 +33,7 @@
         <record id="view_alba_loan_product_form" model="ir.ui.view">
             <field name="name">alba.loan.product.form</field>
             <field name="model">alba.loan.product</field>
+            <field name="type">form</field>
             <field name="arch" type="xml">
                 <form string="Loan Product">
                     <header>
@@ -70,15 +72,15 @@
                         </div>
 
                         <group>
-                            <group string="Loan Amount Limits">
-                                <field name="currency_id" invisible="1"/>
+                            <group>
+                                <field name="currency_id" options="{'no_create': True, 'no_open': True}"/>
                                 <field name="min_amount"/>
                                 <field name="max_amount"/>
                                 <field name="min_tenure_months"/>
                                 <field name="max_tenure_months"/>
                                 <field name="repayment_frequency"/>
                             </group>
-                            <group string="Interest Configuration">
+                            <group>
                                 <field name="interest_method"/>
                                 <field name="interest_rate"
                                        widget="percentage"
@@ -89,13 +91,13 @@
                         <notebook>
 
                             <!-- ── Requirements ──────────────────────────── -->
-                            <page string="Requirements &amp; Automation" name="requirements">
+                            <page string="Requirements &amp; Automation" name="requirements" groups="alba_loans.group_operations_manager,alba_loans.group_director">
                                 <group>
-                                    <group string="Futuristic Automation">
+                                    <group>
                                         <field name="auto_approve_score_threshold"/>
                                         <field name="auto_disburse"/>
                                     </group>
-                                    <group string="Dynamic UI Triggers">
+                                    <group>
                                         <label for="requires_employer" string="Employment Flow"/>
                                         <div class="o_row">
                                             <field name="requires_employer"/>
@@ -129,7 +131,7 @@
                                             </span>
                                         </div>
                                     </group>
-                                    <group string="Mandatory Documents">
+                                    <group>
                                         <field name="requires_payslip" widget="boolean_toggle"/>
                                         <field name="requires_business_reg" widget="boolean_toggle"/>
                                         <div colspan="2" class="alert alert-info mt-2" role="alert">
@@ -140,9 +142,9 @@
                             </page>
 
                             <!-- ── Fees ──────────────────────────────────── -->
-                            <page string="Fees" name="fees">
+                            <page string="Fees" name="fees" groups="alba_loans.group_operations_manager,alba_loans.group_director">
                                 <group>
-                                    <group string="Fee Percentages (% of Principal)">
+                                    <group>
                                         <field name="origination_fee_percentage"/>
                                         <field name="processing_fee_percentage"/>
                                         <field name="insurance_fee_percentage"/>
@@ -151,9 +153,9 @@
                             </page>
 
                             <!-- ── Accounting ─────────────────────────────── -->
-                            <page string="Accounting" name="accounting">
+                            <page string="Accounting" name="accounting" groups="alba_loans.group_finance_admin,alba_loans.group_director,account.group_account_manager">
                                 <group>
-                                    <group string="Income Accounts">
+                                    <group>
                                         <field name="account_loan_receivable_id"
                                                options="{'no_create': True}"/>
                                         <field name="account_interest_income_id"
@@ -161,7 +163,13 @@
                                         <field name="account_fees_income_id"
                                                options="{'no_create': True}"/>
                                     </group>
-                                    <group string="Company">
+                                    <group>
+                                        <field name="account_insurance_receivable_id"
+                                               options="{'no_create': True}"/>
+                                        <field name="account_insurance_income_id"
+                                               options="{'no_create': True}"/>
+                                    </group>
+                                    <group>
                                         <field name="company_id"
                                                groups="base.group_multi_company"/>
                                     </group>
@@ -189,6 +197,7 @@
         <record id="view_alba_loan_product_list" model="ir.ui.view">
             <field name="name">alba.loan.product.list</field>
             <field name="model">alba.loan.product</field>
+            <field name="type">list</field>
             <field name="arch" type="xml">
                 <list string="Loan Products"
                       decoration-muted="is_active == False">
@@ -203,9 +212,9 @@
                     <field name="min_tenure_months" string="Min Tenure"/>
                     <field name="max_tenure_months" string="Max Tenure"/>
                     <field name="repayment_frequency"/>
+                    <field name="currency_id"/>
                     <field name="application_count" string="Applications"/>
                     <field name="is_active" widget="boolean_toggle"/>
-                    <field name="currency_id" column_invisible="1"/>
                 </list>
             </field>
         </record>
@@ -216,6 +225,7 @@
         <record id="view_alba_loan_product_search" model="ir.ui.view">
             <field name="name">alba.loan.product.search</field>
             <field name="model">alba.loan.product</field>
+            <field name="type">search</field>
             <field name="arch" type="xml">
                 <search string="Search Loan Products">
                     <field name="name"  string="Name"/>
@@ -228,9 +238,7 @@
                             name="archived"
                             domain="[('is_active','=',False)]"/>
                     <separator/>
-                    <filter string="Category"
-                            name="group_by_category"
-                            context="{'group_by': 'category_id'}"/>
+                    <field name="category_id"/>
                     <separator/>
                     <filter string="Flat Rate"
                             name="flat_rate"
@@ -248,6 +256,7 @@
         <record id="view_alba_loan_product_kanban" model="ir.ui.view">
             <field name="name">alba.loan.product.kanban</field>
             <field name="model">alba.loan.product</field>
+            <field name="type">kanban</field>
             <field name="arch" type="xml">
                 <kanban class="o_alba_product_kanban" default_group_by="category_id" sample="1">
                     <field name="id"/>

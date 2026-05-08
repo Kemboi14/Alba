@@ -54,6 +54,29 @@ class AlbaLoan(models.Model):
         store=True,
         readonly=True,
     )
+    sector_id = fields.Many2one(
+        "alba.business.sector",
+        string="Sector",
+        related="customer_id.sector_id",
+        store=True,
+        readonly=True,
+        index=True,
+    )
+    subsector_id = fields.Many2one(
+        "alba.business.subsector",
+        string="Subsector",
+        related="customer_id.subsector_id",
+        store=True,
+        readonly=True,
+        index=True,
+    )
+    referral_source = fields.Selection(
+        related="customer_id.referral_source",
+        string="Referral Source",
+        store=True,
+        readonly=True,
+        index=True,
+    )
 
     # ── Loan Terms ────────────────────────────────────────────────────────────
     principal_amount = fields.Monetary(
@@ -210,6 +233,20 @@ class AlbaLoan(models.Model):
         "loan_id",
         string="Repayment History",
     )
+    # Multi-account disbursement splits (Req #2)
+    disbursement_split_ids = fields.One2many(
+        "alba.loan.disbursement.split",
+        "loan_id",
+        string="Disbursement Splits",
+        help="Account splits for multi-account loan disbursement",
+    )
+    # Credit life insurance events (Req #7)
+    credit_life_insurance_ids = fields.One2many(
+        "alba.credit.life.insurance",
+        "loan_id",
+        string="Insurance Events",
+        help="Credit life insurance claims against this loan",
+    )
     # Note: journal entries are tracked via disbursement_move_id (Many2one below)
 
     # ── Accounting ────────────────────────────────────────────────────────────
@@ -231,9 +268,9 @@ class AlbaLoan(models.Model):
     )
     currency_id = fields.Many2one(
         "res.currency",
-        related="company_id.currency_id",
-        store=True,
-        readonly=True,
+        string="Currency",
+        default=lambda self: self.env.company.currency_id,
+        required=True,
     )
 
     # ── Misc ──────────────────────────────────────────────────────────────────
@@ -254,6 +291,10 @@ class AlbaLoan(models.Model):
     repayment_count = fields.Integer(
         string="Payments",
         compute="_compute_repayment_count",
+    )
+    credit_life_insurance_count = fields.Integer(
+        string="Insurance Events",
+        compute="_compute_credit_life_insurance_count",
     )
 
     # ── UX Helpers ────────────────────────────────────────────────────────────
@@ -286,6 +327,46 @@ class AlbaLoan(models.Model):
         compute="_compute_installment_amount",
         store=True,
         help="Equal Monthly Installment amount",
+    )
+    first_installment_date = fields.Date(
+        string="First Installment Date",
+        compute="_compute_report_fields",
+        store=True,
+    )
+    last_installment_date = fields.Date(
+        string="Last Installment Date",
+        compute="_compute_report_fields",
+        store=True,
+    )
+    outstanding_principal = fields.Monetary(
+        string="Outstanding Principal",
+        currency_field="currency_id",
+        compute="_compute_report_fields",
+        store=True,
+    )
+    outstanding_interest = fields.Monetary(
+        string="Outstanding Interest",
+        currency_field="currency_id",
+        compute="_compute_report_fields",
+        store=True,
+    )
+    outstanding_charges = fields.Monetary(
+        string="Outstanding Charges",
+        currency_field="currency_id",
+        compute="_compute_report_fields",
+        store=True,
+    )
+    prepayment_amount = fields.Monetary(
+        string="Prepayments",
+        currency_field="currency_id",
+        compute="_compute_report_fields",
+        store=True,
+    )
+    total_topup_amount = fields.Monetary(
+        string="Top-Up Amount",
+        currency_field="currency_id",
+        compute="_compute_report_fields",
+        store=True,
     )
 
     # ── Loan Modifications ──────────────────────────────────────────────────
@@ -414,6 +495,10 @@ class AlbaLoan(models.Model):
         for rec in self:
             rec.repayment_count = len(rec.repayment_ids)
 
+    def _compute_credit_life_insurance_count(self):
+        for rec in self:
+            rec.credit_life_insurance_count = len(rec.credit_life_insurance_ids)
+
     def _compute_ux_helpers(self):
         today = fields.Date.today()
         for rec in self:
@@ -469,6 +554,58 @@ class AlbaLoan(models.Model):
                 rec.installment_amount = rec.repayment_schedule_ids[0].total_due
             else:
                 rec.installment_amount = 0
+
+    @api.depends(
+        "principal_amount",
+        "repayment_schedule_ids.due_date",
+        "repayment_schedule_ids.principal_due",
+        "repayment_schedule_ids.principal_paid",
+        "repayment_schedule_ids.interest_due",
+        "repayment_schedule_ids.interest_paid",
+        "repayment_ids.state",
+        "repayment_ids.fees_component",
+        "repayment_ids.penalty_component",
+        "partial_payoff_ids.state",
+        "partial_payoff_ids.payoff_amount",
+        "topup_ids.state",
+        "topup_ids.topup_amount",
+        "loan_product_id.origination_fee_percentage",
+        "loan_product_id.insurance_fee_percentage",
+        "loan_product_id.processing_fee_percentage",
+        "total_fees_charged",
+    )
+    def _compute_report_fields(self):
+        for rec in self:
+            schedule = rec.repayment_schedule_ids.sorted("due_date")
+            rec.first_installment_date = schedule[:1].due_date if schedule else False
+            rec.last_installment_date = schedule[-1:].due_date if schedule else False
+
+            rec.outstanding_principal = sum(
+                max(line.principal_due - line.principal_paid, 0.0)
+                for line in schedule
+            )
+            rec.outstanding_interest = sum(
+                max(line.interest_due - line.interest_paid, 0.0)
+                for line in schedule
+            )
+
+            posted_repayments = rec.repayment_ids.filtered(lambda r: r.state == "posted")
+            paid_charges = sum(posted_repayments.mapped("fees_component")) + sum(
+                posted_repayments.mapped("penalty_component")
+            )
+            product_fees = (
+                rec.loan_product_id.calculate_total_fees(rec.principal_amount)
+                if rec.loan_product_id
+                else 0.0
+            )
+            extra_fees = rec.total_fees_charged if "total_fees_charged" in rec._fields else 0.0
+            rec.outstanding_charges = max(product_fees + extra_fees - paid_charges, 0.0)
+            rec.prepayment_amount = sum(
+                rec.partial_payoff_ids.filtered(lambda p: p.state == "applied").mapped("payoff_amount")
+            )
+            rec.total_topup_amount = sum(
+                rec.topup_ids.filtered(lambda t: t.state == "disbursed").mapped("topup_amount")
+            )
 
     # =========================================================================
     # ORM Overrides
@@ -594,20 +731,45 @@ class AlbaLoan(models.Model):
                 )
                 % product.name
             )
-        if not self.journal_id:
-            raise UserError(
-                _("Please select a disbursement journal (Bank or Cash) on the loan.")
-            )
+        split_lines = self.disbursement_split_ids.filtered(
+            lambda split: split.state in ("pending", "approved")
+        )
+        if split_lines:
+            split_total = sum(split_lines.mapped("amount"))
+            if abs(split_total - self.principal_amount) > 0.01:
+                raise UserError(
+                    _("Disbursement splits must total %s. Current total is %s.")
+                    % (self.principal_amount, split_total)
+                )
+            for split in split_lines:
+                if not split.journal_id.default_account_id:
+                    raise UserError(
+                        _("The selected journal '%s' has no default account configured.")
+                        % split.journal_id.name
+                    )
+        else:
+            if not self.journal_id:
+                raise UserError(
+                    _("Please select a disbursement journal (Bank or Cash) on the loan.")
+                )
 
-        bank_account = self.journal_id.default_account_id
-        if not bank_account:
-            raise UserError(
-                _("The selected journal '%s' has no default account configured.")
-                % self.journal_id.name
+            bank_account = self.journal_id.default_account_id
+            if not bank_account:
+                raise UserError(
+                    _("The selected journal '%s' has no default account configured.")
+                    % self.journal_id.name
+                )
+            split_lines = self.env["alba.loan.disbursement.split"].create(
+                {
+                    "loan_id": self.id,
+                    "journal_id": self.journal_id.id,
+                    "amount": self.principal_amount,
+                    "state": "approved",
+                }
             )
 
         move_vals = {
-            "journal_id": self.journal_id.id,
+            "journal_id": (self.journal_id or split_lines[:1].journal_id).id,
             "date": self.disbursement_date,
             "ref": f"DISB/{self.loan_number}",
             "narration": _("Loan disbursement — %s — %s")
@@ -625,23 +787,36 @@ class AlbaLoan(models.Model):
                         "partner_id": self.customer_id.partner_id.id,
                     },
                 ),
-                # CR Bank / Cash
+            ],
+        }
+        for split in split_lines.sorted("sequence"):
+            move_vals["line_ids"].append(
                 (
                     0,
                     0,
                     {
-                        "account_id": bank_account.id,
-                        "name": _("Loan Disbursement — %s") % self.loan_number,
+                        "account_id": split.journal_id.default_account_id.id,
+                        "name": _("Loan Disbursement — %(loan)s — %(journal)s")
+                        % {
+                            "loan": self.loan_number,
+                            "journal": split.journal_id.name,
+                        },
                         "debit": 0.0,
-                        "credit": self.principal_amount,
+                        "credit": split.amount,
                         "partner_id": self.customer_id.partner_id.id,
                     },
-                ),
-            ],
-        }
+                )
+            )
         move = self.env["account.move"].create(move_vals)
         move.action_post()
         self.write({"disbursement_move_id": move.id})
+        split_lines.write(
+            {
+                "state": "disbursed",
+                "disbursement_date": self.disbursement_date,
+                "reference_number": move.name,
+            }
+        )
         self.message_post(
             body=Markup(_("Disbursement journal entry <a href='#'>%s</a> posted for KES %s."))
             % (move.name, f"{self.principal_amount:,.2f}")
@@ -685,6 +860,17 @@ class AlbaLoan(models.Model):
             "type": "ir.actions.act_window",
             "name": _("Repayments — %s") % self.loan_number,
             "res_model": "alba.loan.repayment",
+            "view_mode": "list,form",
+            "domain": [("loan_id", "=", self.id)],
+            "context": {"default_loan_id": self.id},
+        }
+
+    def action_view_credit_life_claims(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Credit Life Insurance — %s") % self.loan_number,
+            "res_model": "alba.credit.life.insurance",
             "view_mode": "list,form",
             "domain": [("loan_id", "=", self.id)],
             "context": {"default_loan_id": self.id},
@@ -1046,3 +1232,9 @@ class AlbaLoan(models.Model):
             if extra:
                 payload.update(extra)
             api_key.send_webhook(event_type, payload)
+
+    @api.model
+    def _check_company(self, company_id):
+        """Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id

@@ -3,6 +3,7 @@
     <record id="view_collateral_assignment_wizard_form" model="ir.ui.view">
         <field name="name">alba.collateral.assignment.wizard.form</field>
         <field name="model">alba.collateral.assignment.wizard</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Assign Collateral">
                 <sheet>

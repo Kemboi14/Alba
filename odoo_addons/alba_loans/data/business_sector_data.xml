@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- ==================== AGRICULTURE ==================== -->
+        <record id="sector_01_agriculture" model="alba.business.sector">
+            <field name="name">Agriculture</field>
+            <field name="code">01</field>
+            <field name="sequence">10</field>
+            <field name="description">Agricultural production including crop farming, livestock, hunting, fishing, and forestry</field>
+        </record>
+
+        <!-- ==================== MANUFACTURING ==================== -->
+        <record id="sector_02_manufacturing" model="alba.business.sector">
+            <field name="name">Manufacturing</field>
+            <field name="code">02</field>
+            <field name="sequence">20</field>
+            <field name="description">Industrial manufacturing and processing operations</field>
+        </record>
+
+        <!-- ==================== BUILDING AND CONSTRUCTION ==================== -->
+        <record id="sector_03_building_construction" model="alba.business.sector">
+            <field name="name">Building and Construction</field>
+            <field name="code">03</field>
+            <field name="sequence">30</field>
+            <field name="description">Construction services and building works</field>
+        </record>
+
+        <!-- ==================== MINING AND QUARRYING ==================== -->
+        <record id="sector_04_mining" model="alba.business.sector">
+            <field name="name">Mining and Quarrying</field>
+            <field name="code">04</field>
+            <field name="sequence">40</field>
+            <field name="description">Extraction and processing of minerals and building materials</field>
+        </record>
+
+        <!-- ==================== ELECTRICITY AND WATER ==================== -->
+        <record id="sector_05_utilities" model="alba.business.sector">
+            <field name="name">Electricity and Water</field>
+            <field name="code">05</field>
+            <field name="sequence">50</field>
+            <field name="description">Utilities including power generation and water distribution</field>
+        </record>
+
+        <!-- ==================== TRADE ==================== -->
+        <record id="sector_06_trade" model="alba.business.sector">
+            <field name="name">Trade</field>
+            <field name="code">06</field>
+            <field name="sequence">60</field>
+            <field name="description">Import, export, wholesale and retail trade</field>
+        </record>
+
+        <!-- ==================== TOURISM, RESTAURANT AND HOTELS ==================== -->
+        <record id="sector_07_tourism" model="alba.business.sector">
+            <field name="name">Tourism, Restaurant and Hotels</field>
+            <field name="code">07</field>
+            <field name="sequence">70</field>
+            <field name="description">Hospitality, tourism and food service</field>
+        </record>
+
+        <!-- ==================== TRANSPORT AND COMMUNICATION ==================== -->
+        <record id="sector_08_transport" model="alba.business.sector">
+            <field name="name">Transport and Communication</field>
+            <field name="code">08</field>
+            <field name="sequence">80</field>
+            <field name="description">Transportation services and communication networks</field>
+        </record>
+
+        <!-- ==================== REAL ESTATE AND HOME IMPROVEMENT ==================== -->
+        <record id="sector_09_realestate" model="alba.business.sector">
+            <field name="name">Real Estate and Home Improvement</field>
+            <field name="code">09</field>
+            <field name="sequence">90</field>
+            <field name="description">Real estate development and home improvement services</field>
+        </record>
+
+        <!-- ==================== FINANCIAL SERVICES ==================== -->
+        <record id="sector_10_finance" model="alba.business.sector">
+            <field name="name">Financial Services</field>
+            <field name="code">10</field>
+            <field name="sequence">100</field>
+            <field name="description">Banking, insurance, microfinance and other financial institutions</field>
+        </record>
+
+        <!-- ==================== PERSONAL/HOUSEHOLD CONSUMER LOANS ==================== -->
+        <record id="sector_11_personal" model="alba.business.sector">
+            <field name="name">Personal/Household Consumer Loans</field>
+            <field name="code">11</field>
+            <field name="sequence">110</field>
+            <field name="description">Personal and household consumer loans and services</field>
+        </record>
+    </data>
+</odoo>

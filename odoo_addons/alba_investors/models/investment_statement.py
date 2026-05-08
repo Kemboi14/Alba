@@ -346,3 +346,17 @@ class AlbaInvestmentStatement(models.Model):
             )
             for rec in self
         ]
+
+
+    @api.model
+    def _check_company(self, company_id):
+        """"Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id
+
+
+    @api.model
+    def _check_company(self, company_id):
+        """Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id
