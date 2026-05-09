@@ -262,6 +262,7 @@ class AlbaInterestAccrual(models.Model):
                     investment=investment.investment_number,
                     period="%s to %s" % (rec.period_start, rec.period_end),
                 ),
+                "currency_id": rec.currency_id.id,
                 "line_ids": [
                     # DR Interest Expense
                     (
@@ -276,8 +277,10 @@ class AlbaInterestAccrual(models.Model):
                                 if rec.period_start
                                 else "",
                             ),
-                            "debit": rec.interest_amount,
+                            "debit": rec.interest_amount if rec.currency_id == rec.company_id.currency_id else 0.0,
                             "credit": 0.0,
+                            "amount_currency": rec.interest_amount,
+                            "currency_id": rec.currency_id.id,
                             "partner_id": rec.partner_id.id,
                         },
                     ),
@@ -295,7 +298,9 @@ class AlbaInterestAccrual(models.Model):
                                 else "",
                             ),
                             "debit": 0.0,
-                            "credit": rec.interest_amount,
+                            "credit": rec.interest_amount if rec.currency_id == rec.company_id.currency_id else 0.0,
+                            "amount_currency": -rec.interest_amount,
+                            "currency_id": rec.currency_id.id,
                             "partner_id": rec.partner_id.id,
                         },
                     ),

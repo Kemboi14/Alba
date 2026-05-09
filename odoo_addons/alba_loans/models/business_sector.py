@@ -11,6 +11,7 @@ class AlbaBusinessSector(models.Model):
     """
     _name = "alba.business.sector"
     _description = "Business Sector"
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "sequence, name"
     _rec_name = "name"
 
@@ -18,13 +19,11 @@ class AlbaBusinessSector(models.Model):
         string="Sector Name",
         required=True,
         translate=True,
-        tracking=True,
     )
     code = fields.Char(
         string="Sector Code",
         required=True,
         size=20,
-        tracking=True,
         copy=False,
     )
     sequence = fields.Integer(
@@ -40,7 +39,6 @@ class AlbaBusinessSector(models.Model):
     active = fields.Boolean(
         string="Active",
         default=True,
-        tracking=True,
     )
 
     # ── Relationships ─────────────────────────────────────────────────────────
@@ -77,15 +75,11 @@ class AlbaBusinessSector(models.Model):
         for rec in self:
             rec.customer_count = len(rec.customer_ids)
 
-    class Meta:
-        db_table = "alba_business_sector"
-
-    def __str__(self):
-        return self.name
-
-    _sql_constraints = [
-        ("code_unique", "unique(code)", "Sector code must be unique!"),
-    ]
+    @api.constrains("code")
+    def _check_code_unique(self):
+        for rec in self:
+            if self.search([("code", "=", rec.code), ("id", "!=", rec.id)]):
+                raise ValidationError(_("Sector code must be unique!"))
 
 
 class AlbaBusinessSubsector(models.Model):
@@ -95,6 +89,7 @@ class AlbaBusinessSubsector(models.Model):
     """
     _name = "alba.business.subsector"
     _description = "Business Subsector"
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "sector_id, sequence, name"
     _rec_name = "name"
 
@@ -102,13 +97,11 @@ class AlbaBusinessSubsector(models.Model):
         string="Subsector Name",
         required=True,
         translate=True,
-        tracking=True,
     )
     code = fields.Char(
         string="Subsector Code",
         required=True,
         size=20,
-        tracking=True,
         copy=False,
     )
     sector_id = fields.Many2one(
@@ -116,7 +109,6 @@ class AlbaBusinessSubsector(models.Model):
         string="Sector",
         required=True,
         ondelete="restrict",
-        tracking=True,
         index=True,
     )
     sequence = fields.Integer(
@@ -132,7 +124,6 @@ class AlbaBusinessSubsector(models.Model):
     active = fields.Boolean(
         string="Active",
         default=True,
-        tracking=True,
     )
 
     # ── Relationships ─────────────────────────────────────────────────────────
@@ -150,26 +141,26 @@ class AlbaBusinessSubsector(models.Model):
     # ── Computed Fields ───────────────────────────────────────────────────────
     sector_name = fields.Char(
         string="Sector Name",
-        related="sector_id.name",
+        compute="_compute_sector_name",
         store=True,
-        readonly=True,
     )
+
+    @api.depends("sector_id", "sector_id.name")
+    def _compute_sector_name(self):
+        for rec in self:
+            rec.sector_name = rec.sector_id.name or ""
 
     @api.depends("customer_ids")
     def _compute_customer_count(self):
         for rec in self:
             rec.customer_count = len(rec.customer_ids)
 
-    class Meta:
-        db_table = "alba_business_subsector"
-
-    def __str__(self):
-        return f"{self.sector_id.name} > {self.name}"
-
-    _sql_constraints = [
-        (
-            "code_sector_unique",
-            "unique(code, sector_id)",
-            "Subsector code must be unique within each sector!",
-        ),
-    ]
+    @api.constrains("code", "sector_id")
+    def _check_code_sector_unique(self):
+        for rec in self:
+            if self.search([
+                ("code", "=", rec.code),
+                ("sector_id", "=", rec.sector_id.id),
+                ("id", "!=", rec.id),
+            ]):
+                raise ValidationError(_("Subsector code must be unique within each sector!"))

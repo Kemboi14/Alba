@@ -143,13 +143,16 @@
 
                             <!-- ── Fees ──────────────────────────────────── -->
                             <page string="Fees" name="fees" groups="alba_loans.group_operations_manager,alba_loans.group_director">
-                                <group>
-                                    <group>
-                                        <field name="origination_fee_percentage"/>
-                                        <field name="processing_fee_percentage"/>
-                                        <field name="insurance_fee_percentage"/>
-                                    </group>
-                                </group>
+                                <field name="fee_template_ids">
+                                    <list editable="bottom">
+                                        <field name="sequence" widget="handle"/>
+                                        <field name="fee_product_id"/>
+                                        <field name="fee_type"/>
+                                        <field name="amount"/>
+                                        <field name="is_credit_life"/>
+                                        <field name="vendor_id" invisible="not is_credit_life" required="is_credit_life"/>
+                                    </list>
+                                </field>
                             </page>
 
                             <!-- ── Accounting ─────────────────────────────── -->

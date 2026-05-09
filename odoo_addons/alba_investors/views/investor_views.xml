@@ -74,7 +74,7 @@
                         </h1>
                         <div class="o_row">
                             <field name="investor_number" readonly="1" class="text-muted"/>
-                            <field name="currency_id" string="Preferred Currency" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="currency_id" string="Preferred Currency" options="{'no_create': True, 'no_open': True}" domain="[('active', '=', True)]"/>
                             <field name="is_high_value" invisible="1"/>
                             <span class="badge text-bg-warning rounded-pill" invisible="not is_high_value">
                                 <i class="fa fa-star"/> High Value

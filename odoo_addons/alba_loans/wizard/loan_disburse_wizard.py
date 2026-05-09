@@ -118,12 +118,18 @@ class AlbaLoanDisburseWizard(models.TransientModel):
         default=lambda self: self._default_interest_method(),
     )
 
-    # ── Journal ───────────────────────────────────────────────────────────────
+    # ── Journal & Payment ─────────────────────────────────────────────────────
     journal_id = fields.Many2one(
         "account.journal",
         string="Disbursement Journal",
         domain="[('type', 'in', ['bank', 'cash'])]",
         help="Bank or Cash journal used for a single-source disbursement.",
+    )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'outbound'), ('journal_id', '=', journal_id)]",
+        help="Specific payment method (e.g. Manual, M-Pesa B2C) for this journal.",
     )
     split_line_ids = fields.One2many(
         "alba.loan.disburse.wizard.line",
@@ -385,48 +391,28 @@ class AlbaLoanDisburseWizard(models.TransientModel):
     def action_disburse(self):
         """
         Perform the full disbursement atomically:
-        1.  Validate the application is in a disbursable state.
+        1.  Validate the application and journals.
         2.  Create the alba.loan record.
-        3.  Post the disbursement accounting journal entry.
-        4.  Optionally generate the repayment schedule.
-        5.  Transition the application to 'disbursed' and link the new loan.
-        6.  Return a form view of the newly created loan.
-        
-        All operations are wrapped in a database transaction with row locking
-        to prevent double-disbursement and ensure consistency.
+        3.  Post the disbursement clearing journal entry (DR Loan Rec, CR Clearing).
+        4.  Create a Payment Voucher (account.payment) to pay out the net amount.
+        5.  Create Vendor POs for Credit Life insurance fees.
+        6.  Transition the application to 'disbursed'.
         """
         self.ensure_one()
         
-        # Lock the application record to prevent concurrent disbursement attempts
+        # Lock and validate application
         application = self.application_id.with_env(self.env).sudo().browse(self.application_id.id)
         application.env.cr.execute(
             "SELECT id FROM alba_loan_application WHERE id = %s FOR UPDATE NOWAIT",
             (application.id,)
         )
-
-        # Re-read after locking to get current state
         application.invalidate_recordset()
 
-        disbursable_states = (
-            "approved",
-            "employer_verification",
-            "guarantor_confirmation",
-        )
-        if application.state not in disbursable_states:
-            raise UserError(
-                _(
-                    "Application %s is in state '%s' and cannot be disbursed. "
-                    "It must be Approved, in Employer Verification, or "
-                    "in Guarantor Confirmation."
-                )
-                % (application.application_number, application.state)
-            )
+        if application.state not in ("approved", "employer_verification", "guarantor_confirmation"):
+            raise UserError(_("Application %s is not in a disbursable state.") % application.application_number)
 
         if application.loan_id:
-            raise UserError(
-                _("Application %s has already been disbursed as loan %s.")
-                % (application.application_number, application.loan_id.loan_number)
-            )
+            raise UserError(_("Application %s has already been disbursed.") % application.application_number)
 
         # ── 1. Create alba.loan ───────────────────────────────────────────────
         loan_vals = {
@@ -437,41 +423,71 @@ class AlbaLoanDisburseWizard(models.TransientModel):
             "tenure_months": self.tenure_months,
             "repayment_frequency": self.repayment_frequency,
             "disbursement_date": self.disbursement_date,
-            "journal_id": self.journal_id.id
-            or (self.split_line_ids[:1].journal_id.id if self.split_line_ids else False),
+            "journal_id": self.journal_id.id,
             "state": "active",
             "notes": self.notes or "",
         }
         loan = self.env["alba.loan"].create(loan_vals)
 
-        split_vals = self._prepare_disbursement_split_vals(loan)
-        self.env["alba.loan.disbursement.split"].create(split_vals)
-
-        # ── 2. Post disbursement journal entry ───────────────────────────────
+        # ── 2. Post Disbursement Clearing Entry ──────────────────────────────
+        # This creates: DR Loan Receivable, CR Clearing Account, CR Fee Income
         loan.action_post_disbursement_entry()
 
-        # ── 3. Generate repayment schedule ───────────────────────────────────
+        # ── 3. Create Payment Voucher (Net Amount) ──────────────────────────
+        total_fees = sum(application.fee_line_ids.mapped("calculated_amount"))
+        net_disbursement = self.approved_amount - total_fees
+        
+        if net_disbursement > 0:
+            payment_vals = {
+                "date": self.disbursement_date,
+                "amount": net_disbursement,
+                "payment_type": "outbound",
+                "partner_type": "customer",
+                "partner_id": application.customer_id.partner_id.id,
+                "journal_id": self.journal_id.id,
+                "payment_method_line_id": self.payment_method_line_id.id,
+                "currency_id": self.currency_id.id,
+                "ref": _("Disbursement for Loan %s") % loan.loan_number,
+                "destination_account_id": application.loan_product_id.account_clearing_id.id,
+            }
+            payment = self.env["account.payment"].create(payment_vals)
+            payment.action_post()
+            loan.message_post(body=_("Payment Voucher created: <a href='#' data-oe-model='account.payment' data-oe-id='%s'>%s</a>") % (payment.id, payment.name))
+
+        # ── 4. Create Vendor POs for Credit Life ────────────────────────────
+        credit_life_fees = application.fee_line_ids.filtered(lambda f: f.is_credit_life and f.vendor_id)
+        for fee in credit_life_fees:
+            po_vals = {
+                "partner_id": fee.vendor_id.id,
+                "company_id": application.company_id.id,
+                "currency_id": self.currency_id.id,
+                "date_order": fields.Datetime.now(),
+                "origin": loan.loan_number,
+                "order_line": [(0, 0, {
+                    "product_id": fee.fee_product_id.id,
+                    "name": _("Credit Life Insurance for Loan %s") % loan.loan_number,
+                    "product_qty": 1.0,
+                    "price_unit": fee.calculated_amount,
+                    "date_planned": fields.Datetime.now(),
+                })],
+            }
+            po = self.env["purchase.order"].create(po_vals)
+            # Optional: po.button_confirm() if automatic confirmation is desired
+            loan.message_post(body=_("Vendor PO created for Credit Life: <a href='#' data-oe-model='purchase.order' data-oe-id='%s'>%s</a>") % (po.id, po.name))
+
+        # ── 5. Generate Repayment Schedule ───────────────────────────────────
         if self.generate_schedule:
             loan.action_generate_schedule()
 
-        # ── 4. Transition application → disbursed ────────────────────────────
-        application.write(
-            {
-                "state": "disbursed",
-                "approved_amount": self.approved_amount,
-                "disbursed_date": fields.Datetime.now(),
-                "disbursed_by": self.env.uid,
-                "loan_id": loan.id,
-            }
-        )
+        # ── 6. Finalize Application ──────────────────────────────────────────
+        application.write({
+            "state": "disbursed",
+            "approved_amount": self.approved_amount,
+            "disbursed_date": fields.Datetime.now(),
+            "disbursed_by": self.env.uid,
+            "loan_id": loan.id,
+        })
 
-        # 🚀 PHASE 5: Omnichannel (Email - Disbursed)
-        template = self.env.ref("alba_loans.email_template_loan_disbursed", raise_if_not_found=False)
-        if template and application.customer_id.email:
-            template.send_mail(application.id, force_send=False)
-            application.message_post(body=_("📧 Automated disbursement email sent to %s") % application.customer_id.email)
-
-        # ── 5. Return form view of the new loan ───────────────────────────────
         return {
             "type": "ir.actions.act_window",
             "name": _("Loan — %s") % loan.loan_number,

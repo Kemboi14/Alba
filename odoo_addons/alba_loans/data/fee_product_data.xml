@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Loan Processing Fee Product -->
+        <record id="product_loan_processing_fee" model="product.template">
+            <field name="name">Loan Processing Fee</field>
+            <field name="type">service</field>
+            <field name="invoice_policy">order</field>
+            <field name="list_price">0.0</field>
+            <field name="standard_price">0.0</field>
+            <field name="taxes_id" eval="[(5, 0, 0)]"/>
+            <field name="sale_ok">True</field>
+            <field name="purchase_ok">False</field>
+            <field name="description">Service product for loan processing fees.</field>
+        </record>
+
+        <!-- Loan Insurance Fee Product -->
+        <record id="product_loan_insurance_fee" model="product.template">
+            <field name="name">Loan Insurance Fee</field>
+            <field name="type">service</field>
+            <field name="invoice_policy">order</field>
+            <field name="list_price">0.0</field>
+            <field name="standard_price">0.0</field>
+            <field name="taxes_id" eval="[(5, 0, 0)]"/>
+            <field name="sale_ok">True</field>
+            <field name="purchase_ok">False</field>
+            <field name="description">Service product for loan insurance fees (Credit Life).</field>
+        </record>
+
+        <!-- Loan Origination Fee Product -->
+        <record id="product_loan_origination_fee" model="product.template">
+            <field name="name">Loan Origination Fee</field>
+            <field name="type">service</field>
+            <field name="invoice_policy">order</field>
+            <field name="list_price">0.0</field>
+            <field name="standard_price">0.0</field>
+            <field name="taxes_id" eval="[(5, 0, 0)]"/>
+            <field name="sale_ok">True</field>
+            <field name="purchase_ok">False</field>
+            <field name="description">Service product for loan origination / setup fees.</field>
+        </record>
+    </data>
+</odoo>

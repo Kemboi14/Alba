@@ -35,7 +35,8 @@
                             <group>
                                 <field name="interest_rate"/>
                                 <field name="interest_method"/>
-                                <field name="journal_id"/>
+                                <field name="journal_id" options="{'no_create': True}"/>
+                                <field name="payment_method_line_id" options="{'no_create': True}" invisible="not journal_id" required="journal_id"/>
                                 <field name="generate_schedule" widget="boolean_toggle"/>
                             </group>
                         </group>

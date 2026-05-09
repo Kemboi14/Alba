@@ -316,6 +316,20 @@ class AlbaLoanRepayment(models.Model):
                     _("Repayment component amounts cannot be negative.")
                 )
 
+    @api.constrains("amount_paid", "journal_id")
+    def _check_large_payment_policy(self):
+        """Repayments above 500,000 must be done via Bank journal."""
+        THRESHOLD = 500000.0
+        for rec in self:
+            if rec.amount_paid > THRESHOLD:
+                if rec.journal_id and rec.journal_id.type != "bank":
+                    raise ValidationError(_(
+                        "Compliance Alert: Repayments exceeding %(threshold)s must be processed through a Bank journal. "
+                        "The selected journal '%(journal)s' is not a Bank journal.",
+                        threshold=f"{THRESHOLD:,.2f}",
+                        journal=rec.journal_id.name,
+                    ))
+
     @api.constrains(
         "amount_paid",
         "principal_component",
@@ -508,122 +522,83 @@ class AlbaLoanRepayment(models.Model):
                     % product.name
                 )
 
-            # Build journal entry lines
-            line_ids = [
-                # DR Bank / Cash
-                (
-                    0,
-                    0,
-                    {
+            move_vals = {
+                "journal_id": rec.journal_id.id,
+                "date": rec.payment_date,
+                "ref": f"RPMT/{rec.loan_id.loan_number}/{rec.payment_reference or rec.id}",
+                "currency_id": rec.currency_id.id,
+                "narration": _("Loan repayment — %s — %s")
+                % (rec.loan_id.loan_number, rec.customer_id.display_name),
+                "line_ids": [
+                    # DR Bank / Cash
+                    (0, 0, {
                         "account_id": bank_account.id,
-                        "name": _("Repayment — %s")
-                        % (rec.payment_reference or rec.loan_id.loan_number),
-                        "debit": rec.amount_paid,
+                        "name": _("Repayment — %s") % (rec.payment_reference or rec.loan_id.loan_number),
+                        "debit": rec.amount_paid if rec.currency_id == rec.company_id.currency_id else 0.0,
                         "credit": 0.0,
+                        "amount_currency": rec.amount_paid,
+                        "currency_id": rec.currency_id.id,
                         "partner_id": rec.partner_id.id,
-                    },
-                ),
-            ]
+                    }),
+                ],
+            }
 
             # CR Loan Receivable (principal)
             if rec.principal_component > 0:
-                line_ids.append(
-                    (
-                        0,
-                        0,
-                        {
-                            "account_id": product.account_loan_receivable_id.id,
-                            "name": _("Principal repayment — %s")
-                            % rec.loan_id.loan_number,
-                            "debit": 0.0,
-                            "credit": rec.principal_component,
-                            "partner_id": rec.partner_id.id,
-                        },
-                    )
-                )
+                move_vals["line_ids"].append((0, 0, {
+                    "account_id": product.account_loan_receivable_id.id,
+                    "name": _("Principal repayment — %s") % rec.loan_id.loan_number,
+                    "debit": 0.0,
+                    "credit": rec.principal_component if rec.currency_id == rec.company_id.currency_id else 0.0,
+                    "amount_currency": -rec.principal_component,
+                    "currency_id": rec.currency_id.id,
+                    "partner_id": rec.partner_id.id,
+                }))
 
             # CR Interest Income
             if rec.interest_component > 0:
                 interest_account = product.account_interest_income_id
                 if not interest_account:
-                    raise UserError(
-                        _(
-                            "Please configure the Interest Income account on product '%s'."
-                        )
-                        % product.name
-                    )
-                line_ids.append(
-                    (
-                        0,
-                        0,
-                        {
-                            "account_id": interest_account.id,
-                            "name": _("Interest collected — %s")
-                            % rec.loan_id.loan_number,
-                            "debit": 0.0,
-                            "credit": rec.interest_component,
-                            "partner_id": rec.partner_id.id,
-                        },
-                    )
-                )
+                    raise UserError(_("Please configure the Interest Income account on product '%s'.") % product.name)
+                move_vals["line_ids"].append((0, 0, {
+                    "account_id": interest_account.id,
+                    "name": _("Interest collected — %s") % rec.loan_id.loan_number,
+                    "debit": 0.0,
+                    "credit": rec.interest_component if rec.currency_id == rec.company_id.currency_id else 0.0,
+                    "amount_currency": -rec.interest_component,
+                    "currency_id": rec.currency_id.id,
+                    "partner_id": rec.partner_id.id,
+                }))
 
             # CR Fee Income
             if rec.fees_component > 0:
                 fee_account = product.account_fees_income_id
                 if not fee_account:
-                    raise UserError(
-                        _("Please configure the Fee Income account on product '%s'.")
-                        % product.name
-                    )
-                line_ids.append(
-                    (
-                        0,
-                        0,
-                        {
-                            "account_id": fee_account.id,
-                            "name": _("Fees collected — %s") % rec.loan_id.loan_number,
-                            "debit": 0.0,
-                            "credit": rec.fees_component,
-                            "partner_id": rec.partner_id.id,
-                        },
-                    )
-                )
+                    raise UserError(_("Please configure the Fee Income account on product '%s'.") % product.name)
+                move_vals["line_ids"].append((0, 0, {
+                    "account_id": fee_account.id,
+                    "name": _("Fees collected — %s") % rec.loan_id.loan_number,
+                    "debit": 0.0,
+                    "credit": rec.fees_component if rec.currency_id == rec.company_id.currency_id else 0.0,
+                    "amount_currency": -rec.fees_component,
+                    "currency_id": rec.currency_id.id,
+                    "partner_id": rec.partner_id.id,
+                }))
 
-            # CR Penalty Income (use fee account as fallback if no dedicated account)
+            # CR Penalty Income
             if rec.penalty_component > 0:
-                penalty_account = (
-                    product.account_fees_income_id or product.account_interest_income_id
-                )
+                penalty_account = product.account_fees_income_id or product.account_interest_income_id
                 if not penalty_account:
-                    raise UserError(
-                        _(
-                            "Please configure the Fee Income account on product '%s' to post penalty income."
-                        )
-                        % product.name
-                    )
-                line_ids.append(
-                    (
-                        0,
-                        0,
-                        {
-                            "account_id": penalty_account.id,
-                            "name": _("Penalty collected — %s")
-                            % rec.loan_id.loan_number,
-                            "debit": 0.0,
-                            "credit": rec.penalty_component,
-                            "partner_id": rec.partner_id.id,
-                        },
-                    )
-                )
-
-            move_vals = {
-                "journal_id": rec.journal_id.id,
-                "date": rec.payment_date,
-                "ref": f"RPMT/{rec.loan_id.loan_number}/{rec.payment_reference or rec.id}",
-                "narration": _("Loan repayment — %s — %s")
-                % (rec.loan_id.loan_number, rec.customer_id.display_name),
-                "line_ids": line_ids,
-            }
+                    raise UserError(_("Please configure the Fee Income account on product '%s'.") % product.name)
+                move_vals["line_ids"].append((0, 0, {
+                    "account_id": penalty_account.id,
+                    "name": _("Penalty collected — %s") % rec.loan_id.loan_number,
+                    "debit": 0.0,
+                    "credit": rec.penalty_component if rec.currency_id == rec.company_id.currency_id else 0.0,
+                    "amount_currency": -rec.penalty_component,
+                    "currency_id": rec.currency_id.id,
+                    "partner_id": rec.partner_id.id,
+                }))
             move = rec.env["account.move"].create(move_vals)
             move.action_post()
 

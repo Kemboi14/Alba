@@ -68,7 +68,6 @@ than the configured retention period (default: 90 days).
         "base",
         "mail",
         "alba_loans",
-        "alba_investors",
     ],
     "external_dependencies": {
         "python": ["requests"],

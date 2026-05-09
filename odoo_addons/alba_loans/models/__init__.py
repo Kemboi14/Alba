@@ -3,11 +3,11 @@
 from . import (
     # Base models first (no dependencies)
     loan_product,
+    loan_fees,
     employer,
     kyc_provider,
     location,
     customer_tag,
-    currency_config,
     business_sector,
     loan_status_reason,
     customer,

@@ -203,7 +203,7 @@ class AlbaInvestorPro(models.Model):
         default=lambda self: self.env.company.currency_id,
         required=True,
         tracking=True,
-        help="Currency the investor typically uses for investments.",
+        help="Currency investor typically uses for investments.",
     )
 
     # ── UX Helpers ────────────────────────────────────────────────────────────
@@ -335,10 +335,88 @@ class AlbaInvestorPro(models.Model):
             all_inv = rec.investment_ids
 
             rec.active_investment_count = len(active)
-            rec.total_invested = sum(active.mapped("principal_amount"))
-            rec.total_interest_earned = sum(all_inv.mapped("total_interest_accrued"))
-            rec.current_portfolio_value = sum(active.mapped("current_value"))
-            rec.total_interest_paid_out = sum(all_inv.mapped("total_interest_paid"))
+            
+            # Group investments by currency for safe multi-currency portfolio totals
+            active_by_currency = {}
+            all_by_currency = {}
+            
+            for inv in active:
+                currency_id = inv.currency_id.currency_id.id
+                if currency_id not in active_by_currency:
+                    active_by_currency[currency_id] = []
+                active_by_currency[currency_id].append(inv)
+                
+            for inv in all_inv:
+                currency_id = inv.currency_id.currency_id.id
+                if currency_id not in all_by_currency:
+                    all_by_currency[currency_id] = []
+                all_by_currency[currency_id].append(inv)
+            
+            # Convert all amounts to investor's preferred currency for accurate totals
+            investor_currency = rec.currency_id.currency_id if rec.currency_id else self.env.company.currency_id
+            
+            total_invested = 0.0
+            total_interest_earned = 0.0
+            current_portfolio_value = 0.0
+            total_interest_paid_out = 0.0
+            
+            for currency_id, investments in active_by_currency.items():
+                currency_total = sum(inv.principal_amount for inv in investments)
+                if currency_id != investor_currency.id:
+                    # Convert to investor's currency using current rates
+                    from_currency = self.env['res.currency'].browse(currency_id)
+                    converted_total = from_currency._convert(
+                        currency_total, 
+                        investor_currency, 
+                        self.env.company or self.env['res.company']._company_default_get()
+                    )
+                    total_invested += converted_total
+                else:
+                    total_invested += currency_total
+            
+            for currency_id, investments in all_by_currency.items():
+                interest_total = sum(inv.total_interest_accrued for inv in investments)
+                if currency_id != investor_currency.id:
+                    from_currency = self.env['res.currency'].browse(currency_id)
+                    converted_total = from_currency._convert(
+                        interest_total,
+                        investor_currency,
+                        self.env.company or self.env['res.company']._company_default_get()
+                    )
+                    total_interest_earned += converted_total
+                else:
+                    total_interest_earned += interest_total
+                    
+                paid_total = sum(inv.total_interest_paid for inv in investments)
+                if currency_id != investor_currency.id:
+                    from_currency = self.env['res.currency'].browse(currency_id)
+                    converted_total = from_currency._convert(
+                        paid_total,
+                        investor_currency,
+                        self.env.company or self.env['res.company']._company_default_get()
+                    )
+                    total_interest_paid_out += converted_total
+                else:
+                    total_interest_paid_out += paid_total
+            
+            # Calculate current portfolio value with currency conversion
+            for currency_id, investments in active_by_currency.items():
+                value_total = sum(inv.current_value for inv in investments)
+                if currency_id != investor_currency.id:
+                    from_currency = self.env['res.currency'].browse(currency_id)
+                    converted_total = from_currency._convert(
+                        value_total,
+                        investor_currency,
+                        self.env.company or self.env['res.company']._company_default_get()
+                    )
+                    current_portfolio_value += converted_total
+                else:
+                    current_portfolio_value += value_total
+            
+            rec.total_invested = total_invested
+            rec.total_interest_earned = total_interest_earned
+            rec.current_portfolio_value = current_portfolio_value
+            rec.total_interest_paid_out = total_interest_paid_out
 
     @api.depends("current_portfolio_value", "kyc_status", "active_investment_count")
     def _compute_ux_helpers(self):
@@ -473,6 +551,12 @@ class AlbaInvestorPro(models.Model):
             for rec in self
         ]
 
+    @api.model
+    def _check_company(self, company_id):
+        """Ensure company consistency for multi-company setup"""
+        if company_id:
+            self.company_id = company_id
+
 
 class AlbaInvestorDocument(models.Model):
     _name = "alba.investor.document"
@@ -531,12 +615,6 @@ class AlbaInvestorDocument(models.Model):
         
         self.message_post(body=_("Document verified successfully."))
 
-    @api.model
-    def _check_company(self, company_id):
-        """Ensure company consistency for multi-company setup"""
-        if company_id:
-            self.company_id = company_id
-    
     def action_reject(self):
         self.write({"status": "rejected"})
         self.message_post(body=_("Document rejected."))

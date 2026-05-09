@@ -569,10 +569,6 @@ class AlbaLoan(models.Model):
         "partial_payoff_ids.payoff_amount",
         "topup_ids.state",
         "topup_ids.topup_amount",
-        "loan_product_id.origination_fee_percentage",
-        "loan_product_id.insurance_fee_percentage",
-        "loan_product_id.processing_fee_percentage",
-        "total_fees_charged",
     )
     def _compute_report_fields(self):
         for rec in self:
@@ -598,7 +594,7 @@ class AlbaLoan(models.Model):
                 if rec.loan_product_id
                 else 0.0
             )
-            extra_fees = rec.total_fees_charged if "total_fees_charged" in rec._fields else 0.0
+            extra_fees = 0.0
             rec.outstanding_charges = max(product_fees + extra_fees - paid_charges, 0.0)
             rec.prepayment_amount = sum(
                 rec.partial_payoff_ids.filtered(lambda p: p.state == "applied").mapped("payoff_amount")
@@ -713,112 +709,69 @@ class AlbaLoan(models.Model):
     def action_post_disbursement_entry(self):
         """
         Post disbursement accounting journal entry:
-            DR  Loan Receivable      (principal)
-            CR  Bank / Cash Account  (principal)
+            DR  Loan Receivable      (Principal)
+            CR  Loan Clearing        (Net Amount)
+            CR  Fee Income           (Total Fees)
         """
         self.ensure_one()
         if self.disbursement_move_id:
-            raise UserError(
-                _("A disbursement journal entry already exists for loan %s.")
-                % self.loan_number
-            )
-        product = self.loan_product_id
-        if not product.account_loan_receivable_id:
-            raise UserError(
-                _(
-                    "Please configure the Loan Receivable account on the loan product '%s' "
-                    "before posting the disbursement entry."
-                )
-                % product.name
-            )
-        split_lines = self.disbursement_split_ids.filtered(
-            lambda split: split.state in ("pending", "approved")
-        )
-        if split_lines:
-            split_total = sum(split_lines.mapped("amount"))
-            if abs(split_total - self.principal_amount) > 0.01:
-                raise UserError(
-                    _("Disbursement splits must total %s. Current total is %s.")
-                    % (self.principal_amount, split_total)
-                )
-            for split in split_lines:
-                if not split.journal_id.default_account_id:
-                    raise UserError(
-                        _("The selected journal '%s' has no default account configured.")
-                        % split.journal_id.name
-                    )
-        else:
-            if not self.journal_id:
-                raise UserError(
-                    _("Please select a disbursement journal (Bank or Cash) on the loan.")
-                )
+            raise UserError(_("Disbursement entry already exists for loan %s.") % self.loan_number)
 
-            bank_account = self.journal_id.default_account_id
-            if not bank_account:
-                raise UserError(
-                    _("The selected journal '%s' has no default account configured.")
-                    % self.journal_id.name
-                )
-            split_lines = self.env["alba.loan.disbursement.split"].create(
-                {
-                    "loan_id": self.id,
-                    "journal_id": self.journal_id.id,
-                    "amount": self.principal_amount,
-                    "state": "approved",
-                }
-            )
+        product = self.loan_product_id
+        if not product.account_loan_receivable_id or not product.account_clearing_id:
+            raise UserError(_("Please configure Loan Receivable and Clearing accounts on product '%s'.") % product.name)
+
+        application = self.application_id
+        total_fees = sum(application.fee_line_ids.mapped("calculated_amount"))
+        net_amount = self.principal_amount - total_fees
 
         move_vals = {
-            "journal_id": (self.journal_id or split_lines[:1].journal_id).id,
+            "journal_id": self.journal_id.id,
             "date": self.disbursement_date,
             "ref": f"DISB/{self.loan_number}",
-            "narration": _("Loan disbursement — %s — %s")
-            % (self.loan_number, self.customer_id.display_name),
+            "move_type": "entry",
             "line_ids": [
-                # DR Loan Receivable
-                (
-                    0,
-                    0,
-                    {
-                        "account_id": product.account_loan_receivable_id.id,
-                        "name": _("Loan Receivable — %s") % self.loan_number,
-                        "debit": self.principal_amount,
-                        "credit": 0.0,
-                        "partner_id": self.customer_id.partner_id.id,
-                    },
-                ),
+                # DR Loan Receivable (Full Principal)
+                (0, 0, {
+                    "account_id": product.account_loan_receivable_id.id,
+                    "name": _("Loan Principal — %s") % self.loan_number,
+                    "debit": self.principal_amount,
+                    "credit": 0.0,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
+                # CR Loan Clearing (Net Amount to be paid)
+                (0, 0, {
+                    "account_id": product.account_clearing_id.id,
+                    "name": _("Loan Disbursement Clearing — %s") % self.loan_number,
+                    "debit": 0.0,
+                    "credit": net_amount,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
             ],
         }
-        for split in split_lines.sorted("sequence"):
-            move_vals["line_ids"].append(
-                (
-                    0,
-                    0,
-                    {
-                        "account_id": split.journal_id.default_account_id.id,
-                        "name": _("Loan Disbursement — %(loan)s — %(journal)s")
-                        % {
-                            "loan": self.loan_number,
-                            "journal": split.journal_id.name,
-                        },
-                        "debit": 0.0,
-                        "credit": split.amount,
-                        "partner_id": self.customer_id.partner_id.id,
-                    },
-                )
-            )
+
+        # Add Fee Income lines
+        for fee in application.fee_line_ids:
+            income_account = fee.fee_product_id.property_account_income_id or fee.fee_product_id.categ_id.property_account_income_id
+            if not income_account:
+                income_account = product.account_fees_income_id
+            
+            if not income_account:
+                raise UserError(_("No income account found for fee product '%s' or loan product.") % fee.fee_product_id.name)
+
+            move_vals["line_ids"].append((0, 0, {
+                "account_id": income_account.id,
+                "name": _("Fee: %s — %s") % (fee.fee_product_id.name, self.loan_number),
+                "debit": 0.0,
+                "credit": fee.calculated_amount,
+                "partner_id": self.customer_id.partner_id.id,
+            }))
+
         move = self.env["account.move"].create(move_vals)
         move.action_post()
         self.write({"disbursement_move_id": move.id})
-        split_lines.write(
-            {
-                "state": "disbursed",
-                "disbursement_date": self.disbursement_date,
-                "reference_number": move.name,
-            }
-        )
         self.message_post(
-            body=Markup(_("Disbursement journal entry <a href='#'>%s</a> posted for KES %s."))
+            body=_("Disbursement journal entry %s posted for KES %s.")
             % (move.name, f"{self.principal_amount:,.2f}")
         )
         return move
@@ -1238,3 +1191,13 @@ class AlbaLoan(models.Model):
         """Ensure company consistency for multi-company setup"""
         if company_id:
             self.company_id = company_id
+    
+    def action_sync_loan_currency_to_accounting(self):
+        """Sync loan currency configuration with accounting"""
+        sync_service = self.env["alba.loan.currency.integration"]
+        return sync_service.sync_loan_currency_to_accounting()
+    
+    def action_create_loan_accounting_move(self):
+        """Create accounting move for loan with currency integration"""
+        sync_service = self.env["alba.loan.currency.integration"]
+        return sync_service.create_accounting_move_for_loan(self)

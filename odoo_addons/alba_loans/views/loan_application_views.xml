@@ -62,7 +62,7 @@
                     <div class="row mt-4 mb-4 border rounded p-3 bg-light mx-0 shadow-sm">
                         <div class="col-md-3 border-end text-center">
                             <div class="text-muted small text-uppercase">Requested Amount</div>
-                            <div class="h4 mb-0 fw-bold"><field name="requested_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/></div>
+                            <div class="h4 mb-0 fw-bold"><field name="requested_amount" widget="monetary"/></div>
                         </div>
                         <div class="col-md-3 border-end text-center text-primary">
                             <div class="text-muted small text-uppercase">Loan Product</div>
@@ -84,7 +84,6 @@
                         <group>
                             <field name="customer_id" options="{'no_create': False}" readonly="state != 'draft'"/>
                             <field name="partner_id" readonly="1"/>
-                            <field name="currency_id" options="{'no_create': True, 'no_open': True}" readonly="state != 'draft'"/>
                         </group>
                         <group>
                             <field name="approved_amount" readonly="state not in ('pending_approval','approved','employer_verification','guarantor_confirmation')" groups="alba_loans.group_loan_manager"/>
@@ -115,6 +114,22 @@
                             <field name="product_requires_guarantor" invisible="1"/>
                             <field name="product_requires_collateral" invisible="1"/>
                             <field name="product_requires_business" invisible="1"/>
+                        </page>
+
+                        <page string="Fees &amp; Costs" name="fees">
+                            <field name="fee_line_ids" nolabel="1">
+                                <list editable="bottom" decoration-info="manual_override">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="fee_product_id" readonly="1"/>
+                                    <field name="fee_type" readonly="1"/>
+                                    <field name="amount" readonly="1"/>
+                                    <field name="calculated_amount" sum="Total Fees"/>
+                                    <field name="manual_override"/>
+                                    <field name="override_amount" invisible="not manual_override"/>
+                                    <field name="is_credit_life" optional="hide"/>
+                                    <field name="vendor_id" optional="hide"/>
+                                </list>
+                            </field>
                         </page>
 
                         <page string="Guarantors" name="guarantors" invisible="not product_requires_guarantor">
@@ -181,7 +196,6 @@
                 <field name="application_number"/>
                 <field name="customer_id"/>
                 <field name="loan_product_id"/>
-                <field name="currency_id"/>
                 <field name="requested_amount" sum="Total Requested"/>
                 <field name="approved_amount" sum="Total Approved"/>
                 <field name="application_progress" widget="progressbar" string="Progress"/>
@@ -211,7 +225,6 @@
                 <field name="requested_amount"/>
                 <field name="application_progress"/>
                 <field name="risk_score"/>
-                <field name="currency_id"/>
                 <templates>
                     <t t-name="card">
                         <div class="oe_kanban_card oe_kanban_global_click">

@@ -19,7 +19,6 @@ class AlbaLoanDisbursementSplit(models.Model):
         string="Loan",
         required=True,
         ondelete="cascade",
-        tracking=True,
         index=True,
     )
     sequence = fields.Integer(
@@ -34,16 +33,21 @@ class AlbaLoanDisbursementSplit(models.Model):
         string="Source Journal",
         required=True,
         ondelete="restrict",
-        tracking=True,
         domain="[('type', 'in', ['bank', 'cash'])]",
         help="Alba Capital account from which funds are disbursed",
     )
     account_name = fields.Char(
         string="Account Name",
-        related="journal_id.name",
+        compute="_compute_account_name",
         store=True,
         readonly=True,
     )
+    
+    @api.depends("journal_id.name")
+    def _compute_account_name(self):
+        """Compute account name from journal"""
+        for record in self:
+            record.account_name = record.journal_id.name or ""
     account_number = fields.Char(
         string="Account Number",
         compute="_compute_account_number",

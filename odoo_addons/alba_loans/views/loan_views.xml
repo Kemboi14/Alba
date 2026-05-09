@@ -17,6 +17,8 @@
                     <button name="action_mark_npl" string="Mark as NPL" type="object" class="btn-warning" invisible="state != 'active'" groups="alba_loans.group_loan_manager"/>
                     <button name="action_close" string="Close Loan" type="object" class="btn-success" invisible="state != 'active'" groups="alba_loans.group_loan_manager"/>
                     <button name="action_write_off" string="Write Off" type="object" class="btn-danger" invisible="state not in ('active','npl')" groups="alba_loans.group_loan_manager"/>
+                    <button name="action_sync_loan_currency_to_accounting" string="Sync Currency" type="object" class="btn-info" groups="alba_loans.group_loan_manager"/>
+                    <button name="action_create_loan_accounting_move" string="Create Accounting Move" type="object" class="btn-primary" groups="alba_loans.group_loan_manager"/>
                     <field name="state" widget="statusbar" statusbar_visible="active,npl,closed,written_off"/>
                 </header>
 
@@ -51,7 +53,6 @@
                             <field name="loan_number" readonly="1"/>
                         </h1>
                         <div class="o_row">
-                            <field name="currency_id" options="{'no_create': True, 'no_open': True}"/>
                             <field name="par_bucket" invisible="1"/>
                             <span class="badge text-bg-success" invisible="par_bucket != 'current'">
                                 <i class="fa fa-check-circle"/> Account Current
@@ -224,7 +225,6 @@
                 <field name="sector_id" optional="hide"/>
                 <field name="subsector_id" optional="hide"/>
                 <field name="referral_source" optional="hide"/>
-                <field name="currency_id"/>
                 <field name="principal_amount" sum="Total Principal"/>
                 <field name="total_topup_amount" optional="hide" sum="Total Top-Ups"/>
                 <field name="disbursement_date" optional="show"/>

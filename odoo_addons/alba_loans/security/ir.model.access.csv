@@ -168,5 +168,9 @@ access_alba_loan_category_manager,alba.loan.category manager,model_alba_loan_cat
 access_alba_employer_manager,alba.employer manager,model_alba_employer,alba_loans.group_operations_manager,1,1,1,1
 access_alba_kyc_provider_manager,alba.kyc.provider manager,model_alba_kyc_provider,alba_loans.group_operations_manager,1,1,1,1
 access_alba_customer_tag_manager,alba.customer.tag manager,model_alba_customer_tag,alba_loans.group_operations_manager,1,1,1,1
-access_alba_currency_config_manager,alba.currency.config manager,model_alba_currency_config,alba_loans.group_operations_manager,1,1,1,1
-access_alba_exchange_rate_history_manager,alba.exchange.rate.history manager,model_alba_exchange_rate_history,alba_loans.group_operations_manager,1,1,1,1
+access_alba_loan_fee_line_user,alba.loan.fee.line user,model_alba_loan_fee_line,alba_loans.group_relationship_officer,1,0,0,0
+access_alba_loan_fee_line_officer,alba.loan.fee.line officer,model_alba_loan_fee_line,alba_loans.group_loan_officer,1,1,1,0
+access_alba_loan_fee_line_manager,alba.loan.fee.line manager,model_alba_loan_fee_line,alba_loans.group_operations_manager,1,1,1,1
+access_alba_loan_fee_line_director,alba.loan.fee.line director,model_alba_loan_fee_line,alba_loans.group_director,1,1,1,1
+access_alba_loan_fee_template_admin,alba.loan.fee.template admin,model_alba_loan_fee_template,base.group_system,1,1,1,1
+access_alba_loan_fee_template_user,alba.loan.fee.template user,model_alba_loan_fee_template,base.group_user,1,1,1,1

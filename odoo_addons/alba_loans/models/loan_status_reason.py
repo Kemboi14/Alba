@@ -4,6 +4,7 @@ from odoo.exceptions import ValidationError
 
 
 class AlbaLoanStatusReason(models.Model):
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     """
     Loan Status Reason (Req #8)
     Configurable dropdown reasons for Deferred and Declined statuses.
@@ -77,10 +78,8 @@ class AlbaLoanStatusReason(models.Model):
     def __str__(self):
         return f"{self.get_category_display()} - {self.name}"
 
-    _sql_constraints = [
-        (
-            "name_category_unique",
-            "unique(name, category)",
-            "Reason name must be unique within each category!",
-        ),
-    ]
+    @api.constrains('name', 'category')
+    def _check_name_category_unique(self):
+        """Ensure reason name is unique within each category"""
+        if self.search([('name', '=', self.name), ('category', '=', self.category), ('id', '!=', self.id)]):
+            raise ValidationError(_("Reason name must be unique within each category!"))

@@ -1,0 +1,125 @@
+# -*- coding: utf-8 -*-
+from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
+
+
+class AlbaLoanFeeTemplate(models.Model):
+    """Template for fees associated with a loan product"""
+    _name = "alba.loan.fee.template"
+    _description = "Loan Fee Template"
+    _order = "sequence, id"
+
+    product_id = fields.Many2one(
+        "alba.loan.product",
+        string="Loan Product",
+        required=True,
+        ondelete="cascade",
+    )
+    sequence = fields.Integer(default=10)
+    fee_product_id = fields.Many2one(
+        "product.product",
+        string="Fee Product",
+        required=True,
+        help="The product used for accounting (holds the income account).",
+    )
+    name = fields.Char(related="fee_product_id.name", readonly=True)
+    
+    fee_type = fields.Selection([
+        ("fixed", "Fixed Amount"),
+        ("percentage", "Percentage of Principal"),
+    ], string="Fee Type", required=True, default="percentage")
+    
+    amount = fields.Float(
+        string="Amount / Percentage",
+        digits=(12, 2),
+        required=True,
+        help="Fixed amount or percentage (e.g. 3.5 for 3.5%).",
+    )
+    
+    is_credit_life = fields.Boolean(
+        string="Is Credit Life?",
+        default=False,
+        help="If checked, this fee will trigger a Vendor PO for Credit Life insurance.",
+    )
+    
+    vendor_id = fields.Many2one(
+        "res.partner",
+        string="Vendor",
+        help="The vendor to whom this fee is paid (required if Credit Life).",
+    )
+
+    @api.constrains("is_credit_life", "vendor_id")
+    def _check_vendor(self):
+        for rec in self:
+            if rec.is_credit_life and not rec.vendor_id:
+                raise ValidationError(_("A Vendor is required for Credit Life fees."))
+
+
+class AlbaLoanFeeLine(models.Model):
+    """Actual fee lines on a loan application"""
+    _name = "alba.loan.fee.line"
+    _description = "Loan Fee Line"
+    _order = "sequence, id"
+
+    application_id = fields.Many2one(
+        "alba.loan.application",
+        string="Loan Application",
+        required=True,
+        ondelete="cascade",
+    )
+    sequence = fields.Integer(default=10)
+    fee_product_id = fields.Many2one(
+        "product.product",
+        string="Fee Product",
+        required=True,
+    )
+    name = fields.Char(related="fee_product_id.name", readonly=True)
+    
+    fee_type = fields.Selection([
+        ("fixed", "Fixed Amount"),
+        ("percentage", "Percentage of Principal"),
+    ], string="Fee Type", required=True, default="percentage")
+    
+    amount = fields.Float(
+        string="Amount / Percentage",
+        digits=(12, 2),
+        required=True,
+    )
+    
+    calculated_amount = fields.Monetary(
+        string="Calculated Fee",
+        currency_field="currency_id",
+        compute="_compute_calculated_amount",
+        store=True,
+    )
+    
+    currency_id = fields.Many2one(
+        related="application_id.currency_id",
+        store=True,
+        readonly=True,
+    )
+    
+    is_credit_life = fields.Boolean(string="Is Credit Life?", default=False)
+    vendor_id = fields.Many2one("res.partner", string="Vendor")
+    
+    manual_override = fields.Boolean(
+        string="Manual Override",
+        default=False,
+        help="If checked, you can manually set the calculated amount.",
+    )
+    override_amount = fields.Monetary(
+        string="Override Amount",
+        currency_field="currency_id",
+    )
+
+    @api.depends("amount", "fee_type", "application_id.requested_amount", "manual_override", "override_amount")
+    def _compute_calculated_amount(self):
+        for rec in self:
+            if rec.manual_override:
+                rec.calculated_amount = rec.override_amount
+            else:
+                if rec.fee_type == "fixed":
+                    rec.calculated_amount = rec.amount
+                else:
+                    principal = rec.application_id.requested_amount or 0.0
+                    rec.calculated_amount = principal * (rec.amount / 100.0)

@@ -448,6 +448,16 @@ class AlbaInvestment(models.Model):
         self.write({"state": "withdrawn"})
         self.message_post(body=_("Investment marked as <b>Withdrawn</b>."))
 
+    def action_sync_currency_rates(self):
+        """Sync currency rates to accounting"""
+        sync_service = self.env["alba.currency.rate.sync"]
+        return sync_service.sync_rates_to_accounting()
+    
+    def action_create_accounting_move(self):
+        """Create accounting move for investment with currency integration"""
+        sync_service = self.env["alba.currency.rate.sync"]
+        return sync_service.create_accounting_move_for_investment(self)
+
     def action_suspend(self):
         """Suspend the investment."""
         self.ensure_one()

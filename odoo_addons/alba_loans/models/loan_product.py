@@ -78,20 +78,12 @@ class AlbaLoanProduct(models.Model):
     )
 
     # ─── Amount Limits ────────────────────────────────────────────────────────
-    currency_id = fields.Many2one(
-        comodel_name="res.currency",
-        string="Currency",
-        default=lambda self: self.env.company.currency_id,
-        required=True,
-    )
     min_amount = fields.Monetary(
         string="Minimum Loan Amount",
-        currency_field="currency_id",
         required=True,
     )
     max_amount = fields.Monetary(
         string="Maximum Loan Amount",
-        currency_field="currency_id",
         required=True,
     )
 
@@ -206,28 +198,24 @@ class AlbaLoanProduct(models.Model):
         help="Enforce business registration certificate upload.",
     )
 
-    # ─── Other Charges ────────────────────────────────────────────────────────
-    other_charges_percentage = fields.Float(
-        string="Other Charges (%)",
-        digits=(5, 2),
-        default=0.0,
-        help="Additional charges as percentage of principal.",
+    # ─── Fees & Charges (New Product-based Architecture) ──────────────────────
+    fee_template_ids = fields.One2many(
+        "alba.loan.fee.template",
+        "product_id",
+        string="Fee Templates",
+        help="Configure standard fees (Processing, Insurance, Tracking, etc.) as products.",
     )
-    origination_fee_percentage = fields.Float(
-        string="Origination Fee (%)",
-        digits=(5, 2),
-        default=0.0,
-    )
-    insurance_fee_percentage = fields.Float(
-        string="Insurance Fee (%)",
-        digits=(5, 2),
-        default=0.0,
-    )
-    processing_fee_percentage = fields.Float(
-        string="Processing Fee (%)",
-        digits=(5, 2),
-        default=0.0,
-    )
+
+    def calculate_total_fees(self, amount):
+        """Calculate total fees based on configured templates."""
+        self.ensure_one()
+        total_fees = 0.0
+        for template in self.fee_template_ids:
+            if template.fee_type == "fixed":
+                total_fees += template.amount
+            else:
+                total_fees += amount * (template.amount / 100.0)
+        return total_fees
 
     # ─── Accounting Configuration ─────────────────────────────────────────────
     account_loan_receivable_id = fields.Many2one(
@@ -250,6 +238,13 @@ class AlbaLoanProduct(models.Model):
         tracking=True,
         domain="[('account_type', '=', 'income')]",
         help="Account credited when fees are collected.",
+    )
+    account_clearing_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Loan Clearing Account",
+        tracking=True,
+        domain="[('account_type', 'in', ['asset_current', 'liability_current'])]",
+        help="Intermediary account for disbursements. DR Loan Receivable, CR Clearing; then Payment Voucher clears this account.",
     )
     account_insurance_receivable_id = fields.Many2one(
         comodel_name="account.account",
@@ -306,15 +301,6 @@ class AlbaLoanProduct(models.Model):
             )
 
     # ─── Business Logic ───────────────────────────────────────────────────────
-    def calculate_total_fees(self, principal):
-        """Return total one-off fees for a given principal amount."""
-        self.ensure_one()
-        total_pct = (
-            self.origination_fee_percentage
-            + self.insurance_fee_percentage
-            + self.processing_fee_percentage
-        )
-        return round(principal * total_pct / 100, 2)
 
     def calculate_flat_interest(self, principal, months):
         """Total interest for flat-rate method: I = P × r × n."""

@@ -302,6 +302,29 @@ class AlbaLoanApplication(models.Model):
         compute="_compute_guarantor_count",
     )
 
+    # ── Fees & Costs ──────────────────────────────────────────────────────────
+    fee_line_ids = fields.One2many(
+        "alba.loan.fee.line",
+        "application_id",
+        string="Fee Breakdown",
+    )
+
+    @api.onchange("loan_product_id")
+    def _onchange_loan_product_fees(self):
+        """Pre-populate fee lines when product changes."""
+        if self.loan_product_id:
+            lines = []
+            for template in self.loan_product_id.fee_template_ids:
+                lines.append((0, 0, {
+                    "fee_product_id": template.fee_product_id.id,
+                    "fee_type": template.fee_type,
+                    "amount": template.amount,
+                    "is_credit_life": template.is_credit_life,
+                    "vendor_id": template.vendor_id.id,
+                    "sequence": template.sequence,
+                }))
+            self.fee_line_ids = [(5, 0, 0)] + lines
+
     # ── Collateral ────────────────────────────────────────────────────────────
     loan_collateral_ids = fields.One2many(
         "alba.loan.collateral",
@@ -441,7 +464,7 @@ class AlbaLoanApplication(models.Model):
             last_score = self.env["alba.credit.score"].search([("application_id", "=", rec.id)], order="create_date desc", limit=1)
             rec.risk_score = last_score.final_score if last_score else 0.0
 
-    @api.depends("loan_product_id", "requested_amount", "tenure_months")
+    @api.depends("loan_product_id", "requested_amount", "tenure_months", "fee_line_ids.calculated_amount")
     def _compute_estimated_totals(self):
         for rec in self:
             product = rec.loan_product_id
@@ -457,7 +480,13 @@ class AlbaLoanApplication(models.Model):
             else:
                 schedule = product.calculate_reducing_schedule(amount, months)
                 interest = sum(row["interest_due"] for row in schedule)
-            fees = product.calculate_total_fees(amount)
+            
+            # Use fee lines if they exist, otherwise fallback to product logic (for UI responsiveness)
+            if rec.fee_line_ids:
+                fees = sum(rec.fee_line_ids.mapped("calculated_amount"))
+            else:
+                fees = product.calculate_total_fees(amount)
+                
             rec.estimated_total_interest = interest
             rec.estimated_total_fees = fees
             rec.estimated_total_repayable = amount + interest + fees

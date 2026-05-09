@@ -51,6 +51,7 @@ Accounting
         "mail",
         "contacts",
         "base_setup",
+        "purchase",
     ],
     "external_dependencies": {
         "python": ["requests"],
@@ -61,13 +62,13 @@ Accounting
         # ── Master data / sequences ──────────────────────────────────────────
         "data/sequence_data.xml",
         "data/loan_modification_sequences.xml",
+        "data/fee_product_data.xml",
         "data/loan_product_data.xml",
         "data/collection_stage_data.xml",
         "data/approval_limit_data.xml",
         # ── Location and Tagging data ───────────────────────────────────────
         "data/kenya_counties_data.xml",
         "data/customer_tag_data.xml",
-        "data/currency_data.xml",
         "data/business_sector_data.xml",
         "data/business_subsector_data.xml",
         "data/loan_status_reason_data.xml",
@@ -84,7 +85,6 @@ Accounting
         "views/kyc_provider_views.xml",
         "views/location_views.xml",
         "views/customer_tag_views.xml",
-        "views/currency_views.xml",
         "views/business_sector_views.xml",
         "views/loan_status_reason_views.xml",
         "views/loan_application_views.xml",
@@ -96,6 +96,7 @@ Accounting
         "views/loan_dashboard_views.xml",
         # ── Loan views with computed fields (load last to ensure models ready) ─
         "views/loan_views.xml",
+
         # ── Financial Reports — security + views must come before menus.xml ──
         "security/security_report_financials.xml",
         "views/report_financials_views.xml",
@@ -142,5 +143,10 @@ Accounting
     "application": True,
     "sequence": 10,
     "web_icon": "alba_loans,static/description/icon.png",
+    "assets": {
+        "web.assets_backend": [
+            "alba_loans/static/src/js/search_persistence.js",
+        ],
+    },
     "post_init_hook": "post_init_hook",
 }
