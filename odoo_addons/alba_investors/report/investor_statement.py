@@ -29,11 +29,13 @@ class InvestorStatementReport(models.AbstractModel):
                 'date': accrual.accrual_date,
                 'description': accrual.display_name,
                 'opening': accrual.opening_balance,
-                'interest': accrual.interest_amount,
-                'closing': accrual.closing_balance,
+                'debit': 0, # Assuming no debits for now, or fetch from withdrawals if implemented
+                'credit': accrual.interest_amount,
+                'balance': accrual.closing_balance,
             })
 
-        total_interest = sum(l['interest'] for l in lines)
+        total_debit = sum(l['debit'] for l in lines)
+        total_credit = sum(l['credit'] for l in lines)
 
         return {
             'doc_ids': docids,
@@ -43,7 +45,8 @@ class InvestorStatementReport(models.AbstractModel):
             'lines': lines,
             'date_from': date_from,
             'date_to': date_to,
-            'total_interest': total_interest,
+            'total_debit': total_debit,
+            'total_credit': total_credit,
             'res_company': investor.env.company,
             'currency': investor.currency_id.currency_id if investor.currency_id else investor.env.company.currency_id,
         }

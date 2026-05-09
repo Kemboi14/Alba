@@ -2,113 +2,142 @@
 <odoo>
     <template id="investor_statement_template">
         <t t-call="web.html_container">
-            <t t-call="web.external_layout">
-                <div class="page">
-                    
-                    <!-- HEADER: Logo + Title -->
-                    <div class="row mb-4">
-                        <div class="col-6">
-                            <img t-if="res_company.logo" 
+            <t t-foreach="docs" t-as="investor">
+            <div class="page" style="font-family: Arial, sans-serif; font-size: 12px;">
+
+                <!-- HEADER -->
+                <table width="100%" style="margin-bottom: 10px;">
+                    <tr>
+                        <td width="50%">
+                            <img t-if="res_company.logo"
                                  t-att-src="image_data_uri(res_company.logo)"
-                                 style="max-height:80px;"/>
-                        </div>
-                        <div class="col-6 text-end">
-                            <h4 style="color:#1a3a6b;">ACCOUNT STATEMENT</h4>
-                            <div t-esc="investor.investor_number" 
-                                 style="color:#1a3a6b; font-size:18px; font-weight:bold;"/>
-                            <!-- Barcode -->
+                                 style="max-height: 80px;"/>
+                        </td>
+                        <td width="50%" style="text-align: right; vertical-align: top;">
+                            <div style="color: #2E75B6; font-size: 22px; font-weight: bold;">
+                                <t t-esc="investor.investor_number"/>
+                            </div>
                             <img t-att-src="'/report/barcode/Code128/' + (investor.investor_number or 'INV-000')"
-                                 style="max-height:40px;"/>
-                        </div>
-                    </div>
+                                 style="max-height: 35px; margin-top: 4px;"/>
+                        </td>
+                    </tr>
+                </table>
 
-                    <!-- BRANCH -->
-                    <div class="mb-2">
-                        <strong>BRANCH: <t t-esc="res_company.name"/> - Investors</strong>
-                    </div>
+                <!-- BRANCH + TITLE -->
+                <table width="100%" style="margin-bottom: 8px;">
+                    <tr>
+                        <td>
+                            <strong>BRANCH: <t t-esc="res_company.name"/> - Investors</strong>
+                        </td>
+                        <td style="text-align: right;">
+                            <span style="color: #2E75B6; font-size: 16px; font-weight: bold;">
+                                ACCOUNT STATEMENT
+                            </span>
+                        </td>
+                    </tr>
+                </table>
 
-                    <!-- CUSTOMER + ACCOUNT INFO BOXES -->
-                    <div class="row mb-4">
-                        <div class="col-6">
-                            <table class="table table-bordered">
+                <!-- CUSTOMER + ACCOUNT INFO BOXES -->
+                <table width="100%" style="margin-bottom: 12px; border-collapse: collapse;">
+                    <tr>
+                        <!-- Left box: Customer info -->
+                        <td width="48%" style="
+                            border: 2px solid #2E75B6;
+                            padding: 10px 14px;
+                            vertical-align: top;">
+                            <strong>Customer Name</strong><br/>
+                            <t t-esc="investor.partner_id.name"/>
+                            <br/><br/>
+                            <strong>ID Number</strong><br/>
+                            <t t-esc="investor.id_number or ''"/>
+                        </td>
+                        <td width="4%"></td>
+                        <!-- Right box: Account info -->
+                        <td width="48%" style="
+                            border: 2px solid #2E75B6;
+                            padding: 10px 14px;
+                            vertical-align: top;">
+                            <table width="100%" style="border-collapse: collapse;">
                                 <tr>
-                                    <td>
-                                        <strong>Customer Name</strong><br/>
-                                        <t t-esc="investor.partner_id.name"/><br/><br/>
-                                        <strong>ID Number</strong><br/>
-                                        <t t-esc="investor.id_number or ''"/>
-                                    </td>
+                                    <td><strong>Investor No.</strong></td>
+                                    <td>: <t t-esc="investor.investor_number"/></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Product</strong></td>
+                                    <td>: <t t-esc="getattr(investor, 'product_id', False) and investor.product_id.name or 'Investments Received'"/></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Period</strong></td>
+                                    <td>: <t t-esc="date_from"/> to <t t-esc="date_to"/></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Statement Date</strong></td>
+                                    <td>: <t t-esc="date_to"/></td>
                                 </tr>
                             </table>
-                        </div>
-                        <div class="col-6">
-                            <table class="table table-bordered">
-                                <tr>
-                                    <td>
-                                        <strong>Investor No.</strong> : 
-                                        <t t-esc="investor.investor_number"/><br/>
-                                        <strong>Portfolio Value</strong> : 
-                                        <t t-esc="investor.current_portfolio_value"
-                                           t-options='{"widget":"monetary","display_currency":currency}'/><br/>
-                                        <strong>Period</strong> : 
-                                        <t t-esc="date_from"/> to <t t-esc="date_to"/><br/>
-                                        <strong>Statement Date</strong> : 
-                                        <t t-esc="date_to"/>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-                    </div>
+                        </td>
+                    </tr>
+                </table>
 
-                    <!-- TRANSACTIONS TABLE -->
-                    <table class="table table-bordered">
-                        <thead style="background-color:#1a3a6b; color:white;">
+                <!-- TRANSACTIONS TABLE -->
+                <table width="100%" style="border-collapse: collapse; margin-bottom: 10px;">
+                    <thead>
+                        <tr style="background-color: #1F3864; color: white;">
+                            <th style="padding: 8px 10px; text-align: left; border: 1px solid #1F3864;">Date</th>
+                            <th style="padding: 8px 10px; text-align: left; border: 1px solid #1F3864;">Description</th>
+                            <th style="padding: 8px 10px; text-align: right; border: 1px solid #1F3864;">Debits</th>
+                            <th style="padding: 8px 10px; text-align: right; border: 1px solid #1F3864;">Credits</th>
+                            <th style="padding: 8px 10px; text-align: right; border: 1px solid #1F3864;">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-foreach="lines" t-as="line">
                             <tr>
-                                <th>Date</th>
-                                <th>Description</th>
-                                <th class="text-end">Opening</th>
-                                <th class="text-end">Interest</th>
-                                <th class="text-end">Closing</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <t t-foreach="lines" t-as="line">
-                                <tr>
-                                    <td><t t-esc="line['date']"/></td>
-                                    <td><t t-esc="line['description']"/></td>
-                                    <td class="text-end">
-                                        <t t-esc="line['opening']" 
-                                           t-options='{"widget":"monetary","display_currency":currency}'/>
-                                    </td>
-                                    <td class="text-end">
-                                        <t t-esc="line['interest']"
-                                           t-options='{"widget":"monetary","display_currency":currency}'/>
-                                    </td>
-                                    <td class="text-end">
-                                        <t t-esc="line['closing']"
-                                           t-options='{"widget":"monetary","display_currency":currency}'/>
-                                    </td>
-                                </tr>
-                            </t>
-                        </tbody>
-                        <tfoot>
-                            <tr style="font-weight:bold;">
-                                <td colspan="3" class="text-center">Totals</td>
-                                <td class="text-end">
-                                    <t t-esc="total_interest"
-                                       t-options='{"widget":"monetary","display_currency":currency}'/>
+                                <td style="padding: 6px 10px; border: 0.5px solid #cccccc;">
+                                    <t t-esc="line['date']"/>
                                 </td>
-                                <td></td>
+                                <td style="padding: 6px 10px; border: 0.5px solid #cccccc;">
+                                    <t t-esc="line['description']"/>
+                                </td>
+                                <td style="padding: 6px 10px; border: 0.5px solid #cccccc; text-align: right;">
+                                    <t t-if="line['debit']">
+                                        <t t-esc="'{:,.2f}'.format(line['debit'])"/>
+                                    </t>
+                                    <t t-else="">0.00</t>
+                                </td>
+                                <td style="padding: 6px 10px; border: 0.5px solid #cccccc; text-align: right;">
+                                    <t t-if="line['credit']">
+                                        <t t-esc="'{:,.2f}'.format(line['credit'])"/>
+                                    </t>
+                                    <t t-else="">0.00</t>
+                                </td>
+                                <td style="padding: 6px 10px; border: 0.5px solid #cccccc; text-align: right;">
+                                    <t t-esc="'{:,.2f}'.format(line['balance'])"/>
+                                </td>
                             </tr>
-                        </tfoot>
-                    </table>
+                        </t>
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight: bold; background-color: #f2f2f2;">
+                            <td colspan="2" style="padding: 8px 10px; text-align: center; border: 1px solid #cccccc;">
+                                Totals
+                            </td>
+                            <td style="padding: 8px 10px; text-align: right; border: 1px solid #cccccc;">
+                                <t t-esc="'{:,.2f}'.format(total_debit)"/>
+                            </td>
+                            <td style="padding: 8px 10px; text-align: right; border: 1px solid #cccccc;">
+                                <t t-esc="'{:,.2f}'.format(total_credit)"/>
+                            </td>
+                            <td style="padding: 8px 10px; border: 1px solid #cccccc;"></td>
+                        </tr>
+                    </tfoot>
+                </table>
 
-                </div>
+            </div>
             </t>
         </t>
     </template>
 
-    <!-- Register the report -->
     <record id="action_investor_statement_report" model="ir.actions.report">
         <field name="name">Investor Account Statement</field>
         <field name="model">alba.investor</field>
@@ -117,5 +146,6 @@
         <field name="report_file">alba_investors.investor_statement_template</field>
         <field name="binding_model_id" ref="alba_loans.model_alba_investor"/>
         <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="base.paperformat_a4"/>
     </record>
 </odoo>
