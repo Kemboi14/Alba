@@ -77,13 +77,22 @@ class AlbaLoanProduct(models.Model):
         tracking=True,
     )
 
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency",
+        default=lambda self: self.env.company.currency_id,
+        required=True,
+    )
+
     # ─── Amount Limits ────────────────────────────────────────────────────────
     min_amount = fields.Monetary(
         string="Minimum Loan Amount",
+        currency_field="currency_id",
         required=True,
     )
     max_amount = fields.Monetary(
         string="Maximum Loan Amount",
+        currency_field="currency_id",
         required=True,
     )
 
