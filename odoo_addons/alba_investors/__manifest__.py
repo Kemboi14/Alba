@@ -47,6 +47,7 @@ Manages the full investor lifecycle:
         # Reports
         "report/investor_reports.xml",
         "report/investment_statement_report.xml",
+        "report/investor_statement_report_template.xml",
         # Menus last
         "views/menus.xml",
     ],

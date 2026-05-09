@@ -38,6 +38,11 @@ class ResPartner(models.Model):
         string="Monthly Net Income",
         currency_field="currency_id",
     )
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency",
+        default=lambda self: self.env.company.currency_id,
+    )
 
     # ── Alba Links ────────────────────────────────────────────────────────────
     is_alba_customer = fields.Boolean(string="Is Alba Customer", compute="_compute_alba_links", store=True)

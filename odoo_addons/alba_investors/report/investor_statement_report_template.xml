@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="investor_statement_template">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    
+                    <!-- HEADER: Logo + Title -->
+                    <div class="row mb-4">
+                        <div class="col-6">
+                            <img t-if="res_company.logo" 
+                                 t-att-src="image_data_uri(res_company.logo)"
+                                 style="max-height:80px;"/>
+                        </div>
+                        <div class="col-6 text-end">
+                            <h4 style="color:#1a3a6b;">ACCOUNT STATEMENT</h4>
+                            <div t-esc="investor.investor_number" 
+                                 style="color:#1a3a6b; font-size:18px; font-weight:bold;"/>
+                            <!-- Barcode -->
+                            <img t-att-src="'/report/barcode/Code128/' + (investor.investor_number or 'INV-000')"
+                                 style="max-height:40px;"/>
+                        </div>
+                    </div>
+
+                    <!-- BRANCH -->
+                    <div class="mb-2">
+                        <strong>BRANCH: <t t-esc="res_company.name"/> - Investors</strong>
+                    </div>
+
+                    <!-- CUSTOMER + ACCOUNT INFO BOXES -->
+                    <div class="row mb-4">
+                        <div class="col-6">
+                            <table class="table table-bordered">
+                                <tr>
+                                    <td>
+                                        <strong>Customer Name</strong><br/>
+                                        <t t-esc="investor.partner_id.name"/><br/><br/>
+                                        <strong>ID Number</strong><br/>
+                                        <t t-esc="investor.id_number or ''"/>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-6">
+                            <table class="table table-bordered">
+                                <tr>
+                                    <td>
+                                        <strong>Investor No.</strong> : 
+                                        <t t-esc="investor.investor_number"/><br/>
+                                        <strong>Portfolio Value</strong> : 
+                                        <t t-esc="investor.current_portfolio_value"
+                                           t-options='{"widget":"monetary","display_currency":currency}'/><br/>
+                                        <strong>Period</strong> : 
+                                        <t t-esc="date_from"/> to <t t-esc="date_to"/><br/>
+                                        <strong>Statement Date</strong> : 
+                                        <t t-esc="date_to"/>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TRANSACTIONS TABLE -->
+                    <table class="table table-bordered">
+                        <thead style="background-color:#1a3a6b; color:white;">
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th class="text-end">Opening</th>
+                                <th class="text-end">Interest</th>
+                                <th class="text-end">Closing</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="lines" t-as="line">
+                                <tr>
+                                    <td><t t-esc="line['date']"/></td>
+                                    <td><t t-esc="line['description']"/></td>
+                                    <td class="text-end">
+                                        <t t-esc="line['opening']" 
+                                           t-options='{"widget":"monetary","display_currency":currency}'/>
+                                    </td>
+                                    <td class="text-end">
+                                        <t t-esc="line['interest']"
+                                           t-options='{"widget":"monetary","display_currency":currency}'/>
+                                    </td>
+                                    <td class="text-end">
+                                        <t t-esc="line['closing']"
+                                           t-options='{"widget":"monetary","display_currency":currency}'/>
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                        <tfoot>
+                            <tr style="font-weight:bold;">
+                                <td colspan="3" class="text-center">Totals</td>
+                                <td class="text-end">
+                                    <t t-esc="total_interest"
+                                       t-options='{"widget":"monetary","display_currency":currency}'/>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- Register the report -->
+    <record id="action_investor_statement_report" model="ir.actions.report">
+        <field name="name">Investor Account Statement</field>
+        <field name="model">alba.investor</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">alba_investors.investor_statement_template</field>
+        <field name="report_file">alba_investors.investor_statement_template</field>
+        <field name="binding_model_id" ref="alba_loans.model_alba_investor"/>
+        <field name="binding_type">report</field>
+    </record>
+</odoo>
