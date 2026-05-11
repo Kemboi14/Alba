@@ -130,11 +130,11 @@ class AlbaLoanFeeLine(models.Model):
     def _onchange_fee_template_id(self):
         """Auto-populate fields from the selected fee template."""
         if self.fee_template_id:
-            self.fee_product_id = self.fee_template_id.fee_product_id
+            self.fee_product_id = self.fee_template_id.fee_product_id.id if self.fee_template_id.fee_product_id else False
             self.amount = self.fee_template_id.amount
             self.fee_type = self.fee_template_id.fee_type
             self.is_credit_life = self.fee_template_id.is_credit_life
-            self.vendor_id = self.fee_template_id.vendor_id
+            self.vendor_id = self.fee_template_id.vendor_id.id if self.fee_template_id.vendor_id else False
             self.sequence = self.fee_template_id.sequence
 
     @api.depends(

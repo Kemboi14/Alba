@@ -662,6 +662,10 @@ class AlbaLoanApplication(models.Model):
                     if not template.fee_product_id:
                         _logger.warning(f"Template {template.id} missing fee_product_id")
                         continue
+                    # Verify product actually exists in database
+                    if not self.env['product.product'].browse(template.fee_product_id.id).exists():
+                        _logger.error(f"Fee product {template.fee_product_id.id} does not exist for template {template.id}")
+                        continue
                     _logger.info(f"Template {template.id} -> Product {template.fee_product_id.id}")
                     lines.append({
                         'application_id': rec.id,
@@ -1098,6 +1102,10 @@ class AlbaLoanApplication(models.Model):
                 for template in app.loan_product_id.fee_template_ids:
                     if not template.fee_product_id:
                         _logger.warning(f"Template {template.id} missing fee_product_id")
+                        continue
+                    # Verify product actually exists in database
+                    if not self.env['product.product'].browse(template.fee_product_id.id).exists():
+                        _logger.error(f"Fee product {template.fee_product_id.id} does not exist for template {template.id}")
                         continue
                     _logger.info(f"Template {template.id} -> Product {template.fee_product_id.id}")
                     lines.append({
