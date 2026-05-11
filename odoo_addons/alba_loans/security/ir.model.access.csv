@@ -174,3 +174,8 @@ access_alba_loan_fee_line_manager,alba.loan.fee.line manager,model_alba_loan_fee
 access_alba_loan_fee_line_director,alba.loan.fee.line director,model_alba_loan_fee_line,alba_loans.group_director,1,1,1,1
 access_alba_loan_fee_template_admin,alba.loan.fee.template admin,model_alba_loan_fee_template,base.group_system,1,1,1,1
 access_alba_loan_fee_template_user,alba.loan.fee.template user,model_alba_loan_fee_template,base.group_user,1,1,1,1
+access_alba_county_admin,alba.county admin,model_alba_county,base.group_system,1,1,1,1
+access_alba_county_user,alba.county user,model_alba_county,base.group_user,1,1,1,1
+access_alba_sub_county_admin,alba.sub.county admin,model_alba_sub_county,base.group_system,1,1,1,1
+access_alba_sub_county_user,alba.sub.county user,model_alba_sub_county,base.group_user,1,1,1,1
+
