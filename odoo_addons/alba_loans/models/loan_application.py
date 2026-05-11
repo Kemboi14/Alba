@@ -662,17 +662,25 @@ class AlbaLoanApplication(models.Model):
             new_fee_lines = []
             for command in vals['fee_line_ids']:
                 if command[0] == 0:  # Create command
-                    if command[2] and command[2].get('fee_product_id'):
+                    if command[2] and command[2].get('fee_product_id') and command[2].get('amount'):
                         new_fee_lines.append(command)
                     else:
                         _logger.warning("Filtering out invalid fee line command in write: %s", command)
                 elif command[0] == 1:  # Update command
+                    is_invalid = False
                     if command[2] and 'fee_product_id' in command[2] and not command[2].get('fee_product_id'):
-                        _logger.warning("Filtering out invalid fee product update in write: %s", command)
-                        # Remove the fee_product_id update from the command
+                        is_invalid = True
+                    if command[2] and 'amount' in command[2] and not command[2].get('amount'):
+                        is_invalid = True
+                    
+                    if is_invalid:
+                        _logger.warning("Filtering out invalid fee update in write: %s", command)
+                        # Remove the broken fields from the update
                         new_vals = dict(command[2])
-                        del new_vals['fee_product_id']
-                        new_fee_lines.append((1, command[1], new_vals))
+                        new_vals.pop('fee_product_id', None)
+                        new_vals.pop('amount', None)
+                        if new_vals:
+                            new_fee_lines.append((1, command[1], new_vals))
                     else:
                         new_fee_lines.append(command)
                 else:
@@ -1120,7 +1128,7 @@ class AlbaLoanApplication(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # Pre-process vals_list to remove any fee lines without a product_id
+        # Pre-process vals_list to remove any fee lines without product_id or amount
         for vals in vals_list:
             if vals.get("application_number", _("New")) == _("New"):
                 vals["application_number"] = self.env["ir.sequence"].next_by_code("alba.loan.application.seq") or _("New")
@@ -1130,7 +1138,7 @@ class AlbaLoanApplication(models.Model):
                 new_fee_lines = []
                 for command in vals['fee_line_ids']:
                     if command[0] == 0:  # Create command
-                        if command[2] and command[2].get('fee_product_id'):
+                        if command[2] and command[2].get('fee_product_id') and command[2].get('amount'):
                             new_fee_lines.append(command)
                         else:
                             _logger.warning("Filtering out invalid fee line command in create: %s", command)

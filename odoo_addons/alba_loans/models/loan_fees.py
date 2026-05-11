@@ -82,7 +82,7 @@ class AlbaLoanFeeLine(models.Model):
     fee_product_id = fields.Many2one(
         "product.product",
         string="Fee Product",
-        required=True,
+        required=False,  # Removed to prevent UI blockage
     )
     name = fields.Char(related="fee_product_id.name", readonly=True)
 
@@ -94,8 +94,16 @@ class AlbaLoanFeeLine(models.Model):
     amount = fields.Float(
         string="Amount / Percentage",
         digits=(12, 2),
-        required=True,
+        required=False,  # Removed to prevent UI blockage
     )
+
+    @api.constrains("fee_product_id", "amount")
+    def _check_fee_data(self):
+        for rec in self:
+            if not rec.fee_product_id:
+                raise ValidationError(_("Fee Product is required on all fee lines."))
+            if not rec.amount and not rec.manual_override:
+                raise ValidationError(_("Amount is required on fee line for %s.") % rec.fee_product_id.name)
 
     calculated_amount = fields.Monetary(
         string="Calculated Fee",
