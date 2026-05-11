@@ -118,9 +118,9 @@
 
                         <page string="Fees &amp; Costs" name="fees">
                             <field name="fee_line_ids" nolabel="1">
-                                <list editable="bottom" decoration-info="manual_override">
+                                <list editable="bottom" decoration-info="manual_override" create="0">
                                     <field name="sequence" widget="handle"/>
-                                    <field name="fee_product_id" readonly="1"/>
+                                    <field name="fee_product_id"/>
                                     <field name="fee_type" readonly="1"/>
                                     <field name="amount" readonly="1"/>
                                     <field name="calculated_amount" sum="Total Fees"/>

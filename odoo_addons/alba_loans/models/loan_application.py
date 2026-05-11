@@ -653,19 +653,41 @@ class AlbaLoanApplication(models.Model):
             _logger.warning("Could not send automated employer email for %s: Template or Employer Email missing.", self.application_number)
 
     def write(self, vals):
+        # Filter out invalid fee lines in write
+        if 'fee_line_ids' in vals:
+            new_fee_lines = []
+            for command in vals['fee_line_ids']:
+                if command[0] == 0:  # Create command
+                    if command[2] and command[2].get('fee_product_id'):
+                        new_fee_lines.append(command)
+                    else:
+                        _logger.warning("Filtering out invalid fee line command in write: %s", command)
+                elif command[0] == 1:  # Update command
+                    if command[2] and 'fee_product_id' in command[2] and not command[2].get('fee_product_id'):
+                        _logger.warning("Filtering out invalid fee product update in write: %s", command)
+                        # Remove the fee_product_id update from the command
+                        new_vals = dict(command[2])
+                        del new_vals['fee_product_id']
+                        new_fee_lines.append((1, command[1], new_vals))
+                    else:
+                        new_fee_lines.append(command)
+                else:
+                    new_fee_lines.append(command)
+            vals['fee_line_ids'] = new_fee_lines
+
         res = super(AlbaLoanApplication, self).write(vals)
         if 'loan_product_id' in vals:
             for rec in self:
                 _logger.info(f"Updating fees for app {rec.id}, product {rec.loan_product_id.name}")
                 # Delete existing fee lines and recreate from new product templates
-                rec.fee_line_ids.unlink()
+                rec.sudo().fee_line_ids.unlink()
                 lines = []
                 for template in rec.loan_product_id.fee_template_ids:
                     if not template.fee_product_id:
                         _logger.warning(f"Template {template.id} missing fee_product_id")
                         continue
                     # Verify product actually exists in database
-                    if not self.env['product.product'].browse(template.fee_product_id.id).exists():
+                    if not self.env['product.product'].sudo().browse(template.fee_product_id.id).exists():
                         _logger.error(f"Fee product {template.fee_product_id.id} does not exist for template {template.id}")
                         continue
                     _logger.info(f"Template {template.id} -> Product {template.fee_product_id.id}")
@@ -681,7 +703,7 @@ class AlbaLoanApplication(models.Model):
                     })
                 if lines:
                     try:
-                        self.env['alba.loan.fee.line'].create(lines)
+                        self.env['alba.loan.fee.line'].sudo().create(lines)
                     except Exception as e:
                         _logger.error(f"Failed to create fee lines for app {rec.id}: {str(e)}")
                         raise
@@ -1094,6 +1116,24 @@ class AlbaLoanApplication(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # Pre-process vals_list to remove any fee lines without a product_id
+        for vals in vals_list:
+            if vals.get("application_number", _("New")) == _("New"):
+                vals["application_number"] = self.env["ir.sequence"].next_by_code("alba.loan.application.seq") or _("New")
+            
+            # Filter out invalid fee lines
+            if 'fee_line_ids' in vals:
+                new_fee_lines = []
+                for command in vals['fee_line_ids']:
+                    if command[0] == 0:  # Create command
+                        if command[2] and command[2].get('fee_product_id'):
+                            new_fee_lines.append(command)
+                        else:
+                            _logger.warning("Filtering out invalid fee line command in create: %s", command)
+                    else:
+                        new_fee_lines.append(command)
+                vals['fee_line_ids'] = new_fee_lines
+
         applications = super().create(vals_list)
         
         # Generate fees from loan product templates for new applications

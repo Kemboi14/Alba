@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
+import logging
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
+
+_logger = logging.getLogger(__name__)
 
 
 class AlbaLoanFeeTemplate(models.Model):
@@ -161,3 +164,17 @@ class AlbaLoanFeeLine(models.Model):
                 raise ValidationError(
                     _("A Vendor is required for Credit Life fee lines.")
                 )
+
+    def unlink(self):
+        """Harden unlink to provide better error messages if deletion is blocked."""
+        for rec in self:
+            _logger.info("Attempting to delete fee line %s (Product: %s) for application %s", 
+                        rec.id, rec.fee_product_id.name, rec.application_id.application_number)
+        try:
+            return super(AlbaLoanFeeLine, self).unlink()
+        except Exception as e:
+            _logger.error("Failed to delete fee lines: %s", str(e))
+            raise ValidationError(_(
+                "Cannot delete fee lines. They might be referenced by other records (e.g. Accounting Moves or Purchase Orders). "
+                "Error Details: %s"
+            ) % str(e))
