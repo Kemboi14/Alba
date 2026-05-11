@@ -183,11 +183,10 @@ class AlbaLoan(models.Model):
         help="Principal + all scheduled interest and fees.",
     )
     net_disbursement_amount = fields.Monetary(
-        string="Net Disbursement Amount",
-        compute="_compute_net_disbursement",
-        store=True,
+        string="Net Disbursed",
         currency_field="currency_id",
-        help="Amount actually paid to customer after deducting fees.",
+        compute="_compute_net_disbursement_amount",
+        store=True
     )
     total_paid = fields.Monetary(
         string="Total Paid",
@@ -465,14 +464,14 @@ class AlbaLoan(models.Model):
             rec.total_paid = sum(repayments.mapped("amount_paid"))
             rec.outstanding_balance = max(rec.total_repayable - rec.total_paid, 0.0)
 
-    @api.depends("application_id.fee_line_ids.calculated_amount", "principal_amount")
-    def _compute_net_disbursement(self):
-        for rec in self:
-            if rec.application_id:
-                total_fees = sum(rec.application_id.fee_line_ids.mapped("calculated_amount"))
-                rec.net_disbursement_amount = rec.principal_amount - total_fees
+    @api.depends("principal_amount", "application_id.fee_line_ids.calculated_amount")
+    def _compute_net_disbursement_amount(self):
+        for loan in self:
+            if loan.application_id:
+                total_fees = sum(loan.application_id.fee_line_ids.mapped("calculated_amount"))
+                loan.net_disbursement_amount = loan.principal_amount - total_fees
             else:
-                rec.net_disbursement_amount = rec.principal_amount
+                loan.net_disbursement_amount = loan.principal_amount
 
     @api.depends(
         "repayment_schedule_ids.status",
