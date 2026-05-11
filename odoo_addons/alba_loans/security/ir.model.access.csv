@@ -177,5 +177,5 @@ access_alba_loan_fee_template_user,alba.loan.fee.template user,model_alba_loan_f
 access_alba_county_admin,alba.county admin,model_alba_county,base.group_system,1,1,1,1
 access_alba_county_user,alba.county user,model_alba_county,base.group_user,1,1,1,1
 access_alba_sub_county_admin,alba.sub.county admin,model_alba_sub_county,base.group_system,1,1,1,1
-access_alba_sub_county_user,alba.sub.county user,model_alba_sub_county,base.group_user,1,1,1,1
-
+access_alba_sub_county_user,alba.sub.county user,model_alba_sub_county,base.group_user,1,1,1,1access_alba_ward_admin,alba.ward admin,model_alba_ward,base.group_system,1,1,1,1
+access_alba_ward_user,alba.ward user,model_alba_ward,base.group_user,1,1,1,1
