@@ -654,12 +654,15 @@ class AlbaLoanApplication(models.Model):
         res = super(AlbaLoanApplication, self).write(vals)
         if 'loan_product_id' in vals:
             for rec in self:
+                _logger.info(f"Updating fees for app {rec.id}, product {rec.loan_product_id.name}")
                 # Delete existing fee lines and recreate from new product templates
                 rec.fee_line_ids.unlink()
                 lines = []
                 for template in rec.loan_product_id.fee_template_ids:
                     if not template.fee_product_id:
+                        _logger.warning(f"Template {template.id} missing fee_product_id")
                         continue
+                    _logger.info(f"Template {template.id} -> Product {template.fee_product_id.id}")
                     lines.append({
                         'application_id': rec.id,
                         'fee_template_id': template.id,
@@ -671,7 +674,11 @@ class AlbaLoanApplication(models.Model):
                         'sequence': template.sequence,
                     })
                 if lines:
-                    self.env['alba.loan.fee.line'].create(lines)
+                    try:
+                        self.env['alba.loan.fee.line'].create(lines)
+                    except Exception as e:
+                        _logger.error(f"Failed to create fee lines for app {rec.id}: {str(e)}")
+                        raise
         if 'state' in vals and vals['state'] == 'disbursed':
             self._send_application_email("alba_loans.email_template_loan_disbursed")
         return res
@@ -1086,10 +1093,13 @@ class AlbaLoanApplication(models.Model):
         # Generate fees from loan product templates for new applications
         for app in applications:
             if app.loan_product_id and not app.fee_line_ids:
+                _logger.info(f"Creating fees for app {app.id}, product {app.loan_product_id.name}")
                 lines = []
                 for template in app.loan_product_id.fee_template_ids:
                     if not template.fee_product_id:
+                        _logger.warning(f"Template {template.id} missing fee_product_id")
                         continue
+                    _logger.info(f"Template {template.id} -> Product {template.fee_product_id.id}")
                     lines.append({
                         'application_id': app.id,
                         'fee_template_id': template.id,
@@ -1101,7 +1111,12 @@ class AlbaLoanApplication(models.Model):
                         'sequence': template.sequence,
                     })
                 if lines:
-                    self.env['alba.loan.fee.line'].create(lines)
+                    _logger.info(f"Creating {len(lines)} fee lines for app {app.id}")
+                    try:
+                        self.env['alba.loan.fee.line'].create(lines)
+                    except Exception as e:
+                        _logger.error(f"Failed to create fee lines for app {app.id}: {str(e)}")
+                        raise
         
         return applications
 
