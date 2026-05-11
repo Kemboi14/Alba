@@ -49,20 +49,11 @@
         />
 
     <menuitem
-            id="menu_alba_loan_applications_kanban"
-            name="Pipeline (Kanban)"
+            id="menu_alba_loan_applications_new"
+            name="New Loans"
             parent="menu_alba_loans_root_active"
             action="action_alba_loan_application"
             sequence="5"
-            groups="alba_loans.group_loan_user"
-        />
-
-    <menuitem
-            id="menu_alba_loan_applications_list"
-            name="All Applications"
-            parent="menu_alba_loans_root_active"
-            action="action_alba_loan_application_all"
-            sequence="10"
             groups="alba_loans.group_loan_user"
         />
 

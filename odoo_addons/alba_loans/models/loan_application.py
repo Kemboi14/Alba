@@ -142,7 +142,7 @@ class AlbaLoanApplication(models.Model):
         string="Net Disbursement",
         currency_field="currency_id",
         compute="_compute_estimated_totals",
-        help="Amount to be paid to customer (Approved Amount - Total Fees)",
+        help="Amount to be paid to customer after deducting fees (uses requested amount for draft loans, approved amount for approved loans)",
         store=False,
     )
 
@@ -512,7 +512,13 @@ class AlbaLoanApplication(models.Model):
             rec.estimated_total_interest = interest
             rec.estimated_total_fees = fees
             rec.estimated_total_repayable = amount + interest + fees
-            rec.net_disbursement_amount = approved - fees
+            
+            # Net disbursement: use approved amount if loan is approved, otherwise use requested amount
+            if rec.state in ('approved', 'disbursed', 'active', 'closed'):
+                base_amount = approved
+            else:
+                base_amount = amount
+            rec.net_disbursement_amount = base_amount - fees
 
     def _compute_loan_count(self):
         for rec in self:

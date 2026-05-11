@@ -2,6 +2,9 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError, UserError
 from markupsafe import Markup
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 class AlbaCustomer(models.Model):
@@ -284,11 +287,54 @@ class AlbaCustomer(models.Model):
     # ...existing code...
     notes = fields.Text(string="Internal Notes")
 
+    def _auto_init(self):
+        """Override to handle migration from SQL constraint to Python constraint."""
+        res = super()._auto_init()
+        
+        # Drop the old SQL constraint if it exists
+        self.env.cr.execute("""
+            SELECT conname 
+            FROM pg_constraint 
+            WHERE conrelid = 'alba_customer'::regclass 
+            AND conname = 'alba_customer_django_customer_id_uniq'
+        """)
+        
+        constraint_exists = self.env.cr.fetchone()
+        if constraint_exists:
+            self.env.cr.execute("""
+                ALTER TABLE alba_customer 
+                DROP CONSTRAINT IF EXISTS alba_customer_django_customer_id_uniq
+            """)
+            _logger.info("Dropped old SQL constraint on django_customer_id")
+        
+        # Clean up any duplicate django_customer_id values
+        self.env.cr.execute("""
+            WITH duplicates AS (
+                SELECT id, django_customer_id,
+                       ROW_NUMBER() OVER (PARTITION BY django_customer_id ORDER BY id) as rn
+                FROM alba_customer 
+                WHERE django_customer_id IS NOT NULL
+            )
+            UPDATE alba_customer 
+            SET django_customer_id = NULL 
+            WHERE id IN (SELECT id FROM duplicates WHERE rn > 1)
+        """)
+        
+        return res
+
+    # ── Constraints ───────────────────────────────────────────────────────────
+    @api.constrains('django_customer_id')
+    def _check_unique_django_customer_id(self):
+        for customer in self:
+            if customer.django_customer_id:
+                duplicates = self.search([
+                    ('django_customer_id', '=', customer.django_customer_id),
+                    ('id', '!=', customer.id)
+                ])
+                if duplicates:
+                    raise ValidationError(_("A customer with this Django Customer ID already exists."))
+
     # ── SQL constraints ───────────────────────────────────────────────────────
-    _unique_django_customer_id = models.Constraint(
-        "UNIQUE(django_customer_id)",
-        "A customer with this Django Customer ID already exists.",
-    )
     _unique_id_number = models.Constraint(
         "UNIQUE(id_number)",
         "A customer with this ID / Passport number already exists.",
