@@ -315,15 +315,19 @@ class AlbaLoanApplication(models.Model):
         if self.loan_product_id:
             lines = []
             for template in self.loan_product_id.fee_template_ids:
-                if not template.fee_product_id:
+                # STRICT FILTER: Skip if product OR amount is missing
+                if not template.fee_product_id or not template.amount:
+                    _logger.warning("Skipping incomplete fee template %s (Product: %s, Amount: %s)", 
+                                  template.id, template.fee_product_id.name if template.fee_product_id else "None", template.amount)
                     continue
+                
                 lines.append((0, 0, {
                     "fee_product_id": template.fee_product_id.id,
-                    "fee_type": template.fee_type,
-                    "amount": template.amount,
+                    "fee_type": template.fee_type or 'percentage',
+                    "amount": template.amount or 0.0,
                     "is_credit_life": template.is_credit_life,
                     "vendor_id": template.vendor_id.id if template.vendor_id else False,
-                    "sequence": template.sequence,
+                    "sequence": template.sequence or 10,
                 }))
             self.fee_line_ids = [(5, 0, 0)] + lines
 
