@@ -651,11 +651,12 @@ class AlbaLoanApplication(models.Model):
             _logger.warning("Could not send automated employer email for %s: Template or Employer Email missing.", self.application_number)
 
     def write(self, vals):
-        if 'state' in vals:
-            for rec in self:
-                if rec.state != vals['state']:
-                    rec._log_professional_status_change(rec.state, vals['state'])
-        return super(AlbaLoanApplication, self).write(vals)
+        res = super(AlbaLoanApplication, self).write(vals)
+        if 'loan_product_id' in vals:
+            self._onchange_loan_product_fees()
+        if 'state' in vals and vals['state'] == 'disbursed':
+            self._send_application_email("alba_loans.email_template_loan_disbursed")
+        return res
 
     def _log_professional_status_change(self, old_state, new_state):
         """Post a professional, formatted message to the chatter on status change."""
@@ -1062,12 +1063,14 @@ class AlbaLoanApplication(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        for vals in vals_list:
-            if vals.get("application_number", _("New")) == _("New"):
-                vals["application_number"] = self.env["ir.sequence"].next_by_code(
-                    "alba.loan.application.seq"
-                ) or _("New")
-        return super().create(vals_list)
+        applications = super().create(vals_list)
+        
+        # Generate fees from loan product templates for new applications
+        for app in applications:
+            if app.loan_product_id and not app.fee_line_ids:
+                app._onchange_loan_product_fees()
+        
+        return applications
 
     @api.model
     def _check_company(self, company_id):
