@@ -320,7 +320,7 @@ class AlbaLoanApplication(models.Model):
                     "fee_type": template.fee_type,
                     "amount": template.amount,
                     "is_credit_life": template.is_credit_life,
-                    "vendor_id": template.vendor_id.id,
+                    "vendor_id": template.vendor_id.id if template.vendor_id else False,
                     "sequence": template.sequence,
                 }))
             self.fee_line_ids = [(5, 0, 0)] + lines
@@ -1068,7 +1068,22 @@ class AlbaLoanApplication(models.Model):
         # Generate fees from loan product templates for new applications
         for app in applications:
             if app.loan_product_id and not app.fee_line_ids:
-                app._onchange_loan_product_fees()
+                lines = []
+                for template in app.loan_product_id.fee_template_ids:
+                    if not template.fee_product_id:
+                        continue
+                    lines.append({
+                        'application_id': app.id,
+                        'fee_template_id': template.id,
+                        'fee_product_id': template.fee_product_id.id,
+                        'fee_type': template.fee_type,
+                        'amount': template.amount,
+                        'is_credit_life': template.is_credit_life,
+                        'vendor_id': template.vendor_id.id if template.vendor_id else False,
+                        'sequence': template.sequence,
+                    })
+                if lines:
+                    self.env['alba.loan.fee.line'].create(lines)
         
         return applications
 
