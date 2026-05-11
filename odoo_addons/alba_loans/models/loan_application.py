@@ -653,7 +653,25 @@ class AlbaLoanApplication(models.Model):
     def write(self, vals):
         res = super(AlbaLoanApplication, self).write(vals)
         if 'loan_product_id' in vals:
-            self._onchange_loan_product_fees()
+            for rec in self:
+                # Delete existing fee lines and recreate from new product templates
+                rec.fee_line_ids.unlink()
+                lines = []
+                for template in rec.loan_product_id.fee_template_ids:
+                    if not template.fee_product_id:
+                        continue
+                    lines.append({
+                        'application_id': rec.id,
+                        'fee_template_id': template.id,
+                        'fee_product_id': template.fee_product_id.id,
+                        'fee_type': template.fee_type,
+                        'amount': template.amount,
+                        'is_credit_life': template.is_credit_life,
+                        'vendor_id': template.vendor_id.id if template.vendor_id else False,
+                        'sequence': template.sequence,
+                    })
+                if lines:
+                    self.env['alba.loan.fee.line'].create(lines)
         if 'state' in vals and vals['state'] == 'disbursed':
             self._send_application_email("alba_loans.email_template_loan_disbursed")
         return res
