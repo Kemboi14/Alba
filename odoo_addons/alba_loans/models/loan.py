@@ -174,13 +174,20 @@ class AlbaLoan(models.Model):
                     rec._log_professional_status_change(rec.state, vals['state'])
         return super().write(vals)
 
-    # ── Financial Totals ──────────────────────────────────────────────────────
+    # ── Financial Summary ───────────────────────────────────────────────────────
     total_repayable = fields.Monetary(
         string="Total Repayable",
         compute="_compute_financial_totals",
         store=True,
         currency_field="currency_id",
         help="Principal + all scheduled interest and fees.",
+    )
+    net_disbursement_amount = fields.Monetary(
+        string="Net Disbursement Amount",
+        compute="_compute_net_disbursement",
+        store=True,
+        currency_field="currency_id",
+        help="Amount actually paid to customer after deducting fees.",
     )
     total_paid = fields.Monetary(
         string="Total Paid",
@@ -457,6 +464,15 @@ class AlbaLoan(models.Model):
             )
             rec.total_paid = sum(repayments.mapped("amount_paid"))
             rec.outstanding_balance = max(rec.total_repayable - rec.total_paid, 0.0)
+
+    @api.depends("application_id.fee_line_ids.calculated_amount", "principal_amount")
+    def _compute_net_disbursement(self):
+        for rec in self:
+            if rec.application_id:
+                total_fees = sum(rec.application_id.fee_line_ids.mapped("calculated_amount"))
+                rec.net_disbursement_amount = rec.principal_amount - total_fees
+            else:
+                rec.net_disbursement_amount = rec.principal_amount
 
     @api.depends(
         "repayment_schedule_ids.status",

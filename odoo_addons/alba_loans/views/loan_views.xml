@@ -66,14 +66,18 @@
                     <!-- ── Repayment Dashboard ────────────────────────── -->
                     <div class="row mt-4 mb-4 border rounded p-3 bg-light mx-0 shadow-sm">
                         <div class="col-md-3 border-end text-center">
-                            <div class="text-muted small text-uppercase">Total Repayable</div>
-                            <div class="h4 mb-0 fw-bold"><field name="total_repayable" widget="monetary"/></div>
+                            <div class="text-muted small text-uppercase">Principal Amount</div>
+                            <div class="h4 mb-0 fw-bold"><field name="principal_amount" widget="monetary"/></div>
+                        </div>
+                        <div class="col-md-3 border-end text-center text-info">
+                            <div class="text-muted small text-uppercase">Net Disbursed</div>
+                            <div class="h4 mb-0 fw-bold"><field name="net_disbursement_amount" widget="monetary"/></div>
                         </div>
                         <div class="col-md-3 border-end text-center text-success">
                             <div class="text-muted small text-uppercase">Total Paid</div>
                             <div class="h4 mb-0 fw-bold"><field name="total_paid" widget="monetary"/></div>
                         </div>
-                        <div class="col-md-3 border-end text-center text-primary">
+                        <div class="col-md-3 text-center text-primary">
                             <div class="text-muted small text-uppercase">Outstanding</div>
                             <div class="h4 mb-0 fw-bold"><field name="outstanding_balance" widget="monetary"/></div>
                         </div>
