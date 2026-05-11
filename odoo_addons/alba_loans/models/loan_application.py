@@ -315,6 +315,8 @@ class AlbaLoanApplication(models.Model):
         if self.loan_product_id:
             lines = []
             for template in self.loan_product_id.fee_template_ids:
+                if not template.fee_product_id:
+                    continue
                 lines.append((0, 0, {
                     "fee_product_id": template.fee_product_id.id,
                     "fee_type": template.fee_type,
