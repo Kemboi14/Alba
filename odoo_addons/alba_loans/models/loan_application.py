@@ -138,6 +138,14 @@ class AlbaLoanApplication(models.Model):
         store=False,
     )
 
+    net_disbursement_amount = fields.Monetary(
+        string="Net Disbursement",
+        currency_field="currency_id",
+        compute="_compute_estimated_totals",
+        help="Amount to be paid to customer (Approved Amount - Total Fees)",
+        store=False,
+    )
+
     # ── Workflow State ────────────────────────────────────────────────────────
     state = fields.Selection(
         selection=[
@@ -470,16 +478,24 @@ class AlbaLoanApplication(models.Model):
             last_score = self.env["alba.credit.score"].search([("application_id", "=", rec.id)], order="create_date desc", limit=1)
             rec.risk_score = last_score.final_score if last_score else 0.0
 
-    @api.depends("loan_product_id", "requested_amount", "tenure_months", "fee_line_ids.calculated_amount")
+    @api.onchange("requested_amount")
+    def _onchange_requested_amount(self):
+        """Refresh fees when the requested amount changes."""
+        if self.requested_amount:
+            self._onchange_loan_product_fees()
+
+    @api.depends("loan_product_id", "requested_amount", "approved_amount", "tenure_months", "fee_line_ids.calculated_amount")
     def _compute_estimated_totals(self):
         for rec in self:
             product = rec.loan_product_id
             amount = rec.requested_amount or 0.0
+            approved = rec.approved_amount or amount
             months = rec.tenure_months or 0
             if not product or amount <= 0 or months <= 0:
                 rec.estimated_total_interest = 0.0
                 rec.estimated_total_fees = 0.0
                 rec.estimated_total_repayable = 0.0
+                rec.net_disbursement_amount = 0.0
                 continue
             if product.interest_method == "flat_rate":
                 interest = product.calculate_flat_interest(amount, months)
@@ -496,6 +512,7 @@ class AlbaLoanApplication(models.Model):
             rec.estimated_total_interest = interest
             rec.estimated_total_fees = fees
             rec.estimated_total_repayable = amount + interest + fees
+            rec.net_disbursement_amount = approved - fees
 
     def _compute_loan_count(self):
         for rec in self:
