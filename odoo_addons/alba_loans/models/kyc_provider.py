@@ -23,6 +23,7 @@ class AlbaKYCProvider(models.Model):
         ('smile_identity', 'Smile Identity'),
         ('metamap', 'Metamap'),
         ('iprs', 'Kenya IPRS (Direct)'),
+        ('custom', 'Custom Provider'),
     ], string="Provider Backend", required=True, default='sandbox', tracking=True)
     
     is_active = fields.Boolean(string="Active Provider", default=False, tracking=True, 
@@ -32,6 +33,34 @@ class AlbaKYCProvider(models.Model):
     api_key = fields.Char(string="API Key", groups="alba_loans.group_director")
     api_secret = fields.Char(string="API Secret", groups="alba_loans.group_director")
     api_base_url = fields.Char(string="API Base URL", help="e.g., https://api.smileidentity.com/v1")
+    
+    # Custom provider configuration
+    auth_method = fields.Selection([
+        ('api_key', 'API Key'),
+        ('api_key_secret', 'API Key + Secret'),
+        ('bearer_token', 'Bearer Token'),
+        ('basic_auth', 'Basic Auth'),
+        ('custom_header', 'Custom Header'),
+        ('none', 'No Authentication'),
+    ], string="Authentication Method", default='api_key_secret')
+    
+    custom_headers = fields.Text(string="Custom Headers", 
+                             help="JSON format headers for custom authentication, e.g., {'X-API-Version': 'v1'}")
+    
+    verify_endpoint = fields.Char(string="Verification Endpoint", 
+                             help="API endpoint for identity verification, e.g., /verify")
+    
+    request_format = fields.Selection([
+        ('json', 'JSON'),
+        ('form', 'Form Data'),
+        ('xml', 'XML'),
+    ], string="Request Format", default='json')
+    
+    success_response_path = fields.Char(string="Success Response Path", 
+                                   help="JSON path to check for success, e.g., result.status or verified")
+    
+    response_mapping = fields.Text(string="Response Mapping", 
+                               help="Map API response to our fields. JSON format: {'status': 'result.verification_status', 'confidence': 'result.score'}")
     
     @api.constrains('is_active')
     def _check_single_active(self):
@@ -51,7 +80,7 @@ class AlbaKYCProvider(models.Model):
 
     def verify_identity(self, id_number, first_name=None, last_name=None, document_image=None):
         """
-        Verify the given identity using the active backend.
+        Verify given identity using active backend.
         Returns a dictionary:
         {
             'status': 'verified' | 'rejected' | 'manual_review',
@@ -64,6 +93,8 @@ class AlbaKYCProvider(models.Model):
         
         if self.provider_type == 'sandbox':
             return self._verify_sandbox(id_number, first_name, last_name)
+        elif self.provider_type == 'custom':
+            return self._verify_custom(id_number, first_name, last_name, document_image)
         else:
             # Placeholder for real API implementations
             return {
@@ -105,4 +136,128 @@ class AlbaKYCProvider(models.Model):
                 'confidence_score': 98,
                 'provider_reference': f'SANDBOX-VER-{id_str}',
                 'notes': f'Sandbox: ID {id_str} verified successfully against national registry.'
+            }
+
+    def _verify_custom(self, id_number, first_name=None, last_name=None, document_image=None):
+        """
+        Verify identity using custom API provider.
+        """
+        if not self.api_base_url or not self.verify_endpoint:
+            return {
+                'status': 'manual_review',
+                'confidence_score': 0,
+                'provider_reference': '',
+                'notes': 'Custom provider not properly configured. Missing API URL or endpoint.'
+            }
+        
+        try:
+            # Prepare headers based on authentication method
+            headers = {'Content-Type': 'application/json'}
+            
+            if self.auth_method == 'api_key' and self.api_key:
+                headers['X-API-Key'] = self.api_key
+            elif self.auth_method == 'api_key_secret' and self.api_key:
+                headers['X-API-Key'] = self.api_key
+                if self.api_secret:
+                    headers['X-API-Secret'] = self.api_secret
+            elif self.auth_method == 'bearer_token' and self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+            elif self.auth_method == 'basic_auth' and self.api_key and self.api_secret:
+                import base64
+                credentials = f"{self.api_key}:{self.api_secret}"
+                encoded_credentials = base64.b64encode(credentials.encode()).decode()
+                headers['Authorization'] = f'Basic {encoded_credentials}'
+            
+            # Add custom headers if provided
+            if self.custom_headers:
+                try:
+                    custom_headers = json.loads(self.custom_headers)
+                    headers.update(custom_headers)
+                except json.JSONDecodeError:
+                    _logger.warning("Invalid custom headers format for KYC provider %s", self.name)
+            
+            # Prepare request data
+            data = {
+                'id_number': id_number,
+                'first_name': first_name,
+                'last_name': last_name,
+            }
+            
+            # Make API request
+            url = f"{self.api_base_url.rstrip('/')}/{self.verify_endpoint.lstrip('/')}"
+            response = requests.post(url, json=data, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            # Parse response
+            result = response.json()
+            
+            # Map response using custom mapping if provided
+            if self.response_mapping:
+                try:
+                    mapping = json.loads(self.response_mapping)
+                    mapped_result = {}
+                    
+                    for field, path in mapping.items():
+                        value = result
+                        for key in path.split('.'):
+                            if isinstance(value, dict) and key in value:
+                                value = value[key]
+                            else:
+                                value = None
+                                break
+                        mapped_result[field] = value
+                    
+                    result = mapped_result
+                except (json.JSONDecodeError, Exception):
+                    _logger.warning("Invalid response mapping for KYC provider %s", self.name)
+            
+            # Check success status
+            status = 'manual_review'
+            confidence_score = 0
+            notes = 'Verification completed with custom provider.'
+            
+            if self.success_response_path:
+                try:
+                    success_value = result
+                    for key in self.success_response_path.split('.'):
+                        if isinstance(success_value, dict) and key in success_value:
+                            success_value = success_value[key]
+                        else:
+                            break
+                    
+                    if success_value in [True, 'success', 'verified', 'approved']:
+                        status = 'verified'
+                    elif success_value in [False, 'failed', 'rejected', 'declined']:
+                        status = 'rejected'
+                except Exception:
+                    pass
+            
+            # Extract confidence score if available
+            if 'confidence' in result:
+                confidence_score = result['confidence']
+            elif 'score' in result:
+                confidence_score = result['score']
+            
+            return {
+                'status': status,
+                'confidence_score': confidence_score,
+                'provider_reference': result.get('reference', result.get('id', '')),
+                'notes': result.get('message', notes)
+            }
+            
+        except requests.exceptions.RequestException as e:
+            _logger.error("KYC API request failed for provider %s: %s", self.name, str(e))
+            return {
+                'status': 'manual_review',
+                'confidence_score': 0,
+                'provider_reference': '',
+                'notes': f'API request failed: {str(e)}'
+            }
+        except Exception as e:
+            _logger.error("KYC verification failed for provider %s: %s", self.name, str(e))
+            return {
+                'status': 'manual_review',
+                'confidence_score': 0,
+                'provider_reference': '',
+                'notes': f'Verification failed: {str(e)}'
             }

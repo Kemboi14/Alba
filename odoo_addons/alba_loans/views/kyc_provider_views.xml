@@ -40,6 +40,18 @@
                                 <field name="api_key" password="True"/>
                                 <field name="api_secret" password="True"/>
                             </group>
+                            
+                            <group invisible="provider_type != 'custom'">
+                                <field name="auth_method"/>
+                                <field name="verify_endpoint"/>
+                                <field name="request_format"/>
+                            </group>
+                            
+                            <group invisible="provider_type != 'custom'">
+                                <field name="success_response_path" placeholder="e.g., result.status"/>
+                                <field name="custom_headers" placeholder="{'X-API-Version': 'v1'}"/>
+                                <field name="response_mapping" placeholder="{'status': 'result.verification_status', 'confidence': 'result.score'}"/>
+                            </group>
                         </group>
                         
                         <div class="alert alert-info mt-3" role="alert" invisible="provider_type != 'sandbox'">
@@ -49,6 +61,23 @@
                                 <li><strong>Starts with 99:</strong> Rejected (Fraud watchlist)</li>
                                 <li><strong>Starts with 88:</strong> Needs Manual Review</li>
                                 <li><strong>All others:</strong> Verified Successfully</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-warning mt-3" role="alert" invisible="provider_type != 'custom'">
+                            <h4 class="alert-heading">Custom Provider Configuration</h4>
+                            <p><strong>Authentication Methods:</strong></p>
+                            <ul>
+                                <li><strong>API Key:</strong> Sends key in X-API-Key header</li>
+                                <li><strong>API Key + Secret:</strong> Sends both X-API-Key and X-API-Secret headers</li>
+                                <li><strong>Bearer Token:</strong> Sends token in Authorization header as "Bearer token"</li>
+                                <li><strong>Basic Auth:</strong> Uses HTTP Basic Authentication</li>
+                                <li><strong>Custom Header:</strong> Define your own headers in JSON format</li>
+                            </ul>
+                            <p><strong>Response Mapping Examples:</strong></p>
+                            <ul>
+                                <li><code>{'status': 'result.verification_status', 'confidence': 'result.score'}</code></li>
+                                <li><code>{'status': 'data.verified', 'confidence': 'data.confidence_level'}</code></li>
                             </ul>
                         </div>
                     </sheet>
