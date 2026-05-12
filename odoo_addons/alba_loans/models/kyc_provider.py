@@ -114,30 +114,40 @@ class AlbaKYCProvider(models.Model):
             raise UserError(_("API Base URL is required for testing connection."))
         
         try:
-            # Prepare headers based on authentication method
+            # Start with base headers
             headers = {'Content-Type': 'application/json'}
             
-            if self.auth_method == 'api_key' and self.api_key:
-                headers['X-API-Key'] = self.api_key
-            elif self.auth_method == 'api_key_secret' and self.api_key:
-                headers['X-API-Key'] = self.api_key
-                if self.api_secret:
-                    headers['X-API-Secret'] = self.api_secret
-            elif self.auth_method == 'bearer_token' and self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
-            elif self.auth_method == 'basic_auth' and self.api_key and self.api_secret:
-                import base64
-                credentials = f"{self.api_key}:{self.api_secret}"
-                encoded_credentials = base64.b64encode(credentials.encode()).decode()
-                headers['Authorization'] = f'Basic {encoded_credentials}'
-            
-            # Add custom headers if provided
+            # Add custom headers FIRST (they should override defaults)
             if self.custom_headers:
                 try:
                     custom_headers = json.loads(self.custom_headers)
                     headers.update(custom_headers)
+                    _logger.info("Applied custom headers for KYC provider %s: %s", self.name, list(custom_headers.keys()))
                 except json.JSONDecodeError:
                     _logger.warning("Invalid custom headers format for KYC provider %s", self.name)
+            
+            # Only add default authentication if no custom Authorization header is provided
+            if 'Authorization' not in headers and 'X-API-Key' not in headers:
+                if self.auth_method == 'api_key' and self.api_key:
+                    headers['X-API-Key'] = self.api_key
+                elif self.auth_method == 'api_key_secret' and self.api_key:
+                    headers['X-API-Key'] = self.api_key
+                    if self.api_secret:
+                        headers['X-API-Secret'] = self.api_secret
+                elif self.auth_method == 'bearer_token' and self.api_key:
+                    headers['Authorization'] = f'Bearer {self.api_key}'
+                elif self.auth_method == 'basic_auth' and self.api_key and self.api_secret:
+                    import base64
+                    credentials = f"{self.api_key}:{self.api_secret}"
+                    encoded_credentials = base64.b64encode(credentials.encode()).decode()
+                    headers['Authorization'] = f'Basic {encoded_credentials}'
+                elif self.auth_method == 'custom_header' and self.api_key:
+                    # For custom_header method, use api_key as the value
+                    headers['X-API-Key'] = self.api_key
+            elif 'Authorization' in headers:
+                _logger.info("Using custom Authorization header for KYC provider %s", self.name)
+            elif 'X-API-Key' in headers:
+                _logger.info("Using custom X-API-Key header for KYC provider %s", self.name)
             
             # Test with a simple health check or ping endpoint
             test_url = self.api_base_url.rstrip('/')
@@ -225,30 +235,40 @@ class AlbaKYCProvider(models.Model):
             }
         
         try:
-            # Prepare headers based on authentication method
+            # Start with base headers
             headers = {'Content-Type': 'application/json'}
             
-            if self.auth_method == 'api_key' and self.api_key:
-                headers['X-API-Key'] = self.api_key
-            elif self.auth_method == 'api_key_secret' and self.api_key:
-                headers['X-API-Key'] = self.api_key
-                if self.api_secret:
-                    headers['X-API-Secret'] = self.api_secret
-            elif self.auth_method == 'bearer_token' and self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
-            elif self.auth_method == 'basic_auth' and self.api_key and self.api_secret:
-                import base64
-                credentials = f"{self.api_key}:{self.api_secret}"
-                encoded_credentials = base64.b64encode(credentials.encode()).decode()
-                headers['Authorization'] = f'Basic {encoded_credentials}'
-            
-            # Add custom headers if provided
+            # Add custom headers FIRST (they should override defaults)
             if self.custom_headers:
                 try:
                     custom_headers = json.loads(self.custom_headers)
                     headers.update(custom_headers)
+                    _logger.info("Applied custom headers for KYC provider %s: %s", self.name, list(custom_headers.keys()))
                 except json.JSONDecodeError:
                     _logger.warning("Invalid custom headers format for KYC provider %s", self.name)
+            
+            # Only add default authentication if no custom Authorization header is provided
+            if 'Authorization' not in headers and 'X-API-Key' not in headers:
+                if self.auth_method == 'api_key' and self.api_key:
+                    headers['X-API-Key'] = self.api_key
+                elif self.auth_method == 'api_key_secret' and self.api_key:
+                    headers['X-API-Key'] = self.api_key
+                    if self.api_secret:
+                        headers['X-API-Secret'] = self.api_secret
+                elif self.auth_method == 'bearer_token' and self.api_key:
+                    headers['Authorization'] = f'Bearer {self.api_key}'
+                elif self.auth_method == 'basic_auth' and self.api_key and self.api_secret:
+                    import base64
+                    credentials = f"{self.api_key}:{self.api_secret}"
+                    encoded_credentials = base64.b64encode(credentials.encode()).decode()
+                    headers['Authorization'] = f'Basic {encoded_credentials}'
+                elif self.auth_method == 'custom_header' and self.api_key:
+                    # For custom_header method, use api_key as the value
+                    headers['X-API-Key'] = self.api_key
+            elif 'Authorization' in headers:
+                _logger.info("Using custom Authorization header for KYC provider %s", self.name)
+            elif 'X-API-Key' in headers:
+                _logger.info("Using custom X-API-Key header for KYC provider %s", self.name)
             
             # Prepare request data
             data = {
