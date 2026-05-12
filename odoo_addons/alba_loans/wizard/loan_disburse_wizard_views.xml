@@ -47,6 +47,11 @@
                             <field name="estimated_total_repayable"    readonly="1"/>
                         </group>
 
+                        <group string="Disbursement Summary" col="2">
+                            <field name="approved_amount" readonly="1"/>
+                            <field name="net_disbursement_amount" readonly="1" widget="monetary" class="oe_subtotal_footer_separator"/>
+                        </group>
+
                         <notebook>
                             <page string="Funding Sources" name="funding_sources">
                                 <field name="split_line_ids" nolabel="1">

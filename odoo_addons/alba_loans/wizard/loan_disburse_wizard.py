@@ -177,6 +177,12 @@ class AlbaLoanDisburseWizard(models.TransientModel):
         currency_field="currency_id",
         compute="_compute_estimates",
     )
+    net_disbursement_amount = fields.Monetary(
+        string="Net Payout Amount",
+        currency_field="currency_id",
+        compute="_compute_net_disbursement",
+        help="Amount that will actually be paid to the customer after deducting all fees.",
+    )
 
     # =========================================================================
     # Default helpers
@@ -263,11 +269,17 @@ class AlbaLoanDisburseWizard(models.TransientModel):
             rec.estimated_total_repayable = total_repayable
             rec.estimated_monthly_instalment = monthly
 
-    @api.depends("approved_amount", "split_line_ids.amount")
+    @api.depends("approved_amount", "split_line_ids", "split_line_ids.amount")
     def _compute_split_totals(self):
         for rec in self:
             rec.split_total = sum(rec.split_line_ids.mapped("amount"))
             rec.split_balance = (rec.approved_amount or 0.0) - rec.split_total
+
+    @api.depends("approved_amount", "application_id.fee_line_ids.calculated_amount")
+    def _compute_net_disbursement(self):
+        for rec in self:
+            total_fees = sum(rec.application_id.fee_line_ids.mapped("calculated_amount"))
+            rec.net_disbursement_amount = (rec.approved_amount or 0.0) - total_fees
 
     @api.onchange("journal_id", "approved_amount")
     def _onchange_single_journal_split(self):
