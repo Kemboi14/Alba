@@ -75,6 +75,8 @@ class AlbaKYCProvider(models.Model):
         if self.provider_type == 'sandbox':
             self.message_post(body=_("Sandbox connection test successful!"))
             return True
+        elif self.provider_type == 'custom':
+            return self._test_custom_connection()
         else:
             raise UserError(_("Connection testing for %s is not yet implemented.") % self.provider_type)
 
@@ -103,6 +105,78 @@ class AlbaKYCProvider(models.Model):
                 'provider_reference': '',
                 'notes': _("Provider backend %s not fully implemented. Please verify manually.") % self.provider_type
             }
+
+    def _test_custom_connection(self):
+        """
+        Test connection to custom KYC provider API.
+        """
+        if not self.api_base_url:
+            raise UserError(_("API Base URL is required for testing connection."))
+        
+        try:
+            # Prepare headers based on authentication method
+            headers = {'Content-Type': 'application/json'}
+            
+            if self.auth_method == 'api_key' and self.api_key:
+                headers['X-API-Key'] = self.api_key
+            elif self.auth_method == 'api_key_secret' and self.api_key:
+                headers['X-API-Key'] = self.api_key
+                if self.api_secret:
+                    headers['X-API-Secret'] = self.api_secret
+            elif self.auth_method == 'bearer_token' and self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+            elif self.auth_method == 'basic_auth' and self.api_key and self.api_secret:
+                import base64
+                credentials = f"{self.api_key}:{self.api_secret}"
+                encoded_credentials = base64.b64encode(credentials.encode()).decode()
+                headers['Authorization'] = f'Basic {encoded_credentials}'
+            
+            # Add custom headers if provided
+            if self.custom_headers:
+                try:
+                    custom_headers = json.loads(self.custom_headers)
+                    headers.update(custom_headers)
+                except json.JSONDecodeError:
+                    _logger.warning("Invalid custom headers format for KYC provider %s", self.name)
+            
+            # Test with a simple health check or ping endpoint
+            test_url = self.api_base_url.rstrip('/')
+            if self.verify_endpoint and self.verify_endpoint != '/':
+                # Try the actual verification endpoint with test data
+                test_url = f"{self.api_base_url.rstrip('/')}/{self.verify_endpoint.lstrip('/')}"
+                test_data = {
+                    'id_number': 'TEST123',
+                    'first_name': 'Test',
+                    'last_name': 'User'
+                }
+                response = requests.post(test_url, json=test_data, headers=headers, timeout=10)
+            else:
+                # Try a simple GET request to base URL
+                response = requests.get(test_url, headers=headers, timeout=10)
+            
+            response.raise_for_status()
+            
+            # If we get here, connection is successful
+            self.message_post(body=_("Custom provider connection test successful! URL: %s") % test_url)
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('Connection Test Successful'),
+                    'message': _('Successfully connected to %s') % self.name,
+                    'type': 'success',
+                    'sticky': False,
+                }
+            }
+            
+        except requests.exceptions.RequestException as e:
+            error_msg = _("Connection test failed: %s") % str(e)
+            self.message_post(body=error_msg)
+            raise UserError(error_msg)
+        except Exception as e:
+            error_msg = _("Connection test error: %s") % str(e)
+            self.message_post(body=error_msg)
+            raise UserError(error_msg)
 
     def _verify_sandbox(self, id_number, first_name, last_name):
         """
