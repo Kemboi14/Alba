@@ -145,7 +145,9 @@ Accounting
     "web_icon": "alba_loans,static/description/icon.png",
     "assets": {
         "web.assets_backend": [
-            "alba_loans/static/src/js/search_persistence.js",
+            "alba_loans/static/lib/chart.js/chart.umd.min.js",
+            "alba_loans/static/src/js/loan_dashboard.js",
+            "alba_loans/static/src/xml/loan_dashboard.xml",
         ],
     },
     "post_init_hook": "post_init_hook",

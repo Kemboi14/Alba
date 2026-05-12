@@ -328,6 +328,7 @@ class AlbaInvestorPro(models.Model):
         "investment_ids.total_interest_accrued",
         "investment_ids.total_interest_paid",
         "kyc_status",
+        "currency_id",
     )
     def _compute_portfolio(self):
         for rec in self:
@@ -341,19 +342,19 @@ class AlbaInvestorPro(models.Model):
             all_by_currency = {}
             
             for inv in active:
-                currency_id = inv.currency_id.currency_id.id
+                currency_id = inv.currency_id.id
                 if currency_id not in active_by_currency:
                     active_by_currency[currency_id] = []
                 active_by_currency[currency_id].append(inv)
                 
             for inv in all_inv:
-                currency_id = inv.currency_id.currency_id.id
+                currency_id = inv.currency_id.id
                 if currency_id not in all_by_currency:
                     all_by_currency[currency_id] = []
                 all_by_currency[currency_id].append(inv)
-            
+
             # Convert all amounts to investor's preferred currency for accurate totals
-            investor_currency = rec.currency_id.currency_id if rec.currency_id else self.env.company.currency_id
+            investor_currency = rec.currency_id or self.env.company.currency_id
             
             total_invested = 0.0
             total_interest_earned = 0.0

@@ -42,6 +42,7 @@ Manages the full investor lifecycle:
         "views/investment_statement_views.xml",
         "views/investment_views.xml",
         "views/interest_accrual_views.xml",
+        "views/investor_dashboard_views.xml",
         # Wizards
         "wizard/generate_statement_wizard_views.xml",
         # Reports
@@ -57,4 +58,11 @@ Manages the full investor lifecycle:
     "application": True,
     "sequence": 20,
     "web_icon": "alba_investors,static/description/icon.png",
+    "assets": {
+        "web.assets_backend": [
+            "alba_investors/static/lib/chart.js/chart.umd.min.js",
+            "alba_investors/static/src/js/investor_dashboard.js",
+            "alba_investors/static/src/xml/investor_dashboard.xml",
+        ],
+    },
 }

@@ -48,5 +48,5 @@ class InvestorStatementReport(models.AbstractModel):
             'total_debit': total_debit,
             'total_credit': total_credit,
             'res_company': investor.env.company,
-            'currency': investor.currency_id.currency_id if investor.currency_id else investor.env.company.currency_id,
+            'currency': investor.currency_id or investor.env.company.currency_id,
         }

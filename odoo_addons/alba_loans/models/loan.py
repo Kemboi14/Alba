@@ -1208,11 +1208,108 @@ class AlbaLoan(models.Model):
             self.company_id = company_id
     
     def action_sync_loan_currency_to_accounting(self):
-        """Sync loan currency configuration with accounting"""
-        sync_service = self.env["alba.loan.currency.integration"]
-        return sync_service.sync_loan_currency_to_accounting()
+        """Sync loan currency configuration with accounting using native Odoo 19 accounting"""
+        for loan in self:
+            if not loan.currency_id:
+                raise UserError(_("Loan must have a currency configured"))
+            
+            if loan.currency_id == loan.company_id.currency_id:
+                loan.message_post(body=_("Loan currency matches company currency - no sync needed"))
+                continue
+            
+            # Create currency difference journal entry if needed
+            if loan.state == 'disbursed' and loan.disbursement_date:
+                # Calculate currency difference at current rate
+                company_currency = loan.company_id.currency_id
+                loan_currency = loan.currency_id
+                
+                # Get currency rate
+                rate = company_currency._get_conversion_rate(loan_currency, company_currency, loan.disbursement_date)
+                
+                # Create journal entry for currency valuation
+                move_vals = {
+                    'journal_id': loan.company_id.currency_exchange_journal_id.id if loan.company_id.currency_exchange_journal_id else False,
+                    'date': fields.Date.context_today(self),
+                    'ref': f"Currency Sync/{loan.loan_number}",
+                    'currency_id': loan_currency.id,
+                    'narration': _("Currency sync for loan %s") % loan.loan_number,
+                    'line_ids': [
+                        (0, 0, {
+                            'account_id': loan.company_id.currency_exchange_journal_id.default_debit_account_id.id if loan.company_id.currency_exchange_journal_id and loan.company_id.currency_exchange_journal_id.default_debit_account_id else False,
+                            'name': _("Currency difference - %s") % loan.loan_number,
+                            'debit': 0.0,
+                            'credit': 0.0,
+                            'amount_currency': 0.0,
+                            'currency_id': loan_currency.id,
+                        }),
+                    ],
+                }
+                
+                if move_vals['journal_id'] and move_vals['line_ids'][0][2]['account_id']:
+                    self.env['account.move'].create(move_vals)
+                    loan.message_post(body=_("Currency sync completed - journal entry created"))
+                else:
+                    loan.message_post(body=_("Currency sync skipped - no currency exchange journal configured"))
+            else:
+                loan.message_post(body=_("Currency sync skipped - loan not yet disbursed"))
     
     def action_create_loan_accounting_move(self):
-        """Create accounting move for loan with currency integration"""
-        sync_service = self.env["alba.loan.currency.integration"]
-        return sync_service.create_accounting_move_for_loan(self)
+        """Create accounting move for loan disbursement with currency integration"""
+        for loan in self:
+            if loan.state != 'disbursed':
+                raise UserError(_("Only disbursed loans can create accounting moves"))
+            
+            if not loan.journal_id:
+                raise UserError(_("Loan must have a journal configured"))
+            
+            # Get loan product for account configuration
+            product = loan.loan_product_id
+            if not product:
+                raise UserError(_("Loan must have a loan product configured"))
+            
+            if not product.account_loan_receivable_id:
+                raise UserError(_("Please configure the Loan Receivable account on product '%s'.") % product.name)
+            
+            company_currency = loan.company_id.currency_id
+            loan_currency = loan.currency_id
+            
+            move_vals = {
+                'journal_id': loan.journal_id.id,
+                'date': loan.disbursement_date or fields.Date.context_today(self),
+                'ref': f"LOAN/{loan.loan_number}",
+                'currency_id': loan_currency.id,
+                'narration': _("Loan disbursement — %s — %s") % (loan.loan_number, loan.customer_id.display_name),
+                'line_ids': [
+                    # DR Loan Receivable
+                    (0, 0, {
+                        'account_id': product.account_loan_receivable_id.id,
+                        'name': _("Loan disbursement — %s") % loan.loan_number,
+                        'debit': loan.principal_amount if loan_currency == company_currency else 0.0,
+                        'credit': 0.0,
+                        'amount_currency': loan.principal_amount,
+                        'currency_id': loan_currency.id,
+                        'partner_id': loan.partner_id.id,
+                    }),
+                    # CR Bank / Cash
+                    (0, 0, {
+                        'account_id': loan.journal_id.default_credit_account_id.id if loan.journal_id.default_credit_account_id else False,
+                        'name': _("Disbursement — %s") % loan.loan_number,
+                        'debit': 0.0,
+                        'credit': loan.principal_amount if loan_currency == company_currency else 0.0,
+                        'amount_currency': -loan.principal_amount,
+                        'currency_id': loan_currency.id,
+                        'partner_id': loan.partner_id.id,
+                    }),
+                ],
+            }
+            
+            move = self.env['account.move'].create(move_vals)
+            move.action_post()
+            loan.message_post(body=_("Accounting move created: %s") % move.name)
+            return {
+                'type': 'ir.actions.act_window',
+                'name': _('Accounting Move'),
+                'res_model': 'account.move',
+                'res_id': move.id,
+                'view_mode': 'form',
+            }

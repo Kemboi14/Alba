@@ -39,7 +39,111 @@
                                 <div class="h3 mb-2"><field name="customer_count"/></div>
                                 <button name="action_view_loans" type="object" string="Open" class="btn btn-link p-0"/>
                             </div>
+                            <div class="col-md-3 border rounded p-3 mb-2 bg-light">
+                                <div class="text-muted small text-uppercase">Portfolio at Risk</div>
+                                <div class="h3 mb-2"><field name="npl_count"/></div>
+                                <button name="action_view_par" type="object" string="View" class="btn btn-link p-0"/>
+                            </div>
                         </div>
+
+                        <!-- Graphs Section - Row 1 -->
+                        <div class="row mt-4 mb-4 mx-0">
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Portfolio Composition</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="portfolio_composition_chart" height="200"></canvas>
+                                        <field name="portfolio_composition_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Customer Loan Status</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="customer_loan_status_chart" height="200"></canvas>
+                                        <field name="customer_loan_status_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Loan Status Distribution</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="status_distribution_chart" height="200"></canvas>
+                                        <field name="status_distribution_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Loan Tenure Distribution</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="loan_tenure_distribution_chart" height="200"></canvas>
+                                        <field name="loan_tenure_distribution_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Graphs Section - Row 2 -->
+                        <div class="row mt-4 mb-4 mx-0">
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Disbursement Trends</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="disbursement_trends_chart" height="200"></canvas>
+                                        <field name="disbursement_trends_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">PAR Analysis</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="par_analysis_chart" height="200"></canvas>
+                                        <field name="par_analysis_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Loan Amount Distribution</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="loan_amount_distribution_chart" height="200"></canvas>
+                                        <field name="loan_amount_distribution_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Repayment Performance</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="repayment_performance_chart" height="200"></canvas>
+                                        <field name="repayment_performance_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dashboard Charts Widget -->
+                        <field name="portfolio_composition_data" widget="loan_dashboard_charts" invisible="1"/>
 
                         <group>
                             <group>

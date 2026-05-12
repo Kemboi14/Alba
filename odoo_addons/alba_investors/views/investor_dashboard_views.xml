@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Investor Dashboard Form View -->
+        <record id="view_investor_dashboard_form" model="ir.ui.view">
+            <field name="name">alba.investor.dashboard.form</field>
+            <field name="model">alba.investor.dashboard</field>
+            <field name="arch" type="xml">
+                <form string="Investor Dashboard">
+                    <header>
+                        <button name="action_refresh" string="Refresh" type="object" class="btn-primary"/>
+                        <button name="action_view_investors" string="View Investors" type="object" class="btn-secondary"/>
+                        <button name="action_view_transactions" string="View Transactions" type="object" class="btn-secondary"/>
+                        <button name="action_view_withdrawals" string="View Withdrawals" type="object" class="btn-secondary"/>
+                    </header>
+                    <sheet>
+                        <div class="row">
+                            <div class="col-12">
+                                <h2 class="mb-4">Investor Portfolio Dashboard</h2>
+                            </div>
+                        </div>
+                        
+                        <!-- Date Filters -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <field name="date_from"/>
+                            </div>
+                            <div class="col-md-3">
+                                <field name="date_to"/>
+                            </div>
+                            <div class="col-md-3">
+                                <field name="company_id"/>
+                            </div>
+                            <div class="col-md-3">
+                                <field name="group_by"/>
+                            </div>
+                        </div>
+
+                        <!-- KPI Cards -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Total Investors</h5>
+                                        <h2 class="card-text"><field name="investor_count"/></h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Active Investors</h5>
+                                        <h2 class="card-text"><field name="active_investor_count"/></h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Total Invested</h5>
+                                        <h2 class="card-text"><field name="total_invested_amount" widget="monetary"/></h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-warning text-white">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Interest Earned</h5>
+                                        <h2 class="card-text"><field name="total_interest_earned" widget="monetary"/></h2>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="card bg-secondary text-white">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Total Balance</h5>
+                                        <h2 class="card-text"><field name="total_balance" widget="monetary"/></h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-danger text-white">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Total Withdrawals</h5>
+                                        <h2 class="card-text"><field name="total_withdrawals" widget="monetary"/></h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-dark text-white">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Pending Withdrawals</h5>
+                                        <h2 class="card-text"><field name="pending_withdrawals"/></h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Transactions</h5>
+                                        <h2 class="card-text"><field name="transaction_count"/></h2>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charts Section -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Investment Composition</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="investment_composition_chart" height="300"/>
+                                        <field name="investment_composition_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Investor Status Distribution</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="investor_status_chart" height="300"/>
+                                        <field name="investor_status_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Investment Trends</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="investment_trends_chart" height="300"/>
+                                        <field name="investment_trends_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Interest Payout Trends</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="interest_payout_trends_chart" height="300"/>
+                                        <field name="interest_payout_trends_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Withdrawal Analysis</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="withdrawal_analysis_chart" height="300"/>
+                                        <field name="withdrawal_analysis_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Investor Type Distribution</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="investor_type_distribution_chart" height="300"/>
+                                        <field name="investor_type_distribution_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Investment Amount Distribution</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="investment_amount_distribution_chart" height="300"/>
+                                        <field name="investment_amount_distribution_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Tenure Distribution</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="tenure_distribution_chart" height="300"/>
+                                        <field name="tenure_distribution_data" invisible="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dashboard Charts Widget -->
+                        <field name="investment_composition_data" widget="investor_dashboard_charts" invisible="1"/>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Investor Dashboard Action -->
+        <record id="action_investor_dashboard" model="ir.actions.act_window">
+            <field name="name">Investor Dashboard</field>
+            <field name="res_model">alba.investor.dashboard</field>
+            <field name="view_mode">form</field>
+            <field name="target">current</field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="alba_loans.DashboardCharts">
+        <div class="loan_dashboard_charts">
+            <canvas t-ref="portfolio_canvas" id="portfolio_composition_chart"/>
+            <canvas t-ref="customer_status_canvas" id="customer_loan_status_chart"/>
+            <canvas t-ref="status_canvas" id="status_distribution_chart"/>
+            <canvas t-ref="tenure_canvas" id="loan_tenure_distribution_chart"/>
+            <canvas t-ref="disbursement_canvas" id="disbursement_trends_chart"/>
+            <canvas t-ref="par_canvas" id="par_analysis_chart"/>
+            <canvas t-ref="amount_dist_canvas" id="loan_amount_distribution_chart"/>
+            <canvas t-ref="repayment_canvas" id="repayment_performance_chart"/>
+        </div>
+    </t>
+</templates>

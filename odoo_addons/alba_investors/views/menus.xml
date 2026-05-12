@@ -12,32 +12,32 @@
               groups="alba_investors.group_investor_user"/>
 
     <!-- ================================================================
-         Alba Investors — Dashboard (links to Investment list)
+         1. Dashboard (first)
          ================================================================ -->
     <menuitem id="menu_alba_investors_dashboard"
               name="Dashboard"
               parent="menu_alba_investors_root"
-              action="action_alba_investment"
-              sequence="5"
+              action="action_investor_dashboard"
+              sequence="10"
               groups="alba_investors.group_investor_user"/>
 
     <!-- ================================================================
-         Investors
+         2. Investors
          ================================================================ -->
     <menuitem id="menu_alba_investors_investors"
               name="Investors"
               parent="menu_alba_investors_root"
               action="action_alba_investor"
-              sequence="10"
+              sequence="20"
               groups="alba_investors.group_investor_user"/>
 
     <!-- ================================================================
-         Investments
+         3. Investments
          ================================================================ -->
     <menuitem id="menu_alba_investors_investments_root"
               name="Investments"
               parent="menu_alba_investors_root"
-              sequence="20"
+              sequence="30"
               groups="alba_investors.group_investor_user"/>
 
     <menuitem id="menu_alba_investors_investments_all"
@@ -55,12 +55,12 @@
               groups="alba_investors.group_investor_officer"/>
 
     <!-- ================================================================
-         Statements
+         4. Statements
          ================================================================ -->
     <menuitem id="menu_alba_investors_statements_root"
               name="Statements"
               parent="menu_alba_investors_root"
-              sequence="30"
+              sequence="40"
               groups="alba_investors.group_investor_user"/>
 
     <menuitem id="menu_alba_investors_statements_all"
@@ -78,7 +78,7 @@
               groups="alba_investors.group_investor_manager"/>
 
     <!-- ================================================================
-         Configuration Sub-menu
+         Configuration (last)
          ================================================================ -->
     <menuitem id="menu_alba_investors_config"
               name="Configuration"

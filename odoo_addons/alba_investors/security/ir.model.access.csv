@@ -10,3 +10,5 @@ access_alba_investment_statement_manager,alba.investment.statement manager,model
 access_alba_generate_statement_wizard_manager,alba.generate.statement.wizard manager,model_alba_generate_statement_wizard,alba_investors.group_investor_manager,1,1,1,1
 access_alba_investor_document_user,alba.investor.document user,model_alba_investor_document,alba_investors.group_investor_user,1,0,0,0
 access_alba_investor_document_manager,alba.investor.document manager,model_alba_investor_document,alba_investors.group_investor_manager,1,1,1,1
+access_alba_investor_dashboard_user,alba.investor.dashboard user,model_alba_investor_dashboard,alba_investors.group_investor_user,1,0,0,0
+access_alba_investor_dashboard_manager,alba.investor.dashboard manager,model_alba_investor_dashboard,alba_investors.group_investor_manager,1,1,1,1
