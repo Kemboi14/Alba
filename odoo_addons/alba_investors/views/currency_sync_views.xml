@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_alba_currency_rate_sync_form" model="ir.ui.view">
+        <field name="name">alba.currency.rate.sync.form</field>
+        <field name="model">alba.currency.rate.sync</field>
+        <field name="arch" type="xml">
+            <form string="Sync Currency Rates">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="currency_ids" widget="many2many_tags"
+                                   options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="company_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <footer>
+                        <button name="action_sync_rates" string="Sync Now" 
+                                type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" 
+                                special="cancel"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_alba_currency_rate_sync" model="ir.actions.act_window">
+        <field name="name">Sync Currency Rates</field>
+        <field name="res_model">alba.currency.rate.sync</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="model_alba_investment"/>
+        <field name="binding_view_types">form</field>
+    </record>
+</odoo>

@@ -12,3 +12,4 @@ access_alba_investor_document_user,alba.investor.document user,model_alba_invest
 access_alba_investor_document_manager,alba.investor.document manager,model_alba_investor_document,alba_investors.group_investor_manager,1,1,1,1
 access_alba_investor_dashboard_user,alba.investor.dashboard user,model_alba_investor_dashboard,alba_investors.group_investor_user,1,0,0,0
 access_alba_investor_dashboard_manager,alba.investor.dashboard manager,model_alba_investor_dashboard,alba_investors.group_investor_manager,1,1,1,1
+access_alba_currency_rate_sync_manager,alba.currency.rate.sync manager,model_alba_currency_rate_sync,alba_investors.group_investor_manager,1,1,1,1

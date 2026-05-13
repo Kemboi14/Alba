@@ -42,6 +42,7 @@ Manages the full investor lifecycle:
         "views/investment_statement_views.xml",
         "views/investment_views.xml",
         "views/interest_accrual_views.xml",
+        "views/currency_sync_views.xml",
         "views/investor_dashboard_views.xml",
         # Wizards
         "wizard/generate_statement_wizard_views.xml",

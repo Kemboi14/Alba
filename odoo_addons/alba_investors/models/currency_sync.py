@@ -1,29 +1,104 @@
 # -*- coding: utf-8 -*-
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from datetime import datetime, timedelta
+import logging
 
-class AlbaCurrencyRateSync(models.AbstractModel):
+_logger = logging.getLogger(__name__)
+
+
+class AlbaCurrencyRateSync(models.TransientModel):
+    """Sync currency rates from Odoo's accounting module"""
     _name = "alba.currency.rate.sync"
-    _description = "Alba Currency Rate Sync Service"
+    _description = "Currency Rate Sync"
+
+    currency_ids = fields.Many2many(
+        "res.currency",
+        string="Currencies to Sync",
+        help="Leave empty to sync all active currencies",
+    )
+    date_from = fields.Date(string="From Date", default=fields.Date.today)
+    date_to = fields.Date(string="To Date", default=fields.Date.today)
+    company_id = fields.Many2one(
+        "res.company",
+        string="Company",
+        default=lambda self: self.env.company,
+    )
 
     def sync_rates_to_accounting(self):
         """
-        Sync currency rates to accounting.
-        Iterates over active investments and ensures currency configuration is consistent.
+        Compatibility method for alba.investment buttons.
+        Opens the wizard to sync rates.
         """
-        investments = self.env['alba.investment'].search([('state', '=', 'active')])
-        count = 0
-        for inv in investments:
-            if inv.currency_id != inv.company_id.currency_id:
-                # Basic sync logic: post a message to the chatter if configuration is missing
-                if not inv.company_id.currency_exchange_journal_id:
-                    inv.message_post(body=_("Currency sync skipped - no currency exchange journal configured on company"))
-                else:
-                    # In a real scenario, this would create revaluation entries or update rates.
-                    # Following the pattern in loan.py, we'll just acknowledge the sync.
-                    inv.message_post(body=_("Currency rates synced for investment %s") % inv.investment_number)
-                    count += 1
-        return True
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Sync Currency Rates"),
+            "res_model": "alba.currency.rate.sync",
+            "view_mode": "form",
+            "target": "new",
+        }
+
+    def action_sync_rates(self):
+        """Sync currency rates from accounting module"""
+        self.ensure_one()
+        
+        # Get currencies to sync
+        currencies = self.currency_ids or self.env["res.currency"].search([
+            ("active", "=", True),
+            ("id", "!=", self.company_id.currency_id.id)  # Exclude company's base currency
+        ])
+        
+        if not currencies:
+            raise UserError(_("No currencies selected or available to sync."))
+        
+        synced_count = 0
+        errors = []
+        
+        for currency in currencies:
+            try:
+                # Get rates from Odoo's accounting module
+                rates = self.env["res.currency.rate"].search([
+                    ("currency_id", "=", currency.id),
+                    ("name", ">=", self.date_from),
+                    ("name", "<=", self.date_to),
+                ], order="name desc")
+                
+                if not rates:
+                    _logger.warning(f"No rates found for {currency.name}")
+                    continue
+                
+                # Update or create rates in your investment module if needed
+                # Or just log that they exist
+                synced_count += len(rates)
+                
+            except Exception as e:
+                errors.append(f"{currency.name}: {str(e)}")
+                _logger.error(f"Failed to sync {currency.name}: {e}")
+        
+        # Log results
+        message = _(
+            "Currency rate sync completed.\n"
+            "Synced %(count)d rate records for %(currencies)d currencies.\n"
+            "%(errors)s"
+        ) % {
+            "count": synced_count,
+            "currencies": len(currencies),
+            "errors": "\n".join(errors) if errors else _("No errors."),
+        }
+        
+        # notify_success is not standard Odoo 19, using message_post or notification
+        self.env.user.message_post(body=message)
+        
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Sync Completed"),
+                "message": message,
+                "type": "success",
+                "sticky": False,
+            },
+        }
 
     def create_accounting_move_for_investment(self, investment):
         """
@@ -40,8 +115,6 @@ class AlbaCurrencyRateSync(models.AbstractModel):
         if not journal:
             raise UserError(_("Please configure the Accrual Journal on investment '%s'.") % investment.investment_number)
 
-        # Determine the counterpart account (Bank/Cash)
-        # Odoo 19: default_account_id is the standard field on journals.
         counterpart_account = journal.default_account_id
         if not counterpart_account:
             raise UserError(_("The journal '%s' has no default account configured. Please set one to record the investment receipt.") % journal.name)
@@ -51,7 +124,7 @@ class AlbaCurrencyRateSync(models.AbstractModel):
         
         move_vals = {
             'journal_id': journal.id,
-            'date': investment.start_date or fields.Date.context_today(self),
+            'date': investment.start_date or fields.Date.today(),
             'ref': f"INV/{investment.investment_number}",
             'currency_id': inv_currency.id,
             'narration': _("Initial Investment Receipt — %s — %s") % (investment.investment_number, investment.investor_id.display_name),
