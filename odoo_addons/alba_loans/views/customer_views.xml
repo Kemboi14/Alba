@@ -167,11 +167,6 @@
                             <page string="Banking" name="banking">
                                 <group>
                                     <group>
-                                        <field name="bank_name"/>
-                                        <field name="bank_account_number"/>
-                                        <field name="bank_branch"/>
-                                    </group>
-                                    <group>
                                         <field name="mpesa_number"/>
                                     </group>
                                 </group>

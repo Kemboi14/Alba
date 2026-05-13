@@ -216,9 +216,6 @@ class AlbaCustomer(models.Model):
         tracking=True,
     )
     # ── Banking ───────────────────────────────────────────────────────────────
-    bank_name = fields.Char(string="Bank Name")
-    bank_account_number = fields.Char(string="Bank Account Number")
-    bank_branch = fields.Char(string="Bank Branch")
     mpesa_number = fields.Char(
         string="M-Pesa Number",
         help="Must start with 254 e.g. 254712345678",
