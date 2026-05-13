@@ -8,4 +8,5 @@ from . import (
     investor_dashboard,
     mpesa_transaction_investor,
     notification_hooks,
+    currency_sync,
 )
