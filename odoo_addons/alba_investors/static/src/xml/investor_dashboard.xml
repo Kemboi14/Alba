@@ -1,15 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <t t-name="alba_investors.InvestorDashboardCharts" owl="1">
-        <div class="investor_dashboard_charts">
-            <canvas t-ref="investment_composition_canvas"/>
-            <canvas t-ref="investor_status_canvas"/>
-            <canvas t-ref="investment_trends_canvas"/>
-            <canvas t-ref="interest_payout_trends_canvas"/>
-            <canvas t-ref="withdrawal_analysis_canvas"/>
-            <canvas t-ref="investor_type_distribution_canvas"/>
-            <canvas t-ref="investment_amount_distribution_canvas"/>
-            <canvas t-ref="tenure_distribution_canvas"/>
+    <t t-name="alba_investors.InvestorDashboardCharts">
+        <div class="investor_dashboard_chart_wrapper" style="position: relative; height: 200px; width: 100%;">
+            <canvas t-ref="canvas"/>
         </div>
     </t>
 </templates>

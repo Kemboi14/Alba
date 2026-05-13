@@ -115,8 +115,7 @@
                                         <h5 class="card-title mb-0">Investment Composition</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="investment_composition_chart" height="300"/>
-                                        <field name="investment_composition_data" invisible="1"/>
+                                        <field name="investment_composition_data" widget="investor_dashboard_charts" nolabel="1"/>
                                     </div>
                                 </div>
                             </div>
@@ -126,8 +125,7 @@
                                         <h5 class="card-title mb-0">Investor Status Distribution</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="investor_status_chart" height="300"/>
-                                        <field name="investor_status_data" invisible="1"/>
+                                        <field name="investor_status_data" widget="investor_dashboard_charts" nolabel="1"/>
                                     </div>
                                 </div>
                             </div>
@@ -140,8 +138,7 @@
                                         <h5 class="card-title mb-0">Investment Trends</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="investment_trends_chart" height="300"/>
-                                        <field name="investment_trends_data" invisible="1"/>
+                                        <field name="investment_trends_data" widget="investor_dashboard_charts" nolabel="1"/>
                                     </div>
                                 </div>
                             </div>
@@ -151,8 +148,7 @@
                                         <h5 class="card-title mb-0">Interest Payout Trends</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="interest_payout_trends_chart" height="300"/>
-                                        <field name="interest_payout_trends_data" invisible="1"/>
+                                        <field name="interest_payout_trends_data" widget="investor_dashboard_charts" nolabel="1"/>
                                     </div>
                                 </div>
                             </div>
@@ -165,8 +161,7 @@
                                         <h5 class="card-title mb-0">Withdrawal Analysis</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="withdrawal_analysis_chart" height="300"/>
-                                        <field name="withdrawal_analysis_data" invisible="1"/>
+                                        <field name="withdrawal_analysis_data" widget="investor_dashboard_charts" nolabel="1"/>
                                     </div>
                                 </div>
                             </div>
@@ -176,8 +171,7 @@
                                         <h5 class="card-title mb-0">Investor Type Distribution</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="investor_type_distribution_chart" height="300"/>
-                                        <field name="investor_type_distribution_data" invisible="1"/>
+                                        <field name="investor_type_distribution_data" widget="investor_dashboard_charts" nolabel="1"/>
                                     </div>
                                 </div>
                             </div>
@@ -190,8 +184,7 @@
                                         <h5 class="card-title mb-0">Investment Amount Distribution</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="investment_amount_distribution_chart" height="300"/>
-                                        <field name="investment_amount_distribution_data" invisible="1"/>
+                                        <field name="investment_amount_distribution_data" widget="investor_dashboard_charts" nolabel="1"/>
                                     </div>
                                 </div>
                             </div>
@@ -201,15 +194,12 @@
                                         <h5 class="card-title mb-0">Tenure Distribution</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="tenure_distribution_chart" height="300"/>
-                                        <field name="tenure_distribution_data" invisible="1"/>
+                                        <field name="tenure_distribution_data" widget="investor_dashboard_charts" nolabel="1"/>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Dashboard Charts Widget -->
-                        <field name="investment_composition_data" widget="investor_dashboard_charts" invisible="1"/>
                     </sheet>
                 </form>
             </field>

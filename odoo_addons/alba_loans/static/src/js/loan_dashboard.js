@@ -20,37 +20,17 @@ export class LoanDashboardCharts extends Component {
     static props = { ...standardFieldProps };
 
     setup() {
-        this.charts = {};
-        this.canvasRefs = {
-            portfolio: useRef("portfolio_canvas"),
-            customerStatus: useRef("customer_status_canvas"),
-            status: useRef("status_canvas"),
-            tenure: useRef("tenure_canvas"),
-            disbursement: useRef("disbursement_canvas"),
-            par: useRef("par_canvas"),
-            amountDist: useRef("amount_dist_canvas"),
-            repayment: useRef("repayment_canvas")
-        };
+        this.chart = null;
+        this.canvasRef = useRef("canvas");
 
         onMounted(() => {
-            console.log("Debug: Component mounted, DOM elements:", {
-                portfolio: this.canvasRefs.portfolio.el,
-                customerStatus: this.canvasRefs.customerStatus.el,
-                status: this.canvasRefs.status.el,
-                tenure: this.canvasRefs.tenure.el,
-                disbursement: this.canvasRefs.disbursement.el,
-                par: this.canvasRefs.par.el,
-                amountDist: this.canvasRefs.amountDist.el,
-                repayment: this.canvasRefs.repayment.el
-            });
-            
-            this._renderCharts();
+            this._renderChart();
         });
 
         onWillUnmount(() => {
-            Object.values(this.charts).forEach((chart) => {
-                if (chart) chart.destroy();
-            });
+            if (this.chart) {
+                this.chart.destroy();
+            }
         });
     }
 
@@ -58,43 +38,45 @@ export class LoanDashboardCharts extends Component {
         return this.props.record.data;
     }
 
-    _renderCharts() {
-        // Check if Chart.js is loaded
+    _renderChart() {
         if (typeof Chart === "undefined") {
             console.error("Chart.js is not loaded");
-            console.log("Debug: Available window objects:", Object.keys(window).filter(k => k.includes('Chart')));
             return;
         }
-        
-        console.log("Debug: Chart.js loaded, Chart object:", typeof Chart);
-        
-        this._renderPortfolioComposition();
-        this._renderCustomerLoanStatus();
-        this._renderStatusDistribution();
-        this._renderLoanTenureDistribution();
-        this._renderDisbursementTrends();
-        this._renderParAnalysis();
-        this._renderLoanAmountDistribution();
-        this._renderRepaymentPerformance();
-    }
 
-    _renderPieChart(fieldName, canvasId, labelSuffix = "") {
+        const fieldName = this.props.name;
         const raw = this.recordData[fieldName];
         if (!raw) return;
+
         try {
             const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs[canvasId.replace('_chart', '_canvas')].el;
-            if (!ctx) {
-                console.error(`Canvas element not found for ${canvasId}`);
-                return;
+            const ctx = this.canvasRef.el;
+            if (!ctx) return;
+
+            // Determine chart type and options based on field name
+            let config = this._getChartConfig(fieldName, chartData, ctx);
+            if (config) {
+                this.chart = new Chart(ctx, config);
             }
-            this.charts[canvasId] = new Chart(ctx, {
+        } catch (e) {
+            console.error(`Error rendering chart [${fieldName}]:`, e);
+        }
+    }
+
+    _getChartConfig(fieldName, chartData, ctx) {
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: ANIMATION_CONFIG,
+        };
+
+        if (fieldName === "portfolio_composition_data" || fieldName === "customer_loan_status_data" || fieldName === "loan_tenure_distribution_data") {
+            const labelSuffix = fieldName === "customer_loan_status_data" ? " customers" : (fieldName === "loan_tenure_distribution_data" ? " loans" : "");
+            return {
                 type: "pie",
                 data: chartData,
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: ANIMATION_CONFIG,
+                    ...commonOptions,
                     plugins: {
                         legend: { position: "bottom", labels: { padding: 15, font: { size: 12 } } },
                         tooltip: {
@@ -110,37 +92,15 @@ export class LoanDashboardCharts extends Component {
                         },
                     },
                 },
-            });
-        } catch (e) {
-            console.error(`Error rendering chart [${canvasId}]:`, e);
+            };
         }
-    }
 
-    _renderPortfolioComposition() {
-        this._renderPieChart("portfolio_composition_data", "portfolio_composition_chart");
-    }
-
-    _renderCustomerLoanStatus() {
-        this._renderPieChart("customer_loan_status_data", "customer_loan_status_chart", " customers");
-    }
-
-    _renderStatusDistribution() {
-        const raw = this.recordData.status_distribution_data;
-        if (!raw) return;
-        try {
-            const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs.status.el;
-            if (!ctx) {
-                console.error("Status canvas not found");
-                return;
-            }
-            this.charts.status = new Chart(ctx, {
+        if (fieldName === "status_distribution_data") {
+            return {
                 type: "doughnut",
                 data: chartData,
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: ANIMATION_CONFIG,
+                    ...commonOptions,
                     plugins: {
                         legend: { position: "bottom", labels: { padding: 15, font: { size: 12 } } },
                         tooltip: {
@@ -154,34 +114,16 @@ export class LoanDashboardCharts extends Component {
                         },
                     },
                 },
-            });
-        } catch (e) {
-            console.error("Error rendering status distribution chart:", e);
+            };
         }
-    }
 
-    _renderLoanTenureDistribution() {
-        this._renderPieChart("loan_tenure_distribution_data", "loan_tenure_distribution_chart", " loans");
-    }
-
-    _renderDisbursementTrends() {
-        const raw = this.recordData.disbursement_trends_data;
-        if (!raw) return;
-        try {
-            const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs.disbursement.el;
-            if (!ctx) {
-                console.error("Disbursement canvas not found");
-                return;
-            }
-            this.charts.disbursement = new Chart(ctx, {
+        if (fieldName === "disbursement_trends_data") {
+            return {
                 type: "line",
                 data: chartData,
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    ...commonOptions,
                     interaction: { mode: "index", intersect: false },
-                    animation: ANIMATION_CONFIG,
                     scales: {
                         y:  { type: "linear", position: "left", title: { display: true, text: "Amount" } },
                         y1: { type: "linear", position: "right", title: { display: true, text: "Count"  },
@@ -202,100 +144,41 @@ export class LoanDashboardCharts extends Component {
                         },
                     },
                 },
-            });
-        } catch (e) {
-            console.error("Error rendering disbursement trends chart:", e);
+            };
         }
-    }
 
-    _renderParAnalysis() {
-        const raw = this.recordData.par_analysis_data;
-        if (!raw) return;
-        try {
-            const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs.par.el;
-            if (!ctx) {
-                console.error("PAR canvas not found");
-                return;
-            }
-            this.charts.par = new Chart(ctx, {
+        if (fieldName === "par_analysis_data" || fieldName === "loan_amount_distribution_data") {
+            const yLabel = fieldName === "par_analysis_data" ? "Outstanding Amount" : "Number of Loans";
+            return {
                 type: "bar",
                 data: chartData,
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: ANIMATION_CONFIG,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: "Outstanding Amount" } } },
+                    ...commonOptions,
+                    scales: { y: { beginAtZero: true, title: { display: true, text: yLabel } } },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
                                 label: function(c) {
-                                    return `Outstanding: ${(c.parsed.y || 0).toLocaleString("en-KE", { style: "currency", currency: "KES" })}`;
+                                    const val = c.parsed.y || 0;
+                                    return fieldName === "par_analysis_data" 
+                                        ? `Outstanding: ${val.toLocaleString("en-KE", { style: "currency", currency: "KES" })}`
+                                        : `Loans: ${val.toLocaleString()}`;
                                 },
                             },
                         },
                     },
                 },
-            });
-        } catch (e) {
-            console.error("Error rendering PAR analysis chart:", e);
+            };
         }
-    }
 
-    _renderLoanAmountDistribution() {
-        const raw = this.recordData.loan_amount_distribution_data;
-        if (!raw) return;
-        try {
-            const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs.amountDist.el;
-            if (!ctx) {
-                console.error("Amount distribution canvas not found");
-                return;
-            }
-            this.charts.amountDist = new Chart(ctx, {
-                type: "bar",
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: ANIMATION_CONFIG,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: "Number of Loans" } } },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(c) {
-                                    return `Loans: ${(c.parsed.y || 0).toLocaleString()}`;
-                                },
-                            },
-                        },
-                    },
-                },
-            });
-        } catch (e) {
-            console.error("Error rendering loan amount distribution chart:", e);
-        }
-    }
-
-    _renderRepaymentPerformance() {
-        const raw = this.recordData.repayment_performance_data;
-        if (!raw) return;
-        try {
-            const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs.repayment.el;
-            if (!ctx) {
-                console.error("Repayment canvas not found");
-                return;
-            }
-            this.charts.repayment = new Chart(ctx, {
+        if (fieldName === "repayment_performance_data") {
+            return {
                 type: "line",
                 data: chartData,
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    ...commonOptions,
                     interaction: { mode: "index", intersect: false },
-                    animation: ANIMATION_CONFIG,
                     scales: { y: { beginAtZero: true, title: { display: true, text: "Amount" } } },
                     plugins: {
                         legend: { position: "bottom", labels: { padding: 15, font: { size: 12 } } },
@@ -308,10 +191,10 @@ export class LoanDashboardCharts extends Component {
                         },
                     },
                 },
-            });
-        } catch (e) {
-            console.error("Error rendering repayment performance chart:", e);
+            };
         }
+
+        return null;
     }
 }
 

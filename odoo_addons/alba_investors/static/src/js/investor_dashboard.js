@@ -20,26 +20,17 @@ export class InvestorDashboardCharts extends Component {
     static props = { ...standardFieldProps };
 
     setup() {
-        this.charts = {};
-        this.canvasRefs = {
-            investmentComposition: useRef("investment_composition_canvas"),
-            investorStatus: useRef("investor_status_canvas"),
-            investmentTrends: useRef("investment_trends_canvas"),
-            interestPayout: useRef("interest_payout_trends_canvas"),
-            withdrawal: useRef("withdrawal_analysis_canvas"),
-            investorType: useRef("investor_type_distribution_canvas"),
-            amountDist: useRef("investment_amount_distribution_canvas"),
-            tenure: useRef("tenure_distribution_canvas")
-        };
+        this.chart = null;
+        this.canvasRef = useRef("canvas");
 
         onMounted(() => {
-            this._renderCharts();
+            this._renderChart();
         });
 
         onWillUnmount(() => {
-            Object.values(this.charts).forEach((chart) => {
-                if (chart) chart.destroy();
-            });
+            if (this.chart) {
+                this.chart.destroy();
+            }
         });
     }
 
@@ -47,39 +38,54 @@ export class InvestorDashboardCharts extends Component {
         return this.props.record.data;
     }
 
-    _renderCharts() {
+    _renderChart() {
         if (typeof Chart === "undefined") {
             console.error("Chart.js is not loaded");
             return;
         }
-        
-        this._renderInvestmentComposition();
-        this._renderInvestorStatus();
-        this._renderInvestmentTrends();
-        this._renderInterestPayoutTrends();
-        this._renderWithdrawalAnalysis();
-        this._renderInvestorTypeDistribution();
-        this._renderInvestmentAmountDistribution();
-        this._renderTenureDistribution();
-    }
 
-    _renderPieChart(fieldName, canvasRef, labelSuffix = "") {
+        const fieldName = this.props.name;
         const raw = this.recordData[fieldName];
         if (!raw) return;
+
         try {
             const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs[canvasRef].el;
-            if (!ctx) {
-                console.error(`Canvas element not found for ${canvasRef}`);
-                return;
+            const ctx = this.canvasRef.el;
+            if (!ctx) return;
+
+            let config = this._getChartConfig(fieldName, chartData, ctx);
+            if (config) {
+                this.chart = new Chart(ctx, config);
             }
-            this.charts[canvasRef] = new Chart(ctx, {
+        } catch (e) {
+            console.error(`Error rendering chart [${fieldName}]:`, e);
+        }
+    }
+
+    _getChartConfig(fieldName, chartData, ctx) {
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: ANIMATION_CONFIG,
+        };
+
+        const pieFields = [
+            "investment_composition_data",
+            "investor_status_data",
+            "investor_type_distribution_data",
+            "tenure_distribution_data"
+        ];
+
+        if (pieFields.includes(fieldName)) {
+            let suffix = "";
+            if (fieldName === "investor_status_data" || fieldName === "investor_type_distribution_data") suffix = " investors";
+            if (fieldName === "tenure_distribution_data") suffix = " investments";
+
+            return {
                 type: "pie",
                 data: chartData,
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: ANIMATION_CONFIG,
+                    ...commonOptions,
                     plugins: {
                         legend: { position: "bottom", labels: { padding: 15, font: { size: 12 } } },
                         tooltip: {
@@ -89,81 +95,22 @@ export class InvestorDashboardCharts extends Component {
                                     const value = context.parsed || 0;
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                     const pct = ((value / total) * 100).toFixed(1);
-                                    return `${label}: ${value.toLocaleString()}${labelSuffix} (${pct}%)`;
+                                    return `${label}: ${value.toLocaleString()}${suffix} (${pct}%)`;
                                 },
                             },
                         },
                     },
                 },
-            });
-        } catch (e) {
-            console.error(`Error rendering chart [${canvasRef}]:`, e);
+            };
         }
-    }
 
-    _renderInvestmentComposition() {
-        this._renderPieChart("investment_composition_data", "investmentComposition");
-    }
-
-    _renderInvestorStatus() {
-        this._renderPieChart("investor_status_data", "investorStatus", " investors");
-    }
-
-    _renderInvestorTypeDistribution() {
-        this._renderPieChart("investor_type_distribution_data", "investorType", " investors");
-    }
-
-    _renderInvestmentAmountDistribution() {
-        const raw = this.recordData.investment_amount_distribution_data;
-        if (!raw) return;
-        try {
-            const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs.amountDist.el;
-            if (!ctx) return;
-            this.charts.amountDist = new Chart(ctx, {
-                type: "bar",
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: ANIMATION_CONFIG,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: "Number of Investors" } } },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(c) {
-                                    return `Investors: ${(c.parsed.y || 0).toLocaleString()}`;
-                                },
-                            },
-                        },
-                    },
-                },
-            });
-        } catch (e) {
-            console.error("Error rendering investment amount distribution chart:", e);
-        }
-    }
-
-    _renderTenureDistribution() {
-        this._renderPieChart("tenure_distribution_data", "tenure", " investments");
-    }
-
-    _renderInvestmentTrends() {
-        const raw = this.recordData.investment_trends_data;
-        if (!raw) return;
-        try {
-            const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs.investmentTrends.el;
-            if (!ctx) return;
-            this.charts.investmentTrends = new Chart(ctx, {
+        if (fieldName === "investment_trends_data") {
+            return {
                 type: "line",
                 data: chartData,
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    ...commonOptions,
                     interaction: { mode: "index", intersect: false },
-                    animation: ANIMATION_CONFIG,
                     scales: {
                         y:  { type: "linear", position: "left", title: { display: true, text: "Amount" } },
                         y1: { type: "linear", position: "right", title: { display: true, text: "Count"  },
@@ -184,27 +131,16 @@ export class InvestorDashboardCharts extends Component {
                         },
                     },
                 },
-            });
-        } catch (e) {
-            console.error("Error rendering investment trends chart:", e);
+            };
         }
-    }
 
-    _renderInterestPayoutTrends() {
-        const raw = this.recordData.interest_payout_trends_data;
-        if (!raw) return;
-        try {
-            const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs.interestPayout.el;
-            if (!ctx) return;
-            this.charts.interestPayout = new Chart(ctx, {
+        if (fieldName === "interest_payout_trends_data") {
+            return {
                 type: "line",
                 data: chartData,
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    ...commonOptions,
                     interaction: { mode: "index", intersect: false },
-                    animation: ANIMATION_CONFIG,
                     scales: { y: { beginAtZero: true, title: { display: true, text: "Amount" } } },
                     plugins: {
                         legend: { position: "bottom", labels: { padding: 15, font: { size: 12 } } },
@@ -217,42 +153,35 @@ export class InvestorDashboardCharts extends Component {
                         },
                     },
                 },
-            });
-        } catch (e) {
-            console.error("Error rendering interest payout trends chart:", e);
+            };
         }
-    }
 
-    _renderWithdrawalAnalysis() {
-        const raw = this.recordData.withdrawal_analysis_data;
-        if (!raw) return;
-        try {
-            const chartData = JSON.parse(raw);
-            const ctx = this.canvasRefs.withdrawal.el;
-            if (!ctx) return;
-            this.charts.withdrawal = new Chart(ctx, {
+        if (fieldName === "investment_amount_distribution_data" || fieldName === "withdrawal_analysis_data") {
+            const yLabel = fieldName === "investment_amount_distribution_data" ? "Number of Investors" : "Amount";
+            return {
                 type: "bar",
                 data: chartData,
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: ANIMATION_CONFIG,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: "Amount" } } },
+                    ...commonOptions,
+                    scales: { y: { beginAtZero: true, title: { display: true, text: yLabel } } },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
                                 label: function(c) {
-                                    return `Amount: ${(c.parsed.y || 0).toLocaleString("en-KE", { style: "currency", currency: "KES" })}`;
+                                    const val = c.parsed.y || 0;
+                                    return fieldName === "investment_amount_distribution_data"
+                                        ? `Investors: ${val.toLocaleString()}`
+                                        : `Amount: ${val.toLocaleString("en-KE", { style: "currency", currency: "KES" })}`;
                                 },
                             },
                         },
                     },
                 },
-            });
-        } catch (e) {
-            console.error("Error rendering withdrawal analysis chart:", e);
+            };
         }
+
+        return null;
     }
 }
 
