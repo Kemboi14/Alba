@@ -431,7 +431,7 @@ class AlbaLoanDashboard(models.TransientModel):
         customer_status = {}
         for loan in loans:
             if loan.customer_id:
-                customer_name = loan.customer_id.name or "Unknown"
+                customer_name = loan.customer_id.display_name or "Unknown"
                 status = dict(loan._fields['state'].selection).get(loan.state, loan.state)
                 if customer_name not in customer_status:
                     customer_status[customer_name] = status

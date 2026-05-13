@@ -881,7 +881,7 @@ class AlbaLoanApplication(models.Model):
                 "conversation_id": response.get("ConversationID"),
                 "originator_conversation_id": response.get("OriginatorConversationID"),
                 "account_reference": rec.application_number,
-                "description": f"Loan Disbursement to {rec.customer_id.name}",
+                "description": f"Loan Disbursement to {rec.customer_id.display_name}",
                 "config_id": config.id,
                 "company_id": rec.company_id.id,
                 # We link it to the application by saving the app ID in a new field or using account_reference
