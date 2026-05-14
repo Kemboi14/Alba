@@ -61,43 +61,7 @@
             </field>
         </record>
 
-        <!-- 5. Director (Admin) ──────────────────────────────────────────────── -->
-        <record id="group_director" model="res.groups">
-            <field name="name">Director</field>
-            <field name="implied_ids" eval="[
-                (4, ref('group_operations_manager')),
-                (4, ref('group_finance_admin')),
-                (4, ref('group_loan_officer')),
-                (4, ref('base.group_erp_manager'))
-            ]"/>
-            <field name="comment">
-                Directors have full administrative access across all modules.
-                Can approve high-value loans, authorize write-offs, approve critical journals,
-                manage system configuration, and have final approval authority in all workflows.
-            </field>
-        </record>
-
-        <!-- 6. Trade Finance Officer ──────────────────────────────────────────── -->
-        <record id="group_trade_finance_officer" model="res.groups">
-            <field name="name">Trade Finance Officer</field>
-            <field name="comment">
-                Trade Finance Officers specialize in bid bonds, performance bonds, and IPF loans.
-                Can process bond applications, manage trade finance documentation,
-                and handle contract-based financing products.
-            </field>
-        </record>
-
-        <!-- 7. Business Development Officer ─────────────────────────────────────── -->
-        <record id="group_business_dev_officer" model="res.groups">
-            <field name="name">Business Development Officer</field>
-            <field name="comment">
-                Business Development Officers focus on SME and business loan products.
-                Can manage business loan applications, conduct business verifications,
-                and support business customer onboarding.
-            </field>
-        </record>
-
-        <!-- 8. Loan Officer (Credit Analyst) ──────────────────────────────────── -->
+        <!-- 5. Loan Officer (Credit Analyst) ──────────────────────────────────── -->
         <record id="group_loan_officer" model="res.groups">
             <field name="name">Loan Officer / Credit Analyst</field>
             <field name="implied_ids" eval="[(4, ref('group_relationship_officer'))]"/>
@@ -109,7 +73,52 @@
             </field>
         </record>
 
-        <!-- 9. Investor Relations Officer ─────────────────────────────────────── -->
+        <!-- 6. Loan Manager (Legacy) ────────────────────────────────────────────── -->
+        <record id="group_loan_manager" model="res.groups">
+            <field name="name">Loan Manager (Full)</field>
+            <field name="implied_ids" eval="[(4, ref('group_loan_officer'))]"/>
+            <field name="comment">Legacy group - Use Operations Manager instead</field>
+        </record>
+
+        <!-- 7. Director (Admin) ──────────────────────────────────────────────── -->
+        <record id="group_director" model="res.groups">
+            <field name="name">Director</field>
+            <field name="implied_ids" eval="[
+                (4, ref('group_operations_manager')),
+                (4, ref('group_finance_admin')),
+                (4, ref('group_loan_officer')),
+                (4, ref('group_loan_manager')),
+                (4, ref('account.group_account_manager')),
+                (4, ref('base.group_erp_manager'))
+            ]"/>
+            <field name="comment">
+                Directors have full administrative access across all modules.
+                Can approve high-value loans, authorize write-offs, approve critical journals,
+                manage system configuration, and have final approval authority in all workflows.
+            </field>
+        </record>
+
+        <!-- 8. Trade Finance Officer ──────────────────────────────────────────── -->
+        <record id="group_trade_finance_officer" model="res.groups">
+            <field name="name">Trade Finance Officer</field>
+            <field name="comment">
+                Trade Finance Officers specialize in bid bonds, performance bonds, and IPF loans.
+                Can process bond applications, manage trade finance documentation,
+                and handle contract-based financing products.
+            </field>
+        </record>
+
+        <!-- 9. Business Development Officer ─────────────────────────────────────── -->
+        <record id="group_business_dev_officer" model="res.groups">
+            <field name="name">Business Development Officer</field>
+            <field name="comment">
+                Business Development Officers focus on SME and business loan products.
+                Can manage business loan applications, conduct business verifications,
+                and support business customer onboarding.
+            </field>
+        </record>
+
+        <!-- 10. Investor Relations Officer ─────────────────────────────────────── -->
         <record id="group_investor_officer" model="res.groups">
             <field name="name">Investor Relations Officer</field>
             <field name="comment">
@@ -119,7 +128,7 @@
             </field>
         </record>
 
-        <!-- 10. HR/Payroll Officer ────────────────────────────────────────────── -->
+        <!-- 11. HR/Payroll Officer ────────────────────────────────────────────── -->
         <record id="group_hr_payroll_officer" model="res.groups">
             <field name="name">HR &amp; Payroll Officer</field>
             <field name="comment">
@@ -127,26 +136,6 @@
                 Can manage employee records, process monthly payroll, handle leave management,
                 and process staff loan applications. Requires Finance approval for disbursement.
             </field>
-        </record>
-
-        <!-- ================================================================
-             LEGACY GROUPS (Kept for backward compatibility)
-             ================================================================ -->
-
-        <!-- group_loan_user is defined at the top of this file (before Relationship Officer) -->
-
-        <!-- ── Loan Manager (Full) ────────────────────────────────────────────── -->
-        <record id="group_loan_manager" model="res.groups">
-            <field name="name">Loan Manager (Full)</field>
-            <field name="implied_ids" eval="[(4, ref('group_loan_officer'))]"/>
-            <field name="comment">Legacy group - Use Operations Manager instead</field>
-        </record>
-
-        <record id="group_director" model="res.groups">
-            <field name="implied_ids" eval="[
-                (4, ref('group_loan_manager')),
-                (4, ref('account.group_account_manager'))
-            ]"/>
         </record>
 
         <!-- ================================================================
