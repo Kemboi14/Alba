@@ -37,6 +37,10 @@ Manages the full investor lifecycle:
         "data/sequence_data.xml",
         "data/cron_data.xml",
         "data/mail_template_data.xml",
+        # Reports
+        "report/investor_reports.xml",
+        "report/investment_statement_report.xml",
+        "report/investor_statement_report_template.xml",
         # Views
         "views/investor_views.xml",
         "views/investment_statement_views.xml",
@@ -46,10 +50,6 @@ Manages the full investor lifecycle:
         "views/investor_dashboard_views.xml",
         # Wizards
         "wizard/generate_statement_wizard_views.xml",
-        # Reports
-        "report/investor_reports.xml",
-        "report/investment_statement_report.xml",
-        "report/investor_statement_report_template.xml",
         # Menus last
         "views/menus.xml",
     ],
