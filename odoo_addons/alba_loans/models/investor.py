@@ -20,7 +20,7 @@ class AlbaInvestor(models.Model):
     partner_id = fields.Many2one(
         "res.partner",
         string="Contact",
-        required=True,
+        required=False,
         ondelete="restrict",
         tracking=True,
         index=True,
