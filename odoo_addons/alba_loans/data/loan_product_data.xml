@@ -20,9 +20,9 @@
             <field name="interest_method">flat_rate</field>
             <field name="repayment_frequency">monthly</field>
             <field name="fee_template_ids" eval="[
-                (0, 0, {'fee_product_id': ref('alba_loans.product_loan_processing_fee'), 'fee_type': 'percentage', 'amount': 3.5, 'sequence': 10}),
-                (0, 0, {'fee_product_id': ref('alba_loans.product_loan_insurance_fee'), 'fee_type': 'percentage', 'amount': 1.5, 'sequence': 20}),
-                (0, 0, {'fee_product_id': ref('alba_loans.product_loan_origination_fee'), 'fee_type': 'percentage', 'amount': 10.0, 'sequence': 30})
+                (0, 0, {'fee_product_id': ref('alba_loans.fee_product_loan_processing'), 'fee_type': 'percentage', 'amount': 3.5, 'sequence': 10}),
+                (0, 0, {'fee_product_id': ref('alba_loans.fee_product_loan_insurance'), 'fee_type': 'percentage', 'amount': 1.5, 'sequence': 20}),
+                (0, 0, {'fee_product_id': ref('alba_loans.fee_product_loan_origination'), 'fee_type': 'percentage', 'amount': 10.0, 'sequence': 30})
             ]"/>
             <field name="penalty_rate">15</field>
             <field name="grace_period_days">30</field>
@@ -43,7 +43,7 @@
             <field name="interest_method">flat_rate</field>
             <field name="repayment_frequency">monthly</field>
             <field name="fee_template_ids" eval="[
-                (0, 0, {'fee_product_id': ref('alba_loans.product_loan_origination_fee'), 'fee_type': 'percentage', 'amount': 10.0, 'sequence': 10})
+                (0, 0, {'fee_product_id': ref('alba_loans.fee_product_loan_origination'), 'fee_type': 'percentage', 'amount': 10.0, 'sequence': 10})
             ]"/>
             <field name="penalty_rate">15</field>
             <field name="grace_period_days">30</field>
@@ -64,9 +64,9 @@
             <field name="interest_method">flat_rate</field>
             <field name="repayment_frequency">monthly</field>
             <field name="fee_template_ids" eval="[
-                (0, 0, {'fee_product_id': ref('alba_loans.product_loan_processing_fee'), 'fee_type': 'percentage', 'amount': 3.5, 'sequence': 10}),
-                (0, 0, {'fee_product_id': ref('alba_loans.product_loan_insurance_fee'), 'fee_type': 'percentage', 'amount': 1.5, 'sequence': 20}),
-                (0, 0, {'fee_product_id': ref('alba_loans.product_loan_origination_fee'), 'fee_type': 'percentage', 'amount': 10.0, 'sequence': 30})
+                (0, 0, {'fee_product_id': ref('alba_loans.fee_product_loan_processing'), 'fee_type': 'percentage', 'amount': 3.5, 'sequence': 10}),
+                (0, 0, {'fee_product_id': ref('alba_loans.fee_product_loan_insurance'), 'fee_type': 'percentage', 'amount': 1.5, 'sequence': 20}),
+                (0, 0, {'fee_product_id': ref('alba_loans.fee_product_loan_origination'), 'fee_type': 'percentage', 'amount': 10.0, 'sequence': 30})
             ]"/>
             <field name="penalty_rate">15</field>
             <field name="grace_period_days">30</field>
@@ -105,7 +105,7 @@
             <field name="interest_method">flat_rate</field>
             <field name="repayment_frequency">monthly</field>
             <field name="fee_template_ids" eval="[
-                (0, 0, {'fee_product_id': ref('alba_loans.product_loan_origination_fee'), 'fee_type': 'percentage', 'amount': 1.5, 'sequence': 10})
+                (0, 0, {'fee_product_id': ref('alba_loans.fee_product_loan_origination'), 'fee_type': 'percentage', 'amount': 1.5, 'sequence': 10})
             ]"/>
             <field name="penalty_rate">0</field>
             <field name="grace_period_days">0</field>
@@ -126,7 +126,7 @@
             <field name="interest_method">flat_rate</field>
             <field name="repayment_frequency">monthly</field>
             <field name="fee_template_ids" eval="[
-                (0, 0, {'fee_product_id': ref('alba_loans.product_loan_origination_fee'), 'fee_type': 'percentage', 'amount': 1.0, 'sequence': 10})
+                (0, 0, {'fee_product_id': ref('alba_loans.fee_product_loan_origination'), 'fee_type': 'percentage', 'amount': 1.0, 'sequence': 10})
             ]"/>
             <field name="penalty_rate">0</field>
             <field name="grace_period_days">0</field>
