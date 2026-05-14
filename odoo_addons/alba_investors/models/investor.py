@@ -11,15 +11,6 @@ class AlbaInvestorPro(models.Model):
     _rec_name = "display_name"
     _order = "create_date desc"
 
-    # ── Partner link ──────────────────────────────────────────────────────────
-    partner_id = fields.Many2one(
-        "res.partner",
-        string="Contact",
-        required=True,
-        ondelete="restrict",
-        tracking=True,
-        index=True,
-    )
     display_name = fields.Char(
         string="Name",
         compute="_compute_display_name",
@@ -138,10 +129,6 @@ class AlbaInvestorPro(models.Model):
         ondelete={'blacklisted': 'set default'}
     )
 
-    # ── Banking / Payout ──────────────────────────────────────────────────────
-    bank_name = fields.Char(string="Bank Name")
-    bank_account_number = fields.Char(string="Bank Account Number")
-    bank_branch = fields.Char(string="Bank Branch")
     mpesa_number = fields.Char(
         string="M-Pesa Number",
         help="Must start with 254 e.g. 254712345678",

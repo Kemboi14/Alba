@@ -16,28 +16,32 @@ class AlbaInvestor(models.Model):
     _rec_name = "display_name"
 
     # ─── Basic Information ──────────────────────────────────────────────────
-    name = fields.Char(string="Full Name", required=True, tracking=True)
+    # ─── Partner link ──────────────────────────────────────────────────────────
+    partner_id = fields.Many2one(
+        "res.partner",
+        string="Contact",
+        required=True,
+        ondelete="restrict",
+        tracking=True,
+        index=True,
+    )
+    name = fields.Char(related="partner_id.name", store=True, readonly=False)
     display_name = fields.Char(string="Display Name", compute="_compute_display_name", store=True)
     investor_type = fields.Selection([
         ("individual", "Individual"),
         ("company", "Company"),
     ], string="Investor Type", required=True, default="individual", tracking=True)
     
-    # ─── Identification ───────────────────────────────────────────────────────
-    id_number = fields.Char(string="ID/Passport Number", tracking=True)
-    kra_pin = fields.Char(string="KRA PIN", tracking=True)
-    registration_number = fields.Char(string="Company Registration", tracking=True)
+    # ─── Identification (Related to Partner) ──────────────────────────────────
+    id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
+    kra_pin = fields.Char(related="partner_id.kra_pin", store=True, readonly=False)
+    registration_number = fields.Char(related="partner_id.registration_number", store=True, readonly=False)
     
-    # ─── Contact Information ──────────────────────────────────────────────────
-    phone = fields.Char(string="Phone", tracking=True)
-    email = fields.Char(string="Email", tracking=True)
-    address = fields.Text(string="Physical Address")
+    # ─── Contact Information (Related to Partner) ─────────────────────────────
+    phone = fields.Char(related="partner_id.phone", store=True, readonly=False)
+    email = fields.Char(related="partner_id.email", store=True, readonly=False)
+    address = fields.Text(related="partner_id.street", string="Physical Address", readonly=False)
     
-    # ─── Bank Details ─────────────────────────────────────────────────────────
-    bank_name = fields.Char(string="Bank Name")
-    bank_account = fields.Char(string="Account Number")
-    bank_branch = fields.Char(string="Branch")
-    swift_code = fields.Char(string="SWIFT Code")
     
     # ─── Investment Details ───────────────────────────────────────────────────
     investment_product = fields.Selection([

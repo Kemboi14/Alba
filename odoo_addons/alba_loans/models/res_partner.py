@@ -26,6 +26,8 @@ class ResPartner(models.Model):
         string="Gender",
         tracking=True,
     )
+    kra_pin = fields.Char(string="KRA PIN", tracking=True)
+    registration_number = fields.Char(string="Company Registration", tracking=True)
 
     # ── Employment (Centralized) ──────────────────────────────────────────────
     employer_id = fields.Many2one(

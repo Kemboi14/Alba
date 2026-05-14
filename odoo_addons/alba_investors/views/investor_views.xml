@@ -132,11 +132,7 @@
                     <notebook>
                         <page string="Payout Details" name="payout">
                             <group>
-                                <group string="Bank Account">
-                                    <field name="bank_name"/>
-                                    <field name="bank_account_number"/>
-                                    <field name="bank_branch"/>
-                                </group>
+                                <!-- Bank details are managed via the Contact link -->
                                 <group string="Mobile Money &amp; Preference">
                                     <field name="mpesa_number"/>
                                     <field name="preferred_payment_method"/>
