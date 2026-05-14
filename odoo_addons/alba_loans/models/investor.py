@@ -40,7 +40,7 @@ class AlbaInvestor(models.Model):
     # ─── Contact Information (Related to Partner) ─────────────────────────────
     phone = fields.Char(related="partner_id.phone", store=True, readonly=False)
     email = fields.Char(related="partner_id.email", store=True, readonly=False)
-    address = fields.Text(related="partner_id.street", string="Physical Address", readonly=False)
+    address = fields.Char(related="partner_id.street", string="Physical Address", readonly=False)
     
     
     # ─── Investment Details ───────────────────────────────────────────────────
