@@ -161,9 +161,23 @@
                                     <group>
                                         <field name="account_loan_receivable_id"
                                                options="{'no_create': True}"/>
+                                        <field name="account_interest_receivable_id"
+                                               options="{'no_create': True}"/>
                                         <field name="account_interest_income_id"
                                                options="{'no_create': True}"/>
                                         <field name="account_fees_income_id"
+                                               options="{'no_create': True}"/>
+                                        <field name="account_clearing_id"
+                                               options="{'no_create': True}"/>
+                                    </group>
+                                    <group>
+                                        <field name="account_provision_id"
+                                               options="{'no_create': True}"/>
+                                        <field name="account_provision_expense_id"
+                                               options="{'no_create': True}"/>
+                                        <field name="account_interest_expense_id"
+                                               options="{'no_create': True}"/>
+                                        <field name="account_internal_investment_id"
                                                options="{'no_create': True}"/>
                                     </group>
                                     <group>

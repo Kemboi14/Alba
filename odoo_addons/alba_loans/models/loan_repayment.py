@@ -382,8 +382,8 @@ class AlbaLoanRepayment(models.Model):
     def _auto_allocate_components(self):
         """
         Auto-allocate payment amount to components in priority order:
-        1. Other charges (oldest overdue first)
-        2. Penalties (oldest overdue first)
+        1. Penalties (Daily Compounding on arrears)
+        2. Fees / Other Charges
         3. Interest
         4. Principal
         Uses the linked repayment schedule to drive allocation.
@@ -404,15 +404,31 @@ class AlbaLoanRepayment(models.Model):
             order="due_date asc",
         )
 
-        # Calculate other charges and penalties first (based on overdue days)
+        # 1. Allocate to penalties first (Daily Compounding)
         for entry in schedule:
             if remaining <= 0:
                 break
             
-            # 1. Allocate to other charges/fees first
-            # Fees are typically one-time charges, not per instalment
-            # We'll calculate based on loan product fee structure
-            if fees == 0:  # Only allocate fees once
+            if entry.due_date and entry.due_date < fields.Date.today():
+                loan_product = self.loan_id.loan_product_id
+                if loan_product and loan_product.penalty_rate > 0:
+                    days_overdue = (fields.Date.today() - entry.due_date).days
+                    overdue_amount = entry.balance_due
+                    # Daily compounding: A = P(1+r)^n - P
+                    daily_rate = (loan_product.penalty_rate / 100)
+                    penalty_owed = overdue_amount * ((1 + daily_rate)**days_overdue - 1)
+                    
+                    pay_penalty = min(remaining, penalty_owed)
+                    penalty += pay_penalty
+                    remaining -= pay_penalty
+
+        # 2. Allocate to fees / other charges
+        for entry in schedule:
+            if remaining <= 0:
+                break
+            
+            # Allocate to fees based on loan product fee structure
+            if fees == 0:  # Only allocate fees once if they are fixed, or per instalment if applicable
                 loan_product = self.loan_id.loan_product_id
                 if loan_product:
                     fee_amount = loan_product.calculate_total_fees(self.loan_id.principal_amount)
@@ -422,21 +438,6 @@ class AlbaLoanRepayment(models.Model):
                     pay_fees = min(remaining, unpaid_fees)
                     fees += pay_fees
                     remaining -= pay_fees
-            
-            # 2. Allocate to penalties
-            # Calculate penalty based on overdue days and penalty rate
-            # FIX: Daily penalty rate = monthly rate / 30
-            if entry.due_date and entry.due_date < fields.Date.today():
-                loan_product = self.loan_id.loan_product_id
-                if loan_product and loan_product.penalty_rate > 0:
-                    days_overdue = (fields.Date.today() - entry.due_date).days
-                    overdue_amount = entry.balance_due
-                    # Convert monthly penalty rate to daily: rate / 100 / 30
-                    daily_penalty_rate = (loan_product.penalty_rate / 100) / 30
-                    penalty_owed = overdue_amount * daily_penalty_rate * days_overdue
-                    pay_penalty = min(remaining, penalty_owed)
-                    penalty += pay_penalty
-                    remaining -= pay_penalty
         
         # 3. Allocate to interest across all instalments
         for entry in schedule:

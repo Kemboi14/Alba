@@ -149,6 +149,12 @@ class AlbaLoanProduct(models.Model):
         default=0,
         help="Number of days after due date before penalties apply.",
     )
+    provision_rate = fields.Float(
+        string="Provisioning Rate (%)",
+        digits=(5, 2),
+        default=1.0,
+        help="Percentage of the principal to be provisioned for potential losses upon disbursement.",
+    )
     
     # ─── Automation ───────────────────────────────────────────────────────────
     auto_approve_score_threshold = fields.Integer(
@@ -254,6 +260,41 @@ class AlbaLoanProduct(models.Model):
         tracking=True,
         domain="[('account_type', 'in', ['asset_current', 'liability_current'])]",
         help="Intermediary account for disbursements. DR Loan Receivable, CR Clearing; then Payment Voucher clears this account.",
+    )
+    account_interest_receivable_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Interest Receivable Account",
+        tracking=True,
+        domain="[('account_type', '=', 'asset_receivable')]",
+        help="Account for tracking accrued interest that hasn't been collected yet.",
+    )
+    account_provision_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Provision Account (Asset Offset)",
+        tracking=True,
+        domain="[('account_type', '=', 'asset_current')]",
+        help="The allowance for credit losses account (Contra-asset).",
+    )
+    account_provision_expense_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Provision Expense Account",
+        tracking=True,
+        domain="[('account_type', '=', 'expense')]",
+        help="The expense account for loan loss provisioning.",
+    )
+    account_interest_expense_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Interest Expense Account (Investors)",
+        tracking=True,
+        domain="[('account_type', '=', 'expense')]",
+        help="Account for recording interest expenses owed to investors.",
+    )
+    account_internal_investment_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Internal Investment Account",
+        tracking=True,
+        domain="[('account_type', '=', 'income')]",
+        help="Income account for internal investments.",
     )
     account_insurance_receivable_id = fields.Many2one(
         comodel_name="account.account",

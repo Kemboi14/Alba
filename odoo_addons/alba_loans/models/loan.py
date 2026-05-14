@@ -293,6 +293,12 @@ class AlbaLoan(models.Model):
         readonly=True,
         copy=False,
     )
+    provision_move_id = fields.Many2one(
+        "account.move",
+        string="Provision Journal Entry",
+        readonly=True,
+        copy=False,
+    )
 
     repayment_count = fields.Integer(
         string="Payments",
@@ -788,6 +794,63 @@ class AlbaLoan(models.Model):
         self.message_post(
             body=_("Disbursement journal entry %s posted for KES %s.")
             % (move.name, f"{self.principal_amount:,.2f}")
+        )
+        
+        # Trigger automatic provisioning
+        self.action_post_provisioning_entry()
+        
+        return move
+
+    def action_post_provisioning_entry(self):
+        """
+        Create a provisioning journal entry for potential loan losses:
+            DR  Provision Expense
+            CR  Loan Loss Provision (Asset Offset)
+        """
+        self.ensure_one()
+        if self.provision_move_id:
+            return False
+
+        product = self.loan_product_id
+        if not product.account_provision_id or not product.account_provision_expense_id:
+            # Provisioning is optional; skip if not configured
+            return False
+
+        # Calculate provisioning amount based on product rate
+        rate = product.provision_rate / 100.0 if product.provision_rate else 0.01
+        provision_amount = self.principal_amount * rate
+
+        move_vals = {
+            "journal_id": self.journal_id.id,
+            "date": self.disbursement_date,
+            "ref": f"PROV/{self.loan_number}",
+            "move_type": "entry",
+            "line_ids": [
+                # DR Provision Expense
+                (0, 0, {
+                    "account_id": product.account_provision_expense_id.id,
+                    "name": _("Loan Loss Provision Expense — %s") % self.loan_number,
+                    "debit": provision_amount,
+                    "credit": 0.0,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
+                # CR Provision Account (Asset Offset)
+                (0, 0, {
+                    "account_id": product.account_provision_id.id,
+                    "name": _("Allowance for Credit Losses — %s") % self.loan_number,
+                    "debit": 0.0,
+                    "credit": provision_amount,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
+            ],
+        }
+
+        move = self.env["account.move"].create(move_vals)
+        move.action_post()
+        self.write({"provision_move_id": move.id})
+        self.message_post(
+            body=_("Automatic provisioning journal entry %s posted for KES %s.")
+            % (move.name, f"{provision_amount:,.2f}")
         )
         return move
 
