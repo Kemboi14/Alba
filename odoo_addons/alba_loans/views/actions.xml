@@ -8,6 +8,25 @@
 -->
 <odoo>
     <data>
+        <!-- ================================================================
+             Root Menus (Defined here to avoid forward-reference errors)
+             ================================================================ -->
+        <menuitem
+            id="menu_alba_loans_root"
+            name="Loans"
+            sequence="10"
+            web_icon="alba_loans,static/description/icon.png"
+            groups="alba_loans.group_loan_user"
+        />
+
+        <menuitem
+            id="menu_alba_loans_config"
+            name="Configuration"
+            parent="menu_alba_loans_root"
+            sequence="100"
+            groups="alba_loans.group_loan_manager"
+        />
+
 
         <!-- ================================================================
              alba.customer — Actions

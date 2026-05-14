@@ -2,16 +2,6 @@
 <odoo>
 <data>
 
-    <!-- ================================================================
-         Loans — Top-level Menu
-         ================================================================ -->
-    <menuitem
-            id="menu_alba_loans_root"
-            name="Loans"
-            sequence="10"
-            web_icon="alba_loans,static/description/icon.png"
-            groups="alba_loans.group_loan_user"
-        />
 
     <!-- ================================================================
          Dashboard
@@ -177,16 +167,6 @@
     <!-- Report menu items (PAR, NPL, P&L, Cash Flow, Balance Sheet) are created
          by post_init_hook in hooks.py to ensure actions exist before menus reference them. -->
 
-    <!-- ================================================================
-         Configuration
-         ================================================================ -->
-    <menuitem
-            id="menu_alba_loans_config"
-            name="Configuration"
-            parent="menu_alba_loans_root"
-            sequence="100"
-            groups="alba_loans.group_loan_manager"
-        />
 
     
     <menuitem
