@@ -459,7 +459,7 @@ class AlbaLoanDisburseWizard(models.TransientModel):
                 "journal_id": self.journal_id.id,
                 "payment_method_line_id": self.payment_method_line_id.id,
                 "currency_id": self.currency_id.id,
-                "ref": _("Disbursement for Loan %s") % loan.loan_number,
+                "memo": _("Disbursement for Loan %s") % loan.loan_number,
                 "destination_account_id": application.loan_product_id.account_clearing_id.id,
             }
             payment = self.env["account.payment"].create(payment_vals)
