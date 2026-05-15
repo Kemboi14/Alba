@@ -1319,8 +1319,8 @@ class AlbaLoan(models.Model):
     def action_create_loan_accounting_move(self):
         """Create accounting move for loan disbursement with currency integration"""
         for loan in self:
-            if loan.state != 'disbursed':
-                raise UserError(_("Only disbursed loans can create accounting moves"))
+            if loan.state not in ('active', 'npl'):
+                raise UserError(_("Only active/disbursed loans can create accounting moves"))
             
             if not loan.journal_id:
                 raise UserError(_("Loan must have a journal configured"))
