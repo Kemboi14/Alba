@@ -773,7 +773,7 @@ class AlbaLoan(models.Model):
 
         # Add Fee Income lines
         for fee in application.fee_line_ids:
-            income_account = fee.fee_product_id.property_account_income_id or fee.fee_product_id.categ_id.property_account_income_id
+            income_account = fee.fee_product_id.property_account_income_id or fee.fee_product_id.categ_id.property_account_income_categ_id
             if not income_account:
                 income_account = product.account_fees_income_id
             
