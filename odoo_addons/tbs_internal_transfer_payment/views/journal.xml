@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+
+    <record id="account_journal_dashboard_kanban_view_inherit_int_transfer" model="ir.ui.view">
+        <field name="name">account.journal.dashboard.kanban.int_transfer</field>
+        <field name="model">account.journal</field>
+        <field name="inherit_id" ref="account.account_journal_dashboard_kanban_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='bank_customer_payment']" position="before">
+                <div>
+                    <a role="menuitem" type="object" name="create_internal_transfer_payment">Internal Transfer</a>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
