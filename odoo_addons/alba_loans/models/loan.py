@@ -1351,7 +1351,7 @@ class AlbaLoan(models.Model):
                         'credit': 0.0,
                         'amount_currency': loan.principal_amount,
                         'currency_id': loan_currency.id,
-                        'partner_id': loan.partner_id.id,
+                        'partner_id': loan.customer_id.partner_id.id,
                     }),
                     # CR Bank / Cash
                     (0, 0, {
@@ -1361,7 +1361,7 @@ class AlbaLoan(models.Model):
                         'credit': loan.principal_amount if loan_currency == company_currency else 0.0,
                         'amount_currency': -loan.principal_amount,
                         'currency_id': loan_currency.id,
-                        'partner_id': loan.partner_id.id,
+                        'partner_id': loan.customer_id.partner_id.id,
                     }),
                 ],
             }
