@@ -6,7 +6,7 @@
             <field name="model">alba.loan.dashboard</field>
             <field name="type">form</field>
             <field name="arch" type="xml">
-                <form string="Loans Dashboard" create="0" edit="1">
+                <form string="Dashboard" create="0" edit="1">
                     <header>
                         <button name="action_refresh" string="Refresh" type="object" class="btn-primary"/>
                     </header>

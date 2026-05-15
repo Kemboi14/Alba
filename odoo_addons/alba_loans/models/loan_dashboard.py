@@ -7,7 +7,11 @@ from odoo import _, api, fields, models
 
 class AlbaLoanDashboard(models.TransientModel):
     _name = "alba.loan.dashboard"
-    _description = "Alba Loans Consolidated Dashboard"
+    _description = "Dashboard"
+    
+    def _compute_display_name(self):
+        for rec in self:
+            rec.display_name = _("Dashboard")
 
     date_from = fields.Date(
         string="From",
@@ -133,7 +137,7 @@ class AlbaLoanDashboard(models.TransientModel):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Loans Dashboard"),
+            "name": _("Dashboard"),
             "res_model": self._name,
             "view_mode": "form",
             "res_id": self.id,

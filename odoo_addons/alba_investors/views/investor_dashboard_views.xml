@@ -6,7 +6,7 @@
             <field name="name">alba.investor.dashboard.form</field>
             <field name="model">alba.investor.dashboard</field>
             <field name="arch" type="xml">
-                <form string="Investor Dashboard">
+                <form string="Dashboard">
                     <header>
                         <button name="action_refresh" string="Refresh" type="object" class="btn-primary"/>
                         <button name="action_view_investors" string="View Investors" type="object" class="btn-secondary"/>
@@ -16,7 +16,7 @@
                     <sheet>
                         <div class="row">
                             <div class="col-12">
-                                <h2 class="mb-4">Investor Portfolio Dashboard</h2>
+                                <h2 class="mb-4">Dashboard</h2>
                             </div>
                         </div>
                         
@@ -207,7 +207,7 @@
 
         <!-- Investor Dashboard Action -->
         <record id="action_investor_dashboard" model="ir.actions.act_window">
-            <field name="name">Investor Dashboard</field>
+            <field name="name">Dashboard</field>
             <field name="res_model">alba.investor.dashboard</field>
             <field name="view_mode">form</field>
             <field name="target">current</field>
