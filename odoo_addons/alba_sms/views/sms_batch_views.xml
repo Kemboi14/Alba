@@ -17,7 +17,6 @@
                 quick_create="false"
                 group_create="false"
             >
-                <field name="id" />
                 <field name="name" />
                 <field name="state" />
                 <field name="template_id" />

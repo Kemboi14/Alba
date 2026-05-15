@@ -194,6 +194,56 @@ export class LoanDashboardCharts extends Component {
             };
         }
 
+        if (fieldName === "comparison_chart_data") {
+            return {
+                type: "bar",
+                data: chartData,
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: "Amount" },
+                        },
+                    },
+                    plugins: {
+                        legend: { position: "bottom", labels: { padding: 12, font: { size: 12 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(c) {
+                                    const val = c.parsed.y || 0;
+                                    return `${c.dataset.label}: ${val.toLocaleString("en-KE", { style: "currency", currency: "KES" })}`;
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+        }
+
+        if (fieldName === "impact_chart_data") {
+            return {
+                type: "doughnut",
+                data: chartData,
+                options: {
+                    ...commonOptions,
+                    plugins: {
+                        legend: { position: "bottom", labels: { padding: 12, font: { size: 12 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const pct = total ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                                    const val = context.parsed || 0;
+                                    return `${context.label}: ${val.toLocaleString("en-KE", { style: "currency", currency: "KES" })} (${pct}%)`;
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+        }
+
         return null;
     }
 }

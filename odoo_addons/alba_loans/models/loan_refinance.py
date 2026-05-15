@@ -15,7 +15,7 @@ class AlbaLoanRefinance(models.Model):
     _name = "alba.loan.refinance"
     _description = "Loan Refinance"
     _order = "create_date desc"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "alba.loan.modification.mixin"]
     
     # Identification
     name = fields.Char(string="Reference", required=True, copy=False, default="New")
@@ -201,6 +201,37 @@ class AlbaLoanRefinance(models.Model):
         string="New Loan",
         readonly=True,
     )
+
+    document_ids = fields.One2many(
+        "alba.loan.document",
+        "refinance_id",
+        string="Supporting Documents",
+    )
+    document_count = fields.Integer(
+        string="Documents",
+        compute="_compute_document_count",
+    )
+
+    @api.depends(
+        "original_outstanding",
+        "original_principal",
+        "new_principal",
+        "new_emi",
+        "settlement_amount",
+        "refinance_fee_amount",
+        "cashback_to_customer",
+        "customer_to_pay",
+        "monthly_savings",
+        "original_loan_id",
+        "state",
+    )
+    def _compute_modification_charts(self):
+        return super()._compute_modification_charts()
+
+    @api.depends("document_ids")
+    def _compute_document_count(self):
+        for rec in self:
+            rec.document_count = len(rec.document_ids)
     
     # =========================================================================
     # Compute Methods
@@ -261,6 +292,42 @@ class AlbaLoanRefinance(models.Model):
             # Monthly savings
             old_emi = loan.installment_amount
             rec.monthly_savings = max(0, old_emi - rec.new_emi)
+
+    def _get_modification_comparison_chart(self):
+        self.ensure_one()
+        loan = self.original_loan_id
+        old_emi = loan.installment_amount if loan else 0
+        return self._build_grouped_bar_chart(
+            ["Outstanding", "Principal", "EMI"],
+            [
+                self._chart_amount(self.original_outstanding),
+                self._chart_amount(self.original_principal),
+                self._chart_amount(old_emi),
+            ],
+            [
+                self._chart_amount(self.new_principal),
+                self._chart_amount(self.new_principal),
+                self._chart_amount(self.new_emi),
+            ],
+        )
+
+    def _get_modification_impact_chart(self):
+        self.ensure_one()
+        labels = ["Settlement", "Refinance Fee"]
+        values = [
+            self._chart_amount(self.settlement_amount),
+            self._chart_amount(self.refinance_fee_amount),
+        ]
+        if self.cashback_to_customer:
+            labels.append("Cashback")
+            values.append(self._chart_amount(self.cashback_to_customer))
+        elif self.customer_to_pay:
+            labels.append("Customer Top-Up")
+            values.append(self._chart_amount(self.customer_to_pay))
+        if self.monthly_savings:
+            labels.append("Monthly Savings")
+            values.append(self._chart_amount(self.monthly_savings))
+        return self._build_doughnut_chart(labels, values)
     
     # =========================================================================
     # ORM Overrides

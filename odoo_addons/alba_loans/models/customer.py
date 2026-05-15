@@ -279,6 +279,18 @@ class AlbaCustomer(models.Model):
         "customer_id",
         string="All Documents",
     )
+    document_count = fields.Integer(
+        string="Document Count",
+        compute="_compute_document_stats",
+    )
+    verified_document_count = fields.Integer(
+        string="Verified Documents",
+        compute="_compute_document_stats",
+    )
+    kyc_progress = fields.Integer(
+        string="KYC Completion %",
+        compute="_compute_kyc_progress",
+    )
 
     # ── Audit ─────────────────────────────────────────────────────────────────
     # ...existing code...
@@ -340,6 +352,35 @@ class AlbaCustomer(models.Model):
     # =========================================================================
     # Computed field methods
     # =========================================================================
+
+    @api.depends("all_document_ids", "all_document_ids.state")
+    def _compute_document_stats(self):
+        for rec in self:
+            rec.document_count = len(rec.all_document_ids)
+            rec.verified_document_count = len(
+                rec.all_document_ids.filtered(lambda d: d.state == "verified")
+            )
+
+    @api.depends("kyc_status", "all_document_ids", "all_document_ids.state")
+    def _compute_kyc_progress(self):
+        for rec in self:
+            progress = {
+                "verified": 100,
+                "complete": 80,
+                "partial": 50,
+                "pending": 10,
+                "rejected": 0,
+            }.get(rec.kyc_status, 0)
+            if rec.all_document_ids:
+                verified = rec.all_document_ids.filtered(
+                    lambda d: d.state == "verified"
+                )
+                if verified:
+                    progress = max(
+                        progress,
+                        90 if rec.kyc_status != "verified" else 100,
+                    )
+            rec.kyc_progress = progress
 
     @api.depends("partner_id", "partner_id.name")
     def _compute_display_name(self):

@@ -41,6 +41,9 @@ Manages the full investor lifecycle:
         "report/investor_reports.xml",
         "report/investment_statement_report.xml",
         "report/investor_statement_report_template.xml",
+        # Wizards
+        "wizard/generate_statement_wizard_views.xml",
+        "wizard/investor_statement_preview_wizard_views.xml",
         # Views
         "views/investor_views.xml",
         "views/investment_statement_views.xml",
@@ -48,8 +51,6 @@ Manages the full investor lifecycle:
         "views/interest_accrual_views.xml",
         "views/currency_sync_views.xml",
         "views/investor_dashboard_views.xml",
-        # Wizards
-        "wizard/generate_statement_wizard_views.xml",
         # Menus last
         "views/menus.xml",
     ],

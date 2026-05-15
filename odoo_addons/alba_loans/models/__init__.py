@@ -30,6 +30,7 @@ from . import (
     mpesa_transaction,
     report_financials,
     loan_dashboard,
+    loan_modification_mixin,
     res_partner,
     # Loan modifications
     loan_topup,

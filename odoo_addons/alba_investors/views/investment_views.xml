@@ -106,6 +106,7 @@
                     <group>
                         <group string="Investor &amp; Terms">
                             <field name="investor_id" options="{'no_create': False}" readonly="state != 'active'"/>
+                            <field name="principal_amount" readonly="state != 'active'"/>
                             <field name="investment_type" widget="radio" options="{'horizontal': true}" readonly="state != 'active'"/>
                             <field name="interest_rate" readonly="state != 'active'"/>
                             <field name="compounding_frequency" readonly="state != 'active'"/>

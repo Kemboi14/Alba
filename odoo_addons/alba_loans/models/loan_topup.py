@@ -15,7 +15,7 @@ class AlbaLoanTopup(models.Model):
     _name = "alba.loan.topup"
     _description = "Loan Top-Up"
     _order = "create_date desc"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "alba.loan.modification.mixin"]
     
     # Identification
     name = fields.Char(string="Reference", required=True, copy=False, default="New")
@@ -148,6 +148,63 @@ class AlbaLoanTopup(models.Model):
     # Eligibility Check Results
     is_eligible = fields.Boolean(string="Eligible", compute="_compute_eligibility")
     eligibility_warnings = fields.Text(string="Eligibility Warnings", compute="_compute_eligibility")
+
+    # Supporting documents
+    document_ids = fields.One2many(
+        "alba.loan.document",
+        "topup_id",
+        string="Supporting Documents",
+    )
+    document_count = fields.Integer(
+        string="Documents",
+        compute="_compute_document_count",
+    )
+
+    @api.depends(
+        "topup_amount",
+        "new_principal",
+        "current_outstanding",
+        "current_principal",
+        "state",
+        "loan_id",
+    )
+    def _compute_modification_charts(self):
+        return super()._compute_modification_charts()
+
+    @api.depends("document_ids")
+    def _compute_document_count(self):
+        for rec in self:
+            rec.document_count = len(rec.document_ids)
+
+    def _get_modification_comparison_chart(self):
+        self.ensure_one()
+        loan = self.loan_id
+        if not loan:
+            return None
+        return self._build_grouped_bar_chart(
+            ["Principal", "Outstanding"],
+            [
+                self._chart_amount(self.current_principal),
+                self._chart_amount(self.current_outstanding),
+            ],
+            [
+                self._chart_amount(self.new_principal),
+                self._chart_amount(self.current_outstanding + self.topup_amount),
+            ],
+        )
+
+    def _get_modification_impact_chart(self):
+        self.ensure_one()
+        if not self.topup_amount:
+            return None
+        remaining = max(
+            0.0,
+            self._chart_amount(self.current_principal) - self._chart_amount(self.topup_amount),
+        )
+        return self._build_doughnut_chart(
+            ["Top-Up Amount", "Existing Principal"],
+            [self._chart_amount(self.topup_amount), remaining],
+        )
     
     # =========================================================================
     # Constraints

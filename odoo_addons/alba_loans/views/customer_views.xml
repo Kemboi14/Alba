@@ -41,6 +41,9 @@
                     </header>
 
                     <sheet>
+                        <field name="document_count" invisible="1"/>
+                        <field name="verified_document_count" invisible="1"/>
+                        <field name="kyc_progress" invisible="1"/>
                         <!-- Smart Buttons -->
                         <div class="oe_button_box" name="button_box">
                             <button name="action_view_applications"
@@ -148,13 +151,18 @@
                             <!-- ── KYC &amp; Risk ──────────────────────────── -->
                             <page string="KYC &amp; Risk" name="kyc_risk">
                                 <group>
-                                    <group>
-                                        <field name="kyc_status"/>
-                                        <field name="kyc_verified_by" readonly="1"/>
-                                        <field name="kyc_verified_date" readonly="1"/>
+                                    <group string="KYC Status">
+                                        <field name="kyc_status" widget="badge"
+                                               decoration-success="kyc_status == 'verified'"
+                                               decoration-warning="kyc_status in ('partial','complete')"
+                                               decoration-danger="kyc_status == 'rejected'"
+                                               decoration-info="kyc_status == 'pending'"/>
+                                        <field name="kyc_progress" widget="progressbar" string="KYC Progress"/>
+                                        <field name="kyc_verified_by" readonly="1" invisible="kyc_status != 'verified'"/>
+                                        <field name="kyc_verified_date" readonly="1" invisible="kyc_status != 'verified'"/>
                                         <field name="blacklisted"/>
                                     </group>
-                                    <group>
+                                    <group string="Risk Profile">
                                         <field name="credit_score"/>
                                         <field name="risk_rating"/>
                                         <field name="django_customer_id"
@@ -174,7 +182,52 @@
 
                             <!-- ── Documents &amp; KYC ────────────────────────── -->
                             <page string="Documents &amp; KYC" name="documents">
-                                <field name="all_document_ids" nolabel="1" context="{'hide_partner': True}"/>
+                                <div class="row mb-3 mx-0 g-2 align-items-center">
+                                    <div class="col-auto">
+                                        <span class="badge text-bg-primary p-2">
+                                            <i class="fa fa-file-pdf-o"/> <field name="document_count" nolabel="1"/> Total Documents
+                                        </span>
+                                    </div>
+                                    <div class="col-auto">
+                                        <span class="badge text-bg-success p-2">
+                                            <i class="fa fa-check-circle"/> <field name="verified_document_count" nolabel="1"/> Verified
+                                        </span>
+                                    </div>
+                                    <div class="col-auto">
+                                        <field name="kyc_status" widget="badge" nolabel="1"
+                                               decoration-success="kyc_status == 'verified'"
+                                               decoration-warning="kyc_status in ('partial','complete')"
+                                               decoration-danger="kyc_status == 'rejected'"
+                                               decoration-info="kyc_status == 'pending'"/>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info py-2 mb-3" role="status">
+                                    <i class="fa fa-info-circle me-1"/>
+                                    Upload KYC and supporting files below. Choose the document type, add a short name, then attach the file. Use <strong>Verify</strong> once reviewed.
+                                </div>
+                                <field name="all_document_ids" nolabel="1"
+                                       mode="list"
+                                       context="{'default_customer_id': id, 'default_partner_id': partner_id, 'hide_partner': True}">
+                                    <list string="Customer Documents"
+                                          editable="bottom"
+                                          decoration-success="state == 'verified'"
+                                          decoration-danger="state == 'rejected'"
+                                          decoration-info="state == 'draft'">
+                                        <field name="document_type"/>
+                                        <field name="name" placeholder="e.g. National ID — front"/>
+                                        <field name="upload_filename" column_invisible="1"/>
+                                        <field name="datas" widget="binary" filename="upload_filename" string="File"/>
+                                        <field name="state" widget="badge"
+                                               decoration-success="state == 'verified'"
+                                               decoration-warning="state == 'draft'"
+                                               decoration-danger="state == 'rejected'"/>
+                                        <field name="create_date" string="Uploaded" optional="show"/>
+                                        <button name="action_verify" string="Verify" type="object" icon="fa-check"
+                                                invisible="state == 'verified'"/>
+                                        <button name="action_reject_document" string="Reject" type="object" icon="fa-times"
+                                                invisible="state == 'rejected'"/>
+                                    </list>
+                                </field>
                             </page>
 
                             <!-- ── Loan Applications ──────────────────────── -->

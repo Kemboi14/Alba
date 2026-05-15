@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+    <!-- ================================================================
+         Investor Statement Preview Wizard — Form View
+         ================================================================ -->
+    <record id="view_investor_statement_preview_wizard_form" model="ir.ui.view">
+        <field name="name">alba.investor.statement.preview.wizard.form</field>
+        <field name="model">alba.investor.statement.preview.wizard</field>
+        <field name="type">form</field>
+        <field name="arch" type="xml">
+            <form string="Account Statement">
+                <sheet>
+                    <!-- Investor Summary Banner -->
+                    <div class="alert alert-info d-flex align-items-center gap-3 mb-3" role="alert"
+                         style="border-left: 4px solid #2E75B6; border-radius: 6px; padding: 14px 18px;">
+                        <i class="fa fa-user-circle fa-2x text-primary me-3"/>
+                        <div class="flex-grow-1">
+                            <strong class="d-block" style="font-size: 1.1em;">
+                                <field name="investor_name" readonly="1" nolabel="1"/>
+                            </strong>
+                            <span class="text-muted small">
+                                Portfolio:&amp;nbsp;
+                                <field name="portfolio_value"
+                                       readonly="1" nolabel="1"
+                                       widget="monetary"
+                                       class="fw-bold text-success"/>
+                                &amp;nbsp;·&amp;nbsp;
+                                <field name="active_investments" readonly="1" nolabel="1"/>
+                                active investment(s)
+                            </span>
+                        </div>
+                        <field name="investor_id" invisible="1"/>
+                        <field name="currency_id" invisible="1"/>
+                    </div>
+
+                    <!-- Existing statements info -->
+                    <div class="alert alert-warning d-flex align-items-center"
+                         role="alert"
+                         invisible="statement_count == 0"
+                         style="border-radius: 6px;">
+                        <i class="fa fa-info-circle me-2"/>
+                        <span>
+                            <field name="statement_count" readonly="1" nolabel="1"/>
+                            statement(s) already exist for the selected period.
+                            Previewing will reuse them.
+                        </span>
+                        <button name="action_view_existing"
+                                string="View Existing"
+                                type="object"
+                                class="btn btn-sm btn-warning ms-auto"
+                                icon="fa-eye"/>
+                    </div>
+
+                    <!-- Period Selection -->
+                    <group string="Statement Period">
+                        <group>
+                            <field name="period_start"/>
+                            <field name="period_end"/>
+                        </group>
+                        <group>
+                            <field name="output_format" widget="radio"/>
+                        </group>
+                    </group>
+
+                    <!-- Investment Scope -->
+                    <group string="Scope">
+                        <field name="include_all_investments" widget="boolean_toggle"/>
+                        <field name="investment_ids"
+                               invisible="include_all_investments"
+                               required="not include_all_investments"
+                               widget="many2many_tags"
+                               options="{'no_create': True}"/>
+                    </group>
+
+                </sheet>
+                <footer>
+                    <button name="action_preview"
+                            string="Preview / Download PDF"
+                            type="object"
+                            class="btn-primary"
+                            icon="fa-file-pdf-o"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action to open the wizard -->
+    <record id="action_investor_statement_preview_wizard" model="ir.actions.act_window">
+        <field name="name">Account Statement</field>
+        <field name="res_model">alba.investor.statement.preview.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{'default_investor_id': active_id}</field>
+    </record>
+
+</data>
+</odoo>

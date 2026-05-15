@@ -15,7 +15,7 @@ class AlbaLoanConsolidation(models.Model):
     _name = "alba.loan.consolidation"
     _description = "Loan Consolidation"
     _order = "create_date desc"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "alba.loan.modification.mixin"]
     
     # Identification
     name = fields.Char(string="Reference", required=True, copy=False, default="New")
@@ -190,6 +190,61 @@ class AlbaLoanConsolidation(models.Model):
     # Eligibility
     is_eligible = fields.Boolean(string="Eligible", compute="_compute_eligibility")
     eligibility_warnings = fields.Text(string="Eligibility Warnings", compute="_compute_eligibility")
+
+    document_ids = fields.One2many(
+        "alba.loan.document",
+        "consolidation_id",
+        string="Supporting Documents",
+    )
+    document_count = fields.Integer(
+        string="Documents",
+        compute="_compute_document_count",
+    )
+
+    @api.depends(
+        "loan_ids",
+        "total_outstanding",
+        "old_combined_emi",
+        "consolidated_amount",
+        "new_emi",
+        "consolidation_fee_amount",
+        "monthly_savings",
+        "state",
+    )
+    def _compute_modification_charts(self):
+        return super()._compute_modification_charts()
+
+    @api.depends("document_ids")
+    def _compute_document_count(self):
+        for rec in self:
+            rec.document_count = len(rec.document_ids)
+
+    def _get_modification_comparison_chart(self):
+        self.ensure_one()
+        return self._build_grouped_bar_chart(
+            ["Total Outstanding", "Combined EMI", "Consolidated Principal"],
+            [
+                self._chart_amount(self.total_outstanding),
+                self._chart_amount(self.old_combined_emi),
+                self._chart_amount(self.total_outstanding),
+            ],
+            [
+                self._chart_amount(self.consolidated_amount),
+                self._chart_amount(self.new_emi),
+                self._chart_amount(self.consolidated_amount),
+            ],
+        )
+
+    def _get_modification_impact_chart(self):
+        self.ensure_one()
+        if not self.loan_ids:
+            return None
+        labels = [loan.loan_number or "Loan" for loan in self.loan_ids[:8]]
+        values = [self._chart_amount(loan.outstanding_balance) for loan in self.loan_ids[:8]]
+        if self.consolidation_fee_amount:
+            labels.append("Consolidation Fee")
+            values.append(self._chart_amount(self.consolidation_fee_amount))
+        return self._build_doughnut_chart(labels, values)
     
     # =========================================================================
     # Compute Methods

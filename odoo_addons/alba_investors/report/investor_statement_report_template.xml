@@ -1,139 +1,220 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <template id="investor_statement_template">
-        <t t-call="web.html_container">
-            <t t-foreach="docs" t-as="investor">
-            <div class="page" style="font-family: Arial, sans-serif; font-size: 12px;">
 
-                <!-- HEADER -->
-                <table width="100%" style="margin-bottom: 10px;">
-                    <tr>
-                        <td width="50%">
-                            <img t-if="res_company.logo"
-                                 t-att-src="image_data_uri(res_company.logo)"
-                                 style="max-height: 80px;"/>
-                        </td>
-                        <td width="50%" style="text-align: right; vertical-align: top;">
-                            <div style="color: #2E75B6; font-size: 22px; font-weight: bold;">
-                                <t t-esc="investor.investor_number"/>
-                            </div>
-                            <img t-att-src="'/report/barcode/Code128/' + (investor.investor_number or 'INV-000')"
-                                 style="max-height: 35px; margin-top: 4px;"/>
-                        </td>
-                    </tr>
-                </table>
+    <!-- Shared account statement layout (bank-style PDF) -->
+    <template id="account_statement_document">
+        <div class="alba-acct-page" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; padding: 36px 40px 48px; background: #ffffff;">
 
-                <!-- BRANCH + TITLE -->
-                <table width="100%" style="margin-bottom: 8px;">
-                    <tr>
-                        <td>
-                            <strong>BRANCH: <t t-esc="res_company.name"/> - Investors</strong>
-                        </td>
-                        <td style="text-align: right;">
-                            <span style="color: #2E75B6; font-size: 16px; font-weight: bold;">
-                                ACCOUNT STATEMENT
-                            </span>
-                        </td>
-                    </tr>
-                </table>
+            <style>
+                .alba-acct-page .stmt-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 12.5px;
+                }
+                .alba-acct-page .stmt-table thead tr {
+                    border-top: 2px solid #0d2d5e;
+                    border-bottom: 2px solid #0d2d5e;
+                }
+                .alba-acct-page .stmt-table th {
+                    padding: 8px 10px;
+                    text-align: left;
+                    font-weight: 700;
+                    color: #0d2d5e;
+                    font-size: 13px;
+                    background: #ffffff;
+                }
+                .alba-acct-page .stmt-table th.num { text-align: right; }
+                .alba-acct-page .stmt-table tbody tr {
+                    border-bottom: 1px solid #c8d9f0;
+                }
+                .alba-acct-page .stmt-table tbody tr:last-child { border-bottom: none; }
+                .alba-acct-page .stmt-table td {
+                    padding: 9px 10px;
+                    vertical-align: top;
+                    color: #111827;
+                }
+                .alba-acct-page .stmt-table td.num { text-align: right; }
+                .alba-acct-page .stmt-table td.date { white-space: nowrap; min-width: 90px; }
+                .alba-acct-page .stmt-table td.desc { color: #4b5563; }
+                .alba-acct-page .stmt-table tfoot tr {
+                    border-top: 2px solid #0d2d5e;
+                    border-bottom: 2px solid #0d2d5e;
+                }
+                .alba-acct-page .stmt-table tfoot td {
+                    font-weight: 700;
+                    color: #0d2d5e;
+                    padding: 9px 10px;
+                    font-size: 13px;
+                }
+                .alba-acct-page .stmt-table tfoot td.num { text-align: right; }
+            </style>
 
-                <!-- CUSTOMER + ACCOUNT INFO BOXES -->
-                <table width="100%" style="margin-bottom: 12px; border-collapse: collapse;">
-                    <tr>
-                        <!-- Left box: Customer info -->
-                        <td width="48%" style="
-                            border: 2px solid #2E75B6;
-                            padding: 10px 14px;
-                            vertical-align: top;">
-                            <strong>Customer Name</strong><br/>
-                            <t t-esc="investor.partner_id.name"/>
-                            <br/><br/>
-                            <strong>ID Number</strong><br/>
-                            <t t-esc="investor.id_number or ''"/>
-                        </td>
-                        <td width="4%"></td>
-                        <!-- Right box: Account info -->
-                        <td width="48%" style="
-                            border: 2px solid #2E75B6;
-                            padding: 10px 14px;
-                            vertical-align: top;">
-                            <table width="100%" style="border-collapse: collapse;">
+            <table width="100%" style="margin-bottom: 18px; border-collapse: collapse;">
+                <tr>
+                    <td style="vertical-align: top; width: 60%;">
+                        <t t-if="res_company and res_company.logo">
+                            <img t-att-src="image_data_uri(res_company.logo)"
+                                 alt="Company Logo"
+                                 style="height: 64px; max-width: 280px; display: block;"/>
+                        </t>
+                        <t t-else="">
+                            <table style="border-collapse: collapse;">
                                 <tr>
-                                    <td><strong>Investor No.</strong></td>
-                                    <td>: <t t-esc="investor.investor_number"/></td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Product</strong></td>
-                                    <td>: <t t-esc="getattr(investor, 'product_id', False) and investor.product_id.name or 'Investments Received'"/></td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Period</strong></td>
-                                    <td>: <t t-esc="date_from"/> to <t t-esc="date_to"/></td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Statement Date</strong></td>
-                                    <td>: <t t-esc="date_to"/></td>
+                                    <td style="vertical-align: middle; padding-right: 10px;">
+                                        <div style="width: 58px; height: 58px; border-radius: 50%; border: 3px solid #e07b2a; background: #e8f0fc; text-align: center; line-height: 52px; font-size: 26px; font-weight: 700; color: #0d2d5e;">A</div>
+                                    </td>
+                                    <td style="vertical-align: middle; line-height: 1.15;">
+                                        <div style="font-size: 28px; font-weight: 700; color: #0d2d5e; letter-spacing: -0.5px;">Alba</div>
+                                        <div style="font-size: 10px; font-weight: 600; letter-spacing: 3px; color: #1a4b8c; text-transform: uppercase;">Capital Limited</div>
+                                    </td>
                                 </tr>
                             </table>
-                        </td>
-                    </tr>
-                </table>
+                        </t>
+                    </td>
+                    <td style="text-align: right; vertical-align: top; width: 40%;">
+                        <div style="font-size: 13px; font-weight: 700; color: #0d2d5e; margin-bottom: 4px;">
+                            <t t-esc="barcode_number"/>
+                        </div>
+                        <img t-att-src="'/report/barcode/Code128/' + (barcode_number or 'INV-000')"
+                             style="height: 44px; width: 170px; display: block; margin-left: auto;"/>
+                    </td>
+                </tr>
+            </table>
 
-                <!-- TRANSACTIONS TABLE -->
-                <table width="100%" style="border-collapse: collapse; margin-bottom: 10px;">
-                    <thead>
-                        <tr style="background-color: #1F3864; color: white;">
-                            <th style="padding: 8px 10px; text-align: left; border: 1px solid #1F3864;">Date</th>
-                            <th style="padding: 8px 10px; text-align: left; border: 1px solid #1F3864;">Description</th>
-                            <th style="padding: 8px 10px; text-align: right; border: 1px solid #1F3864;">Debits</th>
-                            <th style="padding: 8px 10px; text-align: right; border: 1px solid #1F3864;">Credits</th>
-                            <th style="padding: 8px 10px; text-align: right; border: 1px solid #1F3864;">Balance</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <t t-foreach="lines" t-as="line">
+            <table width="100%" style="border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e; margin-bottom: 18px; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 7px 0; font-size: 13.5px; font-weight: 700; color: #0d2d5e;">
+                        BRANCH: <t t-esc="branch_name"/> - Investors
+                    </td>
+                    <td style="padding: 7px 0; text-align: right; font-size: 14px; font-weight: 700; color: #0d2d5e; letter-spacing: 0.5px;">
+                        ACCOUNT STATEMENT
+                    </td>
+                </tr>
+            </table>
+
+            <table width="100%" style="margin-bottom: 24px; border-collapse: collapse;">
+                <tr>
+                    <td width="48%" style="border: 1.5px solid #2e6bbf; border-radius: 2px; padding: 14px 16px; vertical-align: top;">
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-weight: 700; color: #0d2d5e; font-size: 13px;">Customer Name</div>
+                            <div style="color: #111827; font-size: 13px; min-height: 16px;">
+                                <t t-esc="customer_name"/>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; color: #0d2d5e; font-size: 13px;">Address</div>
+                            <div style="color: #111827; font-size: 13px;">
+                                <t t-esc="customer_address"/>
+                            </div>
+                        </div>
+                    </td>
+                    <td width="4%"/>
+                    <td width="48%" style="border: 1.5px solid #2e6bbf; border-radius: 2px; padding: 14px 16px; vertical-align: top;">
+                        <table width="100%" style="font-size: 13px; border-collapse: collapse;">
                             <tr>
-                                <td style="padding: 6px 10px; border: 0.5px solid #cccccc;">
-                                    <t t-esc="line['date']"/>
-                                </td>
-                                <td style="padding: 6px 10px; border: 0.5px solid #cccccc;">
-                                    <t t-esc="line['description']"/>
-                                </td>
-                                <td style="padding: 6px 10px; border: 0.5px solid #cccccc; text-align: right;">
-                                    <t t-if="line['debit']">
-                                        <t t-esc="'{:,.2f}'.format(line['debit'])"/>
-                                    </t>
-                                    <t t-else="">0.00</t>
-                                </td>
-                                <td style="padding: 6px 10px; border: 0.5px solid #cccccc; text-align: right;">
-                                    <t t-if="line['credit']">
-                                        <t t-esc="'{:,.2f}'.format(line['credit'])"/>
-                                    </t>
-                                    <t t-else="">0.00</t>
-                                </td>
-                                <td style="padding: 6px 10px; border: 0.5px solid #cccccc; text-align: right;">
-                                    <t t-esc="'{:,.2f}'.format(line['balance'])"/>
+                                <td style="font-weight: 700; color: #0d2d5e; width: 130px; padding-bottom: 9px; vertical-align: top;">Account No.</td>
+                                <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; padding-bottom: 9px; width: 12px; vertical-align: top;">:</td>
+                                <td style="color: #111827; padding-bottom: 9px; vertical-align: top;"><t t-esc="account_number"/></td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 9px; vertical-align: top;">Product</td>
+                                <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; padding-bottom: 9px; vertical-align: top;">:</td>
+                                <td style="color: #111827; padding-bottom: 9px; vertical-align: top;"><t t-esc="product_name"/></td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 9px; vertical-align: top;">Period</td>
+                                <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; padding-bottom: 9px; vertical-align: top;">:</td>
+                                <td style="color: #111827; padding-bottom: 9px; vertical-align: top;">
+                                    <t t-esc="date_from"/> to <t t-esc="date_to"/>
                                 </td>
                             </tr>
-                        </t>
-                    </tbody>
-                    <tfoot>
-                        <tr style="font-weight: bold; background-color: #f2f2f2;">
-                            <td colspan="2" style="padding: 8px 10px; text-align: center; border: 1px solid #cccccc;">
-                                Totals
-                            </td>
-                            <td style="padding: 8px 10px; text-align: right; border: 1px solid #cccccc;">
-                                <t t-esc="'{:,.2f}'.format(total_debit)"/>
-                            </td>
-                            <td style="padding: 8px 10px; text-align: right; border: 1px solid #cccccc;">
-                                <t t-esc="'{:,.2f}'.format(total_credit)"/>
-                            </td>
-                            <td style="padding: 8px 10px; border: 1px solid #cccccc;"></td>
-                        </tr>
-                    </tfoot>
-                </table>
+                            <tr>
+                                <td style="font-weight: 700; color: #0d2d5e; vertical-align: top;">Statement Date</td>
+                                <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; vertical-align: top;">:</td>
+                                <td style="color: #111827; vertical-align: top;"><t t-esc="statement_date"/></td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
 
-            </div>
+            <table class="stmt-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th class="num">Debits</th>
+                        <th class="num">Credits</th>
+                        <th class="num">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="lines" t-as="line">
+                        <tr>
+                            <td class="date"><t t-esc="line['date']"/></td>
+                            <td class="desc"><t t-esc="line['description']"/></td>
+                            <td class="num"><t t-esc="line['debit_fmt']"/></td>
+                            <td class="num"><t t-esc="line['credit_fmt']"/></td>
+                            <td class="num"><t t-esc="line['balance_fmt']"/></td>
+                        </tr>
+                    </t>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2" style="text-align: center;">Totals</td>
+                        <td class="num"><t t-esc="total_debit_fmt"/></td>
+                        <td class="num"><t t-esc="total_credit_fmt"/></td>
+                        <td class="num"/>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </template>
+
+    <template id="report_investment_statement_template">
+        <t t-call="web.html_container">
+            <t t-foreach="statements" t-as="stmt_data">
+                <div class="page" style="page-break-after: always;">
+                    <t t-call="alba_investors.account_statement_document">
+                        <t t-set="res_company" t-value="stmt_data['res_company']"/>
+                        <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
+                        <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
+                        <t t-set="customer_name" t-value="stmt_data['customer_name']"/>
+                        <t t-set="customer_address" t-value="stmt_data['customer_address']"/>
+                        <t t-set="account_number" t-value="stmt_data['account_number']"/>
+                        <t t-set="product_name" t-value="stmt_data['product_name']"/>
+                        <t t-set="date_from" t-value="stmt_data['date_from']"/>
+                        <t t-set="date_to" t-value="stmt_data['date_to']"/>
+                        <t t-set="statement_date" t-value="stmt_data['statement_date']"/>
+                        <t t-set="lines" t-value="stmt_data['lines']"/>
+                        <t t-set="total_debit_fmt" t-value="stmt_data['total_debit_fmt']"/>
+                        <t t-set="total_credit_fmt" t-value="stmt_data['total_credit_fmt']"/>
+                    </t>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <template id="investor_statement_template">
+        <t t-call="web.html_container">
+            <t t-foreach="statements" t-as="stmt_data">
+                <div class="page" style="page-break-after: always;">
+                    <t t-call="alba_investors.account_statement_document">
+                        <t t-set="res_company" t-value="stmt_data['res_company']"/>
+                        <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
+                        <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
+                        <t t-set="customer_name" t-value="stmt_data['customer_name']"/>
+                        <t t-set="customer_address" t-value="stmt_data['customer_address']"/>
+                        <t t-set="account_number" t-value="stmt_data['account_number']"/>
+                        <t t-set="product_name" t-value="stmt_data['product_name']"/>
+                        <t t-set="date_from" t-value="stmt_data['date_from']"/>
+                        <t t-set="date_to" t-value="stmt_data['date_to']"/>
+                        <t t-set="statement_date" t-value="stmt_data['statement_date']"/>
+                        <t t-set="lines" t-value="stmt_data['lines']"/>
+                        <t t-set="total_debit_fmt" t-value="stmt_data['total_debit_fmt']"/>
+                        <t t-set="total_credit_fmt" t-value="stmt_data['total_credit_fmt']"/>
+                    </t>
+                </div>
             </t>
         </t>
     </template>
@@ -147,4 +228,5 @@
         <field name="binding_model_id" ref="alba_investors.model_alba_investor"/>
         <field name="binding_type">report</field>
     </record>
+
 </odoo>

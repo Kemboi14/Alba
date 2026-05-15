@@ -35,6 +35,12 @@
                             class="btn-success"
                             invisible="state != 'suspended'"
                             groups="alba_investors.group_investor_manager"/>
+                    <button name="%(alba_investors.action_investor_statement_preview_wizard)d"
+                            string="Account Statement"
+                            type="action"
+                            class="btn-primary"
+                            icon="fa-file-pdf-o"
+                            invisible="not has_active_investments"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="active,suspended,blacklisted"/>
                 </header>
@@ -57,6 +63,16 @@
                             <div class="o_stat_info">
                                 <field name="current_portfolio_value" widget="monetary"/>
                                 <span class="o_stat_text">Portfolio Value</span>
+                            </div>
+                        </button>
+                        <button name="%(alba_investors.action_investor_statement_preview_wizard)d"
+                                type="action"
+                                class="oe_stat_button"
+                                icon="fa-print"
+                                invisible="not has_active_investments">
+                            <div class="o_stat_info">
+                                <span class="o_stat_value"><i class="fa fa-file-pdf-o"/></span>
+                                <span class="o_stat_text">Statement</span>
                             </div>
                         </button>
                     </div>
@@ -143,6 +159,7 @@
                         <page string="Investments" name="investments">
                             <field name="investment_ids" mode="list">
                                 <list string="Investments"
+                                      editable="bottom"
                                       decoration-success="state == 'active'"
                                       decoration-muted="state in ('matured','withdrawn')"
                                       decoration-warning="state == 'suspended'">

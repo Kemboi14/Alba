@@ -276,7 +276,6 @@
             <field name="type">kanban</field>
             <field name="arch" type="xml">
                 <kanban class="o_alba_product_kanban" default_group_by="category_id" sample="1">
-                    <field name="id"/>
                     <field name="name"/>
                     <field name="category_id"/>
                     <field name="color"/>

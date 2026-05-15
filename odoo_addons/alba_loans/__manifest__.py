@@ -122,6 +122,7 @@ Accounting
         "wizard/collateral_assignment_wizard_views.xml",
         "wizard/report_wizard_views.xml",
         # ── Loan Modifications ──────────────────────────────────────────────
+        "views/loan_modification_form_footer.xml",
         "views/loan_topup_views.xml",
         "views/loan_partial_payoff_views.xml",
         "views/guarantor_views.xml",

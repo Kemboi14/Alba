@@ -5,7 +5,7 @@ Loan Document Model
 Stores documents and files related to loan applications and loans.
 """
 
-from odoo import models, fields, api
+from odoo import api, fields, models, _
 
 
 class LoanDocument(models.Model):
@@ -51,6 +51,30 @@ class LoanDocument(models.Model):
         ondelete='set null',
         index=True,
     )
+    topup_id = fields.Many2one(
+        'alba.loan.topup',
+        string='Top-Up',
+        ondelete='cascade',
+        index=True,
+    )
+    partial_payoff_id = fields.Many2one(
+        'alba.loan.partial.payoff',
+        string='Partial Payoff',
+        ondelete='cascade',
+        index=True,
+    )
+    consolidation_id = fields.Many2one(
+        'alba.loan.consolidation',
+        string='Consolidation',
+        ondelete='cascade',
+        index=True,
+    )
+    refinance_id = fields.Many2one(
+        'alba.loan.refinance',
+        string='Refinance',
+        ondelete='cascade',
+        index=True,
+    )
     customer_id = fields.Many2one(
         'alba.customer',
         string='Customer',
@@ -62,8 +86,19 @@ class LoanDocument(models.Model):
     attachment_id = fields.Many2one(
         'ir.attachment',
         string='Attachment',
-        required=True,
         ondelete='cascade',
+    )
+    datas = fields.Binary(
+        string='File',
+        compute='_compute_datas',
+        inverse='_inverse_datas',
+        store=False,
+    )
+    upload_filename = fields.Char(
+        string='Filename',
+        compute='_compute_datas',
+        inverse='_inverse_datas',
+        store=False,
     )
     file_name = fields.Char(related='attachment_id.name', string='File Name', store=True)
     file_size = fields.Integer(related='attachment_id.file_size', string='File Size', store=True)
@@ -96,28 +131,77 @@ class LoanDocument(models.Model):
         required=True,
     )
 
+    @api.depends('attachment_id', 'attachment_id.datas', 'attachment_id.name')
+    def _compute_datas(self):
+        for doc in self:
+            attachment = doc.attachment_id
+            doc.datas = attachment.datas if attachment else False
+            doc.upload_filename = attachment.name if attachment else False
+
+    def _inverse_datas(self):
+        Attachment = self.env['ir.attachment']
+        for doc in self:
+            if not doc.datas:
+                continue
+            filename = doc.upload_filename or doc.name or _('Document')
+            if doc.attachment_id:
+                doc.attachment_id.write({
+                    'name': filename,
+                    'datas': doc.datas,
+                })
+            else:
+                doc.attachment_id = Attachment.create({
+                    'name': filename,
+                    'datas': doc.datas,
+                    'res_model': doc._name,
+                    'res_id': doc.id,
+                    'type': 'binary',
+                })
+
+    def _prepare_attachment_vals(self, vals):
+        """Create ir.attachment from inline upload fields before record create."""
+        datas = vals.pop('datas', None)
+        filename = vals.pop('upload_filename', None) or vals.get('name') or _('Document')
+        if datas and not vals.get('attachment_id'):
+            vals['attachment_id'] = self.env['ir.attachment'].create({
+                'name': filename,
+                'datas': datas,
+                'type': 'binary',
+            }).id
+        return vals
+
     @api.model_create_multi
     def create(self, vals_list):
+        prepared = []
         for vals in vals_list:
-            # Auto-assign partner_id from customer if missing
+            vals = dict(vals)
             if not vals.get('partner_id') and vals.get('customer_id'):
                 customer = self.env['alba.customer'].browse(vals['customer_id'])
-                if customer:
+                if customer.partner_id:
                     vals['partner_id'] = customer.partner_id.id
-            
-            # Prevent duplication: if a document of this type exists for this partner, reuse it
-            if vals.get('partner_id') and vals.get('document_type'):
-                existing = self.search([
-                    ('partner_id', '=', vals['partner_id']),
-                    ('document_type', '=', vals['document_type']),
-                    ('state', '=', 'verified')
-                ], limit=1)
-                if existing:
-                    # Logic to link existing rather than create new could go here
-                    # For now, we allow the create but log the relationship
-                    pass
-        
-        return super().create(vals_list)
+            prepared.append(self._prepare_attachment_vals(vals))
+        records = super().create(prepared)
+        for record, vals in zip(records, prepared):
+            if record.attachment_id and not record.attachment_id.res_id:
+                record.attachment_id.write({
+                    'res_model': record._name,
+                    'res_id': record.id,
+                })
+        return records
+
+    def write(self, vals):
+        vals = dict(vals)
+        if 'datas' in vals or 'upload_filename' in vals:
+            for doc in self:
+                if 'datas' in vals:
+                    doc.datas = vals['datas']
+                if 'upload_filename' in vals:
+                    doc.upload_filename = vals['upload_filename']
+            vals = {
+                k: v for k, v in vals.items()
+                if k not in ('datas', 'upload_filename')
+            }
+        return super().write(vals)
 
     def action_verify(self):
         """Mark document as verified."""
@@ -133,6 +217,10 @@ class LoanDocument(models.Model):
         if reason:
             vals['rejection_reason'] = reason
         self.write(vals)
+
+    def action_reject_document(self):
+        """Button helper for list views."""
+        self.action_reject()
 
     def action_reset_to_draft(self):
         """Reset document to draft state."""

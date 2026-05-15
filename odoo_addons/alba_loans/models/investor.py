@@ -53,13 +53,15 @@ class AlbaInvestor(models.Model):
     principal_amount = fields.Monetary(
         string="Principal Amount",
         currency_field="currency_id",
-        required=True,
+        required=False,
+        default=0.0,
         tracking=True,
     )
     interest_rate = fields.Float(
         string="Annual Interest Rate (%)",
         digits=(5, 2),
-        required=True,
+        required=False,
+        default=0.0,
         tracking=True,
     )
     tenure_months = fields.Integer(string="Tenure (Months)", default=12)
@@ -147,7 +149,7 @@ class AlbaInvestor(models.Model):
     transaction_count = fields.Integer(string="Transaction Count", compute="_compute_counts")
     
     # ─── Constraints ──────────────────────────────────────────────────────────
-    _positive_principal = models.Constraint("CHECK(principal_amount > 0)", "Principal amount must be positive.")
+    _positive_principal = models.Constraint("CHECK(principal_amount >= 0)", "Principal amount must be positive or zero.")
     _positive_rate = models.Constraint("CHECK(interest_rate >= 0)", "Interest rate cannot be negative.")
 
     # ─── Compute Methods ──────────────────────────────────────────────────────

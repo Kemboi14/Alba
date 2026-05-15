@@ -14,7 +14,7 @@
                     <field name="name"/>
                     <field name="document_type"/>
                     <field name="partner_id" string="Owner" column_invisible="context.get('hide_partner')"/>
-                    <field name="attachment_id" string="File"/>
+                    <field name="attachment_id" string="File" options="{'no_open': True}"/>
                     <field name="uploaded_by" optional="hide"/>
                     <field name="create_date" string="Uploaded On" widget="datetime"/>
                     <field name="state" widget="badge" 
@@ -36,7 +36,6 @@
             <field name="type">kanban</field>
             <field name="arch" type="xml">
                 <kanban class="o_kanban_mobile">
-                    <field name="id"/>
                     <field name="name"/>
                     <field name="document_type"/>
                     <field name="state"/>
@@ -70,7 +69,7 @@
                                                 invisible="state == 'verified'">
                                             <i class="fa fa-check me-1"/> Verify
                                         </button>
-                                        <field name="attachment_id" string="Download"/>
+                                        <field name="attachment_id" string="Download" options="{'no_open': True}"/>
                                     </div>
                                 </div>
                             </div>
@@ -102,7 +101,8 @@
                                 <field name="partner_id"/>
                             </group>
                             <group>
-                                <field name="attachment_id"/>
+                                <field name="attachment_id" options="{'no_open': True}"/>
+                                <field name="file_name" readonly="1" string="File Name"/>
                                 <field name="uploaded_by"/>
                                 <field name="create_date" string="Uploaded On" readonly="1"/>
                             </group>

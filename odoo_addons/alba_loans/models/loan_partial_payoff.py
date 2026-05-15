@@ -16,7 +16,7 @@ class AlbaLoanPartialPayoff(models.Model):
     _name = "alba.loan.partial.payoff"
     _description = "Loan Partial Payoff"
     _order = "create_date desc"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "alba.loan.modification.mixin"]
     
     # Identification
     name = fields.Char(string="Reference", required=True, copy=False, default="New")
@@ -170,6 +170,67 @@ class AlbaLoanPartialPayoff(models.Model):
     # Applied By
     processed_by = fields.Many2one("res.users", string="Processed By", readonly=True)
     processed_date = fields.Date(string="Processed Date")
+
+    document_ids = fields.One2many(
+        "alba.loan.document",
+        "partial_payoff_id",
+        string="Supporting Documents",
+    )
+    document_count = fields.Integer(
+        string="Documents",
+        compute="_compute_document_count",
+    )
+
+    @api.depends(
+        "payoff_amount",
+        "principal_reduction",
+        "interest_saved",
+        "new_outstanding",
+        "new_emi",
+        "new_tenure",
+        "current_outstanding",
+        "current_emi",
+        "remaining_tenure",
+        "state",
+    )
+    def _compute_modification_charts(self):
+        return super()._compute_modification_charts()
+
+    @api.depends("document_ids")
+    def _compute_document_count(self):
+        for rec in self:
+            rec.document_count = len(rec.document_ids)
+
+    def _get_modification_comparison_chart(self):
+        self.ensure_one()
+        if not self.loan_id:
+            return None
+        return self._build_grouped_bar_chart(
+            ["Outstanding", "EMI", "Tenure (mo)"],
+            [
+                self._chart_amount(self.current_outstanding),
+                self._chart_amount(self.current_emi),
+                float(self.remaining_tenure or 0),
+            ],
+            [
+                self._chart_amount(self.new_outstanding),
+                self._chart_amount(self.new_emi),
+                float(self.new_tenure or 0),
+            ],
+        )
+
+    def _get_modification_impact_chart(self):
+        self.ensure_one()
+        if not self.payoff_amount:
+            return None
+        return self._build_doughnut_chart(
+            ["Principal Reduction", "Interest Saved", "Remaining Balance"],
+            [
+                self._chart_amount(self.principal_reduction),
+                self._chart_amount(self.interest_saved),
+                self._chart_amount(self.new_outstanding),
+            ],
+        )
     
     # =========================================================================
     # Constraints

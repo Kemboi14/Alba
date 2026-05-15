@@ -8,10 +8,9 @@ from odoo import _, api, fields, models
 class AlbaLoanDashboard(models.TransientModel):
     _name = "alba.loan.dashboard"
     _description = "Dashboard"
-    
-    def _compute_display_name(self):
-        for rec in self:
-            rec.display_name = _("Dashboard")
+    _rec_name = "name"
+
+    name = fields.Char(string="Name", default="Dashboard")
 
     date_from = fields.Date(
         string="From",
