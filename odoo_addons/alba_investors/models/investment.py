@@ -205,6 +205,12 @@ class AlbaInvestment(models.Model):
         readonly=True,
         copy=False,
     )
+    withdrawal_payment_id = fields.Many2one(
+        "account.payment",
+        string="Withdrawal Payment",
+        readonly=True,
+        copy=False,
+    )
 
     # ── Currency / Company ────────────────────────────────────────────────────
     company_id = fields.Many2one(
@@ -456,10 +462,18 @@ class AlbaInvestment(models.Model):
         self.message_post(body=_("Investment marked as <b>Matured</b>."))
 
     def action_withdraw(self):
-        """Mark the investment as withdrawn."""
+        """Open the investment withdrawal wizard."""
         self.ensure_one()
-        self.write({"state": "withdrawn"})
-        self.message_post(body=_("Investment marked as <b>Withdrawn</b>."))
+        return {
+            'name': _('Withdraw Investment'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'alba.investment.withdraw.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_investment_id': self.id,
+            }
+        }
 
     def action_sync_currency_rates(self):
         """Sync currency rates to accounting"""

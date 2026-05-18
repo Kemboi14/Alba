@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_investment_withdraw_wizard_form" model="ir.ui.view">
+        <field name="name">alba.investment.withdraw.wizard.form</field>
+        <field name="model">alba.investment.withdraw.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Withdraw Investment">
+                <sheet>
+                    <group>
+                        <field name="investment_id" invisible="1"/>
+                        <field name="currency_id" invisible="1"/>
+                        <field name="amount" widget="monetary"/>
+                        <field name="journal_id" options="{'no_create': True}"/>
+                        <field name="payment_date"/>
+                    </group>
+                    <footer>
+                        <button name="action_confirm_withdrawal" string="Confirm Withdrawal" type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

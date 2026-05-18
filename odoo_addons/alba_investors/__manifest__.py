@@ -44,6 +44,7 @@ Manages the full investor lifecycle:
         # Wizards
         "wizard/generate_statement_wizard_views.xml",
         "wizard/investor_statement_preview_wizard_views.xml",
+        "wizard/investment_withdraw_wizard_views.xml",
         # Views
         "views/investor_views.xml",
         "views/investment_statement_views.xml",
