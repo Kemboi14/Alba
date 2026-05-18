@@ -102,67 +102,44 @@ class AlbaCurrencyRateSync(models.TransientModel):
 
     def create_accounting_move_for_investment(self, investment):
         """
-        Create the initial accounting move for an investment.
-        DR Bank/Cash (from journal default account)
+        Create the initial accounting move (payment receipt) for an investment.
+        DR Bank/Cash
         CR Investment Liability Account
         """
         investment.ensure_one()
         
         if not investment.account_investment_liability_id:
-            raise UserError(_("Please configure the Investment Liability account on investment '%s' before creating the accounting move.") % investment.investment_number)
+            raise UserError(_("Please configure the Investment Liability account on investment '%s' before creating the payment receipt.") % investment.investment_number)
         
-        journal = investment.journal_id
+        journal = investment.payment_journal_id
         if not journal:
-            raise UserError(_("Please configure the Accrual Journal on investment '%s'.") % investment.investment_number)
+            raise UserError(_("Please configure the Payment Journal on investment '%s'.") % investment.investment_number)
 
-        counterpart_account = journal.default_account_id
-        if not counterpart_account:
-            raise UserError(_("The journal '%s' has no default account configured. Please set one to record the investment receipt.") % journal.name)
-
-        company_currency = investment.company_id.currency_id
         inv_currency = investment.currency_id
         
-        move_vals = {
-            'journal_id': journal.id,
+        payment_vals = {
             'date': investment.start_date or fields.Date.today(),
-            'ref': f"INV/{investment.investment_number}",
+            'amount': investment.principal_amount,
+            'payment_type': 'inbound',
+            'partner_type': 'customer',
+            'partner_id': investment.partner_id.id,
+            'journal_id': journal.id,
             'currency_id': inv_currency.id,
-            'narration': _("Initial Investment Receipt — %s — %s") % (investment.investment_number, investment.investor_id.display_name),
-            'move_type': 'entry',
-            'line_ids': [
-                # DR Bank/Cash (Funds Received)
-                (0, 0, {
-                    'account_id': counterpart_account.id,
-                    'name': _("Investment Funds Received — %s") % investment.investment_number,
-                    'debit': investment.principal_amount if inv_currency == company_currency else 0.0,
-                    'credit': 0.0,
-                    'amount_currency': investment.principal_amount,
-                    'currency_id': inv_currency.id,
-                    'partner_id': investment.partner_id.id,
-                }),
-                # CR Investment Liability
-                (0, 0, {
-                    'account_id': investment.account_investment_liability_id.id,
-                    'name': _("Investment Liability — %s") % investment.investment_number,
-                    'debit': 0.0,
-                    'credit': investment.principal_amount if inv_currency == company_currency else 0.0,
-                    'amount_currency': -investment.principal_amount,
-                    'currency_id': inv_currency.id,
-                    'partner_id': investment.partner_id.id,
-                }),
-            ],
+            'ref': f"INV/{investment.investment_number}",
+            'destination_account_id': investment.account_investment_liability_id.id,
         }
 
-        move = self.env['account.move'].create(move_vals)
-        move.action_post()
+        payment = self.env['account.payment'].create(payment_vals)
+        payment.action_post()
         
-        investment.message_post(body=_("Initial accounting move created: <b>%s</b>") % move.name)
+        investment.write({'payment_id': payment.id})
+        investment.message_post(body=_("Initial payment receipt created: <a href='#' data-oe-model='account.payment' data-oe-id='%s'>%s</a>") % (payment.id, payment.name))
         
         return {
             'type': 'ir.actions.act_window',
-            'name': _('Accounting Move'),
-            'res_model': 'account.move',
-            'res_id': move.id,
+            'name': _('Payment Receipt'),
+            'res_model': 'account.payment',
+            'res_id': payment.id,
             'view_mode': 'form',
             'target': 'current',
         }

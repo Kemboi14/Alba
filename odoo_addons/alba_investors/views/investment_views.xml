@@ -34,6 +34,7 @@
                             string="Create Accounting Move"
                             type="object"
                             class="btn-primary"
+                            invisible="payment_id != False"
                             groups="alba_investors.group_investor_manager"/>
                     <button name="action_sync_currency_rates"
                             string="Sync Currency Rates"
@@ -147,7 +148,9 @@
                                     <field name="account_investment_liability_id" options="{'no_create': True}"/>
                                 </group>
                                 <group string="Configuration">
+                                    <field name="payment_journal_id" options="{'no_create': True}"/>
                                     <field name="journal_id" options="{'no_create': True}"/>
+                                    <field name="payment_id" invisible="not payment_id"/>
                                 </group>
                             </group>
                         </page>

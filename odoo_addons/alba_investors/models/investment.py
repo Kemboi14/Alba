@@ -192,6 +192,19 @@ class AlbaInvestment(models.Model):
         domain="[('type', '=', 'general')]",
         help="General journal used for interest accrual entries.",
     )
+    payment_journal_id = fields.Many2one(
+        "account.journal",
+        string="Payment Journal",
+        domain="[('type', 'in', ['bank', 'cash'])]",
+        help="Bank/Cash journal to record the receipt of investment funds.",
+        tracking=True,
+    )
+    payment_id = fields.Many2one(
+        "account.payment",
+        string="Initial Payment Receipt",
+        readonly=True,
+        copy=False,
+    )
 
     # ── Currency / Company ────────────────────────────────────────────────────
     company_id = fields.Many2one(
