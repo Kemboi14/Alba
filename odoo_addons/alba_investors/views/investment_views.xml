@@ -12,6 +12,18 @@
         <field name="arch" type="xml">
             <form string="Investment Account">
                 <header>
+                    <button name="action_activate"
+                            string="Activate"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'draft'"
+                            groups="alba_investors.group_investor_manager"/>
+                    <button name="action_revert_to_draft"
+                            string="Revert to Draft"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state != 'active'"
+                            groups="alba_investors.group_investor_manager"/>
                     <button name="action_accrue_monthly_interest"
                             string="Accrue Monthly Interest"
                             type="object"
@@ -54,7 +66,7 @@
                             invisible="state != 'suspended'"
                             groups="alba_investors.group_investor_manager"/>
                     <field name="state" widget="statusbar"
-                           statusbar_visible="active,matured,withdrawn,suspended"/>
+                           statusbar_visible="draft,active,matured,withdrawn,suspended"/>
                 </header>
 
                 <sheet>
@@ -71,6 +83,7 @@
                         </button>
                     </div>
 
+                    <widget name="web_ribbon" title="Draft" bg_color="bg-secondary" invisible="state != 'draft'"/>
                     <widget name="web_ribbon" title="Matured" bg_color="bg-info" invisible="state != 'matured'"/>
                     <widget name="web_ribbon" title="Suspended" bg_color="bg-danger" invisible="state != 'suspended'"/>
 
@@ -80,7 +93,7 @@
                             <field name="investment_number" readonly="1"/>
                         </h1>
                         <div class="o_row">
-                            <field name="currency_id" options="{'no_create': True, 'no_open': True}" domain="[('active', '=', True)]"/>
+                            <field name="currency_id" options="{'no_create': True, 'no_open': True}" domain="[('active', '=', True)]" readonly="id != False"/>
                             <field name="is_high_yield" invisible="1"/>
                             <span class="badge text-bg-success" invisible="not is_high_yield">
                                 <i class="fa fa-bolt"/> High Yield
@@ -106,18 +119,18 @@
 
                     <group>
                         <group string="Investor &amp; Terms">
-                            <field name="investor_id" options="{'no_create': False}" readonly="state != 'active'"/>
-                            <field name="principal_amount" readonly="state != 'active'"/>
-                            <field name="investment_type" widget="radio" options="{'horizontal': true}" readonly="state != 'active'"/>
-                            <field name="interest_rate" readonly="state != 'active'"/>
-                            <field name="compounding_frequency" readonly="state != 'active'"/>
+                            <field name="investor_id" options="{'no_create': False}" readonly="state != 'draft'"/>
+                            <field name="principal_amount" readonly="state != 'draft'"/>
+                            <field name="investment_type" widget="radio" options="{'horizontal': true}" readonly="state != 'draft'"/>
+                            <field name="interest_rate" readonly="state != 'draft'"/>
+                            <field name="compounding_frequency" readonly="state != 'draft'"/>
                             <field name="investment_progress" widget="progressbar"
                                    invisible="investment_type != 'fixed_term'"/>
                         </group>
                         <group string="Timeline &amp; Progress">
-                            <field name="start_date" readonly="state != 'active'"/>
-                            <field name="maturity_date" 
-                                   readonly="state != 'active'"
+                            <field name="start_date" readonly="state != 'draft'"/>
+                            <field name="maturity_date"
+                                   readonly="state != 'draft'"
                                    invisible="investment_type != 'fixed_term'"
                                    required="investment_type == 'fixed_term'"/>
                             <field name="days_to_maturity" invisible="investment_type != 'fixed_term'"/>
@@ -174,6 +187,7 @@
         <field name="type">list</field>
         <field name="arch" type="xml">
             <list string="Investments"
+                  decoration-info="state == 'draft'"
                   decoration-success="state == 'active'"
                   decoration-warning="state == 'suspended'"
                   decoration-muted="state in ('matured','withdrawn')">
@@ -187,6 +201,7 @@
                 <field name="current_value" sum="Grand Portfolio"/>
                 <field name="maturity_date" widget="remaining_days" invisible="investment_type != 'fixed_term'"/>
                 <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
                        decoration-success="state == 'active'"
                        decoration-warning="state == 'suspended'"
                        decoration-muted="state in ('matured','withdrawn')"/>
@@ -268,6 +283,7 @@
                 <field name="investment_number"/>
                 <field name="investor_id"/>
                 <separator/>
+                <filter string="Draft"     name="draft"     domain="[('state','=','draft')]"/>
                 <filter string="Active"    name="active"    domain="[('state','=','active')]"/>
                 <filter string="Matured"   name="matured"   domain="[('state','=','matured')]"/>
                 <filter string="Suspended" name="suspended" domain="[('state','=','suspended')]"/>

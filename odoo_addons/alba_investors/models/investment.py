@@ -91,13 +91,14 @@ class AlbaInvestment(models.Model):
     # ── State ─────────────────────────────────────────────────────────────────
     state = fields.Selection(
         selection=[
+            ("draft", "Draft"),
             ("active", "Active"),
             ("matured", "Matured"),
             ("withdrawn", "Withdrawn"),
             ("suspended", "Suspended"),
         ],
         string="Status",
-        default="active",
+        default="draft",
         required=True,
         tracking=True,
         index=True,
@@ -426,35 +427,6 @@ class AlbaInvestment(models.Model):
         )
         return accrual
 
-    def _log_professional_status_change(self, old_state, new_state):
-        """Post a professional, formatted message to the chatter on status change."""
-        state_labels = dict(self._fields['state'].selection)
-        old_label = state_labels.get(old_state, old_state)
-        new_label = state_labels.get(new_state, new_state)
-        
-        icon = "📈" if new_state == "active" else "ℹ️"
-        if new_state == "matured": icon = "🔔"
-        if new_state == "withdrawn": icon = "💸"
-        if new_state == "suspended": icon = "⚠️"
-        
-        body = _(
-            "<div class='o_alba_status_change'>"
-            "<strong>%s Investment Status Changed</strong><br/>"
-            "From: <span class='badge badge-secondary'>%s</span> "
-            "To: <span class='badge badge-primary' style='background-color: #004a99;'>%s</span><br/>"
-            "Changed by: %s"
-            "</div>"
-        ) % (icon, old_label.upper(), new_label.upper(), self.env.user.name)
-        
-        self.message_post(body=body, subtype_xmlid="mail.mt_comment")
-
-    def write(self, vals):
-        if 'state' in vals:
-            for rec in self:
-                if rec.state != vals['state']:
-                    rec._log_professional_status_change(rec.state, vals['state'])
-        return super().write(vals)
-
     def action_mature(self):
         """Mark the investment as matured."""
         self.ensure_one()
@@ -496,6 +468,22 @@ class AlbaInvestment(models.Model):
         self.ensure_one()
         self.write({"state": "active"})
         self.message_post(body=_("Investment <b>reactivated</b>."))
+
+    def action_activate(self):
+        """Activate a draft investment."""
+        self.ensure_one()
+        if self.state != "draft":
+            raise UserError(_("Only draft investments can be activated."))
+        self.write({"state": "active"})
+        self.message_post(body=_("Investment <b>activated</b>."))
+
+    def action_revert_to_draft(self):
+        """Revert an active investment to draft for editing."""
+        self.ensure_one()
+        if self.state != "active":
+            raise UserError(_("Only active investments can be reverted to draft."))
+        self.write({"state": "draft"})
+        self.message_post(body=_("Investment reverted to <b>draft</b> for editing."))
 
     # =========================================================================
     # Scheduled action (cron) — accrue interest on ALL active investments
@@ -562,6 +550,23 @@ class AlbaInvestment(models.Model):
         return records
 
     def write(self, vals):
+        # Prevent editing key fields when investment is active
+        editable_active_fields = {
+            "notes",
+            "state",
+            "payment_id",
+            "withdrawal_payment_id",
+        }
+        protected_fields = set(vals) - editable_active_fields
+        if protected_fields:
+            active_records = self.filtered(lambda rec: rec.state == "active")
+            if active_records:
+                raise UserError(
+                    _(
+                        "Cannot edit investment while it is active. "
+                        "Please revert to draft state first to make changes."
+                    )
+                )
         if 'state' in vals:
             for rec in self:
                 if rec.state != vals['state']:
@@ -574,20 +579,22 @@ class AlbaInvestment(models.Model):
         old_label = state_labels.get(old_state, old_state)
         new_label = state_labels.get(new_state, new_state)
         
-        icon = "📈"
-        if new_state == "active": icon = "✅"
+        icon = "📈" if new_state == "active" else "ℹ️"
+        if new_state == "draft": icon = "📝"
+        if new_state == "matured": icon = "🔔"
+        if new_state == "withdrawn": icon = "💸"
         if new_state == "suspended": icon = "⚠️"
-        if new_state == "blacklisted": icon = "🔴"
         
-        body = (
+        body = _(
             "<div class='o_alba_status_change'>"
             "<strong>%s Investment Status Changed</strong><br/>"
-            "From: <span class='badge badge-secondary' style='color: #666;'>%s</span> "
-            "To: <span class='badge badge-primary' style='background-color: #004a99; color: white; padding: 2px 6px; border-radius: 4px;'>%s</span><br/>"
+            "From: <span class='badge badge-secondary'>%s</span> "
+            "To: <span class='badge badge-primary' style='background-color: #004a99;'>%s</span><br/>"
             "Changed by: %s"
             "</div>"
         ) % (icon, old_label.upper(), new_label.upper(), self.env.user.name)
-        self.message_post(body=body)
+        
+        self.message_post(body=body, subtype_xmlid="mail.mt_comment")
 
     def name_get(self):
         return [
