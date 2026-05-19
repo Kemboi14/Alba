@@ -105,7 +105,7 @@
                         <page string="Employee Borrowers" name="borrowers">
                             <field name="customer_ids"
                                    mode="list"
-                                   context="{'default_employer_id': active_id}">
+                                   context="{'default_employer_id': id}">
                                 <list>
                                     <field name="display_name" string="Name"/>
                                     <field name="phone"/>
@@ -117,7 +117,7 @@
                         <page string="Guarantors" name="guarantors">
                             <field name="guarantor_ids"
                                    mode="list"
-                                   context="{'default_employer_id': active_id}">
+                                   context="{'default_employer_id': id}">
                                 <list>
                                     <field name="name"/>
                                     <field name="phone"/>
