@@ -110,17 +110,19 @@
 
                     <group>
                         <group>
-                            <field name="customer_id" readonly="1"/>
-                            <field name="loan_product_id" readonly="1"/>
-                            <field name="application_id" readonly="1"/>
+                            <field name="customer_id" readonly="disbursement_move_id != False"/>
+                            <field name="employer_id" options="{'no_create': True, 'no_open': False}"/>
+                            <field name="loan_product_id" readonly="disbursement_move_id != False"/>
+                            <field name="application_id" readonly="disbursement_move_id != False"/>
                         </group>
                         <group>
-                            <field name="disbursement_date"/>
-                            <field name="principal_amount" readonly="1"/>
-                            <field name="interest_rate" readonly="1"/>
-                            <field name="interest_method" readonly="1"/>
-                            <field name="tenure_months" readonly="1"/>
-                            <field name="repayment_frequency" readonly="1"/>
+                            <field name="loan_date" readonly="disbursement_move_id != False"/>
+                            <field name="disbursement_date" readonly="disbursement_move_id != False"/>
+                            <field name="principal_amount" readonly="disbursement_move_id != False"/>
+                            <field name="interest_rate" readonly="disbursement_move_id != False"/>
+                            <field name="interest_method" readonly="disbursement_move_id != False"/>
+                            <field name="tenure_months" readonly="disbursement_move_id != False"/>
+                            <field name="repayment_frequency" readonly="disbursement_move_id != False"/>
                         </group>
                     </group>
 
@@ -225,6 +227,7 @@
                   decoration-danger="state in ('npl','written_off')"
                   decoration-success="state == 'closed'">
                 <field name="loan_number"/>
+                <field name="loan_date" optional="show"/>
                 <field name="customer_id"/>
                 <field name="sector_id" optional="hide"/>
                 <field name="subsector_id" optional="hide"/>
@@ -262,9 +265,11 @@
             <search>
                 <field name="loan_number"/>
                 <field name="customer_id"/>
+                <field name="employer_id"/>
                 <field name="sector_id"/>
                 <field name="subsector_id"/>
                 <field name="referral_source"/>
+                <field name="loan_date"/>
                 <field name="disbursement_date"/>
                 <field name="next_payment_due_date"/>
                 <separator/>

@@ -50,5 +50,16 @@ class AlbaEmployer(models.Model):
         for rec in self:
             rec.employee_count = len(rec.customer_ids) + len(rec.guarantor_ids)
 
+    def action_view_customers(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Employees — %s") % self.name,
+            "res_model": "alba.customer",
+            "view_mode": "list,form",
+            "domain": [("employer_id", "=", self.id)],
+            "context": {"default_employer_id": self.id},
+        }
+
     def name_get(self):
         return [(rec.id, rec.name) for rec in self]

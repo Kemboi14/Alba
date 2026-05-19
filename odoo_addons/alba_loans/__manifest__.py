@@ -79,6 +79,7 @@ Accounting
         # ── Actions — must load before views that reference them ─────────────
         "views/actions.xml",
         # ── Loan management views (load basic views first) ───────────────────
+        "views/employer_views.xml",
         "views/customer_views.xml",
         "views/loan_document_views.xml",
         "views/loan_product_views.xml",

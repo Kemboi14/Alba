@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ─── List View ─────────────────────────────────────────────── -->
+    <record id="view_alba_employer_list" model="ir.ui.view">
+        <field name="name">alba.employer.list</field>
+        <field name="model">alba.employer</field>
+        <field name="arch" type="xml">
+            <list string="Employers" decoration-muted="not is_approved">
+                <field name="name"/>
+                <field name="industry"/>
+                <field name="phone"/>
+                <field name="email"/>
+                <field name="county"/>
+                <field name="employee_count" string="Employees"/>
+                <field name="is_approved" widget="boolean_toggle" string="Approved"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ─── Form View ─────────────────────────────────────────────── -->
+    <record id="view_alba_employer_form" model="ir.ui.view">
+        <field name="name">alba.employer.form</field>
+        <field name="model">alba.employer</field>
+        <field name="arch" type="xml">
+            <form string="Employer">
+
+                <!-- Status bar -->
+                <header>
+                    <field name="is_approved" widget="boolean_toggle" nolabel="1"/>
+                    <span class="o_field_widget" invisible="is_approved">
+                        ⚠️ Not Approved
+                    </span>
+                </header>
+
+                <sheet>
+                    <!-- Title row -->
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name"
+                                   placeholder="Employer / Business Name"
+                                   required="1"/>
+                        </h1>
+                        <field name="industry"
+                               placeholder="Select Industry"
+                               widget="badge"/>
+                    </div>
+
+                    <!-- Stat buttons -->
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button"
+                                type="object"
+                                name="action_view_customers"
+                                icon="fa-users">
+                            <field name="employee_count"
+                                   string="Employees"
+                                   widget="statinfo"/>
+                        </button>
+                    </div>
+
+                    <group>
+
+                        <!-- ── Contact Information ── -->
+                        <group string="Contact Information">
+                            <field name="phone"
+                                   placeholder="+254 7XX XXX XXX"
+                                   widget="phone"/>
+                            <field name="email"
+                                   placeholder="email@company.com"
+                                   widget="email"/>
+                            <field name="website"
+                                   placeholder="https://www.company.com"
+                                   widget="url"/>
+                        </group>
+
+                        <!-- ── Location ── -->
+                        <group string="Location">
+                            <field name="county"    placeholder="e.g. Nairobi"/>
+                            <field name="sub_county" placeholder="e.g. Westlands"/>
+                            <field name="address"
+                                   placeholder="Street / Building / P.O. Box"
+                                   nolabel="0"/>
+                        </group>
+
+                    </group>
+
+                    <!-- ── HR Contact ── -->
+                    <group string="HR Contact Person">
+                        <group>
+                            <field name="hr_contact_name"
+                                   placeholder="Full name"/>
+                            <field name="hr_contact_phone"
+                                   placeholder="+254 7XX XXX XXX"
+                                   widget="phone"/>
+                        </group>
+                        <group>
+                            <field name="hr_contact_email"
+                                   placeholder="hr@company.com"
+                                   widget="email"/>
+                        </group>
+                    </group>
+
+                    <!-- ── Linked Records ── -->
+                    <notebook>
+                        <page string="Employee Borrowers" name="borrowers">
+                            <field name="customer_ids"
+                                   mode="list"
+                                   context="{'default_employer_id': active_id}">
+                                <list>
+                                    <field name="display_name" string="Name"/>
+                                    <field name="phone"/>
+                                    <field name="email"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Guarantors" name="guarantors">
+                            <field name="guarantor_ids"
+                                   mode="list"
+                                   context="{'default_employer_id': active_id}">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="phone"/>
+                                    <field name="email"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+
+                </sheet>
+
+                <!-- Chatter -->
+                <chatter/>
+
+            </form>
+        </field>
+    </record>
+
+    <!-- ─── Search View ───────────────────────────────────────────── -->
+    <record id="view_alba_employer_search" model="ir.ui.view">
+        <field name="name">alba.employer.search</field>
+        <field name="model">alba.employer</field>
+        <field name="arch" type="xml">
+            <search string="Search Employers">
+                <field name="name"     string="Employer Name"/>
+                <field name="phone"/>
+                <field name="email"/>
+                <field name="county"/>
+                <separator/>
+                <filter string="Approved"     name="approved"
+                        domain="[('is_approved','=',True)]"/>
+                <filter string="Not Approved" name="not_approved"
+                        domain="[('is_approved','=',False)]"/>
+                <separator/>
+                <group expand="0" string="Group By">
+                    <filter string="Industry" name="group_industry"
+                            context="{'group_by':'industry'}"/>
+                    <filter string="County"   name="group_county"
+                            context="{'group_by':'county'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ─── Action ────────────────────────────────────────────────── -->
+    <record id="action_alba_employer" model="ir.actions.act_window">
+        <field name="name">Employers</field>
+        <field name="res_model">alba.employer</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_alba_employer_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Add your first employer
+            </p>
+            <p>
+                Track businesses and organisations whose employees
+                are borrowers or guarantors on Alba Capital loans.
+            </p>
+        </field>
+    </record>
+
+    <!-- ─── Menu ────────────────────────────────────────────────── -->
+    <menuitem id="menu_alba_employer"
+              name="Employers"
+              parent="alba_loans.menu_alba_loans_config"
+              action="action_alba_employer"
+              sequence="50"
+              groups="alba_loans.group_loan_manager"/>
+
+</odoo>

@@ -41,6 +41,8 @@ class AlbaCustomer(models.Model):
     # ── Identity (Related to Partner) ────────────────────────────────────────
     id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
     id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
+    phone = fields.Char(related="partner_id.phone", store=True, readonly=False)
+    email = fields.Char(related="partner_id.email", store=True, readonly=False)
     date_of_birth = fields.Date(related="partner_id.date_of_birth", store=True, readonly=False)
     age = fields.Integer(string="Age", compute="_compute_age", store=False)
     gender = fields.Selection(related="partner_id.gender", store=True, readonly=False)
