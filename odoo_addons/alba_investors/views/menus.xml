@@ -86,5 +86,12 @@
               sequence="100"
               groups="alba_investors.group_investor_manager"/>
 
+    <menuitem id="menu_alba_investors_investment_products"
+              name="Investment Products"
+              parent="menu_alba_investors_config"
+              action="action_alba_investment_product"
+              sequence="10"
+              groups="alba_investors.group_investor_manager"/>
+
 </data>
 </odoo>

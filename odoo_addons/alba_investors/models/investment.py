@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from datetime import timedelta
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
@@ -34,6 +36,13 @@ class AlbaInvestment(models.Model):
         related="investor_id.partner_id",
         store=True,
         readonly=True,
+    )
+    investment_product_id = fields.Many2one(
+        "alba.investment.product",
+        string="Investment Product",
+        domain="[('active', '=', True), ('currency_id', '=', currency_id), ('investment_type', '=', investment_type)]",
+        tracking=True,
+        help="Configuration that supplies default rates, ledgers, journals, and document requirements.",
     )
 
     
@@ -206,11 +215,36 @@ class AlbaInvestment(models.Model):
         readonly=True,
         copy=False,
     )
+    initial_accounting_posted = fields.Boolean(
+        string="Initial Accounting Posted",
+        compute="_compute_initial_accounting_posted",
+        store=True,
+    )
     withdrawal_payment_id = fields.Many2one(
         "account.payment",
         string="Withdrawal Payment",
         readonly=True,
         copy=False,
+    )
+    withdrawal_notice_date = fields.Date(
+        string="Early Withdrawal Notice Date",
+        readonly=True,
+        copy=False,
+        tracking=True,
+    )
+    earliest_withdrawal_date = fields.Date(
+        string="Earliest Withdrawal Date",
+        compute="_compute_withdrawal_notice",
+        store=True,
+        readonly=True,
+    )
+    days_to_withdrawal = fields.Integer(
+        string="Days to Withdrawal",
+        compute="_compute_withdrawal_notice",
+    )
+    can_withdraw_now = fields.Boolean(
+        string="Can Withdraw Now",
+        compute="_compute_withdrawal_notice",
     )
 
     # ── Currency / Company ────────────────────────────────────────────────────
@@ -289,6 +323,11 @@ class AlbaInvestment(models.Model):
         for rec in self:
             rec.statement_count = len(rec.statement_ids)
 
+    @api.depends("payment_id", "payment_id.state")
+    def _compute_initial_accounting_posted(self):
+        for rec in self:
+            rec.initial_accounting_posted = rec.payment_id.state == "posted"
+
     @api.depends("interest_rate")
     def _compute_is_high_yield(self):
         for rec in self:
@@ -312,9 +351,76 @@ class AlbaInvestment(models.Model):
                 rec.maturity_progress = 0
                 rec.days_to_maturity = 0
 
+    @api.depends(
+        "withdrawal_notice_date",
+        "investment_product_id.early_withdrawal_notice_days",
+        "state",
+        "investment_type",
+        "maturity_date",
+    )
+    def _compute_withdrawal_notice(self):
+        today = fields.Date.today()
+        for rec in self:
+            notice_days = rec.investment_product_id.early_withdrawal_notice_days or 60
+            rec.earliest_withdrawal_date = (
+                rec.withdrawal_notice_date + timedelta(days=notice_days)
+                if rec.withdrawal_notice_date
+                else False
+            )
+            if rec.earliest_withdrawal_date:
+                rec.days_to_withdrawal = max(0, (rec.earliest_withdrawal_date - today).days)
+            else:
+                rec.days_to_withdrawal = 0
+
+            matured = rec.state == "matured" or (
+                rec.investment_type == "fixed_term"
+                and rec.maturity_date
+                and rec.maturity_date <= today
+            )
+            notice_elapsed = bool(
+                rec.earliest_withdrawal_date and rec.earliest_withdrawal_date <= today
+            )
+            rec.can_withdraw_now = rec.state in ("active", "matured") and (
+                matured or rec.investment_type != "fixed_term" or notice_elapsed
+            )
+
     # =========================================================================
     # Constraints
     # =========================================================================
+
+    @api.onchange("investment_product_id")
+    def _onchange_investment_product_id(self):
+        for rec in self:
+            if rec.investment_product_id:
+                rec._apply_product_defaults()
+
+    @api.onchange("investment_type", "currency_id", "investor_id")
+    def _onchange_investment_product_lookup(self):
+        for rec in self:
+            if not rec.investment_product_id and rec.currency_id:
+                product = rec.env["alba.investment.product"]._default_product_for(
+                    rec.investment_type,
+                    rec.currency_id.id,
+                    rec.investor_id.company_id.id if rec.investor_id else rec.env.company.id,
+                )
+                if product:
+                    rec.investment_product_id = product
+                    rec._apply_product_defaults()
+
+    def _apply_product_defaults(self):
+        for rec in self:
+            product = rec.investment_product_id
+            if not product:
+                continue
+            rec.investment_type = product.investment_type
+            rec.currency_id = product.currency_id
+            rec.interest_rate = product.interest_rate
+            rec.compounding_frequency = product.compounding_frequency
+            rec.account_interest_expense_id = product.account_interest_expense_id
+            rec.account_interest_payable_id = product.account_interest_payable_id
+            rec.account_investment_liability_id = product.account_investment_liability_id
+            rec.journal_id = product.journal_id
+            rec.payment_journal_id = product.payment_journal_id
 
     @api.constrains("investment_type", "maturity_date")
     def _check_maturity_date(self):
@@ -403,6 +509,18 @@ class AlbaInvestment(models.Model):
         period_start = date(year, month, 1)
         period_end = date(year, month, last_day)
 
+        existing = self.env["alba.interest.accrual"].search(
+            [
+                ("investment_id", "=", self.id),
+                ("period_start", "=", period_start),
+                ("period_end", "=", period_end),
+                ("state", "!=", "reversed"),
+            ],
+            limit=1,
+        )
+        if existing:
+            return False
+
         accrual_vals = {
             "investment_id": self.id,
             "accrual_date": today,
@@ -433,9 +551,39 @@ class AlbaInvestment(models.Model):
         self.write({"state": "matured"})
         self.message_post(body=_("Investment marked as <b>Matured</b>."))
 
+    def action_view_accruals(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Accruals - %s") % self.investment_number,
+            "res_model": "alba.interest.accrual",
+            "view_mode": "list,form",
+            "domain": [("investment_id", "=", self.id)],
+            "context": {"default_investment_id": self.id},
+        }
+
     def action_withdraw(self):
         """Open the investment withdrawal wizard."""
         self.ensure_one()
+        today = fields.Date.today()
+        if self.state not in ("active", "matured"):
+            raise UserError(_("Only active or matured investments can be withdrawn."))
+        if (
+            self.state == "active"
+            and self.investment_type == "fixed_term"
+            and self.maturity_date
+            and self.maturity_date > today
+        ):
+            if not self.withdrawal_notice_date:
+                raise UserError(_("Please request early withdrawal notice before withdrawing this investment."))
+            if self.earliest_withdrawal_date and self.earliest_withdrawal_date > today:
+                raise UserError(
+                    _(
+                        "This fixed-term investment is under early-withdrawal notice. "
+                        "The earliest payout date is %s."
+                    )
+                    % self.earliest_withdrawal_date
+                )
         return {
             'name': _('Withdraw Investment'),
             'type': 'ir.actions.act_window',
@@ -446,6 +594,28 @@ class AlbaInvestment(models.Model):
                 'default_investment_id': self.id,
             }
         }
+
+    def action_request_withdrawal_notice(self):
+        """Start the company notice period for early fixed-term withdrawal."""
+        self.ensure_one()
+        today = fields.Date.today()
+        if self.state != "active":
+            raise UserError(_("Only active investments can request early withdrawal."))
+        if self.investment_type != "fixed_term":
+            raise UserError(_("Early withdrawal notice only applies to fixed-term investments."))
+        if self.maturity_date and self.maturity_date <= today:
+            raise UserError(_("This investment has already matured. Use Withdraw Investment instead."))
+        if self.withdrawal_notice_date:
+            raise UserError(_("Early withdrawal notice has already been requested."))
+
+        self.write({"withdrawal_notice_date": today})
+        self.message_post(
+            body=_(
+                "Early withdrawal notice recorded. Earliest payout date: <b>%s</b>."
+            )
+            % self.earliest_withdrawal_date
+        )
+        return True
 
     def action_sync_currency_rates(self):
         """Sync currency rates to accounting"""
@@ -474,8 +644,104 @@ class AlbaInvestment(models.Model):
         self.ensure_one()
         if self.state != "draft":
             raise UserError(_("Only draft investments can be activated."))
+        self._prepare_and_validate_for_activation()
+        if not self.payment_id:
+            self.action_create_accounting_move()
+        if not self.payment_id or self.payment_id.state != "posted":
+            raise UserError(
+                _("The investment accounting entry was not posted. Please review the payment journal and try again.")
+            )
         self.write({"state": "active"})
-        self.message_post(body=_("Investment <b>activated</b>."))
+        self.message_post(
+            body=_(
+                "Investment <b>activated</b>. Initial accounting payment posted: <b>%s</b>."
+            )
+            % self.payment_id.name
+        )
+
+    def _prepare_and_validate_for_activation(self):
+        self.ensure_one()
+        if not self.investment_product_id:
+            product = self.env["alba.investment.product"]._default_product_for(
+                self.investment_type,
+                self.currency_id.id,
+                self.company_id.id or self.env.company.id,
+            )
+            if product:
+                self.investment_product_id = product
+        if not self.investment_product_id:
+            raise UserError(
+                _(
+                    "Please configure an investment product for %s in %s before activation."
+                )
+                % (
+                    dict(self._fields["investment_type"].selection).get(self.investment_type),
+                    self.currency_id.name,
+                )
+            )
+
+        self.investment_product_id._ensure_accounting_defaults()
+        self._copy_product_defaults()
+        self._check_required_documents()
+        self._check_required_accounting()
+
+    def _copy_product_defaults(self):
+        self.ensure_one()
+        product = self.investment_product_id
+        vals = {}
+        for field_name in [
+            "investment_type",
+            "currency_id",
+            "interest_rate",
+            "compounding_frequency",
+            "account_interest_expense_id",
+            "account_interest_payable_id",
+            "account_investment_liability_id",
+            "journal_id",
+            "payment_journal_id",
+        ]:
+            value = product[field_name]
+            if value:
+                vals[field_name] = value.id if hasattr(value, "id") else value
+        if vals:
+            self.write(vals)
+
+    def _check_required_accounting(self):
+        self.ensure_one()
+        missing = [
+            label
+            for field_name, label in [
+                ("account_interest_expense_id", _("Interest Expense Account")),
+                ("account_interest_payable_id", _("Interest Payable Account")),
+                ("account_investment_liability_id", _("Investment Liability Account")),
+                ("journal_id", _("Accrual Journal")),
+                ("payment_journal_id", _("Payment Journal")),
+            ]
+            if not self[field_name]
+        ]
+        if missing:
+            raise UserError(_("Please configure: %s") % ", ".join(missing))
+
+    def _check_required_documents(self):
+        self.ensure_one()
+        required_lines = self.investment_product_id.required_document_ids
+        missing = []
+        for line in required_lines:
+            docs = self.investor_id.document_ids.filtered(
+                lambda doc, line=line: doc.document_type == line.document_type and doc.has_file
+            )
+            if line.require_verified:
+                docs = docs.filtered(lambda doc: doc.status == "verified")
+            if not docs:
+                label = line.name or dict(line._fields["document_type"].selection).get(line.document_type)
+                if line.require_verified:
+                    label = _("%s (verified)") % label
+                missing.append(label)
+        if missing:
+            raise UserError(
+                _("Upload the mandatory investor document(s) before activation: %s")
+                % ", ".join(missing)
+            )
 
     def action_revert_to_draft(self):
         """Revert an active investment to draft for editing."""
@@ -546,6 +812,28 @@ class AlbaInvestment(models.Model):
                 vals["investment_number"] = seq.next_by_code(
                     "alba.investment.seq"
                 ) or _("New")
+            product = self.env["alba.investment.product"].browse(vals.get("investment_product_id"))
+            if not product:
+                investor = self.env["alba.investor"].browse(vals.get("investor_id"))
+                currency_id = vals.get("currency_id") or investor.currency_id.id or self.env.company.currency_id.id
+                company_id = investor.company_id.id or self.env.company.id
+                product = self.env["alba.investment.product"]._default_product_for(
+                    vals.get("investment_type", "fixed_term"),
+                    currency_id,
+                    company_id,
+                )
+                if product:
+                    vals["investment_product_id"] = product.id
+            if product:
+                vals.setdefault("investment_type", product.investment_type)
+                vals.setdefault("currency_id", product.currency_id.id)
+                vals.setdefault("interest_rate", product.interest_rate)
+                vals.setdefault("compounding_frequency", product.compounding_frequency)
+                vals.setdefault("account_interest_expense_id", product.account_interest_expense_id.id)
+                vals.setdefault("account_interest_payable_id", product.account_interest_payable_id.id)
+                vals.setdefault("account_investment_liability_id", product.account_investment_liability_id.id)
+                vals.setdefault("journal_id", product.journal_id.id)
+                vals.setdefault("payment_journal_id", product.payment_journal_id.id)
         records = super(AlbaInvestment, self).create(vals_list)
         return records
 
@@ -556,6 +844,7 @@ class AlbaInvestment(models.Model):
             "state",
             "payment_id",
             "withdrawal_payment_id",
+            "withdrawal_notice_date",
         }
         protected_fields = set(vals) - editable_active_fields
         if protected_fields:

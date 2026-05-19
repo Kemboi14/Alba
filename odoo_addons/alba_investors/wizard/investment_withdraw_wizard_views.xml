@@ -12,6 +12,8 @@
                         <field name="amount" widget="monetary"/>
                         <field name="journal_id" options="{'no_create': True}"/>
                         <field name="payment_date"/>
+                        <field name="earliest_withdrawal_date" readonly="1" invisible="not earliest_withdrawal_date"/>
+                        <field name="days_to_withdrawal" readonly="1" invisible="not earliest_withdrawal_date"/>
                     </group>
                     <footer>
                         <button name="action_confirm_withdrawal" string="Confirm Withdrawal" type="object" class="btn-primary"/>

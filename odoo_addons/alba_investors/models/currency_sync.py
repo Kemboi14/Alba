@@ -107,6 +107,17 @@ class AlbaCurrencyRateSync(models.TransientModel):
         CR Investment Liability Account
         """
         investment.ensure_one()
+        if investment.payment_id:
+            if investment.payment_id.state != "posted":
+                investment.payment_id.action_post()
+            return {
+                'type': 'ir.actions.act_window',
+                'name': _('Payment Receipt'),
+                'res_model': 'account.payment',
+                'res_id': investment.payment_id.id,
+                'view_mode': 'form',
+                'target': 'current',
+            }
         
         if not investment.account_investment_liability_id:
             raise UserError(_("Please configure the Investment Liability account on investment '%s' before creating the payment receipt.") % investment.investment_number)

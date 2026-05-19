@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+    <record id="view_alba_investment_product_list" model="ir.ui.view">
+        <field name="name">alba.investment.product.list</field>
+        <field name="model">alba.investment.product</field>
+        <field name="type">list</field>
+        <field name="arch" type="xml">
+            <list string="Investment Products" decoration-muted="not active">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="investment_type" widget="badge"/>
+                <field name="currency_id"/>
+                <field name="interest_rate"/>
+                <field name="compounding_frequency"/>
+                <field name="early_withdrawal_notice_days"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_alba_investment_product_form" model="ir.ui.view">
+        <field name="name">alba.investment.product.form</field>
+        <field name="model">alba.investment.product</field>
+        <field name="type">form</field>
+        <field name="arch" type="xml">
+            <form string="Investment Product">
+                <header>
+                    <button name="action_ensure_accounting_defaults"
+                            string="Detect Ledger Defaults"
+                            type="object"
+                            class="btn-secondary"
+                            groups="alba_investors.group_investor_manager,account.group_account_manager"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_investments"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-line-chart">
+                            <field name="investment_count" widget="statinfo" string="Investments"/>
+                        </button>
+                    </div>
+
+                    <div class="oe_title">
+                        <label for="name" string="Investment Product"/>
+                        <h1>
+                            <field name="name" placeholder="Fixed Term - KES"/>
+                        </h1>
+                        <div class="o_row">
+                            <field name="code" placeholder="FT-KES"/>
+                            <field name="active"/>
+                        </div>
+                    </div>
+
+                    <group>
+                        <group string="Terms">
+                            <field name="investment_type"/>
+                            <field name="currency_id" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="interest_rate"/>
+                            <field name="compounding_frequency"/>
+                            <field name="early_withdrawal_notice_days"/>
+                        </group>
+                        <group string="Company">
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Mandatory Documents" name="documents">
+                            <field name="required_document_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="document_type"/>
+                                    <field name="name"/>
+                                    <field name="require_verified"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Accounting" name="accounting" groups="alba_investors.group_investor_manager,account.group_account_manager">
+                            <group>
+                                <group string="Accrual Ledgers">
+                                    <field name="account_interest_expense_id" options="{'no_create': True}"/>
+                                    <field name="account_interest_payable_id" options="{'no_create': True}"/>
+                                    <field name="journal_id" options="{'no_create': True}"/>
+                                </group>
+                                <group string="Principal Receipt">
+                                    <field name="account_investment_liability_id" options="{'no_create': True}"/>
+                                    <field name="payment_journal_id" options="{'no_create': True}"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_alba_investment_product_search" model="ir.ui.view">
+        <field name="name">alba.investment.product.search</field>
+        <field name="model">alba.investment.product</field>
+        <field name="type">search</field>
+        <field name="arch" type="xml">
+            <search string="Search Investment Products">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="currency_id"/>
+                <separator/>
+                <filter string="Active" name="active" domain="[('active', '=', True)]"/>
+                <filter string="Archived" name="archived" domain="[('active', '=', False)]"/>
+                <filter string="Fixed Term" name="fixed_term" domain="[('investment_type', '=', 'fixed_term')]"/>
+                <group>
+                    <filter string="Currency" name="group_currency" context="{'group_by': 'currency_id'}"/>
+                    <filter string="Type" name="group_type" context="{'group_by': 'investment_type'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_alba_investment_product" model="ir.actions.act_window">
+        <field name="name">Investment Products</field>
+        <field name="res_model">alba.investment.product</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_alba_investment_product_search"/>
+    </record>
+
+</data>
+</odoo>

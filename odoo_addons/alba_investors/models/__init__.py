@@ -2,6 +2,7 @@
 
 from . import (
     interest_accrual,
+    investment_product,
     investment,
     investment_statement,
     investor,

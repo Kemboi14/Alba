@@ -48,6 +48,7 @@ Manages the full investor lifecycle:
         # Views
         "views/investor_views.xml",
         "views/investment_statement_views.xml",
+        "views/investment_product_views.xml",
         "views/investment_views.xml",
         "views/interest_accrual_views.xml",
         "views/currency_sync_views.xml",

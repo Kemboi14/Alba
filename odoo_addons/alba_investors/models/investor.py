@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
-from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+import mimetypes
 import logging
+
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError, ValidationError
+
+from .investment_product import INVESTOR_DOCUMENT_TYPES
 
 _logger = logging.getLogger(__name__)
 
@@ -480,6 +484,8 @@ class AlbaInvestorPro(models.Model):
 
     def action_suspend(self):
         self.ensure_one()
+        if self.investment_ids.filtered(lambda inv: inv.state == "active"):
+            raise UserError(_("You cannot suspend an investor with active investments."))
         self.write({"state": "suspended"})
         self.message_post(body=_("Investor account <b>suspended</b>."))
 
@@ -539,6 +545,16 @@ class AlbaInvestorPro(models.Model):
             for rec in self
         ]
 
+    def write(self, vals):
+        if vals.get("state") == "suspended":
+            blocked = self.filtered(lambda rec: rec.investment_ids.filtered(lambda inv: inv.state == "active"))
+            if blocked:
+                raise UserError(
+                    _("You cannot suspend investors with active investments: %s")
+                    % ", ".join(blocked.mapped("display_name"))
+                )
+        return super().write(vals)
+
     @api.model
     def _check_company(self, company_id):
         """Ensure company consistency for multi-company setup"""
@@ -560,20 +576,16 @@ class AlbaInvestorDocument(models.Model):
     )
     name = fields.Char(string="Document Name", required=True)
     document_type = fields.Selection(
-        [
-            ("id_card", "ID Card / Passport"),
-            ("agreement", "Investment Agreement"),
-            ("nda", "NDA"),
-            ("tax_certificate", "Tax Certificate (KRA PIN)"),
-            ("proof_of_funds", "Proof of Funds"),
-            ("other", "Other"),
-        ],
+        INVESTOR_DOCUMENT_TYPES,
         string="Document Type",
         required=True,
         tracking=True,
     )
     attachment = fields.Binary(string="File Content", required=True)
     filename = fields.Char(string="Filename")
+    file_name = fields.Char(string="File Name", compute="_compute_file_metadata", store=True)
+    mimetype = fields.Char(string="MIME Type", compute="_compute_file_metadata", store=True)
+    has_file = fields.Boolean(compute="_compute_file_metadata", store=True)
     
     status = fields.Selection(
         [
@@ -591,17 +603,37 @@ class AlbaInvestorDocument(models.Model):
     verified_date = fields.Datetime(string="Verified On", readonly=True)
     notes = fields.Text(string="Notes")
 
+    @api.depends("attachment", "filename", "name")
+    def _compute_file_metadata(self):
+        for doc in self:
+            filename = doc.filename or doc.name or ""
+            doc.file_name = filename
+            doc.mimetype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+            doc.has_file = bool(doc.attachment)
+
+    def action_preview(self):
+        self.ensure_one()
+        if not self.has_file:
+            raise UserError(_("Please upload a file before previewing this document."))
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s/%s/attachment/%s?download=false"
+            % (self._name, self.id, self.filename or self.name or "document"),
+            "target": "new",
+        }
+
     def action_verify(self):
-        self.write({
-            "status": "verified",
-            "verified_by": self.env.uid,
-            "verified_date": fields.Datetime.now(),
-        })
-        # If this is the first verified doc, maybe update investor KYC
-        if self.investor_id.kyc_status == 'pending':
-            self.investor_id.write({'kyc_status': 'partial'})
-        
-        self.message_post(body=_("Document verified successfully."))
+        for doc in self:
+            if not doc.has_file:
+                raise UserError(_("Upload a file before verifying this document."))
+            doc.write({
+                "status": "verified",
+                "verified_by": self.env.uid,
+                "verified_date": fields.Datetime.now(),
+            })
+            if doc.investor_id.kyc_status == 'pending':
+                doc.investor_id.write({'kyc_status': 'partial'})
+            doc.message_post(body=_("Document verified successfully."))
 
     def action_reject(self):
         self.write({"status": "rejected"})
