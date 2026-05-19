@@ -80,9 +80,7 @@ class AlbaLoan(models.Model):
     employer_id = fields.Many2one(
         "alba.employer",
         string="Employer",
-        related="customer_id.employer_id",
         store=True,
-        readonly=False,
     )
 
     # ── Loan Terms ────────────────────────────────────────────────────────────
