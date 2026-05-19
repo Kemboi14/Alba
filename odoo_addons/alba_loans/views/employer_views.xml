@@ -142,21 +142,16 @@
         <field name="model">alba.employer</field>
         <field name="arch" type="xml">
             <search string="Search Employers">
-                <field name="name"     string="Employer Name"/>
+                <field name="name"/>
                 <field name="phone"/>
                 <field name="email"/>
                 <field name="county"/>
                 <separator/>
-                <filter string="Approved"     name="approved"
-                        domain="[('is_approved','=',True)]"/>
-                <filter string="Not Approved" name="not_approved"
-                        domain="[('is_approved','=',False)]"/>
-                <separator/>
+                <filter string="Approved" name="approved" domain="[('is_approved','=',True)]"/>
+                <filter string="Not Approved" name="not_approved" domain="[('is_approved','=',False)]"/>
                 <group expand="0" string="Group By">
-                    <filter string="Industry" name="group_industry"
-                            context="{'group_by':'industry'}"/>
-                    <filter string="County"   name="group_county"
-                            context="{'group_by':'county'}"/>
+                    <filter string="Industry" name="industry" context="{'group_by':'industry'}"/>
+                    <filter string="County" name="county" context="{'group_by':'county'}"/>
                 </group>
             </search>
         </field>
