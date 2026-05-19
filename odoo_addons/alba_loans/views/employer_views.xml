@@ -5,6 +5,7 @@
     <record id="view_alba_employer_list" model="ir.ui.view">
         <field name="name">alba.employer.list</field>
         <field name="model">alba.employer</field>
+        <field name="type">list</field>
         <field name="arch" type="xml">
             <list string="Employers" decoration-muted="not is_approved">
                 <field name="name"/>
@@ -22,6 +23,7 @@
     <record id="view_alba_employer_form" model="ir.ui.view">
         <field name="name">alba.employer.form</field>
         <field name="model">alba.employer</field>
+        <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Employer">
 
@@ -140,6 +142,7 @@
     <record id="view_alba_employer_search" model="ir.ui.view">
         <field name="name">alba.employer.search</field>
         <field name="model">alba.employer</field>
+        <field name="type">search</field>
         <field name="arch" type="xml">
             <search string="Search Employers">
                 <field name="name"/>
@@ -147,11 +150,12 @@
                 <field name="email"/>
                 <field name="county"/>
                 <separator/>
-                <filter string="Approved" name="approved" domain="[('is_approved','=',True)]"/>
-                <filter string="Not Approved" name="not_approved" domain="[('is_approved','=',False)]"/>
+                <filter string="Approved" name="approved" domain="[('is_approved', '=', True)]"/>
+                <filter string="Not Approved" name="not_approved" domain="[('is_approved', '=', False)]"/>
+                <separator/>
                 <group expand="0" string="Group By">
-                    <filter string="Industry" name="industry" context="{'group_by':'industry'}"/>
-                    <filter string="County" name="county" context="{'group_by':'county'}"/>
+                    <filter string="Industry" name="group_industry" context="{'group_by': 'industry'}"/>
+                    <filter string="County" name="group_county" context="{'group_by': 'county'}"/>
                 </group>
             </search>
         </field>
