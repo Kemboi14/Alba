@@ -1298,7 +1298,7 @@ class AlbaLoan(models.Model):
                     'narration': _("Currency sync for loan %s") % loan.loan_number,
                     'line_ids': [
                         (0, 0, {
-                            'account_id': loan.company_id.currency_exchange_journal_id.default_debit_account_id.id if loan.company_id.currency_exchange_journal_id and loan.company_id.currency_exchange_journal_id.default_debit_account_id else False,
+                            'account_id': loan.company_id.currency_exchange_journal_id.default_account_id.id if loan.company_id.currency_exchange_journal_id and loan.company_id.currency_exchange_journal_id.default_account_id else False,
                             'name': _("Currency difference - %s") % loan.loan_number,
                             'debit': 0.0,
                             'credit': 0.0,
@@ -1355,7 +1355,7 @@ class AlbaLoan(models.Model):
                     }),
                     # CR Bank / Cash
                     (0, 0, {
-                        'account_id': loan.journal_id.default_credit_account_id.id if loan.journal_id.default_credit_account_id else False,
+                        'account_id': loan.journal_id.default_account_id.id if loan.journal_id.default_account_id else False,
                         'name': _("Disbursement — %s") % loan.loan_number,
                         'debit': 0.0,
                         'credit': loan.principal_amount if loan_currency == company_currency else 0.0,
