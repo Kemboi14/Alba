@@ -80,9 +80,8 @@ class AlbaLoan(models.Model):
     employer_id = fields.Many2one(
         "alba.employer",
         string="Employer",
-        related="customer_id.employer_id",
-        store=True,
-        readonly=False,
+        tracking=True,
+        ondelete="restrict",
     )
 
     # ── Loan Terms ────────────────────────────────────────────────────────────
@@ -156,6 +155,13 @@ class AlbaLoan(models.Model):
         tracking=True,
         index=True,
     )
+
+    # ── Onchange Methods ──────────────────────────────────────────────────────
+
+    @api.onchange("customer_id")
+    def _onchange_customer_id(self):
+        if self.customer_id and self.customer_id.employer_id:
+            self.employer_id = self.customer_id.employer_id
 
     def _log_professional_status_change(self, old_state, new_state):
         """Post a professional, formatted message to the chatter on status change."""
