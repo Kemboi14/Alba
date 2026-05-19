@@ -111,12 +111,10 @@
                     <group>
                         <group>
                             <field name="customer_id" readonly="1"/>
-                            <field name="employer_id" options="{'no_create': True}"/>
                             <field name="loan_product_id" readonly="1"/>
                             <field name="application_id" readonly="1"/>
                         </group>
                         <group>
-                            <field name="loan_date"/>
                             <field name="disbursement_date"/>
                             <field name="principal_amount" readonly="1"/>
                             <field name="interest_rate" readonly="1"/>
@@ -227,7 +225,6 @@
                   decoration-danger="state in ('npl','written_off')"
                   decoration-success="state == 'closed'">
                 <field name="loan_number"/>
-                <field name="loan_date" optional="show"/>
                 <field name="customer_id"/>
                 <field name="sector_id" optional="hide"/>
                 <field name="subsector_id" optional="hide"/>
@@ -265,11 +262,9 @@
             <search>
                 <field name="loan_number"/>
                 <field name="customer_id"/>
-                <field name="employer_id"/>
                 <field name="sector_id"/>
                 <field name="subsector_id"/>
                 <field name="referral_source"/>
-                <field name="loan_date"/>
                 <field name="disbursement_date"/>
                 <field name="next_payment_due_date"/>
                 <separator/>
