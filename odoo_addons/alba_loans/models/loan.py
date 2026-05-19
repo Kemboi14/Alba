@@ -77,6 +77,13 @@ class AlbaLoan(models.Model):
         readonly=True,
         index=True,
     )
+    employer_id = fields.Many2one(
+        "alba.employer",
+        string="Employer",
+        related="customer_id.employer_id",
+        store=True,
+        readonly=False,
+    )
 
     # ── Loan Terms ────────────────────────────────────────────────────────────
     principal_amount = fields.Monetary(
@@ -119,6 +126,11 @@ class AlbaLoan(models.Model):
     )
 
     # ── Dates ─────────────────────────────────────────────────────────────────
+    loan_date = fields.Date(
+        string="Loan Date",
+        default=fields.Date.context_today,
+        tracking=True,
+    )
     disbursement_date = fields.Date(
         string="Disbursement Date",
         required=True,
