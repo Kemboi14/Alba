@@ -40,10 +40,19 @@
 
     <menuitem
             id="menu_alba_loan_applications_new"
-            name="All Loans"
+            name="Loan Applications"
             parent="menu_alba_loans_root_active"
             action="action_alba_loan_application"
             sequence="5"
+            groups="alba_loans.group_loan_user"
+        />
+
+    <menuitem
+            id="menu_alba_loans_active"
+            name="Active Loans"
+            parent="menu_alba_loans_root_active"
+            action="action_alba_loan_list"
+            sequence="10"
             groups="alba_loans.group_loan_user"
         />
 
