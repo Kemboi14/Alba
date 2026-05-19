@@ -153,7 +153,7 @@
                 <filter string="Approved" name="approved" domain="[('is_approved', '=', True)]"/>
                 <filter string="Not Approved" name="not_approved" domain="[('is_approved', '=', False)]"/>
                 <separator/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="Industry" name="group_industry" context="{'group_by': 'industry'}"/>
                     <filter string="County" name="group_county" context="{'group_by': 'county'}"/>
                 </group>
