@@ -97,6 +97,17 @@ class AlbaInvestmentProduct(models.Model):
         domain="[('type', 'in', ['bank', 'cash'])]",
         tracking=True,
     )
+    wht_rate = fields.Float(
+        string="Withholding Tax Rate (%)",
+        default=15.0,
+        tracking=True,
+    )
+    account_wht_payable_id = fields.Many2one(
+        "account.account",
+        string="WHT Payable Account",
+        domain="[('account_type', 'in', ['liability_current', 'liability_non_current', 'liability_payable'])]",
+        tracking=True,
+    )
     required_document_ids = fields.One2many(
         "alba.investment.required.document",
         "product_id",
@@ -200,6 +211,15 @@ class AlbaInvestmentProduct(models.Model):
             if acc:
                 changes["account_investment_liability_id"] = acc.id
 
+        if not self.account_wht_payable_id:
+            acc = _find_account(
+                ["liability_current", "liability_non_current", "liability_payable"],
+                "tax",
+                ["withholding", "payable"],
+            )
+            if acc:
+                changes["account_wht_payable_id"] = acc.id
+
         if not self.journal_id:
             journal = Journal.search(
                 [("type", "=", "general"), ("company_id", "=", self.company_id.id)],
@@ -226,6 +246,7 @@ class AlbaInvestmentProduct(models.Model):
                 ("account_investment_liability_id", _("Investment Liability Account")),
                 ("journal_id", _("Accrual Journal")),
                 ("payment_journal_id", _("Payment Journal")),
+                ("account_wht_payable_id", _("WHT Payable Account")),
             ]
             if not self[field_name]
         ]

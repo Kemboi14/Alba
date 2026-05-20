@@ -7,7 +7,7 @@
              ================================================================ -->
 
         <!-- ── 1. Monthly Interest Accrual ──────────────────────────────── -->
-        <!-- Runs on the 1st of every month at 02:00 AM server time.
+        <!-- Runs on the 28th of every month at 02:00 AM server time.
              Calls action_accrue_all_active_investments() on alba.investment
              to compound interest on every active investment account. -->
         <record id="ir_cron_alba_monthly_interest_accrual" model="ir.cron">
@@ -20,14 +20,13 @@
             <field name="active" eval="True"/>
             <field name="user_id" ref="base.user_root"/>
             <field name="priority">5</field>
-            <field name="nextcall" eval="(datetime.now().replace(day=1, hour=2, minute=0, second=0) + timedelta(days=32)).replace(day=1)"/>
+            <field name="nextcall" eval="(datetime.now().replace(day=28, hour=2, minute=0, second=0) if datetime.now().day &lt; 28 else (datetime.now() + timedelta(days=10)).replace(day=28, hour=2, minute=0, second=0))"/>
         </record>
 
         <!-- ── 2. Monthly Statement Generation ──────────────────────────── -->
-        <!-- Runs on the 2nd of every month at 03:00 AM server time.
+        <!-- Runs on the 29th of every month at 03:00 AM server time.
              Calls action_generate_monthly_statements() on alba.investment.statement
-             to auto-generate and confirm statements for all active investments
-             covering the previous calendar month.
+             to auto-generate and confirm statements for all active investments.
              Runs one day after the accrual cron to ensure all accruals are
              posted before statements are generated. -->
         <record id="ir_cron_alba_monthly_statement_generation" model="ir.cron">
@@ -40,7 +39,7 @@
             <field name="active" eval="True"/>
             <field name="user_id" ref="base.user_root"/>
             <field name="priority">10</field>
-            <field name="nextcall" eval="(datetime.now().replace(day=2, hour=3, minute=0, second=0) + timedelta(days=32)).replace(day=2)"/>
+            <field name="nextcall" eval="(datetime.now().replace(day=29, hour=3, minute=0, second=0) if datetime.now().day &lt; 29 else (datetime.now() + timedelta(days=10)).replace(day=29, hour=3, minute=0, second=0))"/>
         </record>
 
         <!-- ── 3. Investment Maturity Reminder ────────────────────────── -->

@@ -6,17 +6,37 @@
         <field name="arch" type="xml">
             <form string="Withdraw Investment">
                 <sheet>
+                    <div class="alert alert-info d-flex align-items-center gap-3 mb-3" role="alert"
+                         style="border-left: 4px solid #2E75B6; border-radius: 6px; padding: 14px 18px;">
+                        <i class="fa fa-info-circle fa-2x text-primary me-3"/>
+                        <div class="flex-grow-1">
+                            <strong class="d-block" style="font-size: 1.1em;">Confirming Payout</strong>
+                            <span class="text-muted small">
+                                This will record the final payout to the investor and deduct withholding tax (WHT) on the earned interest.
+                            </span>
+                        </div>
+                    </div>
                     <group>
-                        <field name="investment_id" invisible="1"/>
-                        <field name="currency_id" invisible="1"/>
-                        <field name="amount" widget="monetary"/>
-                        <field name="journal_id" options="{'no_create': True}"/>
-                        <field name="payment_date"/>
-                        <field name="earliest_withdrawal_date" readonly="1" invisible="not earliest_withdrawal_date"/>
-                        <field name="days_to_withdrawal" readonly="1" invisible="not earliest_withdrawal_date"/>
+                        <group string="Payout Components">
+                            <field name="investment_id" invisible="1"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="principal_amount" widget="monetary" readonly="1"/>
+                            <field name="total_interest_accrued" widget="monetary" readonly="1"/>
+                            <field name="wht_rate" readonly="1"/>
+                            <field name="wht_amount" widget="monetary" readonly="1" class="text-danger"/>
+                            <field name="net_interest_payable" widget="monetary" readonly="1" class="text-success"/>
+                            <hr colspan="2" style="border-top: 1px solid #ccc; margin: 10px 0;"/>
+                            <field name="amount" widget="monetary" readonly="1" class="h3 fw-bold text-primary"/>
+                        </group>
+                        <group string="Payment Parameters">
+                            <field name="journal_id" options="{'no_create': True}"/>
+                            <field name="payment_date"/>
+                            <field name="earliest_withdrawal_date" readonly="1" invisible="not earliest_withdrawal_date"/>
+                            <field name="days_to_withdrawal" readonly="1" invisible="not earliest_withdrawal_date"/>
+                        </group>
                     </group>
                     <footer>
-                        <button name="action_confirm_withdrawal" string="Confirm Withdrawal" type="object" class="btn-primary"/>
+                        <button name="action_confirm_withdrawal" string="Confirm Payout" type="object" class="btn-primary"/>
                         <button string="Cancel" class="btn-secondary" special="cancel"/>
                     </footer>
                 </sheet>

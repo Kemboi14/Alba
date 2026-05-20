@@ -90,6 +90,10 @@
                                     <field name="account_investment_liability_id" options="{'no_create': True}"/>
                                     <field name="payment_journal_id" options="{'no_create': True}"/>
                                 </group>
+                                <group string="Withholding Tax">
+                                    <field name="wht_rate"/>
+                                    <field name="account_wht_payable_id" options="{'no_create': True}"/>
+                                </group>
                             </group>
                         </page>
                     </notebook>

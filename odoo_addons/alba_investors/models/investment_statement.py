@@ -94,6 +94,23 @@ class AlbaInvestmentStatement(models.Model):
         tracking=True,
         help="Total compound interest accrued during the statement period.",
     )
+    wht_rate = fields.Float(
+        string="WHT Rate (%)",
+        related="investment_id.wht_rate",
+        readonly=True,
+    )
+    wht_amount = fields.Monetary(
+        string="WHT Deducted",
+        currency_field="currency_id",
+        compute="_compute_wht_amount",
+        store=True,
+    )
+    net_interest = fields.Monetary(
+        string="Net Interest",
+        currency_field="currency_id",
+        compute="_compute_wht_amount",
+        store=True,
+    )
     closing_balance = fields.Monetary(
         string="Closing Balance",
         currency_field="currency_id",
@@ -157,6 +174,12 @@ class AlbaInvestmentStatement(models.Model):
                 - rec.withdrawals
                 + rec.interest_accrued
             )
+
+    @api.depends("interest_accrued", "wht_rate")
+    def _compute_wht_amount(self):
+        for rec in self:
+            rec.wht_amount = rec.interest_accrued * (rec.wht_rate / 100.0)
+            rec.net_interest = rec.interest_accrued - rec.wht_amount
 
     # =========================================================================
     # Business actions

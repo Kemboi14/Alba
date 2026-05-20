@@ -171,6 +171,13 @@
                                     <field name="payment_id" invisible="not payment_id"/>
                                     <field name="withdrawal_payment_id" invisible="not withdrawal_payment_id"/>
                                 </group>
+                                <group string="Withholding Tax">
+                                    <field name="wht_rate" readonly="state != 'draft'"/>
+                                    <field name="account_wht_payable_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                                    <field name="wht_amount" widget="monetary"/>
+                                    <field name="net_interest_payable" widget="monetary"/>
+                                    <field name="net_payout_amount" widget="monetary"/>
+                                </group>
                             </group>
                         </page>
                         <page string="Notes" name="notes">

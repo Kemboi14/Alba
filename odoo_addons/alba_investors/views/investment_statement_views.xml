@@ -107,6 +107,9 @@
                                 name="interest_accrued"
                                 readonly="state != 'draft'"
                             />
+                        <field name="wht_rate" />
+                        <field name="wht_amount" />
+                        <field name="net_interest" />
                         <field name="closing_balance" readonly="1" />
                     </group>
 

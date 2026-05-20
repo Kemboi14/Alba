@@ -209,6 +209,35 @@ class AlbaInvestment(models.Model):
         help="Bank/Cash journal to record the receipt of investment funds.",
         tracking=True,
     )
+    wht_rate = fields.Float(
+        string="Withholding Tax Rate (%)",
+        default=15.0,
+        tracking=True,
+    )
+    account_wht_payable_id = fields.Many2one(
+        "account.account",
+        string="WHT Payable Account",
+        domain="[('account_type', 'in', ['liability_current', 'liability_non_current', 'liability_payable'])]",
+        tracking=True,
+    )
+    wht_amount = fields.Monetary(
+        string="Withholding Tax Amount",
+        currency_field="currency_id",
+        compute="_compute_wht_amount",
+        store=True,
+    )
+    net_interest_payable = fields.Monetary(
+        string="Net Interest Payable",
+        currency_field="currency_id",
+        compute="_compute_wht_amount",
+        store=True,
+    )
+    net_payout_amount = fields.Monetary(
+        string="Net Payout Amount",
+        currency_field="currency_id",
+        compute="_compute_wht_amount",
+        store=True,
+    )
     payment_id = fields.Many2one(
         "account.payment",
         string="Initial Payment Receipt",
@@ -314,6 +343,13 @@ class AlbaInvestment(models.Model):
             rec.total_interest_accrued = total_accrued
             rec.total_interest_paid = 0.0
             rec.current_value = rec.principal_amount + total_accrued
+
+    @api.depends("total_interest_accrued", "principal_amount", "wht_rate")
+    def _compute_wht_amount(self):
+        for rec in self:
+            rec.wht_amount = rec.total_interest_accrued * (rec.wht_rate / 100.0)
+            rec.net_interest_payable = rec.total_interest_accrued - rec.wht_amount
+            rec.net_payout_amount = rec.principal_amount + rec.net_interest_payable
 
     def _compute_accrual_count(self):
         for rec in self:
@@ -421,6 +457,8 @@ class AlbaInvestment(models.Model):
             rec.account_investment_liability_id = product.account_investment_liability_id
             rec.journal_id = product.journal_id
             rec.payment_journal_id = product.payment_journal_id
+            rec.wht_rate = product.wht_rate
+            rec.account_wht_payable_id = product.account_wht_payable_id
 
     @api.constrains("investment_type", "maturity_date")
     def _check_maturity_date(self):
@@ -647,7 +685,7 @@ class AlbaInvestment(models.Model):
         self._prepare_and_validate_for_activation()
         if not self.payment_id:
             self.action_create_accounting_move()
-        if not self.payment_id or self.payment_id.state != "posted":
+        if not self.payment_id or self.payment_id.state not in ("posted", "in_process", "paid"):
             raise UserError(
                 _("The investment accounting entry was not posted. Please review the payment journal and try again.")
             )
@@ -699,9 +737,11 @@ class AlbaInvestment(models.Model):
             "account_investment_liability_id",
             "journal_id",
             "payment_journal_id",
+            "wht_rate",
+            "account_wht_payable_id",
         ]:
             value = product[field_name]
-            if value:
+            if value is not False and value is not None:
                 vals[field_name] = value.id if hasattr(value, "id") else value
         if vals:
             self.write(vals)
@@ -716,6 +756,7 @@ class AlbaInvestment(models.Model):
                 ("account_investment_liability_id", _("Investment Liability Account")),
                 ("journal_id", _("Accrual Journal")),
                 ("payment_journal_id", _("Payment Journal")),
+                ("account_wht_payable_id", _("WHT Payable Account")),
             ]
             if not self[field_name]
         ]
@@ -834,6 +875,8 @@ class AlbaInvestment(models.Model):
                 vals.setdefault("account_investment_liability_id", product.account_investment_liability_id.id)
                 vals.setdefault("journal_id", product.journal_id.id)
                 vals.setdefault("payment_journal_id", product.payment_journal_id.id)
+                vals.setdefault("wht_rate", product.wht_rate)
+                vals.setdefault("account_wht_payable_id", product.account_wht_payable_id.id)
         records = super(AlbaInvestment, self).create(vals_list)
         return records
 

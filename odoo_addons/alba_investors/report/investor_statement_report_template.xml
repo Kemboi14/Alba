@@ -138,6 +138,34 @@
                 </tr>
             </table>
 
+            <!-- Financial Summary Box with Withholding Tax (WHT) -->
+            <t t-if="doc and doc._name == 'alba.investment.statement'">
+                <table width="100%" style="margin-bottom: 24px; border-collapse: collapse; border: 1.5px solid #2e6bbf; border-radius: 4px;">
+                    <thead>
+                        <tr style="background-color: #f4f7fc; border-bottom: 2px solid #0d2d5e;">
+                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Opening Balance</th>
+                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Deposits</th>
+                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Withdrawals</th>
+                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Interest Accrued</th>
+                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #d9534f; border-right: 1px solid #c8d9f0;">WHT Deducted (<t t-esc="doc.wht_rate"/>%)</th>
+                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #5cb85c; border-right: 1px solid #c8d9f0;">Net Interest</th>
+                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; text-align: right;">Closing Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="padding: 12px; font-size: 13px; font-weight: 600; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.opening_balance)"/></td>
+                            <td style="padding: 12px; font-size: 13px; color: #2e6bbf; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.deposits)"/></td>
+                            <td style="padding: 12px; font-size: 13px; color: #d9534f; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.withdrawals)"/></td>
+                            <td style="padding: 12px; font-size: 13px; color: #5cb85c; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.interest_accrued)"/></td>
+                            <td style="padding: 12px; font-size: 13px; color: #d9534f; font-weight: 600; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.wht_amount)"/></td>
+                            <td style="padding: 12px; font-size: 13px; color: #5cb85c; font-weight: 600; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.net_interest)"/></td>
+                            <td style="padding: 12px; font-size: 14px; font-weight: 700; color: #0d2d5e; text-align: right;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.closing_balance)"/></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </t>
+
             <table class="stmt-table">
                 <thead>
                     <tr>
@@ -176,6 +204,7 @@
             <t t-foreach="statements" t-as="stmt_data">
                 <div class="page" style="page-break-after: always;">
                     <t t-call="alba_investors.account_statement_document">
+                        <t t-set="doc" t-value="stmt_data['doc']"/>
                         <t t-set="res_company" t-value="stmt_data['res_company']"/>
                         <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
                         <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
@@ -200,6 +229,7 @@
             <t t-foreach="statements" t-as="stmt_data">
                 <div class="page" style="page-break-after: always;">
                     <t t-call="alba_investors.account_statement_document">
+                        <t t-set="doc" t-value="stmt_data['doc']"/>
                         <t t-set="res_company" t-value="stmt_data['res_company']"/>
                         <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
                         <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
