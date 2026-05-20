@@ -39,6 +39,7 @@ class AlbaCustomer(models.Model):
     )
 
     # ── Identity (Related to Partner) ────────────────────────────────────────
+    image_1920 = fields.Image(related="partner_id.image_1920", string="Image", readonly=False)
     id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
     id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
     phone = fields.Char(related="partner_id.phone", store=True, readonly=False)
