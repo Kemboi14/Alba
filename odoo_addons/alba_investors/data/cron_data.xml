@@ -1,45 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data noupdate="1">
+    <data noupdate="0">
 
         <!-- ================================================================
              Alba Investors — Scheduled Actions (Cron Jobs)
              ================================================================ -->
 
-        <!-- ── 1. Monthly Interest Accrual ──────────────────────────────── -->
-        <!-- Runs on the 28th of every month at 02:00 AM server time.
-             Calls action_accrue_all_active_investments() on alba.investment
-             to compound interest on every active investment account. -->
+        <!-- ── 1. Daily Interest Accrual Check ────────────────────────── -->
+        <!-- Runs daily to check if compound interest accrual should run
+             for any investment products based on their configuration. -->
         <record id="ir_cron_alba_monthly_interest_accrual" model="ir.cron">
-            <field name="name">Alba: Monthly Compound Interest Accrual</field>
+            <field name="name">Alba: Automated Interest Accrual Check (Daily)</field>
             <field name="model_id" ref="alba_investors.model_alba_investment"/>
             <field name="state">code</field>
-            <field name="code">model.action_accrue_all_active_investments()</field>
+            <field name="code">model.action_run_automated_interest_accrual()</field>
             <field name="interval_number">1</field>
-            <field name="interval_type">months</field>
+            <field name="interval_type">days</field>
             <field name="active" eval="True"/>
             <field name="user_id" ref="base.user_root"/>
             <field name="priority">5</field>
-            <field name="nextcall" eval="(datetime.now().replace(day=28, hour=2, minute=0, second=0) if datetime.now().day &lt; 28 else (datetime.now() + timedelta(days=10)).replace(day=28, hour=2, minute=0, second=0))"/>
         </record>
 
-        <!-- ── 2. Monthly Statement Generation ──────────────────────────── -->
-        <!-- Runs on the 29th of every month at 03:00 AM server time.
-             Calls action_generate_monthly_statements() on alba.investment.statement
-             to auto-generate and confirm statements for all active investments.
-             Runs one day after the accrual cron to ensure all accruals are
-             posted before statements are generated. -->
+        <!-- ── 2. Daily Statement Generation Check ────────────────────── -->
+        <!-- Runs daily to generate and send monthly statements for investments
+             whose product settings match the statement run date. -->
         <record id="ir_cron_alba_monthly_statement_generation" model="ir.cron">
-            <field name="name">Alba: Monthly Investment Statement Generation</field>
+            <field name="name">Alba: Automated Statement Generation Check (Daily)</field>
             <field name="model_id" ref="alba_investors.model_alba_investment_statement"/>
             <field name="state">code</field>
-            <field name="code">model.action_generate_monthly_statements()</field>
+            <field name="code">model.action_run_automated_statement_generation()</field>
             <field name="interval_number">1</field>
-            <field name="interval_type">months</field>
+            <field name="interval_type">days</field>
             <field name="active" eval="True"/>
             <field name="user_id" ref="base.user_root"/>
             <field name="priority">10</field>
-            <field name="nextcall" eval="(datetime.now().replace(day=29, hour=3, minute=0, second=0) if datetime.now().day &lt; 29 else (datetime.now() + timedelta(days=10)).replace(day=29, hour=3, minute=0, second=0))"/>
         </record>
 
         <!-- ── 3. Investment Maturity Reminder ────────────────────────── -->

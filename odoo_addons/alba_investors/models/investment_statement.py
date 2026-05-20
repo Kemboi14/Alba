@@ -347,6 +347,102 @@ class AlbaInvestmentStatement(models.Model):
         )
         return True
 
+    @api.model
+    def action_run_automated_statement_generation(self):
+        """
+        Called by a daily cron job to automatically generate and send statements
+        for investments whose product settings match the statement generation day
+        (1 day after the accrual day).
+        """
+        today = fields.Date.context_today(self)
+        import calendar
+        from datetime import date, timedelta
+        
+        created_count = 0
+        active_investments = self.env["alba.investment"].search([("state", "=", "active")])
+        
+        # We determine if today is the day after the target accrual run day
+        yesterday = today - timedelta(days=1)
+        
+        for inv in active_investments:
+            product = inv.investment_product_id
+            if not product:
+                continue
+            
+            target_day = product.auto_accrual_day or 28
+            yesterday_last_day = calendar.monthrange(yesterday.year, yesterday.month)[1]
+            yesterday_target_run_day = min(target_day, yesterday_last_day)
+            
+            if yesterday.day == yesterday_target_run_day:
+                # Yesterday was the accrual day, so today we generate the statement for the previous calendar month
+                month = today.month - 1 or 12
+                year = today.year if today.month > 1 else today.year - 1
+                period_start = date(year, month, 1)
+                period_end = date(year, month, calendar.monthrange(year, month)[1])
+                
+                existing = self.search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("period_start", "=", period_start),
+                        ("period_end", "=", period_end),
+                    ],
+                    limit=1,
+                )
+                if existing:
+                    continue
+
+                # Collect accruals in this period
+                accruals = self.env["alba.interest.accrual"].search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("accrual_date", ">=", period_start),
+                        ("accrual_date", "<=", period_end),
+                    ]
+                )
+                total_interest = sum(accruals.mapped("interest_amount"))
+                opening_balance = inv.principal_amount + sum(
+                    self.env["alba.interest.accrual"]
+                    .search(
+                        [
+                            ("investment_id", "=", inv.id),
+                            ("state", "=", "posted"),
+                            ("accrual_date", "<", period_start),
+                        ]
+                    )
+                    .mapped("interest_amount")
+                )
+
+                stmt_vals = {
+                    "investment_id": inv.id,
+                    "statement_date": today,
+                    "period_start": period_start,
+                    "period_end": period_end,
+                    "opening_balance": opening_balance,
+                    "interest_accrued": total_interest,
+                    "accrual_ids": [(6, 0, accruals.ids)],
+                }
+                stmt = self.create(stmt_vals)
+                stmt.action_confirm()
+                try:
+                    stmt.action_send()
+                except Exception as e:
+                    import logging
+                    _logger = logging.getLogger(__name__)
+                    _logger.error("Failed to auto-send statement %s: %s", stmt.reference, str(e))
+                created_count += 1
+
+        if created_count > 0:
+            import logging
+            _logger = logging.getLogger(__name__)
+            _logger.info(
+                "alba.investment.statement: Automated statement generation complete — "
+                "%d statements created on %s.",
+                created_count,
+                today,
+            )
+        return True
+
     # =========================================================================
     # ORM overrides
     # =========================================================================

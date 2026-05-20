@@ -60,6 +60,13 @@ class AlbaInvestmentProduct(models.Model):
         default="monthly",
         tracking=True,
     )
+    auto_accrual_day = fields.Integer(
+        string="Automated Accrual Day of Month",
+        default=28,
+        required=True,
+        tracking=True,
+        help="The day of the month (1-31) when automated interest accrual should run for this product.",
+    )
     early_withdrawal_notice_days = fields.Integer(
         string="Early Withdrawal Notice Days",
         default=60,
@@ -133,6 +140,12 @@ class AlbaInvestmentProduct(models.Model):
         for rec in self:
             if rec.interest_rate < 0 or rec.interest_rate > 100:
                 raise ValidationError(_("Interest rate must be between 0 and 100."))
+
+    @api.constrains("auto_accrual_day")
+    def _check_auto_accrual_day(self):
+        for rec in self:
+            if rec.auto_accrual_day < 1 or rec.auto_accrual_day > 31:
+                raise ValidationError(_("Automated accrual day must be between 1 and 31."))
 
     def _compute_investment_count(self):
         Investment = self.env["alba.investment"]

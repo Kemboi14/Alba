@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_alba_interest_accrual_reverse_wizard_form" model="ir.ui.view">
+        <field name="name">alba.interest.accrual.reverse.wizard.form</field>
+        <field name="model">alba.interest.accrual.reverse.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reverse Interest Accrual">
+                <sheet>
+                    <div class="alert alert-warning d-flex align-items-center gap-3 mb-3" role="alert"
+                         style="border-left: 4px solid #f0ad4e; border-radius: 6px; padding: 14px 18px;">
+                        <i class="fa fa-exclamation-triangle fa-2x text-warning me-3"/>
+                        <div class="flex-grow-1">
+                            <strong class="d-block" style="font-size: 1.1em;">Confirm Reversal</strong>
+                            <span class="text-muted small">
+                                This will reverse the posted interest accrual and create a reversal journal entry.
+                            </span>
+                        </div>
+                    </div>
+                    <group>
+                        <field name="accrual_id" invisible="1"/>
+                        <field name="reversal_reason" placeholder="e.g., Calculated incorrect interest rate..." required="1"/>
+                    </group>
+                    <footer>
+                        <button name="action_confirm_reversal" string="Confirm Reversal" type="object" class="btn-warning"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

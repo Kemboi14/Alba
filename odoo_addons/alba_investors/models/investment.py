@@ -820,6 +820,58 @@ class AlbaInvestment(models.Model):
         return True
 
     @api.model
+    def action_run_automated_interest_accrual(self):
+        """
+        Called by a daily cron job to run automated interest accruals
+        for products that match the current date.
+        """
+        today = fields.Date.context_today(self)
+        import calendar
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        
+        errors = []
+        active_investments = self.search([("state", "=", "active")])
+        for inv in active_investments:
+            product = inv.investment_product_id
+            if not product:
+                continue
+            
+            target_day = product.auto_accrual_day or 28
+            run_day = min(target_day, last_day)
+            
+            if today.day == run_day:
+                try:
+                    month = today.month - 1 or 12
+                    year = today.year if today.month > 1 else today.year - 1
+                    month_last_day = calendar.monthrange(year, month)[1]
+                    from datetime import date
+                    period_start = date(year, month, 1)
+                    period_end = date(year, month, month_last_day)
+                    
+                    existing = self.env["alba.interest.accrual"].search(
+                        [
+                            ("investment_id", "=", inv.id),
+                            ("period_start", "=", period_start),
+                            ("period_end", "=", period_end),
+                            ("state", "!=", "reversed"),
+                        ],
+                        limit=1,
+                    )
+                    if not existing:
+                        inv.action_accrue_monthly_interest()
+                except Exception as e:
+                    errors.append("Investment %s: %s" % (inv.investment_number, str(e)))
+
+        if errors:
+            import logging
+            _logger = logging.getLogger(__name__)
+            _logger.warning(
+                "alba.investment: Automated monthly accrual completed with errors:\n%s",
+                "\n".join(errors),
+            )
+        return True
+
+    @api.model
     def action_check_maturing_investments(self):
         """Daily cron to find investments maturing in 7 days and notify investors."""
         from dateutil.relativedelta import relativedelta

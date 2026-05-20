@@ -328,9 +328,17 @@ class AlbaInterestAccrual(models.Model):
         if self.state != "posted":
             raise UserError(_("Only posted accruals can be reversed."))
         if not self.reversal_reason:
-            raise UserError(
-                _("Please provide a reversal reason before reversing this accrual.")
-            )
+            return {
+                "name": _("Reason for Reversal"),
+                "type": "ir.actions.act_window",
+                "res_model": "alba.interest.accrual.reverse.wizard",
+                "view_mode": "form",
+                "view_id": self.env.ref("alba_investors.view_alba_interest_accrual_reverse_wizard_form").id,
+                "target": "new",
+                "context": {
+                    "default_accrual_id": self.id,
+                }
+            }
 
         if self.move_id:
             reversal = self.move_id._reverse_moves(

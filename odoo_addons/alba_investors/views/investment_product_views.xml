@@ -15,6 +15,7 @@
                 <field name="currency_id"/>
                 <field name="interest_rate"/>
                 <field name="compounding_frequency"/>
+                <field name="auto_accrual_day"/>
                 <field name="early_withdrawal_notice_days"/>
                 <field name="active" widget="boolean_toggle"/>
             </list>
@@ -61,6 +62,7 @@
                             <field name="currency_id" options="{'no_create': True, 'no_open': True}"/>
                             <field name="interest_rate"/>
                             <field name="compounding_frequency"/>
+                            <field name="auto_accrual_day"/>
                             <field name="early_withdrawal_notice_days"/>
                         </group>
                         <group string="Company">

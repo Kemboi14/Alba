@@ -86,7 +86,7 @@
                     </group>
                     <group string="Notes">
                         <field name="notes"/>
-                        <field name="reversal_reason" invisible="state != 'reversed'"/>
+                        <field name="reversal_reason" invisible="state not in ('posted', 'reversed')"/>
                     </group>
                 </sheet>
                 <div class="oe_chatter">

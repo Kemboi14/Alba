@@ -66,7 +66,7 @@ class AlbaInvestorDashboard(models.TransientModel):
     investment_amount_distribution_data = fields.Text(compute="_compute_graph_data")
     tenure_distribution_data = fields.Text(compute="_compute_graph_data")
 
-    def _investor_domain(self):
+    def _investment_domain(self):
         self.ensure_one()
         return [
             ("company_id", "=", self.company_id.id),
@@ -74,50 +74,40 @@ class AlbaInvestorDashboard(models.TransientModel):
             ("start_date", "<=", self.date_to),
         ]
 
-    def _transaction_domain(self):
+    def _investor_domain(self):
         self.ensure_one()
         return [
-            ("investor_id.company_id", "=", self.company_id.id),
-            ("date", ">=", self.date_from),
-            ("date", "<=", self.date_to),
-        ]
-
-    def _withdrawal_domain(self):
-        self.ensure_one()
-        return [
-            ("investor_id.company_id", "=", self.company_id.id),
-            ("date", ">=", self.date_from),
-            ("date", "<=", self.date_to),
+            ("company_id", "=", self.company_id.id),
         ]
 
     @api.depends("date_from", "date_to", "company_id")
     def _compute_metrics(self):
         for rec in self:
-            Investor = rec.env["alba.investor"]
-            Transaction = rec.env["alba.investor.transaction"]
-            Withdrawal = rec.env["alba.investor.withdrawal"]
+            Investment = rec.env["alba.investment"]
+            Accrual = rec.env["alba.interest.accrual"]
 
-            investors = Investor.search(rec._investor_domain()) if rec.date_from and rec.date_to else Investor.browse()
-            transactions = (
-                Transaction.search(rec._transaction_domain())
-                if rec.date_from and rec.date_to
-                else Transaction.browse()
-            )
-            withdrawals = (
-                Withdrawal.search(rec._withdrawal_domain())
-                if rec.date_from and rec.date_to
-                else Withdrawal.browse()
-            )
+            investments = Investment.search(rec._investment_domain()) if rec.date_from and rec.date_to else Investment.browse()
+            active_investments = investments.filtered(lambda i: i.state == "active")
+            matured_investments = investments.filtered(lambda i: i.state == "matured")
+            withdrawn_investments = investments.filtered(lambda i: i.state == "withdrawn")
 
-            rec.investor_count = len(investors)
-            rec.active_investor_count = len(investors.filtered(lambda i: i.state == "active"))
-            rec.matured_investor_count = len(investors.filtered(lambda i: i.state == "matured"))
-            rec.total_invested_amount = sum(investors.mapped("principal_amount"))
-            rec.total_interest_earned = sum(investors.mapped("total_interest"))
-            rec.total_balance = sum(investors.mapped("balance"))
-            rec.total_withdrawals = sum(withdrawals.mapped("amount"))
-            rec.pending_withdrawals = len(withdrawals.filtered(lambda w: w.state == "pending"))
-            rec.transaction_count = len(transactions)
+            rec.investor_count = len(investments.mapped("investor_id"))
+            rec.active_investor_count = len(active_investments.mapped("investor_id"))
+            rec.matured_investor_count = len(matured_investments.mapped("investor_id"))
+
+            rec.total_invested_amount = sum(active_investments.mapped("principal_amount"))
+            rec.total_interest_earned = sum(active_investments.mapped("total_interest_accrued")) + sum(matured_investments.mapped("total_interest_accrued"))
+            rec.total_balance = sum(active_investments.mapped("current_value"))
+
+            rec.total_withdrawals = sum(withdrawn_investments.mapped("principal_amount"))
+            rec.pending_withdrawals = len(active_investments.filtered(lambda i: i.withdrawal_notice_date is not False))
+
+            accruals_count = Accrual.search_count([
+                ("investment_id.company_id", "=", rec.company_id.id),
+                ("accrual_date", ">=", rec.date_from),
+                ("accrual_date", "<=", rec.date_to),
+            ])
+            rec.transaction_count = accruals_count + len(investments)
 
     def _group_context(self):
         self.ensure_one()
@@ -149,20 +139,29 @@ class AlbaInvestorDashboard(models.TransientModel):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Investor Transactions"),
-            "res_model": "alba.investor.transaction",
+            "name": _("Interest Accruals"),
+            "res_model": "alba.interest.accrual",
             "view_mode": "list,graph,form",
-            "domain": self._transaction_domain(),
+            "domain": [
+                ("investment_id.company_id", "=", self.company_id.id),
+                ("accrual_date", ">=", self.date_from),
+                ("accrual_date", "<=", self.date_to),
+            ],
         }
 
     def action_view_withdrawals(self):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Withdrawal Requests"),
-            "res_model": "alba.investor.withdrawal",
+            "name": _("Withdrawn Investments"),
+            "res_model": "alba.investment",
             "view_mode": "list,graph,form",
-            "domain": self._withdrawal_domain(),
+            "domain": [
+                ("company_id", "=", self.company_id.id),
+                ("state", "=", "withdrawn"),
+                ("start_date", ">=", self.date_from),
+                ("start_date", "<=", self.date_to),
+            ],
         }
 
     @api.depends("date_from", "date_to", "company_id")
@@ -180,15 +179,15 @@ class AlbaInvestorDashboard(models.TransientModel):
     def _get_investment_composition(self):
         """Get investment composition by product"""
         self.ensure_one()
-        investors = self.env["alba.investor"].search(self._investor_domain())
+        investments = self.env["alba.investment"].search(self._investment_domain())
         
         # Group by investment product
         product_data = {}
-        for investor in investors:
-            product_name = dict(investor._fields['investment_product'].selection).get(investor.investment_product, investor.investment_product)
+        for inv in investments:
+            product_name = inv.investment_product_id.name or _("Other")
             if product_name not in product_data:
-                product_data[product_name] = 0
-            product_data[product_name] += investor.principal_amount
+                product_data[product_name] = 0.0
+            product_data[product_name] += inv.principal_amount
         
         # Prepare data for pie chart
         labels = list(product_data.keys())
@@ -213,8 +212,8 @@ class AlbaInvestorDashboard(models.TransientModel):
         end_date = self.date_to or fields.Date.today()
         start_date = end_date - timedelta(days=365)
         
-        # Query investors using ORM
-        investors = self.env["alba.investor"].search([
+        # Query investments using ORM
+        investments = self.env["alba.investment"].search([
             ('company_id', '=', self.company_id.id),
             ('start_date', '>=', start_date),
             ('start_date', '<=', end_date)
@@ -222,12 +221,12 @@ class AlbaInvestorDashboard(models.TransientModel):
         
         # Group by month
         month_data = {}
-        for investor in investors:
-            if investor.start_date:
-                month_key = investor.start_date.replace(day=1)
+        for inv in investments:
+            if inv.start_date:
+                month_key = inv.start_date.replace(day=1)
                 if month_key not in month_data:
                     month_data[month_key] = {'amount': 0.0, 'count': 0}
-                month_data[month_key]['amount'] += investor.principal_amount
+                month_data[month_key]['amount'] += inv.principal_amount
                 month_data[month_key]['count'] += 1
         
         # Sort months
@@ -253,7 +252,7 @@ class AlbaInvestorDashboard(models.TransientModel):
                     'yAxisID': 'y'
                 },
                 {
-                    'label': 'Number of Investors',
+                    'label': 'Number of Investments',
                     'data': counts,
                     'borderColor': '#ec4899',
                     'backgroundColor': 'rgba(236, 72, 153, 0.1)',
@@ -263,14 +262,14 @@ class AlbaInvestorDashboard(models.TransientModel):
         })
 
     def _get_investor_status(self):
-        """Get investor status distribution"""
+        """Get investment status distribution"""
         self.ensure_one()
-        investors = self.env["alba.investor"].search(self._investor_domain())
+        investments = self.env["alba.investment"].search(self._investment_domain())
         
         # Group by status
         status_data = {}
-        for investor in investors:
-            status = dict(investor._fields['state'].selection).get(investor.state, investor.state)
+        for inv in investments:
+            status = dict(inv._fields['state'].selection).get(inv.state, inv.state)
             if status not in status_data:
                 status_data[status] = 0
             status_data[status] += 1
@@ -283,34 +282,34 @@ class AlbaInvestorDashboard(models.TransientModel):
             'datasets': [{
                 'data': values,
                 'backgroundColor': [
-                    '#10b981', '#f59e0b', '#3b82f6', '#ef4444'
+                    '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#6c757d'
                 ]
             }]
         })
 
     def _get_interest_payout_trends(self):
-        """Get monthly interest payout trends"""
+        """Get monthly interest accrual trends"""
         self.ensure_one()
         
-        # Get last 6 months of transaction data
+        # Get last 6 months of accrual data
         end_date = self.date_to or fields.Date.today()
         start_date = end_date - timedelta(days=180)
         
-        # Query interest transactions using ORM
-        transactions = self.env["alba.investor.transaction"].search([
-            ('investor_id.company_id', '=', self.company_id.id),
-            ('date', '>=', start_date),
-            ('date', '<=', end_date),
-            ('transaction_type', '=', 'interest')
+        # Query interest accruals
+        accruals = self.env["alba.interest.accrual"].search([
+            ('investment_id.company_id', '=', self.company_id.id),
+            ('accrual_date', '>=', start_date),
+            ('accrual_date', '<=', end_date),
+            ('state', '=', 'posted')
         ])
         
         # Group by month
         month_data = {}
-        for transaction in transactions:
-            month_key = transaction.date.replace(day=1)
+        for acc in accruals:
+            month_key = acc.accrual_date.replace(day=1)
             if month_key not in month_data:
                 month_data[month_key] = 0.0
-            month_data[month_key] += transaction.amount
+            month_data[month_key] += acc.interest_amount
         
         # Sort months
         sorted_months = sorted(month_data.keys())
@@ -325,7 +324,7 @@ class AlbaInvestorDashboard(models.TransientModel):
         return json.dumps({
             'labels': months,
             'datasets': [{
-                'label': 'Interest Payouts',
+                'label': 'Interest Accruals',
                 'data': amounts,
                 'borderColor': '#10b981',
                 'backgroundColor': 'rgba(16, 185, 129, 0.1)'
@@ -333,28 +332,33 @@ class AlbaInvestorDashboard(models.TransientModel):
         })
 
     def _get_withdrawal_analysis(self):
-        """Get withdrawal analysis by status"""
+        """Get withdrawal analysis by product"""
         self.ensure_one()
-        withdrawals = self.env["alba.investor.withdrawal"].search(self._withdrawal_domain())
+        investments = self.env["alba.investment"].search([
+            ('company_id', '=', self.company_id.id),
+            ('state', '=', 'withdrawn'),
+            ('start_date', '>=', self.date_from),
+            ('start_date', '<=', self.date_to),
+        ])
         
-        # Group by status
-        status_data = {}
-        for withdrawal in withdrawals:
-            status = dict(withdrawal._fields['state'].selection).get(withdrawal.state, withdrawal.state)
-            if status not in status_data:
-                status_data[status] = 0.0
-            status_data[status] += withdrawal.total_amount
+        # Group by product
+        product_data = {}
+        for inv in investments:
+            product_name = inv.investment_product_id.name or _("Other")
+            if product_name not in product_data:
+                product_data[product_name] = 0.0
+            product_data[product_name] += inv.principal_amount
         
-        labels = list(status_data.keys())
-        values = [float(v) for v in status_data.values()]
+        labels = list(product_data.keys())
+        values = [float(v) for v in product_data.values()]
         
         return json.dumps({
             'labels': labels,
             'datasets': [{
-                'label': 'Withdrawal Amount',
+                'label': 'Withdrawn Amount',
                 'data': values,
                 'backgroundColor': [
-                    '#f59e0b', '#10b981', '#3b82f6', '#ef4444'
+                    '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6'
                 ]
             }]
         })
@@ -386,7 +390,12 @@ class AlbaInvestorDashboard(models.TransientModel):
     def _get_investment_amount_distribution(self):
         """Get investment distribution by amount ranges"""
         self.ensure_one()
-        investors = self.env["alba.investor"].search(self._investor_domain())
+        investments = self.env["alba.investment"].search([
+            ('company_id', '=', self.company_id.id),
+            ('state', '=', 'active'),
+            ('start_date', '>=', self.date_from),
+            ('start_date', '<=', self.date_to),
+        ])
         
         # Define amount ranges
         ranges = {
@@ -397,8 +406,8 @@ class AlbaInvestorDashboard(models.TransientModel):
             '5M+': 0
         }
         
-        for investor in investors:
-            amount = investor.principal_amount
+        for inv in investments:
+            amount = inv.principal_amount
             if amount < 100000:
                 ranges['0-100K'] += 1
             elif amount < 500000:
@@ -416,7 +425,7 @@ class AlbaInvestorDashboard(models.TransientModel):
         return json.dumps({
             'labels': labels,
             'datasets': [{
-                'label': 'Number of Investors',
+                'label': 'Number of Investments',
                 'data': values,
                 'backgroundColor': [
                     '#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b'
@@ -427,12 +436,17 @@ class AlbaInvestorDashboard(models.TransientModel):
     def _get_tenure_distribution(self):
         """Get investment distribution by tenure"""
         self.ensure_one()
-        investors = self.env["alba.investor"].search(self._investor_domain())
+        investments = self.env["alba.investment"].search([
+            ('company_id', '=', self.company_id.id),
+            ('state', '=', 'active'),
+            ('start_date', '>=', self.date_from),
+            ('start_date', '<=', self.date_to),
+        ])
         
         # Group by tenure
         tenure_data = {}
-        for investor in investors:
-            tenure = investor.tenure_months
+        for inv in investments:
+            tenure = inv.tenure_months
             if tenure not in tenure_data:
                 tenure_data[tenure] = 0
             tenure_data[tenure] += 1
