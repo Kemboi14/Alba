@@ -446,13 +446,25 @@ class AlbaInvestorDashboard(models.TransientModel):
         # Group by tenure
         tenure_data = {}
         for inv in investments:
-            tenure = inv.tenure_months
+            if inv.start_date and inv.maturity_date:
+                months = (inv.maturity_date.year - inv.start_date.year) * 12 + (inv.maturity_date.month - inv.start_date.month)
+                tenure = max(1, months)
+            else:
+                tenure = 0  # 0 signifies open-ended / not set
+            
             if tenure not in tenure_data:
                 tenure_data[tenure] = 0
             tenure_data[tenure] += 1
         
-        labels = [f'{tenure} months' for tenure in sorted(tenure_data.keys())]
-        values = [tenure_data[tenure] for tenure in sorted(tenure_data.keys())]
+        # Sort and format labels
+        sorted_tenures = sorted(tenure_data.keys())
+        labels = []
+        for tenure in sorted_tenures:
+            if tenure == 0:
+                labels.append(_("Open Ended"))
+            else:
+                labels.append(f"{tenure} months")
+        values = [tenure_data[tenure] for tenure in sorted_tenures]
         
         return json.dumps({
             'labels': labels,
