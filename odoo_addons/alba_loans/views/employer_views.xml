@@ -26,29 +26,7 @@
         <field name="type">form</field>
         <field name="arch" type="xml">
             <form string="Employer">
-
-                <!-- Status bar -->
-                <header>
-                    <field name="is_approved" widget="boolean_toggle" nolabel="1"/>
-                    <span class="o_field_widget" invisible="is_approved">
-                        ⚠️ Not Approved
-                    </span>
-                </header>
-
                 <sheet>
-                    <!-- Title row -->
-                    <div class="oe_title">
-                        <h1>
-                            <field name="name"
-                                   placeholder="Employer / Business Name"
-                                   required="1"/>
-                        </h1>
-                        <field name="industry"
-                               placeholder="Select Industry"
-                               widget="badge"/>
-                    </div>
-
-                    <!-- Stat buttons -->
                     <div class="oe_button_box" name="button_box">
                         <button class="oe_stat_button"
                                 type="object"
@@ -60,67 +38,53 @@
                         </button>
                     </div>
 
+                    <widget name="web_ribbon" title="Suspended / Unapproved" bg_color="text-bg-danger" invisible="is_approved"/>
+
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1>
+                            <field name="name" placeholder="Employer / Business Name" required="1"/>
+                        </h1>
+                    </div>
+
                     <group>
-
-                        <!-- ── Contact Information ── -->
-                        <group string="Contact Information">
-                            <field name="phone"
-                                   placeholder="+254 7XX XXX XXX"
-                                   widget="phone"/>
-                            <field name="email"
-                                   placeholder="email@company.com"
-                                   widget="email"/>
-                            <field name="website"
-                                   placeholder="https://www.company.com"
-                                   widget="url"/>
+                        <group string="Business Details">
+                            <field name="industry"/>
+                            <field name="is_approved" string="Approved Employer"/>
                         </group>
+                        <group string="Contact Info">
+                            <field name="phone" widget="phone" placeholder="e.g. +254 7XX XXX XXX"/>
+                            <field name="email" widget="email" placeholder="e.g. email@company.com"/>
+                            <field name="website" widget="url" placeholder="e.g. https://www.company.com"/>
+                        </group>
+                    </group>
 
-                        <!-- ── Location ── -->
+                    <group>
                         <group string="Location">
-                            <field name="county"    placeholder="e.g. Nairobi"/>
+                            <field name="county" placeholder="e.g. Nairobi"/>
                             <field name="sub_county" placeholder="e.g. Westlands"/>
-                            <field name="address"
-                                   placeholder="Street / Building / P.O. Box"
-                                   nolabel="0"/>
+                            <field name="address" placeholder="Physical Address"/>
                         </group>
-
-                    </group>
-
-                    <!-- ── HR Contact ── -->
-                    <group string="HR Contact Person">
-                        <group>
-                            <field name="hr_contact_name"
-                                   placeholder="Full name"/>
-                            <field name="hr_contact_phone"
-                                   placeholder="+254 7XX XXX XXX"
-                                   widget="phone"/>
-                        </group>
-                        <group>
-                            <field name="hr_contact_email"
-                                   placeholder="hr@company.com"
-                                   widget="email"/>
+                        <group string="HR Contact Person">
+                            <field name="hr_contact_name" placeholder="Full name"/>
+                            <field name="hr_contact_phone" widget="phone" placeholder="e.g. +254 7XX XXX XXX"/>
+                            <field name="hr_contact_email" widget="email" placeholder="e.g. hr@company.com"/>
                         </group>
                     </group>
 
-                    <!-- ── Linked Records ── -->
                     <notebook>
                         <page string="Employee Borrowers" name="borrowers">
-                            <field name="customer_ids"
-                                   mode="list"
-                                   context="{'default_employer_id': id}">
-                                <list>
+                            <field name="customer_ids" mode="list" context="{'default_employer_id': id}">
+                                <list edit="false" create="false">
                                     <field name="display_name" string="Name"/>
                                     <field name="phone"/>
                                     <field name="email"/>
                                 </list>
                             </field>
                         </page>
-
                         <page string="Guarantors" name="guarantors">
-                            <field name="guarantor_ids"
-                                   mode="list"
-                                   context="{'default_employer_id': id}">
-                                <list>
+                            <field name="guarantor_ids" mode="list" context="{'default_employer_id': id}">
+                                <list edit="false" create="false">
                                     <field name="name"/>
                                     <field name="phone"/>
                                     <field name="email"/>
@@ -128,12 +92,12 @@
                             </field>
                         </page>
                     </notebook>
-
                 </sheet>
-
-                <!-- Chatter -->
-                <chatter/>
-
+                <div class="oe_chatter">
+                    <field name="message_follower_ids" widget="mail_followers"/>
+                    <field name="activity_ids" widget="mail_activity"/>
+                    <field name="message_ids" widget="mail_thread"/>
+                </div>
             </form>
         </field>
     </record>

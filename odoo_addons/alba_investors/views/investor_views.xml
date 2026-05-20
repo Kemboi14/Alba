@@ -227,28 +227,6 @@
                             </group>
                         </page>
 
-                        <page string="Investments" name="investments">
-                            <field name="investment_ids" mode="list">
-                                <list string="Investments"
-                                      editable="bottom"
-                                      decoration-success="state == 'active'"
-                                      decoration-muted="state in ('matured','withdrawn')"
-                                      decoration-warning="state == 'suspended'">
-                                    <field name="investment_number"/>
-                                    <field name="investment_type"/>
-                                    <field name="principal_amount" sum="Total Principal"/>
-                                    <field name="interest_rate" string="Rate (%)"/>
-                                    <field name="start_date"/>
-                                    <field name="maturity_date"/>
-                                    <field name="current_value" sum="Total Value"/>
-                                    <field name="state" widget="badge"
-                                           decoration-success="state == 'active'"
-                                           decoration-muted="state in ('matured','withdrawn')"
-                                           decoration-warning="state == 'suspended'"/>
-                                </list>
-                            </field>
-                        </page>
-
                         <page string="Documents" name="documents">
                             <div class="oe_button_box mb-3" name="doc_button_box">
                                 <span class="badge text-bg-info p-2">
@@ -271,6 +249,28 @@
                                     <button name="action_preview" string="Preview" type="object" icon="fa-eye" invisible="not has_file"/>
                                     <button name="action_verify" string="Verify" type="object" icon="fa-check" invisible="status == 'verified'"/>
                                     <button name="action_reject" string="Reject" type="object" icon="fa-times" invisible="status == 'rejected'"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Investments" name="investments">
+                            <field name="investment_ids" mode="list">
+                                <list string="Investments"
+                                      editable="bottom"
+                                      decoration-success="state == 'active'"
+                                      decoration-muted="state in ('matured','withdrawn')"
+                                      decoration-warning="state == 'suspended'">
+                                    <field name="investment_number"/>
+                                    <field name="investment_type"/>
+                                    <field name="principal_amount" sum="Total Principal"/>
+                                    <field name="interest_rate" string="Rate (%)"/>
+                                    <field name="start_date"/>
+                                    <field name="maturity_date"/>
+                                    <field name="current_value" sum="Total Value"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'active'"
+                                           decoration-muted="state in ('matured','withdrawn')"
+                                           decoration-warning="state == 'suspended'"/>
                                 </list>
                             </field>
                         </page>
