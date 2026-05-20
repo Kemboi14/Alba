@@ -3,223 +3,200 @@
 
     <!-- Shared account statement layout (bank-style PDF) -->
     <template id="account_statement_document">
-        <div class="alba-acct-page" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; padding: 36px 40px 48px; background: #ffffff;">
+        <t t-call="web.external_layout">
+            <div class="page">
+                <div class="alba-acct-page" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; background: #ffffff;">
 
-            <style>
-                .alba-acct-page .stmt-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 12.5px;
-                }
-                .alba-acct-page .stmt-table thead tr {
-                    border-top: 2px solid #0d2d5e;
-                    border-bottom: 2px solid #0d2d5e;
-                }
-                .alba-acct-page .stmt-table th {
-                    padding: 8px 10px;
-                    text-align: left;
-                    font-weight: 700;
-                    color: #0d2d5e;
-                    font-size: 13px;
-                    background: #ffffff;
-                }
-                .alba-acct-page .stmt-table th.num { text-align: right; }
-                .alba-acct-page .stmt-table tbody tr {
-                    border-bottom: 1px solid #c8d9f0;
-                }
-                .alba-acct-page .stmt-table tbody tr:last-child { border-bottom: none; }
-                .alba-acct-page .stmt-table td {
-                    padding: 9px 10px;
-                    vertical-align: top;
-                    color: #111827;
-                }
-                .alba-acct-page .stmt-table td.num { text-align: right; }
-                .alba-acct-page .stmt-table td.date { white-space: nowrap; min-width: 90px; }
-                .alba-acct-page .stmt-table td.desc { color: #4b5563; }
-                .alba-acct-page .stmt-table tfoot tr {
-                    border-top: 2px solid #0d2d5e;
-                    border-bottom: 2px solid #0d2d5e;
-                }
-                .alba-acct-page .stmt-table tfoot td {
-                    font-weight: 700;
-                    color: #0d2d5e;
-                    padding: 9px 10px;
-                    font-size: 13px;
-                }
-                .alba-acct-page .stmt-table tfoot td.num { text-align: right; }
-            </style>
+                    <style>
+                        .alba-acct-page .stmt-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            font-size: 12.5px;
+                        }
+                        .alba-acct-page .stmt-table thead tr {
+                            border-top: 2px solid #0d2d5e;
+                            border-bottom: 2px solid #0d2d5e;
+                        }
+                        .alba-acct-page .stmt-table th {
+                            padding: 8px 10px;
+                            text-align: left;
+                            font-weight: 700;
+                            color: #0d2d5e;
+                            font-size: 13px;
+                            background: #ffffff;
+                        }
+                        .alba-acct-page .stmt-table th.num { text-align: right; }
+                        .alba-acct-page .stmt-table tbody tr {
+                            border-bottom: 1px solid #c8d9f0;
+                        }
+                        .alba-acct-page .stmt-table tbody tr:last-child { border-bottom: none; }
+                        .alba-acct-page .stmt-table td {
+                            padding: 9px 10px;
+                            vertical-align: top;
+                            color: #111827;
+                        }
+                        .alba-acct-page .stmt-table td.num { text-align: right; }
+                        .alba-acct-page .stmt-table td.date { white-space: nowrap; min-width: 90px; }
+                        .alba-acct-page .stmt-table td.desc { color: #4b5563; }
+                        .alba-acct-page .stmt-table tfoot tr {
+                            border-top: 2px solid #0d2d5e;
+                            border-bottom: 2px solid #0d2d5e;
+                        }
+                        .alba-acct-page .stmt-table tfoot td {
+                            font-weight: 700;
+                            color: #0d2d5e;
+                            padding: 9px 10px;
+                            font-size: 13px;
+                        }
+                        .alba-acct-page .stmt-table tfoot td.num { text-align: right; }
+                    </style>
 
-            <table width="100%" style="margin-bottom: 18px; border-collapse: collapse;">
-                <tr>
-                    <td style="vertical-align: top; width: 60%;">
-                        <t t-if="res_company and res_company.logo">
-                            <img t-att-src="image_data_uri(res_company.logo)"
-                                 alt="Company Logo"
-                                 style="height: 64px; max-width: 280px; display: block;"/>
-                        </t>
-                        <t t-else="">
-                            <table style="border-collapse: collapse;">
-                                <tr>
-                                    <td style="vertical-align: middle; padding-right: 10px;">
-                                        <div style="width: 58px; height: 58px; border-radius: 50%; border: 3px solid #e07b2a; background: #e8f0fc; text-align: center; line-height: 52px; font-size: 26px; font-weight: 700; color: #0d2d5e;">A</div>
-                                    </td>
-                                    <td style="vertical-align: middle; line-height: 1.15;">
-                                        <div style="font-size: 28px; font-weight: 700; color: #0d2d5e; letter-spacing: -0.5px;">Alba</div>
-                                        <div style="font-size: 10px; font-weight: 600; letter-spacing: 3px; color: #1a4b8c; text-transform: uppercase;">Capital Limited</div>
-                                    </td>
+                    <table width="100%" style="border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e; margin-bottom: 18px; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 7px 0; font-size: 13.5px; font-weight: 700; color: #0d2d5e;">
+                                BRANCH: <t t-esc="branch_name"/> - Investors
+                            </td>
+                            <td style="padding: 7px 0; text-align: right; font-size: 14px; font-weight: 700; color: #0d2d5e; letter-spacing: 0.5px;">
+                                ACCOUNT STATEMENT
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table width="100%" style="margin-bottom: 24px; border-collapse: collapse;">
+                        <tr>
+                            <td width="48%" style="border: 1.5px solid #2e6bbf; border-radius: 2px; padding: 14px 16px; vertical-align: top;">
+                                <div style="margin-bottom: 12px;">
+                                    <div style="font-weight: 700; color: #0d2d5e; font-size: 13px;">Customer Name</div>
+                                    <div style="color: #111827; font-size: 13px; min-height: 16px;">
+                                        <t t-esc="customer_name"/>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 700; color: #0d2d5e; font-size: 13px;">Address</div>
+                                    <div style="color: #111827; font-size: 13px;">
+                                        <t t-esc="customer_address"/>
+                                    </div>
+                                </div>
+                            </td>
+                            <td width="4%"/>
+                            <td width="48%" style="border: 1.5px solid #2e6bbf; border-radius: 2px; padding: 14px 16px; vertical-align: top;">
+                                <table width="100%" style="font-size: 13px; border-collapse: collapse;">
+                                    <tr>
+                                        <td style="font-weight: 700; color: #0d2d5e; width: 130px; padding-bottom: 9px; vertical-align: top;">Account No.</td>
+                                        <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; padding-bottom: 9px; width: 12px; vertical-align: top;">:</td>
+                                        <td style="color: #111827; padding-bottom: 9px; vertical-align: top;"><t t-esc="account_number"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 9px; vertical-align: top;">Product</td>
+                                        <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; padding-bottom: 9px; vertical-align: top;">:</td>
+                                        <td style="color: #111827; padding-bottom: 9px; vertical-align: top;"><t t-esc="product_name"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 9px; vertical-align: top;">Period</td>
+                                        <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; padding-bottom: 9px; vertical-align: top;">:</td>
+                                        <td style="color: #111827; padding-bottom: 9px; vertical-align: top;">
+                                            <t t-esc="date_from"/> to <t t-esc="date_to"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 700; color: #0d2d5e; vertical-align: top;">Statement Date</td>
+                                        <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; vertical-align: top;">:</td>
+                                        <td style="color: #111827; vertical-align: top;"><t t-esc="statement_date"/></td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!-- Financial Summary Box with Withholding Tax (WHT) -->
+                    <t t-if="opening_balance_fmt">
+                        <table width="100%" style="margin-bottom: 24px; border-collapse: collapse; border: 1.5px solid #2e6bbf; border-radius: 4px;">
+                            <thead>
+                                <tr style="background-color: #f4f7fc; border-bottom: 2px solid #0d2d5e;">
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Opening Balance</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Deposits</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Withdrawals</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Interest Accrued</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #d9534f; border-right: 1px solid #c8d9f0;">WHT Deducted (<t t-esc="wht_rate"/>%)</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #5cb85c; border-right: 1px solid #c8d9f0;">Net Interest</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; text-align: right;">Closing Balance</th>
                                 </tr>
-                            </table>
-                        </t>
-                    </td>
-                    <td style="text-align: right; vertical-align: top; width: 40%;">
-                        <div style="font-size: 13px; font-weight: 700; color: #0d2d5e; margin-bottom: 4px;">
-                            <t t-esc="barcode_number"/>
-                        </div>
-                        <img t-att-src="'/report/barcode/Code128/' + (barcode_number or 'INV-000')"
-                             style="height: 44px; width: 170px; display: block; margin-left: auto;"/>
-                    </td>
-                </tr>
-            </table>
-
-            <table width="100%" style="border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e; margin-bottom: 18px; border-collapse: collapse;">
-                <tr>
-                    <td style="padding: 7px 0; font-size: 13.5px; font-weight: 700; color: #0d2d5e;">
-                        BRANCH: <t t-esc="branch_name"/> - Investors
-                    </td>
-                    <td style="padding: 7px 0; text-align: right; font-size: 14px; font-weight: 700; color: #0d2d5e; letter-spacing: 0.5px;">
-                        ACCOUNT STATEMENT
-                    </td>
-                </tr>
-            </table>
-
-            <table width="100%" style="margin-bottom: 24px; border-collapse: collapse;">
-                <tr>
-                    <td width="48%" style="border: 1.5px solid #2e6bbf; border-radius: 2px; padding: 14px 16px; vertical-align: top;">
-                        <div style="margin-bottom: 12px;">
-                            <div style="font-weight: 700; color: #0d2d5e; font-size: 13px;">Customer Name</div>
-                            <div style="color: #111827; font-size: 13px; min-height: 16px;">
-                                <t t-esc="customer_name"/>
-                            </div>
-                        </div>
-                        <div>
-                            <div style="font-weight: 700; color: #0d2d5e; font-size: 13px;">Address</div>
-                            <div style="color: #111827; font-size: 13px;">
-                                <t t-esc="customer_address"/>
-                            </div>
-                        </div>
-                    </td>
-                    <td width="4%"/>
-                    <td width="48%" style="border: 1.5px solid #2e6bbf; border-radius: 2px; padding: 14px 16px; vertical-align: top;">
-                        <table width="100%" style="font-size: 13px; border-collapse: collapse;">
-                            <tr>
-                                <td style="font-weight: 700; color: #0d2d5e; width: 130px; padding-bottom: 9px; vertical-align: top;">Account No.</td>
-                                <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; padding-bottom: 9px; width: 12px; vertical-align: top;">:</td>
-                                <td style="color: #111827; padding-bottom: 9px; vertical-align: top;"><t t-esc="account_number"/></td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 9px; vertical-align: top;">Product</td>
-                                <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; padding-bottom: 9px; vertical-align: top;">:</td>
-                                <td style="color: #111827; padding-bottom: 9px; vertical-align: top;"><t t-esc="product_name"/></td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 9px; vertical-align: top;">Period</td>
-                                <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; padding-bottom: 9px; vertical-align: top;">:</td>
-                                <td style="color: #111827; padding-bottom: 9px; vertical-align: top;">
-                                    <t t-esc="date_from"/> to <t t-esc="date_to"/>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight: 700; color: #0d2d5e; vertical-align: top;">Statement Date</td>
-                                <td style="color: #0d2d5e; font-weight: 700; padding-right: 6px; vertical-align: top;">:</td>
-                                <td style="color: #111827; vertical-align: top;"><t t-esc="statement_date"/></td>
-                            </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="padding: 12px; font-size: 13px; font-weight: 600; border-right: 1px solid #c8d9f0;"><t t-esc="opening_balance_fmt"/></td>
+                                    <td style="padding: 12px; font-size: 13px; color: #2e6bbf; border-right: 1px solid #c8d9f0;"><t t-esc="deposits_fmt"/></td>
+                                    <td style="padding: 12px; font-size: 13px; color: #d9534f; border-right: 1px solid #c8d9f0;"><t t-esc="withdrawals_fmt"/></td>
+                                    <td style="padding: 12px; font-size: 13px; color: #5cb85c; border-right: 1px solid #c8d9f0;"><t t-esc="interest_accrued_fmt"/></td>
+                                    <td style="padding: 12px; font-size: 13px; color: #d9534f; font-weight: 600; border-right: 1px solid #c8d9f0;"><t t-esc="wht_amount_fmt"/></td>
+                                    <td style="padding: 12px; font-size: 13px; color: #5cb85c; font-weight: 600; border-right: 1px solid #c8d9f0;"><t t-esc="net_interest_fmt"/></td>
+                                    <td style="padding: 12px; font-size: 14px; font-weight: 700; color: #0d2d5e; text-align: right;"><t t-esc="closing_balance_fmt"/></td>
+                                </tr>
+                            </tbody>
                         </table>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Financial Summary Box with Withholding Tax (WHT) -->
-            <t t-if="doc and doc._name == 'alba.investment.statement'">
-                <table width="100%" style="margin-bottom: 24px; border-collapse: collapse; border: 1.5px solid #2e6bbf; border-radius: 4px;">
-                    <thead>
-                        <tr style="background-color: #f4f7fc; border-bottom: 2px solid #0d2d5e;">
-                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Opening Balance</th>
-                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Deposits</th>
-                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Withdrawals</th>
-                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; border-right: 1px solid #c8d9f0;">Interest Accrued</th>
-                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #d9534f; border-right: 1px solid #c8d9f0;">WHT Deducted (<t t-esc="doc.wht_rate"/>%)</th>
-                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #5cb85c; border-right: 1px solid #c8d9f0;">Net Interest</th>
-                            <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #0d2d5e; text-align: right;">Closing Balance</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style="padding: 12px; font-size: 13px; font-weight: 600; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.opening_balance)"/></td>
-                            <td style="padding: 12px; font-size: 13px; color: #2e6bbf; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.deposits)"/></td>
-                            <td style="padding: 12px; font-size: 13px; color: #d9534f; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.withdrawals)"/></td>
-                            <td style="padding: 12px; font-size: 13px; color: #5cb85c; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.interest_accrued)"/></td>
-                            <td style="padding: 12px; font-size: 13px; color: #d9534f; font-weight: 600; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.wht_amount)"/></td>
-                            <td style="padding: 12px; font-size: 13px; color: #5cb85c; font-weight: 600; border-right: 1px solid #c8d9f0;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.net_interest)"/></td>
-                            <td style="padding: 12px; font-size: 14px; font-weight: 700; color: #0d2d5e; text-align: right;"><t t-esc="doc.currency_id.symbol"/> <t t-esc="'{:,.2f}'.format(doc.closing_balance)"/></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </t>
-
-            <table class="stmt-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Description</th>
-                        <th class="num">Debits</th>
-                        <th class="num">Credits</th>
-                        <th class="num">Balance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <t t-foreach="lines" t-as="line">
-                        <tr>
-                            <td class="date"><t t-esc="line['date']"/></td>
-                            <td class="desc"><t t-esc="line['description']"/></td>
-                            <td class="num"><t t-esc="line['debit_fmt']"/></td>
-                            <td class="num"><t t-esc="line['credit_fmt']"/></td>
-                            <td class="num"><t t-esc="line['balance_fmt']"/></td>
-                        </tr>
                     </t>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="2" style="text-align: center;">Totals</td>
-                        <td class="num"><t t-esc="total_debit_fmt"/></td>
-                        <td class="num"><t t-esc="total_credit_fmt"/></td>
-                        <td class="num"/>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
+
+                    <table class="stmt-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th class="num">Debits</th>
+                                <th class="num">Credits</th>
+                                <th class="num">Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="lines" t-as="line">
+                                <tr>
+                                    <td class="date"><t t-esc="line['date']"/></td>
+                                    <td class="desc"><t t-esc="line['description']"/></td>
+                                    <td class="num"><t t-esc="line['debit_fmt']"/></td>
+                                    <td class="num"><t t-esc="line['credit_fmt']"/></td>
+                                    <td class="num"><t t-esc="line['balance_fmt']"/></td>
+                                </tr>
+                            </t>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="2" style="text-align: center;">Totals</td>
+                                <td class="num"><t t-esc="total_debit_fmt"/></td>
+                                <td class="num"><t t-esc="total_credit_fmt"/></td>
+                                <td class="num"/>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </t>
     </template>
 
     <template id="report_investment_statement_template">
         <t t-call="web.html_container">
             <t t-foreach="statements" t-as="stmt_data">
-                <div class="page" style="page-break-after: always;">
-                    <t t-call="alba_investors.account_statement_document">
-                        <t t-set="doc" t-value="stmt_data['doc']"/>
-                        <t t-set="res_company" t-value="stmt_data['res_company']"/>
-                        <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
-                        <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
-                        <t t-set="customer_name" t-value="stmt_data['customer_name']"/>
-                        <t t-set="customer_address" t-value="stmt_data['customer_address']"/>
-                        <t t-set="account_number" t-value="stmt_data['account_number']"/>
-                        <t t-set="product_name" t-value="stmt_data['product_name']"/>
-                        <t t-set="date_from" t-value="stmt_data['date_from']"/>
-                        <t t-set="date_to" t-value="stmt_data['date_to']"/>
-                        <t t-set="statement_date" t-value="stmt_data['statement_date']"/>
-                        <t t-set="lines" t-value="stmt_data['lines']"/>
-                        <t t-set="total_debit_fmt" t-value="stmt_data['total_debit_fmt']"/>
-                        <t t-set="total_credit_fmt" t-value="stmt_data['total_credit_fmt']"/>
-                    </t>
-                </div>
+                <t t-call="alba_investors.account_statement_document">
+                    <t t-set="res_company" t-value="stmt_data['res_company']"/>
+                    <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
+                    <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
+                    <t t-set="customer_name" t-value="stmt_data['customer_name']"/>
+                    <t t-set="customer_address" t-value="stmt_data['customer_address']"/>
+                    <t t-set="account_number" t-value="stmt_data['account_number']"/>
+                    <t t-set="product_name" t-value="stmt_data['product_name']"/>
+                    <t t-set="date_from" t-value="stmt_data['date_from']"/>
+                    <t t-set="date_to" t-value="stmt_data['date_to']"/>
+                    <t t-set="statement_date" t-value="stmt_data['statement_date']"/>
+                    <t t-set="lines" t-value="stmt_data['lines']"/>
+                    <t t-set="total_debit_fmt" t-value="stmt_data['total_debit_fmt']"/>
+                    <t t-set="total_credit_fmt" t-value="stmt_data['total_credit_fmt']"/>
+                    <t t-set="opening_balance_fmt" t-value="stmt_data.get('opening_balance_fmt')"/>
+                    <t t-set="deposits_fmt" t-value="stmt_data.get('deposits_fmt')"/>
+                    <t t-set="withdrawals_fmt" t-value="stmt_data.get('withdrawals_fmt')"/>
+                    <t t-set="interest_accrued_fmt" t-value="stmt_data.get('interest_accrued_fmt')"/>
+                    <t t-set="wht_amount_fmt" t-value="stmt_data.get('wht_amount_fmt')"/>
+                    <t t-set="net_interest_fmt" t-value="stmt_data.get('net_interest_fmt')"/>
+                    <t t-set="closing_balance_fmt" t-value="stmt_data.get('closing_balance_fmt')"/>
+                    <t t-set="wht_rate" t-value="stmt_data.get('wht_rate')"/>
+                </t>
             </t>
         </t>
     </template>
@@ -227,24 +204,29 @@
     <template id="investor_statement_template">
         <t t-call="web.html_container">
             <t t-foreach="statements" t-as="stmt_data">
-                <div class="page" style="page-break-after: always;">
-                    <t t-call="alba_investors.account_statement_document">
-                        <t t-set="doc" t-value="stmt_data['doc']"/>
-                        <t t-set="res_company" t-value="stmt_data['res_company']"/>
-                        <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
-                        <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
-                        <t t-set="customer_name" t-value="stmt_data['customer_name']"/>
-                        <t t-set="customer_address" t-value="stmt_data['customer_address']"/>
-                        <t t-set="account_number" t-value="stmt_data['account_number']"/>
-                        <t t-set="product_name" t-value="stmt_data['product_name']"/>
-                        <t t-set="date_from" t-value="stmt_data['date_from']"/>
-                        <t t-set="date_to" t-value="stmt_data['date_to']"/>
-                        <t t-set="statement_date" t-value="stmt_data['statement_date']"/>
-                        <t t-set="lines" t-value="stmt_data['lines']"/>
-                        <t t-set="total_debit_fmt" t-value="stmt_data['total_debit_fmt']"/>
-                        <t t-set="total_credit_fmt" t-value="stmt_data['total_credit_fmt']"/>
-                    </t>
-                </div>
+                <t t-call="alba_investors.account_statement_document">
+                    <t t-set="res_company" t-value="stmt_data['res_company']"/>
+                    <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
+                    <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
+                    <t t-set="customer_name" t-value="stmt_data['customer_name']"/>
+                    <t t-set="customer_address" t-value="stmt_data['customer_address']"/>
+                    <t t-set="account_number" t-value="stmt_data['account_number']"/>
+                    <t t-set="product_name" t-value="stmt_data['product_name']"/>
+                    <t t-set="date_from" t-value="stmt_data['date_from']"/>
+                    <t t-set="date_to" t-value="stmt_data['date_to']"/>
+                    <t t-set="statement_date" t-value="stmt_data['statement_date']"/>
+                    <t t-set="lines" t-value="stmt_data['lines']"/>
+                    <t t-set="total_debit_fmt" t-value="stmt_data['total_debit_fmt']"/>
+                    <t t-set="total_credit_fmt" t-value="stmt_data['total_credit_fmt']"/>
+                    <t t-set="opening_balance_fmt" t-value="stmt_data.get('opening_balance_fmt')"/>
+                    <t t-set="deposits_fmt" t-value="stmt_data.get('deposits_fmt')"/>
+                    <t t-set="withdrawals_fmt" t-value="stmt_data.get('withdrawals_fmt')"/>
+                    <t t-set="interest_accrued_fmt" t-value="stmt_data.get('interest_accrued_fmt')"/>
+                    <t t-set="wht_amount_fmt" t-value="stmt_data.get('wht_amount_fmt')"/>
+                    <t t-set="net_interest_fmt" t-value="stmt_data.get('net_interest_fmt')"/>
+                    <t t-set="closing_balance_fmt" t-value="stmt_data.get('closing_balance_fmt')"/>
+                    <t t-set="wht_rate" t-value="stmt_data.get('wht_rate')"/>
+                </t>
             </t>
         </t>
     </template>

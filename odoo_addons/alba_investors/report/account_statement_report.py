@@ -18,21 +18,36 @@ class AccountStatementReportMixin(models.AbstractModel):
     _description = "Shared investor account statement helpers"
 
     @api.model
+    def _clean_string(self, value):
+        if not value:
+            return ""
+        if isinstance(value, str):
+            value = (
+                value.replace("—", "-")
+                .replace("–", "-")
+                .replace("\xa0", " ")
+                .replace("\u00a0", " ")
+                .replace("\u202f", " ")
+            )
+        return value
+
+    @api.model
     def _format_stmt_date(self, value):
         if not value:
             return ""
         if isinstance(value, str):
-            return value
+            return self._clean_string(value)
         return value.strftime("%d-%b-%Y")
 
     @api.model
     def _format_amount(self, amount, currency):
-        return formatLang(
+        val = formatLang(
             self.env,
             amount or 0.0,
             currency_obj=currency,
             digits=currency.decimal_places if currency else 2,
         )
+        return self._clean_string(val)
 
     @api.model
     def _partner_address(self, partner):
@@ -76,7 +91,7 @@ class AccountStatementReportMixin(models.AbstractModel):
 
         lines.append({
             "date": self._format_stmt_date(stmt.period_start),
-            "description": "OB Opening Balance Period Opening Balance",
+            "description": self._clean_string("OB Opening Balance Period Opening Balance"),
             "debit": 0.0,
             "credit": 0.0,
             "balance": balance,
@@ -98,7 +113,7 @@ class AccountStatementReportMixin(models.AbstractModel):
                     balance -= amount
                     lines.append({
                         "date": self._format_stmt_date(tx.date),
-                        "description": (tx.description or tx.reference or "WITHDRAWAL").upper(),
+                        "description": self._clean_string((tx.description or tx.reference or "WITHDRAWAL").upper()),
                         "debit": amount,
                         "credit": 0.0,
                         "balance": balance,
@@ -110,7 +125,7 @@ class AccountStatementReportMixin(models.AbstractModel):
                     balance += amount
                     lines.append({
                         "date": self._format_stmt_date(tx.date),
-                        "description": (tx.description or tx.reference or "DEPOSIT").upper(),
+                        "description": self._clean_string((tx.description or tx.reference or "DEPOSIT").upper()),
                         "debit": 0.0,
                         "credit": amount,
                         "balance": balance,
@@ -123,7 +138,7 @@ class AccountStatementReportMixin(models.AbstractModel):
             balance -= stmt.withdrawals
             lines.append({
                 "date": self._format_stmt_date(stmt.period_end),
-                "description": "WITHDRAWAL Investment Withdrawal",
+                "description": self._clean_string("WITHDRAWAL Investment Withdrawal"),
                 "debit": stmt.withdrawals,
                 "credit": 0.0,
                 "balance": balance,
@@ -136,7 +151,7 @@ class AccountStatementReportMixin(models.AbstractModel):
             balance += stmt.deposits
             lines.append({
                 "date": self._format_stmt_date(stmt.period_end),
-                "description": "DEPOSIT Investment Deposit",
+                "description": self._clean_string("DEPOSIT Investment Deposit"),
                 "debit": 0.0,
                 "credit": stmt.deposits,
                 "balance": balance,
@@ -150,7 +165,7 @@ class AccountStatementReportMixin(models.AbstractModel):
             credit = accrual.interest_amount
             lines.append({
                 "date": self._format_stmt_date(accrual.accrual_date),
-                "description": self._accrual_description(accrual, account_number),
+                "description": self._clean_string(self._accrual_description(accrual, account_number)),
                 "debit": 0.0,
                 "credit": credit,
                 "balance": balance,
@@ -163,7 +178,7 @@ class AccountStatementReportMixin(models.AbstractModel):
             balance = stmt.closing_balance
             lines.append({
                 "date": self._format_stmt_date(stmt.period_end),
-                "description": "ADJUSTMENT Period Interest Earned",
+                "description": self._clean_string("ADJUSTMENT Period Interest Earned"),
                 "debit": 0.0,
                 "credit": stmt.interest_accrued,
                 "balance": balance,
@@ -186,15 +201,15 @@ class AccountStatementReportMixin(models.AbstractModel):
         return {
             "doc": stmt,
             "partner": partner,
-            "customer_name": partner.name if partner else "",
-            "customer_address": self._partner_address(partner),
-            "account_number": account_number,
-            "barcode_number": account_number,
-            "product_name": self._product_label(investment=stmt.investment_id),
+            "customer_name": self._clean_string(partner.name if partner else ""),
+            "customer_address": self._clean_string(self._partner_address(partner)),
+            "account_number": self._clean_string(account_number),
+            "barcode_number": self._clean_string(account_number),
+            "product_name": self._clean_string(self._product_label(investment=stmt.investment_id)),
             "date_from": self._format_stmt_date(stmt.period_start),
             "date_to": self._format_stmt_date(stmt.period_end),
             "statement_date": self._format_stmt_date(stmt.statement_date),
-            "branch_name": company.name,
+            "branch_name": self._clean_string(company.name),
             "res_company": company,
             "currency": currency,
             "lines": lines,
@@ -202,6 +217,14 @@ class AccountStatementReportMixin(models.AbstractModel):
             "total_credit": total_credit,
             "total_debit_fmt": self._format_amount(total_debit, currency),
             "total_credit_fmt": self._format_amount(total_credit, currency),
+            "opening_balance_fmt": self._format_amount(stmt.opening_balance, currency),
+            "deposits_fmt": self._format_amount(stmt.deposits, currency),
+            "withdrawals_fmt": self._format_amount(stmt.withdrawals, currency),
+            "interest_accrued_fmt": self._format_amount(stmt.interest_accrued, currency),
+            "wht_amount_fmt": self._format_amount(stmt.wht_amount, currency),
+            "net_interest_fmt": self._format_amount(stmt.net_interest, currency),
+            "closing_balance_fmt": self._format_amount(stmt.closing_balance, currency),
+            "wht_rate": stmt.wht_rate,
         }
 
 
