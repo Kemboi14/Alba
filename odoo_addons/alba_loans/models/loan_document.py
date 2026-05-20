@@ -5,7 +5,7 @@ Loan Document Model
 Stores documents and files related to loan applications and loans.
 """
 
-from odoo import api, fields, models, _
+from odoo import api, fields, models, _, exceptions
 
 
 class LoanDocument(models.Model):
@@ -202,6 +202,17 @@ class LoanDocument(models.Model):
                 if k not in ('datas', 'upload_filename')
             }
         return super().write(vals)
+
+    def action_preview(self):
+        self.ensure_one()
+        if not self.datas:
+            raise exceptions.UserError(_("Please upload a file before previewing this document."))
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s/%s/datas/%s?download=false"
+            % (self._name, self.id, self.upload_filename or self.name or "document"),
+            "target": "new",
+        }
 
     def action_verify(self):
         """Mark document as verified."""

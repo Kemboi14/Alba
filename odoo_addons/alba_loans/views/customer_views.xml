@@ -149,7 +149,7 @@
                             No new loans should be disbursed.
                         </div>
 
-                        <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'avatar_128'}"/>
+                        <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'avatar_128'}" readonly="0"/>
                         <div class="oe_title">
                             <label for="partner_id" string="Customer"/>
                             <h1>
@@ -293,6 +293,8 @@
                                                decoration-warning="state == 'draft'"
                                                decoration-danger="state == 'rejected'"/>
                                         <field name="create_date" string="Uploaded" optional="show"/>
+                                        <button name="action_preview" string="Preview" type="object" icon="fa-eye"
+                                                invisible="not datas"/>
                                         <button name="action_verify" string="Verify" type="object" icon="fa-check"
                                                 invisible="state == 'verified'"/>
                                         <button name="action_reject_document" string="Reject" type="object" icon="fa-times"

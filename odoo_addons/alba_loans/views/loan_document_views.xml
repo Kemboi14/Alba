@@ -21,6 +21,7 @@
                            decoration-success="state == 'verified'" 
                            decoration-warning="state == 'draft'" 
                            decoration-danger="state == 'rejected'"/>
+                    <button name="action_preview" string="Preview" type="object" icon="fa-eye" class="text-primary"/>
                     <button name="action_verify" string="Verify" type="object" icon="fa-check-circle" class="text-success" invisible="state == 'verified'"/>
                     <button name="action_reset_to_draft" string="Re-upload" type="object" icon="fa-undo" invisible="state == 'draft'"/>
                 </list>
@@ -90,6 +91,7 @@
                 <form string="Document">
                     <header>
                         <button name="action_verify" string="Verify" type="object" class="btn-primary" invisible="state == 'verified'"/>
+                        <button name="action_preview" string="Preview" type="object" class="btn-secondary"/>
                         <button name="action_reset_to_draft" string="Reset to Draft" type="object" invisible="state == 'draft'"/>
                         <field name="state" widget="statusbar"/>
                     </header>
