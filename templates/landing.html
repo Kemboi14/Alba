@@ -57,12 +57,9 @@
                     <!-- Logo -->
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
-                            <span class="text-3xl font-bold text-alba-navy"
-                                >Alba Capital</span
-                            >
-                            <p class="text-xs text-gray-600 -mt-1">
-                                Financial Solutions
-                            </p>
+                            <a href="{% url 'landing' %}">
+                                <img src="{% static 'logo.png' %}" alt="Alba Capital" class="h-12 w-auto">
+                            </a>
                         </div>
                     </div>
 
@@ -1278,7 +1275,7 @@
                                         Call Us
                                     </h4>
                                     <p class="text-sm text-gray-600">
-                                        +254 XXX XXX XXX
+                                        0791000481 | 0754000481
                                     </p>
                                 </div>
                             </div>
@@ -1515,37 +1512,30 @@
                         <ul class="space-y-2 text-sm text-gray-400">
                             <li>
                                 <a
-                                    href="#"
+                                    href="{% url 'privacy_policy' %}"
                                     class="hover:text-alba-orange transition"
                                     >Privacy Policy</a
                                 >
                             </li>
                             <li>
                                 <a
-                                    href="#"
+                                    href="{% url 'terms_of_service' %}"
                                     class="hover:text-alba-orange transition"
                                     >Terms of Service</a
                                 >
                             </li>
                             <li>
                                 <a
-                                    href="#"
+                                    href="{% url 'cookie_policy' %}"
                                     class="hover:text-alba-orange transition"
                                     >Cookie Policy</a
                                 >
                             </li>
                             <li>
                                 <a
-                                    href="#"
+                                    href="{% url 'compliance_policy' %}"
                                     class="hover:text-alba-orange transition"
                                     >Compliance</a
-                                >
-                            </li>
-                            <li>
-                                <a
-                                    href="{% url 'login' %}"
-                                    class="hover:text-alba-orange transition"
-                                    >Staff Login</a
                                 >
                             </li>
                         </ul>

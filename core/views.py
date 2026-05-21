@@ -55,6 +55,26 @@ def landing_page(request):
     return render(request, "landing.html")
 
 
+def privacy_policy_view(request):
+    """Privacy Policy page"""
+    return render(request, "core/privacy_policy.html")
+
+
+def terms_of_service_view(request):
+    """Terms of Service page"""
+    return render(request, "core/terms_of_service.html")
+
+
+def cookie_policy_view(request):
+    """Cookie Policy page"""
+    return render(request, "core/cookie_policy.html")
+
+
+def compliance_policy_view(request):
+    """Data Protection & Compliance Policy page"""
+    return render(request, "core/compliance_policy.html")
+
+
 def google_login(request):
     """Redirect to allauth's Google OAuth2 login endpoint."""
     return redirect("/accounts/google/login/")

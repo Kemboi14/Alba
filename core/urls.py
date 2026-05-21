@@ -22,6 +22,11 @@ from .admin_views import (
 urlpatterns = [
     # Landing page
     path("", views.landing_page, name="landing"),
+    # Legal pages
+    path("legal/privacy/", views.privacy_policy_view, name="privacy_policy"),
+    path("legal/terms/", views.terms_of_service_view, name="terms_of_service"),
+    path("legal/cookies/", views.cookie_policy_view, name="cookie_policy"),
+    path("legal/compliance/", views.compliance_policy_view, name="compliance_policy"),
     # Authentication
     path("login/", views.LoginView.as_view(), name="login"),
     path("register/", views.RegisterView.as_view(), name="register"),

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Cookie Policy - Alba Capital</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            "alba-navy": "#22354e",
+                            "alba-orange": "#ff805d",
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+            body {
+                font-family: "Inter", sans-serif;
+            }
+        </style>
+    </head>
+    <body class="antialiased bg-gray-50">
+        <!-- Navigation -->
+        <nav class="fixed w-full bg-white/95 backdrop-blur-sm shadow-sm z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-20">
+                    <!-- Logo -->
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <a href="{% url 'landing' %}">
+                                <img src="{% static 'logo.png' %}" alt="Alba Capital" class="h-12 w-auto">
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Links -->
+                    <div class="hidden md:flex items-center space-x-8">
+                        <a href="{% url 'landing' %}#services" class="text-gray-700 hover:text-alba-orange transition font-medium">Services</a>
+                        <a href="{% url 'landing' %}#products" class="text-gray-700 hover:text-alba-orange transition font-medium">Loan Products</a>
+                        <a href="{% url 'landing' %}#how-it-works" class="text-gray-700 hover:text-alba-orange transition font-medium">How It Works</a>
+                        <a href="{% url 'landing' %}#about" class="text-gray-700 hover:text-alba-orange transition font-medium">About Us</a>
+                        <a href="{% url 'landing' %}#contact" class="text-gray-700 hover:text-alba-orange transition font-medium">Contact</a>
+                    </div>
+
+                    <!-- CTA Buttons -->
+                    <div class="flex items-center space-x-3">
+                        {% if user.is_authenticated %}
+                        <a href="{% url 'dashboard' %}" class="px-5 py-2 text-sm font-medium text-white bg-alba-orange rounded-lg hover:bg-opacity-90 transition shadow-lg shadow-orange-500/30">Dashboard</a>
+                        <a href="{% url 'logout' %}" class="px-5 py-2 text-sm font-medium text-alba-navy hover:text-alba-orange transition">Sign Out</a>
+                        {% else %}
+                        <a href="{% url 'login' %}" class="px-5 py-2 text-sm font-medium text-alba-navy hover:text-alba-orange transition">Sign In</a>
+                        <a href="{% url 'register' %}" class="px-5 py-2 text-sm font-medium text-white bg-alba-orange rounded-lg hover:bg-opacity-90 transition shadow-lg shadow-orange-500/30">Get Started</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="pt-32 pb-20">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="bg-white rounded-2xl shadow-lg p-8 md:p-12">
+                    <h1 class="text-4xl font-bold text-alba-navy mb-2">Cookie Policy</h1>
+                    <p class="text-gray-500 mb-8">Alba Capital | privacy@albacapital.com</p>
+
+                    <div class="prose prose-lg max-w-none text-gray-700">
+                        <p class="mb-6"><strong>Effective Date:</strong> January 1, 2026</p>
+                        <p class="mb-6"><strong>Last Updated:</strong> January 1, 2026</p>
+
+                        <p class="mb-6">This Cookie Policy explains how Alba Capital ("we," "us," or "our") uses cookies and similar tracking technologies when you visit our website at www.albacapital.com (the "Website"). It explains what these technologies are, why we use them, and your rights to control our use of them.</p>
+
+                        <p class="mb-6">This Cookie Policy supplements our Privacy Policy. For information about how we process personal data collected through cookies, please refer to our Privacy Policy.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">1. What Are Cookies?</h2>
+                        <p class="mb-4">Cookies are small text files placed on your device (computer, smartphone, tablet) when you visit a website. They are widely used to make websites work, improve performance, and provide information to website owners. Cookies can be:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Session cookies:</strong> temporary cookies that expire when you close your browser</li>
+                            <li><strong>Persistent cookies:</strong> remain on your device for a set period or until you delete them</li>
+                            <li><strong>First-party cookies:</strong> set by the website you are visiting</li>
+                            <li><strong>Third-party cookies:</strong> set by a domain other than the website you are visiting</li>
+                        </ul>
+                        <p class="mb-6">In addition to cookies, we may also use similar technologies such as web beacons (also called clear GIFs or tracking pixels), local storage objects, and similar tracking technologies.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">2. Categories of Cookies We Use</h2>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">2.1 Strictly Necessary Cookies</h3>
+                        <p class="mb-4">These cookies are essential for the Website to function and cannot be switched off in our systems. They are usually set only in response to actions made by you, such as setting your privacy preferences, logging in, or filling in forms.</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Legal basis (GDPR):</strong> Legitimate interest / technically necessary (consent not required)</li>
+                            <li><strong>Examples:</strong> session management, security tokens, load balancing</li>
+                        </ul>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">2.2 Performance and Analytics Cookies</h3>
+                        <p class="mb-4">These cookies allow us to count visits and traffic sources so we can measure and improve the performance of the Website. They help us understand which pages are most and least popular, and see how visitors navigate around the Website. All information collected is aggregated and therefore anonymous.</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Legal basis (GDPR):</strong> Consent (opt-in required)</li>
+                            <li><strong>Examples:</strong> Google Analytics, page view tracking</li>
+                        </ul>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">2.3 Functional Cookies</h3>
+                        <p class="mb-4">These cookies enable the Website to provide enhanced functionality and personalisation, such as remembering your preferences and settings. They may be set by us or by third-party providers whose services we have added to our pages.</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Legal basis (GDPR):</strong> Consent (opt-in required)</li>
+                            <li><strong>Examples:</strong> language preference, region selection, theme preference</li>
+                        </ul>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">2.4 Targeting / Marketing Cookies</h3>
+                        <p class="mb-4">These cookies may be set through the Website by our advertising partners. They may be used to build a profile of your interests and show you relevant advertising on other sites. They do not directly store personal information but uniquely identify your browser and internet device.</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Legal basis (GDPR):</strong> Consent (opt-in required)</li>
+                            <li><strong>Examples:</strong> social media pixels, retargeting tags</li>
+                        </ul>
+                        <p class="mb-6">We currently do not use targeting cookies. If we introduce targeting cookies in the future, we will update this policy and seek your consent accordingly.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">3. Specific Cookies We Use</h2>
+                        <p class="mb-4">The table below lists the specific cookies used on our Website at the time this policy was last updated. Please note this list may not be exhaustive, as new cookies may be added from time to time.</p>
+                        <div class="bg-gray-50 p-6 rounded-lg mb-6">
+                            <p class="text-sm text-gray-600">We use the following cookies:</p>
+                            <ul class="list-disc pl-6 mt-4 space-y-2 text-sm">
+                                <li><strong>csrftoken:</strong> Django CSRF protection token (strictly necessary)</li>
+                                <li><strong>sessionid:</strong> Django session cookie (strictly necessary)</li>
+                                <li><strong>_ga, _gid:</strong> Google Analytics cookies (performance/analytics)</li>
+                            </ul>
+                        </div>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">4. Your Cookie Choices</h2>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">4.1 Cookie Consent Banner</h3>
+                        <p class="mb-6">When you first visit the Website, you will be presented with a cookie consent banner that allows you to accept or reject non-essential cookies. You can change your preferences at any time by clicking the "Cookie Settings" link in the footer of the Website.</p>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">4.2 Browser Controls</h3>
+                        <p class="mb-4">Most web browsers allow you to control cookies through their settings. You can typically:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li>View cookies stored on your device and delete individual cookies</li>
+                            <li>Block all cookies or only third-party cookies</li>
+                            <li>Clear all cookies when you close the browser</li>
+                        </ul>
+                        <p class="mb-6">Please be aware that restricting cookies may affect the functionality of the Website. Guidance on how to manage cookies in common browsers:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Google Chrome:</strong> Settings > Privacy and Security > Cookies and other site data</li>
+                            <li><strong>Mozilla Firefox:</strong> Options > Privacy & Security > Cookies and Site Data</li>
+                            <li><strong>Microsoft Edge:</strong> Settings > Cookies and site permissions > Cookies and site data</li>
+                            <li><strong>Safari:</strong> Preferences > Privacy > Manage Website Data</li>
+                        </ul>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">4.3 Opt-Out Links for Third-Party Services</h3>
+                        <p class="mb-4">You can opt out of specific third-party analytics and advertising cookies via the following links:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Google Analytics:</strong> https://tools.google.com/dlpage/gaoptout</li>
+                            <li><strong>Google Ads:</strong> https://adssettings.google.com</li>
+                            <li><strong>Facebook/Meta Pixel:</strong> https://www.facebook.com/settings?tab=ads</li>
+                            <li><strong>Network Advertising Initiative (NAI):</strong> https://optout.networkadvertising.org</li>
+                            <li><strong>Your Online Choices (EU):</strong> https://www.youronlinechoices.eu</li>
+                        </ul>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">4.4 Do Not Track</h3>
+                        <p class="mb-6">Some browsers include a "Do Not Track" (DNT) feature that signals to websites that you do not want to have your online activity tracked. Currently, there is no universally agreed upon standard for how websites should respond to DNT signals. We respect your privacy preferences and will not track your activity if you have enabled DNT in your browser settings.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">5. Updates to This Cookie Policy</h2>
+                        <p class="mb-6">We may update this Cookie Policy from time to time to reflect changes in our practices or for other operational, legal, or regulatory reasons. The updated version will be indicated by a revised "Last Updated" date. We encourage you to review this policy whenever you access the Website.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">6. Contact Us</h2>
+                        <p class="mb-4">If you have questions about our use of cookies or this Cookie Policy, please contact us at:</p>
+                        <div class="bg-gray-50 p-6 rounded-lg mb-6">
+                            <p class="mb-2"><strong>Alba Capital</strong></p>
+                            <p class="mb-2">Nairobi, Kenya</p>
+                            <p>Email: privacy@albacapital.com</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-alba-navy text-white py-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                    <!-- Company Info -->
+                    <div class="col-span-1 md:col-span-2">
+                        <h3 class="text-2xl font-bold mb-4">Alba Capital</h3>
+                        <p class="text-gray-400 mb-4">Your trusted partner for personal and business financing solutions. Building dreams, one loan at a time.</p>
+                        <div class="flex space-x-4">
+                            <a href="#" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-alba-orange transition"><span class="text-sm font-bold">f</span></a>
+                            <a href="#" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-alba-orange transition"><span class="text-sm font-bold">X</span></a>
+                            <a href="#" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-alba-orange transition"><span class="text-sm font-bold">in</span></a>
+                        </div>
+                    </div>
+
+                    <!-- Quick Links -->
+                    <div>
+                        <h4 class="font-semibold mb-4">Quick Links</h4>
+                        <ul class="space-y-2 text-sm text-gray-400">
+                            <li><a href="{% url 'landing' %}#services" class="hover:text-alba-orange transition">Our Services</a></li>
+                            <li><a href="{% url 'landing' %}#products" class="hover:text-alba-orange transition">Loan Products</a></li>
+                            <li><a href="{% url 'landing' %}#how-it-works" class="hover:text-alba-orange transition">How It Works</a></li>
+                            <li><a href="{% url 'landing' %}#about" class="hover:text-alba-orange transition">About Us</a></li>
+                            <li><a href="{% url 'register' %}" class="hover:text-alba-orange transition">Get Started</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Legal -->
+                    <div>
+                        <h4 class="font-semibold mb-4">Legal</h4>
+                        <ul class="space-y-2 text-sm text-gray-400">
+                            <li><a href="{% url 'privacy_policy' %}" class="hover:text-alba-orange transition">Privacy Policy</a></li>
+                            <li><a href="{% url 'terms_of_service' %}" class="hover:text-alba-orange transition">Terms of Service</a></li>
+                            <li><a href="{% url 'cookie_policy' %}" class="hover:text-alba-orange transition">Cookie Policy</a></li>
+                            <li><a href="{% url 'compliance_policy' %}" class="hover:text-alba-orange transition">Compliance</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-700 pt-8 text-center text-sm text-gray-400">
+                    <p>&copy; 2026 Alba Capital. All rights reserved. | Licensed by Central Bank of Kenya</p>
+                </div>
+            </div>
+        </footer>
+    </body>
+</html>

@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Data Protection & Compliance Policy - Alba Capital</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            "alba-navy": "#22354e",
+                            "alba-orange": "#ff805d",
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+            body {
+                font-family: "Inter", sans-serif;
+            }
+        </style>
+    </head>
+    <body class="antialiased bg-gray-50">
+        <!-- Navigation -->
+        <nav class="fixed w-full bg-white/95 backdrop-blur-sm shadow-sm z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-20">
+                    <!-- Logo -->
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <a href="{% url 'landing' %}">
+                                <img src="{% static 'logo.png' %}" alt="Alba Capital" class="h-12 w-auto">
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Links -->
+                    <div class="hidden md:flex items-center space-x-8">
+                        <a href="{% url 'landing' %}#services" class="text-gray-700 hover:text-alba-orange transition font-medium">Services</a>
+                        <a href="{% url 'landing' %}#products" class="text-gray-700 hover:text-alba-orange transition font-medium">Loan Products</a>
+                        <a href="{% url 'landing' %}#how-it-works" class="text-gray-700 hover:text-alba-orange transition font-medium">How It Works</a>
+                        <a href="{% url 'landing' %}#about" class="text-gray-700 hover:text-alba-orange transition font-medium">About Us</a>
+                        <a href="{% url 'landing' %}#contact" class="text-gray-700 hover:text-alba-orange transition font-medium">Contact</a>
+                    </div>
+
+                    <!-- CTA Buttons -->
+                    <div class="flex items-center space-x-3">
+                        {% if user.is_authenticated %}
+                        <a href="{% url 'dashboard' %}" class="px-5 py-2 text-sm font-medium text-white bg-alba-orange rounded-lg hover:bg-opacity-90 transition shadow-lg shadow-orange-500/30">Dashboard</a>
+                        <a href="{% url 'logout' %}" class="px-5 py-2 text-sm font-medium text-alba-navy hover:text-alba-orange transition">Sign Out</a>
+                        {% else %}
+                        <a href="{% url 'login' %}" class="px-5 py-2 text-sm font-medium text-alba-navy hover:text-alba-orange transition">Sign In</a>
+                        <a href="{% url 'register' %}" class="px-5 py-2 text-sm font-medium text-white bg-alba-orange rounded-lg hover:bg-opacity-90 transition shadow-lg shadow-orange-500/30">Get Started</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="pt-32 pb-20">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="bg-white rounded-2xl shadow-lg p-8 md:p-12">
+                    <h1 class="text-4xl font-bold text-alba-navy mb-2">Data Protection & Compliance Policy</h1>
+                    <p class="text-gray-500 mb-8">Alba Capital | privacy@albacapital.com</p>
+
+                    <div class="prose prose-lg max-w-none text-gray-700">
+                        <p class="mb-6"><strong>Effective Date:</strong> January 1, 2026</p>
+                        <p class="mb-6"><strong>Last Updated:</strong> January 1, 2026</p>
+
+                        <p class="mb-6">This Data Protection and Compliance Policy sets out the obligations of Alba Capital regarding data protection and the rights of data subjects in connection with the processing of their personal data. This Policy is intended for internal use and as a public-facing statement of our commitment to data protection.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">1. Purpose and Scope</h2>
+                        <p class="mb-4">This Policy applies to:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li>All personal data processed by Alba Capital</li>
+                            <li>All employees, contractors, consultants, agents, and other individuals acting on behalf of Alba Capital</li>
+                            <li>All systems, platforms, and processes used to collect, store, or process personal data</li>
+                        </ul>
+                        <p class="mb-6">The Policy covers data processed by automated means and data held in structured manual filing systems.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">2. Data Protection Principles (GDPR Art. 5)</h2>
+                        <p class="mb-4">In accordance with the GDPR, all personal data must be:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Processed lawfully, fairly, and in a transparent manner</strong> (Lawfulness, Fairness and Transparency)</li>
+                            <li><strong>Collected for specified, explicit, and legitimate purposes</strong> and not further processed in a manner incompatible with those purposes (Purpose Limitation)</li>
+                            <li><strong>Adequate, relevant, and limited to what is necessary</strong> in relation to the purposes (Data Minimisation)</li>
+                            <li><strong>Accurate and, where necessary, kept up to date</strong> (Accuracy)</li>
+                            <li><strong>Kept in a form that permits identification of data subjects</strong> for no longer than is necessary (Storage Limitation)</li>
+                            <li><strong>Processed in a manner that ensures appropriate security</strong> (Integrity and Confidentiality)</li>
+                        </ul>
+                        <p class="mb-6"><strong>Accountability Principle (Art. 5(2)):</strong> Alba Capital is responsible for, and must be able to demonstrate compliance with, all of the above principles.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">3. Lawful Basis for Processing</h2>
+                        <p class="mb-4">Before processing personal data, we identify and document the appropriate legal basis. Our processing activities rely on the following bases under Article 6 GDPR:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Consent</strong> — freely given, specific, informed, and unambiguous. We maintain records of consent and provide easy withdrawal mechanisms.</li>
+                            <li><strong>Contract</strong> — processing necessary for a contract with the data subject.</li>
+                            <li><strong>Legal Obligation</strong> — compliance with EU or Member State law.</li>
+                            <li><strong>Legitimate Interests</strong> — we conduct a Legitimate Interests Assessment (LIA) and ensure the data subject's interests do not override ours.</li>
+                        </ul>
+                        <p class="mb-6">For special category data (Article 9 GDPR), we rely on explicit consent or other applicable conditions and document this separately.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">4. Rights of Data Subjects</h2>
+                        <p class="mb-4">We maintain documented procedures to handle data subject requests within statutory timeframes:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Right of access (Art. 15):</strong> respond within 1 month; provide copy of data and supplementary information</li>
+                            <li><strong>Right to rectification (Art. 16):</strong> correct inaccurate data without undue delay</li>
+                            <li><strong>Right to erasure (Art. 17):</strong> fulfil requests unless a legal basis for retention applies</li>
+                            <li><strong>Right to restriction (Art. 18):</strong> restrict processing pending verification or objection</li>
+                            <li><strong>Right to data portability (Art. 20):</strong> provide data in machine-readable format where applicable</li>
+                            <li><strong>Right to object (Art. 21):</strong> cease processing unless compelling legitimate grounds exist</li>
+                            <li><strong>Rights re: automated decisions (Art. 22):</strong> not subject individuals to solely automated decisions producing legal effects without human oversight</li>
+                        </ul>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">4.1 Responding to Requests</h3>
+                        <p class="mb-6">All requests must be acknowledged within 72 hours and fulfilled within 30 calendar days. Extensions up to 2 additional months are permissible for complex or numerous requests, with notice to the data subject. Requests are to be directed to: privacy@albacapital.com</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">5. Data Retention and Deletion</h2>
+                        <p class="mb-4">We maintain a Data Retention Schedule that specifies the retention period for each category of personal data and the criteria used to determine that period. At the end of the retention period, data is securely deleted or anonymised.</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li>Retention periods are based on: legal obligations, contractual necessity, business need, and limitation periods for legal claims</li>
+                            <li>Annual reviews of the Retention Schedule are conducted by the Data Protection Officer / Legal Team</li>
+                            <li>Secure deletion procedures are applied to both digital and physical records</li>
+                        </ul>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">6. Data Security</h2>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">6.1 Technical Measures</h3>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li>Encryption of personal data at rest and in transit (TLS 1.2+ / AES-256 or equivalent)</li>
+                            <li>Access controls and least-privilege principles (role-based access control)</li>
+                            <li>Regular vulnerability assessments and penetration testing</li>
+                            <li>Multi-factor authentication for systems processing personal data</li>
+                            <li>Automated logging and monitoring of access to personal data</li>
+                        </ul>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">6.2 Organisational Measures</h3>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li>Data protection training for all staff upon onboarding and annually thereafter</li>
+                            <li>Confidentiality obligations for all staff and contractors</li>
+                            <li>Information security policies and acceptable use policies</li>
+                            <li>Physical security controls for premises and physical records</li>
+                            <li>Third-party due diligence and Data Processing Agreements (DPAs)</li>
+                        </ul>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">7. Personal Data Breaches</h2>
+                        <p class="mb-4">In the event of a personal data breach, we follow the procedures below in compliance with GDPR Articles 33-34:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li><strong>Identification:</strong> any suspected or confirmed breach must be reported immediately to the Data Protection Officer / designated contact</li>
+                            <li><strong>Assessment:</strong> severity and scope of the breach are assessed within 24 hours</li>
+                            <li><strong>Notification to supervisory authority (Art. 33):</strong> if the breach is likely to result in a risk to data subjects' rights and freedoms, we notify the relevant supervisory authority within 72 hours of becoming aware</li>
+                            <li><strong>Notification to data subjects (Art. 34):</strong> where the breach is likely to result in a high risk, we notify affected individuals without undue delay</li>
+                            <li><strong>Documentation:</strong> all breaches are documented in our breach register, including near-misses</li>
+                        </ul>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">8. Data Protection by Design and Default</h2>
+                        <p class="mb-4">In accordance with Article 25 GDPR, data protection considerations are embedded in new systems, processes, and products from the outset:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li>Privacy Impact Assessments (PIAs) / Data Protection Impact Assessments (DPIAs) are conducted for high-risk processing activities</li>
+                            <li>Privacy-enhancing technologies (PETs) are considered and implemented where appropriate</li>
+                            <li>Data minimisation and pseudonymisation are applied wherever technically feasible</li>
+                            <li>Default settings are always privacy-friendly</li>
+                        </ul>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">9. Third-Party Processors and International Transfers</h2>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">9.1 Data Processing Agreements</h3>
+                        <p class="mb-4">We only engage third-party processors that provide sufficient guarantees of GDPR compliance. A Data Processing Agreement (DPA) is in place with each processor, containing the mandatory provisions of Article 28 GDPR, including:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li>Processing only on documented instructions</li>
+                            <li>Confidentiality obligations</li>
+                            <li>Security measures</li>
+                            <li>Sub-processor restrictions</li>
+                            <li>Data subject rights assistance</li>
+                            <li>Deletion or return of data on termination</li>
+                        </ul>
+
+                        <h3 class="text-xl font-semibold text-alba-navy mt-6 mb-3">9.2 International Data Transfers</h3>
+                        <p class="mb-4">Transfers of personal data outside the EEA are only made where appropriate safeguards are in place, including:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li>Adequacy decision by the European Commission</li>
+                            <li>Standard Contractual Clauses (SCCs)</li>
+                            <li>Binding Corporate Rules (BCRs)</li>
+                        </ul>
+                        <p class="mb-6">A Transfer Impact Assessment (TIA) is conducted where required prior to any transfer.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">10. Data Protection Officer (DPO)</h2>
+                        <p class="mb-6">We have appointed a Data Protection Officer who is responsible for overseeing compliance with this Policy and applicable data protection law. The DPO can be contacted at:</p>
+                        <div class="bg-gray-50 p-6 rounded-lg mb-6">
+                            <p class="mb-2"><strong>Data Protection Officer, Alba Capital</strong></p>
+                            <p>Email: privacy@albacapital.com</p>
+                        </div>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">11. Policy Review and Governance</h2>
+                        <p class="mb-4">This Policy is reviewed at least annually or following:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li>Material changes to processing activities</li>
+                            <li>New regulatory guidance or enforcement decisions</li>
+                            <li>A significant data breach or near-miss incident</li>
+                        </ul>
+                        <p class="mb-6">Ownership of this Policy sits with the Data Protection Officer / Legal Counsel / Head of Compliance. Any questions about this Policy should be directed to privacy@albacapital.com.</p>
+
+                        <h2 class="text-2xl font-bold text-alba-navy mt-8 mb-4">12. Compliance Checklist</h2>
+                        <p class="mb-4">Use this checklist to verify ongoing compliance:</p>
+                        <ul class="list-disc pl-6 mb-6 space-y-2">
+                            <li>Records of Processing Activities (RoPA) maintained and up to date (Art. 30)</li>
+                            <li>Privacy notices reviewed and published on the Website</li>
+                            <li>Consent records maintained with timestamps and withdrawal mechanisms in place</li>
+                            <li>Data Retention Schedule reviewed within the last 12 months</li>
+                            <li>DPAs signed with all third-party processors</li>
+                            <li>Staff data protection training completed and recorded</li>
+                            <li>DPIA conducted for high-risk processing activities</li>
+                            <li>Breach register maintained and response procedures tested</li>
+                            <li>Supervisory authority registration (if required) completed and current</li>
+                            <li>DPO appointed and contactable (if required)</li>
+                        </ul>
+
+                        <div class="bg-gray-100 p-6 rounded-lg mt-8">
+                            <p class="text-sm text-gray-600"><strong>Document Control</strong></p>
+                            <p class="text-sm text-gray-600">Document Owner: Data Protection Officer | Version: 1.0 | Review Date: January 1, 2027</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-alba-navy text-white py-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                    <!-- Company Info -->
+                    <div class="col-span-1 md:col-span-2">
+                        <h3 class="text-2xl font-bold mb-4">Alba Capital</h3>
+                        <p class="text-gray-400 mb-4">Your trusted partner for personal and business financing solutions. Building dreams, one loan at a time.</p>
+                        <div class="flex space-x-4">
+                            <a href="#" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-alba-orange transition"><span class="text-sm font-bold">f</span></a>
+                            <a href="#" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-alba-orange transition"><span class="text-sm font-bold">X</span></a>
+                            <a href="#" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-alba-orange transition"><span class="text-sm font-bold">in</span></a>
+                        </div>
+                    </div>
+
+                    <!-- Quick Links -->
+                    <div>
+                        <h4 class="font-semibold mb-4">Quick Links</h4>
+                        <ul class="space-y-2 text-sm text-gray-400">
+                            <li><a href="{% url 'landing' %}#services" class="hover:text-alba-orange transition">Our Services</a></li>
+                            <li><a href="{% url 'landing' %}#products" class="hover:text-alba-orange transition">Loan Products</a></li>
+                            <li><a href="{% url 'landing' %}#how-it-works" class="hover:text-alba-orange transition">How It Works</a></li>
+                            <li><a href="{% url 'landing' %}#about" class="hover:text-alba-orange transition">About Us</a></li>
+                            <li><a href="{% url 'register' %}" class="hover:text-alba-orange transition">Get Started</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Legal -->
+                    <div>
+                        <h4 class="font-semibold mb-4">Legal</h4>
+                        <ul class="space-y-2 text-sm text-gray-400">
+                            <li><a href="{% url 'privacy_policy' %}" class="hover:text-alba-orange transition">Privacy Policy</a></li>
+                            <li><a href="{% url 'terms_of_service' %}" class="hover:text-alba-orange transition">Terms of Service</a></li>
+                            <li><a href="{% url 'cookie_policy' %}" class="hover:text-alba-orange transition">Cookie Policy</a></li>
+                            <li><a href="{% url 'compliance_policy' %}" class="hover:text-alba-orange transition">Compliance</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-700 pt-8 text-center text-sm text-gray-400">
+                    <p>&copy; 2026 Alba Capital. All rights reserved. | Licensed by Central Bank of Kenya</p>
+                </div>
+            </div>
+        </footer>
+    </body>
+</html>
