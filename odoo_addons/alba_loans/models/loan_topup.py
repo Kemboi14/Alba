@@ -337,6 +337,10 @@ class AlbaLoanTopup(models.Model):
                 "outstanding_balance": new_outstanding,
             })
             
+            # Clear existing schedule before regenerating
+            loan.repayment_schedule_ids.unlink()
+            loan.write({"schedule_generated": False})
+
             # Regenerate schedule
             loan.action_generate_schedule()
             rec.schedule_regenerated = True

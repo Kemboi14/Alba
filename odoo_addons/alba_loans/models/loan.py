@@ -654,9 +654,25 @@ class AlbaLoan(models.Model):
                 vals["loan_number"] = seq.next_by_code("alba.loan.seq") or "New"
         return super().create(vals_list)
 
-    # =========================================================================
-    # Business Logic
-    # =========================================================================
+    def _recompute_schedule_paid_amounts(self):
+        """Reset and reapply all posted repayments to schedule entries."""
+        self.ensure_one()
+        # 1. Reset all schedule entries
+        self.repayment_schedule_ids.write({
+            "principal_paid": 0.0,
+            "interest_paid": 0.0,
+        })
+        # Trigger recompute of status and balance_due
+        self.repayment_schedule_ids._compute_status()
+
+        # 2. Get all posted repayments
+        posted_repayments = self.repayment_ids.filtered(lambda r: r.state == "posted").sorted(
+            key=lambda r: (r.payment_date or fields.Date.today(), r.id)
+        )
+
+        # 3. Apply each one
+        for repayment in posted_repayments:
+            repayment._update_schedule_entries()
 
     def action_generate_schedule(self):
         """Generate the repayment schedule based on the loan product's method."""
@@ -1050,6 +1066,21 @@ class AlbaLoan(models.Model):
 
         _logger.info("cron_flag_npl_loans: flagged %d loan(s) as NPL.", len(newly_npl))
 
+        # ── Send NPL notification email to each newly flagged customer ──────
+        npl_template = self.env.ref(
+            "alba_loans.email_template_loan_npl", raise_if_not_found=False
+        )
+        if npl_template:
+            for loan in newly_npl:
+                if loan.customer_id.email:
+                    try:
+                        npl_template.send_mail(loan.id, force_send=False)
+                    except Exception as exc:
+                        _logger.warning(
+                            "cron_flag_npl_loans: failed to send NPL email for %s: %s",
+                            loan.loan_number, exc,
+                        )
+
         # Fire webhooks for newly flagged loans
         if newly_npl:
             self._fire_loan_status_webhooks(newly_npl, "loan.npl_flagged")
@@ -1189,6 +1220,22 @@ class AlbaLoan(models.Model):
                 closed |= loan
 
         _logger.info("cron_close_repaid_loans: closed %d loan(s).", len(closed))
+
+        # ── Send loan-closed congratulations email ──────────────────────────
+        closed_template = self.env.ref(
+            "alba_loans.email_template_loan_closed", raise_if_not_found=False
+        )
+        if closed_template:
+            for loan in closed:
+                if loan.customer_id.email:
+                    try:
+                        closed_template.send_mail(loan.id, force_send=False)
+                    except Exception as exc:
+                        _logger.warning(
+                            "cron_close_repaid_loans: failed to send closure email for %s: %s",
+                            loan.loan_number, exc,
+                        )
+
         if closed:
             self._fire_loan_status_webhooks(closed, "loan.closed")
 

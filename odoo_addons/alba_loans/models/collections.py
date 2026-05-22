@@ -133,13 +133,6 @@ class AlbaLoan(models.Model):
     
     # NPL
     npl_classification_date = fields.Date(string="NPL Classification Date")
-    npl_bucket = fields.Selection([
-        ("1_30", "1-30 Days"),
-        ("31_60", "31-60 Days"),
-        ("61_90", "61-90 Days"),
-        ("91_180", "91-180 Days"),
-        ("over_180", "180+ Days"),
-    ], string="NPL Bucket", compute="_compute_par", store=True)
     
     @api.depends("days_in_arrears")
     def _compute_collection_stage(self):
@@ -242,56 +235,54 @@ class AlbaLoanCollectionCron(models.Model):
     @api.model
     def cron_process_collection_stages(self):
         """Daily cron to process collection stages and send reminders"""
-        
-        # Find all active overdue loans
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+
+        # Fix: correct field is days_in_arrears (days_overdue does not exist)
         overdue_loans = self.env["alba.loan"].search([
-            ("state", "=", "active"),
-            ("days_overdue", ">", 0),
+            ("state", "in", ["active", "npl"]),
+            ("days_in_arrears", ">", 0),
         ])
-        
+
+        reminders_sent = 0
         for loan in overdue_loans:
-            # Update collection stage (triggers _compute_collection_stage)
-            loan.invalidate_cache(["collection_stage_id"])
-            
-            # Send automated reminders if configured
-            if loan.collection_stage_id and loan.collection_stage_id.auto_send_reminder:
-                loan.action_send_collection_reminder()
-            
-            # Create activities for escalated stages
-            if loan.collection_stage_id and loan.collection_stage_id.create_activity:
-                if not loan.activity_ids.filtered(lambda a: a.activity_type_id == loan.collection_stage_id.activity_type_id and not a.date_done):
-                    loan.activity_schedule(
-                        loan.collection_stage_id.activity_type_id.id,
-                        user_id=loan.collection_stage_id.escalate_to.users[0].id if loan.collection_stage_id.escalate_to.users else loan.create_uid.id,
-                        summary=_("%s follow-up required for %s") % (loan.collection_stage_id.name, loan.loan_number),
+            # Recompute collection stage from current arrears
+            loan._compute_collection_stage()
+
+            if not loan.collection_stage_id:
+                continue
+
+            stage = loan.collection_stage_id
+
+            # ── Email & SMS reminders ──────────────────────────────────────────
+            if stage.auto_send_reminder:
+                try:
+                    sent = loan.action_send_collection_reminder()
+                    if sent:
+                        reminders_sent += 1
+                except Exception as e:
+                    _logger.warning("Failed to send collection reminders for %s: %s", loan.loan_number, e)
+
+            # ── Activity creation ─────────────────────────────────────────────
+            if stage.create_activity and stage.activity_type_id:
+                existing = loan.activity_ids.filtered(
+                    lambda a: a.activity_type_id == stage.activity_type_id
+                    and not a.date_done
+                )
+                if not existing:
+                    responsible = (
+                        stage.escalate_to.users[:1].id
+                        if stage.escalate_to and stage.escalate_to.users
+                        else loan.create_uid.id
                     )
-        
+                    loan.activity_schedule(
+                        stage.activity_type_id.id,
+                        user_id=responsible,
+                        summary=_("%s follow-up required for %s") % (stage.name, loan.loan_number),
+                    )
+
+        _logger.info("cron_process_collection_stages: sent %d reminder(s).", reminders_sent)
         return True
-    
-    @api.model
-    def cron_flag_npl_loans(self):
-        """Daily cron to flag NPL loans at 90+ days"""
-        
-        npl_threshold = 90
-        npl_loans = self.env["alba.loan"].search([
-            ("state", "=", "active"),
-            ("days_overdue", ">=", npl_threshold),
-            ("escalated_to_legal", "=", False),
-        ])
-        
-        for loan in npl_loans:
-            loan.write({
-                "npl_classification_date": fields.Date.today(),
-            })
-            
-            # Notify management
-            loan.message_post(
-                body=Markup(_("<b>NPL CLASSIFICATION</b><br/>Loan classified as Non-Performing after %s days overdue.")) % loan.days_overdue,
-                subtype_xmlid="mail.mt_note",
-            )
-            
-            # Auto-escalate to legal if 90+ days
-            loan.action_escalate_to_legal()
 
 
 # Default Collection Stages Data

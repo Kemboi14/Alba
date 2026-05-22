@@ -11,16 +11,38 @@ class LoanModificationHooks(models.AbstractModel):
     @api.model
     def _send_modification_sms(self, record, template_code, extra_context=None):
         """Helper to send modification SMS"""
-        if not record.partner_id or not record.partner_id.mobile:
+        enabled = self.env["ir.config_parameter"].sudo().get_param("alba_sms.enabled", default="1")
+        if enabled == "0":
+            return
+
+        partner = record.partner_id
+        if not partner:
             return
         
+        # Resolve Phone
+        customer = getattr(record, 'customer_id', getattr(record.loan_id, 'customer_id', None) if hasattr(record, 'loan_id') else None)
+        phone = False
+        if customer:
+            phone = customer.mpesa_number or customer.partner_id.mobile or customer.partner_id.phone
+        else:
+            phone = partner.mobile or partner.phone
+
+        if not phone:
+            _logger.warning("No phone number found for partner '%s' — skipping SMS.", partner.name)
+            return
+
         template = self.env['alba.sms.template'].search([('code', '=', template_code)], limit=1)
         if not template:
             _logger.warning("SMS Template not found: %s", template_code)
             return
 
+        provider = self.env["alba.sms.provider"].sudo().search([("is_active", "=", True)], limit=1)
+        if not provider:
+            _logger.warning("No active SMS provider found.")
+            return
+
         context = {
-            'customer_name': record.partner_id.name,
+            'customer_name': partner.name,
             'company_name': self.env.company.name,
         }
         
@@ -39,12 +61,18 @@ class LoanModificationHooks(models.AbstractModel):
                 else:
                     context[key] = str(val)
             
-        self.env['alba.sms.log'].send_sms(
-            mobile=record.partner_id.mobile,
-            template_code=template_code,
-            partner_id=record.partner_id.id,
-            context=context
+        message = template.render(context)
+        
+        provider.send_sms(
+            phone,
+            message,
+            res_model=record._name,
+            res_id=record.id,
+            template_id=template.id,
         )
+        
+        if hasattr(record, 'message_post'):
+            record.message_post(body=_("<b>Automated SMS Sent</b>: %s") % message)
 
 class AlbaLoanTopup(models.Model):
     _inherit = 'alba.loan.topup'

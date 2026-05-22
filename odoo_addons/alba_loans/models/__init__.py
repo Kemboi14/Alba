@@ -38,5 +38,6 @@ from . import (
     loan_payment_holiday,
     loan_refinance,
     loan_consolidation,
+    loan_interest_cron,
     notification_hooks,
 )

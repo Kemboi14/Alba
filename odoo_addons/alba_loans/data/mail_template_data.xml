@@ -261,4 +261,95 @@
         </record>
 
     </data>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         ADDITIONAL AUTOMATED TEMPLATES (added to fill notification gaps)
+         ═══════════════════════════════════════════════════════════════════ -->
+    <data noupdate="1">
+
+        <!-- ── Loan Closed / Fully Repaid ──────────────────────────── -->
+        <record id="email_template_loan_closed" model="mail.template">
+            <field name="name">Loan: Fully Repaid / Closed</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan"/>
+            <field name="subject">Congratulations! Loan {{ object.loan_number }} Fully Repaid</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.customer_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        Congratulations! 🎉 Your loan <strong>{{ object.loan_number }}</strong> has been
+                        <strong>FULLY REPAID</strong> and is now closed.<br/><br/>
+                        <strong>Summary:</strong><br/>
+                        - Loan Number: {{ object.loan_number }}<br/>
+                        - Total Repaid: {{ object.currency_id.symbol }} {{ object.total_paid }}<br/>
+                        - Closed On: {{ object.write_date }}<br/><br/>
+                        Thank you for your commitment to repaying your loan on time.<br/>
+                        We look forward to serving you again.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Loan NPL Flagged ─────────────────────────────────── -->
+        <record id="email_template_loan_npl" model="mail.template">
+            <field name="name">Loan: Non-Performing (NPL) Notice</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan"/>
+            <field name="subject">Important: Action Required — Loan {{ object.loan_number }} in Arrears</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.customer_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        This is an urgent notice regarding your loan <strong>{{ object.loan_number }}</strong>.<br/><br/>
+                        Your loan is currently <strong>{{ object.days_in_arrears }} days overdue</strong> with an
+                        outstanding arrears amount of <strong>{{ object.currency_id.symbol }} {{ object.arrears_amount }}</strong>.<br/><br/>
+                        <strong>Immediate action is required</strong> to avoid further penalties and legal proceedings.<br/><br/>
+                        Please contact us immediately:<br/>
+                        - Outstanding Balance: {{ object.currency_id.symbol }} {{ object.outstanding_balance }}<br/>
+                        - Days Overdue: {{ object.days_in_arrears }}<br/><br/>
+                        Failure to respond may result in legal action and credit bureau reporting.<br/><br/>
+                        Regards,<br/>
+                        <strong>{{ object.company_id.name }} — Collections Team</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+        <!-- ── Repayment Receipt ──────────────────────────────── -->
+        <record id="email_template_repayment_receipt" model="mail.template">
+            <field name="name">Loan: Repayment Receipt</field>
+            <field name="model_id" ref="alba_loans.model_alba_loan_repayment"/>
+            <field name="subject">Payment Receipt — {{ object.loan_id.loan_number }} — Ref: {{ object.payment_reference }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.customer_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        We have received your payment. Below is your official receipt.<br/><br/>
+                        <strong>Payment Details:</strong><br/>
+                        - Reference: {{ object.payment_reference }}<br/>
+                        - Amount Paid: {{ object.currency_id.symbol }} {{ object.amount_paid }}<br/>
+                        - Payment Date: {{ object.payment_date }}<br/>
+                        - Method: {{ object.payment_method }}<br/><br/>
+                        <strong>Allocation:</strong><br/>
+                        - Principal: {{ object.currency_id.symbol }} {{ object.principal_component }}<br/>
+                        - Interest: {{ object.currency_id.symbol }} {{ object.interest_component }}<br/>
+                        - Fees: {{ object.currency_id.symbol }} {{ object.fees_component }}<br/>
+                        - Penalties: {{ object.currency_id.symbol }} {{ object.penalty_component }}<br/><br/>
+                        <strong>Loan Balance After Payment:</strong><br/>
+                        - Outstanding Balance: {{ object.currency_id.symbol }} {{ object.loan_id.outstanding_balance }}<br/><br/>
+                        Thank you for your payment.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+    </data>
 </odoo>

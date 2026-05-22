@@ -254,6 +254,13 @@ class AlbaLoanProduct(models.Model):
         domain="[('account_type', '=', 'income')]",
         help="Account credited when fees are collected.",
     )
+    account_penalty_income_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Penalty Income Account",
+        tracking=True,
+        domain="[('account_type', '=', 'income')]",
+        help="Account credited when penalty interest/fees are collected.",
+    )
     account_clearing_id = fields.Many2one(
         comodel_name="account.account",
         string="Loan Clearing Account",
@@ -547,6 +554,17 @@ class AlbaLoanProduct(models.Model):
                 "income_other",
             )
             changes["account_fees_income_id"] = acc.id
+
+        if not self.account_penalty_income_id:
+            acc = _get_or_create(
+                ["income", "income_other"],
+                "penalty",
+                ["income", "revenue", "interest"],
+                "Loan Penalty/Default Income",
+                "410400",
+                "income_other",
+            )
+            changes["account_penalty_income_id"] = acc.id
 
         if not self.account_insurance_receivable_id:
             acc = _get_or_create(

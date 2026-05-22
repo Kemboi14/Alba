@@ -67,13 +67,16 @@ class AlbaInterestAccrualSmsHook(models.Model):
                     )
                     continue
 
+                # ── 3. Resolve investor ────────────────────────────────────
+                investor = rec.investor_id
+
                 # 🚀 PHASE 5: Omnichannel (Email - Interest Accrued)
                 email_template = rec.env.ref("alba_investors.email_template_interest_accrued", raise_if_not_found=False)
                 if email_template and investor.email:
                     email_template.send_mail(rec.id, force_send=False)
                     rec.message_post(body=_("📧 Automated interest email sent to %s") % investor.email)
 
-                # ── 3. Active provider ─────────────────────────────────────
+                # ── 4. Active provider ─────────────────────────────────────
 
                 provider = (
                     rec.env["alba.sms.provider"]
@@ -87,9 +90,6 @@ class AlbaInterestAccrualSmsHook(models.Model):
                         rec.id,
                     )
                     continue
-
-                # ── 4. Resolve phone ───────────────────────────────────────
-                investor = rec.investor_id
                 phone = (
                     investor.mpesa_number
                     or investor.partner_id.mobile

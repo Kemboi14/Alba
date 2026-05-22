@@ -147,5 +147,21 @@
             <field name="content">Dear {customer_name}, your {loan_count} loans have been consolidated into a single account {new_loan}. Check your email for the new schedule. - {company_name}</field>
         </record>
 
+        <!-- 19. Loan Fully Repaid / Closed -->
+        <record id="sms_template_loan_closed" model="alba.sms.template">
+            <field name="name">Loan Closed — Fully Repaid</field>
+            <field name="code">loan_closed</field>
+            <field name="category">loan_status_change</field>
+            <field name="content">Congratulations {customer_name}! Your loan {loan_number} has been FULLY REPAID and is now closed. Thank you for your commitment. We look forward to serving you again. - {company_name}</field>
+        </record>
+
+        <!-- 20. Loan NPL Flagged -->
+        <record id="sms_template_loan_npl" model="alba.sms.template">
+            <field name="name">Loan NPL — Urgent Notice</field>
+            <field name="code">loan_npl_flagged</field>
+            <field name="category">loan_overdue</field>
+            <field name="content">URGENT: Dear {customer_name}, your loan {loan_number} is {days_overdue} days overdue (balance KES {outstanding_balance}) and has been flagged as non-performing. Please call us IMMEDIATELY to avoid legal action. - {company_name}</field>
+        </record>
+
     </data>
 </odoo>

@@ -86,8 +86,11 @@ class AlbaLoanCollectionSmsHook(models.Model):
 
         # ── 5. Render template ─────────────────────────────────────────────
         context_dict = {
-            "amount": str(self.outstanding_balance),
+            "amount": f"{self.arrears_amount:,.2f}",
+            "arrears_amount": f"{self.arrears_amount:,.2f}",
+            "outstanding_balance": f"{self.outstanding_balance:,.2f}",
             "days": str(self.days_in_arrears),
+            "days_overdue": str(self.days_in_arrears),
             "customer_name": customer.display_name,
             "loan_number": self.loan_number,
             "company_name": self.env.company.name,

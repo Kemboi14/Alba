@@ -588,9 +588,9 @@ class AlbaLoanRepayment(models.Model):
 
             # CR Penalty Income
             if rec.penalty_component > 0:
-                penalty_account = product.account_fees_income_id or product.account_interest_income_id
+                penalty_account = product.account_penalty_income_id or product.account_fees_income_id or product.account_interest_income_id
                 if not penalty_account:
-                    raise UserError(_("Please configure the Fee Income account on product '%s'.") % product.name)
+                    raise UserError(_("Please configure the Penalty Income account on product '%s'.") % product.name)
                 move_vals["line_ids"].append((0, 0, {
                     "account_id": penalty_account.id,
                     "name": _("Penalty collected — %s") % rec.loan_id.loan_number,
@@ -626,6 +626,21 @@ class AlbaLoanRepayment(models.Model):
                     fees=rec.fees_component,
                 )
             )
+
+            # ── Automated repayment receipt email ───────────────────────────
+            receipt_template = self.env.ref(
+                "alba_loans.email_template_repayment_receipt",
+                raise_if_not_found=False,
+            )
+            if receipt_template and rec.customer_id.email:
+                try:
+                    receipt_template.send_mail(rec.id, force_send=False)
+                except Exception as exc:
+                    import logging as _logging
+                    _logging.getLogger(__name__).warning(
+                        "action_post: failed to send repayment receipt email for %s: %s",
+                        rec.payment_reference, exc,
+                    )
 
         return True
 
@@ -697,6 +712,20 @@ class AlbaLoanRepayment(models.Model):
             self.write({"reversal_move_id": reversal.id})
 
         self.write({"state": "reversed"})
+        
+        # 1. Reset and recompute paid amounts on schedule entries
+        self.loan_id._recompute_schedule_paid_amounts()
+        
+        # 2. Force recomputation of financial totals on the loan
+        self.loan_id._compute_financial_totals()
+        
+        # 3. If loan was automatically closed but now has outstanding balance, move back to active
+        if self.loan_id.state == "closed" and self.loan_id.outstanding_balance > 0.01:
+            self.loan_id.write({"state": "active"})
+            self.loan_id.message_post(
+                body=Markup(_("Loan <b>reopened</b> to Active state due to payment reversal."))
+            )
+
         self.message_post(
             body=Markup(_("Repayment <b>reversed</b>. Reason: %s")) % self.reversal_reason
         )
