@@ -679,6 +679,14 @@ class AlbaLoanApplication(models.Model):
         else:
             _logger.warning("Could not send automated employer email for %s: Template or Employer Email missing.", self.application_number)
 
+    def _send_application_email(self, template_xml_id):
+        """Helper to send application related emails."""
+        for rec in self:
+            template = self.env.ref(template_xml_id, raise_if_not_found=False)
+            if template and rec.customer_id.email:
+                template.send_mail(rec.id, force_send=False)
+                rec.message_post(body=_("📧 Automated email (%s) sent to %s") % (template_xml_id, rec.customer_id.email))
+
     def write(self, vals):
         # Filter out invalid fee lines in write
         if 'fee_line_ids' in vals:

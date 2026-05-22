@@ -261,6 +261,13 @@ class AlbaLoanProduct(models.Model):
         domain="[('account_type', '=', 'income')]",
         help="Account credited when penalty interest/fees are collected.",
     )
+    account_penalty_receivable_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Penalty Receivable Account",
+        tracking=True,
+        domain="[('account_type', '=', 'asset_receivable')]",
+        help="Account for tracking accrued penalty fees that haven't been collected yet.",
+    )
     account_clearing_id = fields.Many2one(
         comodel_name="account.account",
         string="Loan Clearing Account",

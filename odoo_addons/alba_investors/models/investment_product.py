@@ -92,6 +92,13 @@ class AlbaInvestmentProduct(models.Model):
         domain="[('account_type', 'in', ['liability_current', 'liability_non_current'])]",
         tracking=True,
     )
+    account_long_term_liability_id = fields.Many2one(
+        "account.account",
+        string="Long-term Investment Liability Account",
+        domain="[('account_type', '=', 'liability_non_current')]",
+        tracking=True,
+        help="Account used for investments with tenure > 1 year.",
+    )
     journal_id = fields.Many2one(
         "account.journal",
         string="Accrual Journal",

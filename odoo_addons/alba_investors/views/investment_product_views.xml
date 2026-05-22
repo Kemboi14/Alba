@@ -90,6 +90,7 @@
                                 </group>
                                 <group string="Principal Receipt">
                                     <field name="account_investment_liability_id" options="{'no_create': True}"/>
+                                    <field name="account_long_term_liability_id" options="{'no_create': True}"/>
                                     <field name="payment_journal_id" options="{'no_create': True}"/>
                                 </group>
                                 <group string="Withholding Tax">

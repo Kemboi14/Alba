@@ -219,7 +219,12 @@
                     <notebook>
                         <page string="Payout Details" name="payout">
                             <group>
-                                <!-- Bank details are managed via the Contact link -->
+                                <group string="Banking Details">
+                                    <field name="bank_account_id"
+                                           context="{'default_partner_id': partner_id}"
+                                           options="{'no_create_edit': False}"/>
+                                </group>
+                                <!-- Mobile money details -->
                                 <group string="Mobile Money &amp; Preference">
                                     <field name="mpesa_number"/>
                                     <field name="preferred_payment_method"/>

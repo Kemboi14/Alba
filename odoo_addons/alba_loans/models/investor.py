@@ -42,6 +42,12 @@ class AlbaInvestor(models.Model):
     email = fields.Char(related="partner_id.email", store=True, readonly=False)
     address = fields.Char(related="partner_id.street", string="Physical Address", readonly=False)
     
+    bank_account_id = fields.Many2one(
+        "res.partner.bank",
+        string="Bank Account",
+        domain="[('partner_id', '=', partner_id)]",
+        tracking=True,
+    )
     
     # ─── Investment Details ───────────────────────────────────────────────────
     investment_product = fields.Selection([

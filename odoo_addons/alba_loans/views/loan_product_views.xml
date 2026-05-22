@@ -169,6 +169,8 @@
                                                options="{'no_create': True}"/>
                                         <field name="account_penalty_income_id"
                                                options="{'no_create': True}"/>
+                                        <field name="account_penalty_receivable_id"
+                                               options="{'no_create': True}"/>
                                         <field name="account_clearing_id"
                                                options="{'no_create': True}"/>
                                     </group>

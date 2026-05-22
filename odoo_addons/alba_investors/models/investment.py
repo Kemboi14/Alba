@@ -196,6 +196,13 @@ class AlbaInvestment(models.Model):
         domain="[('account_type', 'in', ['liability_current', 'liability_non_current'])]",
         help="Liability account representing funds received from investors.",
     )
+    account_long_term_liability_id = fields.Many2one(
+        "account.account",
+        string="Long-term Investment Liability Account",
+        tracking=True,
+        domain="[('account_type', '=', 'liability_non_current')]",
+        help="Account used for investments with tenure > 1 year.",
+    )
     journal_id = fields.Many2one(
         "account.journal",
         string="Accrual Journal",
@@ -455,6 +462,7 @@ class AlbaInvestment(models.Model):
             rec.account_interest_expense_id = product.account_interest_expense_id
             rec.account_interest_payable_id = product.account_interest_payable_id
             rec.account_investment_liability_id = product.account_investment_liability_id
+            rec.account_long_term_liability_id = product.account_long_term_liability_id
             rec.journal_id = product.journal_id
             rec.payment_journal_id = product.payment_journal_id
             rec.wht_rate = product.wht_rate
@@ -735,6 +743,7 @@ class AlbaInvestment(models.Model):
             "account_interest_expense_id",
             "account_interest_payable_id",
             "account_investment_liability_id",
+            "account_long_term_liability_id",
             "journal_id",
             "payment_journal_id",
             "wht_rate",
@@ -745,6 +754,51 @@ class AlbaInvestment(models.Model):
                 vals[field_name] = value.id if hasattr(value, "id") else value
         if vals:
             self.write(vals)
+
+    def action_move_to_long_term(self):
+        """
+        Manual action to reclassify investment from current liability to 
+        long-term liability if tenure is > 1 year.
+        """
+        self.ensure_one()
+        if not self.account_long_term_liability_id:
+            raise UserError(_("Please configure a Long-term Investment Liability Account on the product first."))
+        
+        # Check if tenure is > 1 year (approx 365 days)
+        if self.start_date and self.maturity_date:
+            tenure_days = (self.maturity_date - self.start_date).days
+            if tenure_days <= 365:
+                raise UserError(_("This investment tenure is not greater than one year."))
+        
+        # Create a journal entry to move the principal
+        move_vals = {
+            'journal_id': self.journal_id.id,
+            'date': fields.Date.today(),
+            'ref': _("Long-term reclassification: %s") % self.investment_number,
+            'line_ids': [
+                (0, 0, {
+                    'name': _("Reclassification to Long-term"),
+                    'account_id': self.account_investment_liability_id.id,
+                    'debit': self.principal_amount,
+                    'credit': 0.0,
+                    'partner_id': self.partner_id.id,
+                }),
+                (0, 0, {
+                    'name': _("Reclassification to Long-term"),
+                    'account_id': self.account_long_term_liability_id.id,
+                    'debit': 0.0,
+                    'credit': self.principal_amount,
+                    'partner_id': self.partner_id.id,
+                }),
+            ],
+        }
+        move = self.env['account.move'].create(move_vals)
+        move.action_post()
+        
+        self.message_post(
+            body=_("Investment principal reclassified to Long-term Liability account: %s") % move.name
+        )
+        return True
 
     def _check_required_accounting(self):
         self.ensure_one()

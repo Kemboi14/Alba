@@ -246,6 +246,9 @@
                             <page string="Banking" name="banking">
                                 <group>
                                     <group>
+                                        <field name="bank_account_id"
+                                               context="{'default_partner_id': partner_id}"
+                                               options="{'no_create_edit': False}"/>
                                         <field name="mpesa_number"/>
                                     </group>
                                 </group>

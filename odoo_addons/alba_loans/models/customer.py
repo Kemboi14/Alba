@@ -219,6 +219,13 @@ class AlbaCustomer(models.Model):
         tracking=True,
     )
     # ── Banking ───────────────────────────────────────────────────────────────
+    bank_account_id = fields.Many2one(
+        "res.partner.bank",
+        string="Bank Account",
+        domain="[('partner_id', '=', partner_id)]",
+        tracking=True,
+        help="Customer's bank account for disbursements and repayments.",
+    )
     mpesa_number = fields.Char(
         string="M-Pesa Number",
         help="Must start with 254 e.g. 254712345678",
