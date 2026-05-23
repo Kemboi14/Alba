@@ -53,6 +53,11 @@
 
                     <table width="100%" style="border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e; margin-bottom: 18px; border-collapse: collapse;">
                         <tr>
+                            <td style="padding: 7px 0; vertical-align: middle;">
+                                <t t-if="res_company and res_company.logo">
+                                    <img t-att-src="'data:image/png;base64,%s' % (res_company.logo)" style="height:54px; max-height:54px;"/>
+                                </t>
+                            </td>
                             <td style="padding: 7px 0; font-size: 13.5px; font-weight: 700; color: #0d2d5e;">
                                 BRANCH: <t t-esc="branch_name"/> - Investors
                             </td>
@@ -166,6 +171,24 @@
                             </tr>
                         </tfoot>
                     </table>
+                    <!-- Explicit footer with company details (renders even if external_layout omitted) -->
+                    <div class="footer o_standard_footer mt-5 text-center text-muted small" style="margin-top:28px;">
+                        <t t-if="res_company">
+                            <div style="margin-bottom:6px;">
+                                <t t-if="res_company.logo"><img t-att-src="'data:image/png;base64,%s' % (res_company.logo)" style="height:36px; max-height:36px;"/></t>
+                            </div>
+                            <div><strong><t t-esc="res_company.name"/></strong></div>
+                            <div>
+                                <t t-if="res_company.street"><t t-esc="res_company.street"/> </t>
+                                <t t-if="res_company.city"><t t-esc="res_company.city"/> </t>
+                                <t t-if="res_company.country_id">- <t t-esc="res_company.country_id.name"/></t>
+                            </div>
+                            <div>
+                                <t t-if="res_company.phone"><t t-esc="res_company.phone"/> </t>
+                                <t t-if="res_company.website">| <t t-esc="res_company.website"/></t>
+                            </div>
+                        </t>
+                    </div>
                 </div>
             </div>
         </t>
