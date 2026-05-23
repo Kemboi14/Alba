@@ -174,8 +174,9 @@
     <template id="report_investment_statement_template">
         <t t-call="web.html_container">
             <t t-foreach="statements" t-as="stmt_data">
+                <t t-set="res_company" t-value="stmt_data['res_company']"/>
+                <t t-set="company" t-value="stmt_data['res_company']"/>
                 <t t-call="alba_investors.account_statement_document">
-                    <t t-set="res_company" t-value="stmt_data['res_company']"/>
                     <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
                     <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
                     <t t-set="customer_name" t-value="stmt_data['customer_name']"/>
@@ -204,8 +205,9 @@
     <template id="investor_statement_template">
         <t t-call="web.html_container">
             <t t-foreach="statements" t-as="stmt_data">
+                <t t-set="res_company" t-value="stmt_data['res_company']"/>
+                <t t-set="company" t-value="stmt_data['res_company']"/>
                 <t t-call="alba_investors.account_statement_document">
-                    <t t-set="res_company" t-value="stmt_data['res_company']"/>
                     <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
                     <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
                     <t t-set="customer_name" t-value="stmt_data['customer_name']"/>
