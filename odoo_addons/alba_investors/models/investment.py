@@ -467,6 +467,14 @@ class AlbaInvestment(models.Model):
             rec.payment_journal_id = product.payment_journal_id
             rec.wht_rate = product.wht_rate
             rec.account_wht_payable_id = product.account_wht_payable_id
+            # If the product defines a default principal and the investment
+            # principal is empty or zero, apply the default principal.
+            try:
+                default_principal = product.default_principal
+            except Exception:
+                default_principal = None
+            if default_principal and (not rec.principal_amount or rec.principal_amount == 0.0):
+                rec.principal_amount = default_principal
 
     @api.constrains("investment_type", "maturity_date")
     def _check_maturity_date(self):

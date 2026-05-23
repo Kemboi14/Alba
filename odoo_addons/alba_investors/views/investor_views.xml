@@ -150,22 +150,27 @@
                     <widget name="web_ribbon" title="Suspended" bg_color="bg-warning" invisible="state != 'suspended'"/>
                     <widget name="web_ribbon" title="Verified" bg_color="bg-success" invisible="kyc_status != 'verified'"/>
 
-                    <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'avatar_128'}" readonly="0"/>
-                    <div class="oe_title">
-                        <label for="partner_id" string="Investor"/>
-                        <h1>
-                            <field name="partner_id"
-                                   options="{'no_create': False}"
-                                   context="{'form_view_ref': 'alba_investors.view_res_partner_investor_form'}"
-                                   placeholder="Select or create a contact…"/>
-                        </h1>
-                        <div class="o_row">
-                            <field name="investor_number" readonly="1" class="text-muted"/>
-                            <field name="currency_id" string="Preferred Currency" options="{'no_create': True, 'no_open': True}" domain="[('active', '=', True)]"/>
-                            <field name="is_high_value" invisible="1"/>
-                            <span class="badge text-bg-warning rounded-pill" invisible="not is_high_value">
-                                <i class="fa fa-star"/> High Value
-                            </span>
+                    <div class="row">
+                        <div class="col-md-2 text-center">
+                            <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'avatar_128'}" readonly="0"/>
+                        </div>
+                        <div class="col-md-10">
+                            <div class="oe_title">
+                                <label for="partner_id" string="Investor"/>
+                                <h1>
+                                    <field name="partner_id"
+                                           options="{'no_create': False}"
+                                           context="{'form_view_ref': 'alba_investors.view_res_partner_investor_form'}"
+                                           placeholder="Select or create a contact…"/>
+                                </h1>
+                                <div class="o_row">
+                                    <field name="investor_number" readonly="1" class="text-muted"/>
+                                    <field name="is_high_value" invisible="1"/>
+                                    <span class="badge text-bg-warning rounded-pill" invisible="not is_high_value">
+                                        <i class="fa fa-star"/> High Value
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

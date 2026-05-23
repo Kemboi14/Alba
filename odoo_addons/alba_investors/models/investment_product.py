@@ -60,6 +60,12 @@ class AlbaInvestmentProduct(models.Model):
         default="monthly",
         tracking=True,
     )
+    default_principal = fields.Monetary(
+        string="Default Principal",
+        currency_field="currency_id",
+        default=0.0,
+        help="Optional default principal amount when creating a new investment from this product.",
+    )
     auto_accrual_day = fields.Integer(
         string="Automated Accrual Day of Month",
         default=28,
