@@ -40,7 +40,10 @@ class AlbaInvestment(models.Model):
     investment_product_id = fields.Many2one(
         "alba.investment.product",
         string="Investment Product",
-        domain="[('active', '=', True), ('currency_id', '=', currency_id), ('investment_type', '=', investment_type)]",
+        # Do not restrict available products by `currency_id` here because
+        # new investments may start without a currency. Let the product
+        # selection determine the currency and other defaults.
+        domain="[('active', '=', True), ('investment_type', '=', investment_type)]",
         tracking=True,
         help="Configuration that supplies default rates, ledgers, journals, and document requirements.",
     )
