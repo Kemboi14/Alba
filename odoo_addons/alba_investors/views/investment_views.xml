@@ -102,7 +102,7 @@
                             <field name="investment_number" readonly="1"/>
                         </h1>
                         <div class="o_row">
-                            <field name="currency_id" options="{'no_create': True, 'no_open': True}" domain="[('active', '=', True)]" readonly="id != False"/>
+                            <field name="currency_id" options="{'no_create': True, 'no_open': True}" domain="[('active', '=', True)]" invisible="not investment_product_id"/>
                             <field name="is_high_yield" invisible="1"/>
                             <span class="badge text-bg-success" invisible="not is_high_yield">
                                 <i class="fa fa-bolt"/> High Yield

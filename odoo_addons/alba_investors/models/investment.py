@@ -294,9 +294,9 @@ class AlbaInvestment(models.Model):
     currency_id = fields.Many2one(
         "res.currency",
         string="Currency",
-        default=lambda self: self.env.company.currency_id,
-        required=True,
+        required=False,
         tracking=True,
+        help="Currency will be set when an investment product is chosen.",
     )
 
     # ── UX Helpers ────────────────────────────────────────────────────────────
