@@ -868,7 +868,12 @@ class AlbaLoanApplication(models.Model):
                 
             # Fire B2C API
             amount = rec.approved_amount or rec.requested_amount
-            phone = rec.customer_id.mpesa_number or rec.customer_id.partner_id.mobile or rec.customer_id.partner_id.phone
+            partner_rec = getattr(rec.customer_id, 'partner_id', None)
+            phone = (
+                getattr(rec.customer_id, 'mpesa_number', False)
+                or (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+                or (getattr(partner_rec, 'phone', False) if partner_rec else False)
+            )
             if not phone:
                 raise UserError(_("Customer has no phone number configured for M-Pesa."))
                 

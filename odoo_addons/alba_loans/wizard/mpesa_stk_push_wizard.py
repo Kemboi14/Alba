@@ -173,8 +173,11 @@ class AlbaMpesaStkPushWizard(models.TransientModel):
                 phone = ""
                 customer = loan.customer_id
                 if customer and customer.partner_id:
+                    partner_rec = getattr(customer, 'partner_id', None)
                     phone = (
-                        customer.partner_id.mobile or customer.partner_id.phone or ""
+                        (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+                        or (getattr(partner_rec, 'phone', False) if partner_rec else False)
+                        or ""
                     )
                 # If no phone on partner, try mpesa_number on customer model
                 if not phone and hasattr(customer, "mpesa_number"):

@@ -32,9 +32,14 @@ class AlbaLoanApplicationSmsHook(models.Model):
             _logger.debug("No SMS template found for code: %s", template_code)
             return
 
-        # 2. Resolve Phone
+        # 2. Resolve Phone (avoid AttributeError if partner lacks `mobile`)
         customer = self.customer_id
-        phone = customer.mpesa_number or customer.partner_id.mobile or customer.partner_id.phone
+        partner_rec = getattr(customer, 'partner_id', None)
+        phone = (
+            getattr(customer, 'mpesa_number', False)
+            or (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+            or (getattr(partner_rec, 'phone', False) if partner_rec else False)
+        )
         
         if not phone or not self._sms_enabled():
             return

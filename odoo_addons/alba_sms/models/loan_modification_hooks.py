@@ -19,13 +19,20 @@ class LoanModificationHooks(models.AbstractModel):
         if not partner:
             return
         
-        # Resolve Phone
+        # Resolve Phone (use getattr to avoid AttributeError on partners missing `mobile`)
         customer = getattr(record, 'customer_id', getattr(record.loan_id, 'customer_id', None) if hasattr(record, 'loan_id') else None)
         phone = False
         if customer:
-            phone = customer.mpesa_number or customer.partner_id.mobile or customer.partner_id.phone
+            partner_rec = getattr(customer, 'partner_id', None)
+            phone = (
+                getattr(customer, 'mpesa_number', False)
+                or (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+                or (getattr(partner_rec, 'phone', False) if partner_rec else False)
+                or getattr(partner, 'phone', False)
+                or getattr(partner, 'mobile', False)
+            )
         else:
-            phone = partner.mobile or partner.phone
+            phone = getattr(partner, 'mobile', False) or getattr(partner, 'phone', False)
 
         if not phone:
             _logger.warning("No phone number found for partner '%s' — skipping SMS.", partner.name)
@@ -71,7 +78,13 @@ class LoanModificationHooks(models.AbstractModel):
             template_id=template.id,
         )
         
-        if hasattr(record, 'message_post'):
+        # Avoid posting chatter for certain loan modification types (topups, partial payoff, refinance, consolidation)
+        if hasattr(record, 'message_post') and record._name not in (
+            'alba.loan.topup',
+            'alba.loan.partial.payoff',
+            'alba.loan.refinance',
+            'alba.loan.consolidation',
+        ):
             record.message_post(body=_("<b>Automated SMS Sent</b>: %s") % message)
 
 class AlbaLoanTopup(models.Model):

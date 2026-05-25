@@ -90,10 +90,11 @@ class AlbaInterestAccrualSmsHook(models.Model):
                         rec.id,
                     )
                     continue
+                partner_rec = getattr(investor, 'partner_id', None)
                 phone = (
-                    investor.mpesa_number
-                    or investor.partner_id.mobile
-                    or investor.partner_id.phone
+                    getattr(investor, 'mpesa_number', False)
+                    or (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+                    or (getattr(partner_rec, 'phone', False) if partner_rec else False)
                     or ""
                 )
                 if not phone:
@@ -201,7 +202,12 @@ class AlbaInvestmentStatementSmsHook(models.Model):
 
         # 2. Resolve Phone
         investor = self.investor_id
-        phone = investor.mpesa_number or investor.partner_id.mobile or investor.partner_id.phone
+        partner_rec = getattr(investor, 'partner_id', None)
+        phone = (
+            getattr(investor, 'mpesa_number', False)
+            or (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+            or (getattr(partner_rec, 'phone', False) if partner_rec else False)
+        )
         if not phone:
             return
 

@@ -140,10 +140,11 @@ class AlbaSmsBatch(models.Model):
         elif model == "alba.loan.application":
             customer = record.customer_id
             if customer:
+                partner_rec = getattr(customer, 'partner_id', None)
                 phone = (
                     getattr(customer, "mpesa_number", False)
-                    or (customer.partner_id and customer.partner_id.mobile)
-                    or (customer.partner_id and customer.partner_id.phone)
+                    or (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+                    or (getattr(partner_rec, 'phone', False) if partner_rec else False)
                 )
 
         return phone or False

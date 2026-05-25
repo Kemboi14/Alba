@@ -70,10 +70,11 @@ class AlbaLoanCollectionSmsHook(models.Model):
 
         # ── 4. Resolve phone ───────────────────────────────────────────────
         customer = self.customer_id
+        partner_rec = getattr(customer, 'partner_id', None)
         phone = (
-            customer.mpesa_number
-            or customer.partner_id.mobile
-            or customer.partner_id.phone
+            getattr(customer, 'mpesa_number', False)
+            or (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+            or (getattr(partner_rec, 'phone', False) if partner_rec else False)
         )
         if not phone:
             _logger.warning(

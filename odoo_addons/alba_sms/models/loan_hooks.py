@@ -116,10 +116,11 @@ class AlbaLoanSmsHook(models.Model):
 
                 # 5. Resolve phone number.
                 customer = loan.customer_id
+                partner_rec = getattr(customer, 'partner_id', None)
                 phone = (
-                    customer.mpesa_number
-                    or customer.partner_id.mobile
-                    or customer.partner_id.phone
+                    getattr(customer, 'mpesa_number', False)
+                    or (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+                    or (getattr(partner_rec, 'phone', False) if partner_rec else False)
                 )
                 if not phone:
                     _logger.debug(
@@ -245,10 +246,11 @@ class AlbaLoanSmsHook(models.Model):
         for loan in maturing:
             # 5. Resolve phone number.
             customer = loan.customer_id
+            partner_rec = getattr(customer, 'partner_id', None)
             phone = (
-                customer.mpesa_number
-                or customer.partner_id.mobile
-                or customer.partner_id.phone
+                getattr(customer, 'mpesa_number', False)
+                or (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+                or (getattr(partner_rec, 'phone', False) if partner_rec else False)
             )
             if not phone:
                 _logger.debug(
@@ -325,9 +327,14 @@ class AlbaLoanSmsHook(models.Model):
         if not provider or not template:
             return
 
-        for sched in schedules:
+            for sched in schedules:
             customer = sched.loan_id.customer_id
-            phone = customer.mpesa_number or customer.partner_id.mobile or customer.partner_id.phone
+            partner_rec = getattr(customer, 'partner_id', None)
+            phone = (
+                getattr(customer, 'mpesa_number', False)
+                or (getattr(partner_rec, 'mobile', False) if partner_rec else False)
+                or (getattr(partner_rec, 'phone', False) if partner_rec else False)
+            )
             if not phone:
                 continue
 
