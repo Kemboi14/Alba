@@ -238,6 +238,12 @@ class AlbaLoanEarlySettlement(models.Model):
     # Final Amount
     final_settlement_amount = fields.Monetary(string="Final Settlement Amount", currency_field="currency_id", compute="_compute_settlement_amount")
     currency_id = fields.Many2one("res.currency", related="loan_id.currency_id", store=True)
+    journal_id = fields.Many2one(
+        "account.journal",
+        string="Settlement Journal",
+        domain="[('type', 'in', ['bank', 'cash'])]",
+        help="Journal for settlement payment",
+    )
     
     # Status
     state = fields.Selection([
@@ -302,12 +308,22 @@ class AlbaLoanEarlySettlement(models.Model):
     def action_mark_paid(self):
         """Mark settlement as paid and close loan"""
         for rec in self:
+            # Auto-select journal if not set
+            if not rec.journal_id:
+                rec.journal_id = self.env["account.journal"].search([
+                    ("type", "=", "bank"),
+                ], limit=1)
+            
+            if not rec.journal_id:
+                raise UserError(_("Please select a Settlement Journal before marking as paid."))
+            
             # Create final repayment
             repayment = self.env["alba.loan.repayment"].create({
                 "loan_id": rec.loan_id.id,
                 "payment_date": rec.settlement_date,
                 "amount_paid": rec.final_settlement_amount,
                 "payment_method": "bank_transfer",
+                "journal_id": rec.journal_id.id,
                 "notes": _("Early settlement - %s") % rec.name,
             })
             repayment.action_post()

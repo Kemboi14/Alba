@@ -158,6 +158,7 @@
                             <group string="Payment Details" invisible="state in ('draft', 'cancelled', 'expired')">
                                 <field name="payment_method"/>
                                 <field name="payment_reference"/>
+                                <field name="journal_id" options="{'no_create': True}" required="state in ('quoted', 'accepted')"/>
                                 <field name="repayment_id" readonly="1"/>
                                 <field name="processed_by" readonly="1"/>
                             </group>

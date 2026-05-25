@@ -87,6 +87,7 @@
                             <field name="payment_date"/>
                             <field name="payment_method"/>
                             <field name="payment_reference"/>
+                            <field name="journal_id" options="{'no_create': True}" required="state in ('quoted', 'accepted')"/>
                         </group>
                         <group>
                             <field name="repayment_id" readonly="1"/>
@@ -148,6 +149,7 @@
                         <group>
                             <field name="payoff_amount"/>
                             <field name="reduction_mode"/>
+                            <field name="journal_id" options="{'no_create': True}"/>
                         </group>
                         <group>
                             <field name="principal_reduction" readonly="1"/>

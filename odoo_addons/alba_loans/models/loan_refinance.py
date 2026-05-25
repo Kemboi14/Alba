@@ -155,6 +155,12 @@ class AlbaLoanRefinance(models.Model):
         store=True,
         help="If settlement > new loan (shortfall)",
     )
+    journal_id = fields.Many2one(
+        "account.journal",
+        string="Settlement Journal",
+        domain="[('type', 'in', ['bank', 'cash'])]",
+        help="Journal used for settling the original loan",
+    )
     monthly_savings = fields.Monetary(
         string="Monthly Savings",
         currency_field="currency_id",
@@ -391,6 +397,15 @@ class AlbaLoanRefinance(models.Model):
             if rec.state != "approved":
                 raise UserError(_("Refinance must be approved first."))
             
+            # Auto-select journal if not set
+            if not rec.journal_id:
+                rec.journal_id = self.env["account.journal"].search([
+                    ("type", "=", "bank"),
+                ], limit=1)
+            
+            if not rec.journal_id:
+                raise UserError(_("Please select a Settlement Journal before settling the loan."))
+            
             # Create final repayment for original loan
             repayment = self.env["alba.loan.repayment"].create({
                 "loan_id": rec.original_loan_id.id,
@@ -398,6 +413,7 @@ class AlbaLoanRefinance(models.Model):
                 "amount_paid": rec.settlement_amount,
                 "payment_method": "bank_transfer",
                 "payment_reference": _("Refinance settlement - %s") % rec.name,
+                "journal_id": rec.journal_id.id,
                 "notes": _("Loan refinanced - settlement via %s") % rec.name,
             })
             repayment.action_post()

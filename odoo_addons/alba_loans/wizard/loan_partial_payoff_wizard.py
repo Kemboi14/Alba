@@ -58,6 +58,12 @@ class AlbaLoanPartialPayoffWizard(models.TransientModel):
         ("reduce_emi", "Reduce EMI (Keep Same Tenure)"),
         ("reduce_tenure", "Reduce Tenure (Keep Same EMI)"),
     ], string="Reduction Mode", required=True, default="reduce_emi")
+    journal_id = fields.Many2one(
+        "account.journal",
+        string="Payment Journal",
+        domain="[('type', 'in', ['bank', 'cash'])]",
+        help="Journal for immediate payment",
+    )
     
     # Calculated Results
     principal_reduction = fields.Monetary(
@@ -197,6 +203,7 @@ class AlbaLoanPartialPayoffWizard(models.TransientModel):
             "loan_id": self.loan_id.id,
             "payoff_amount": self.payoff_amount,
             "reduction_mode": self.reduction_mode,
+            "journal_id": self.journal_id.id if self.journal_id else False,
         })
         
         # Generate quote

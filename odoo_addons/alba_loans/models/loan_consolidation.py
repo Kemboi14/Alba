@@ -129,6 +129,12 @@ class AlbaLoanConsolidation(models.Model):
         compute="_compute_new_terms",
         store=True,
     )
+    journal_id = fields.Many2one(
+        "account.journal",
+        string="Settlement Journal",
+        domain="[('type', 'in', ['bank', 'cash'])]",
+        help="Journal used for settling the original loans",
+    )
     monthly_savings = fields.Monetary(
         string="Monthly Savings",
         currency_field="currency_id",
@@ -409,6 +415,15 @@ class AlbaLoanConsolidation(models.Model):
             if rec.state != "approved":
                 raise UserError(_("Must be approved first."))
             
+            # Auto-select journal if not set
+            if not rec.journal_id:
+                rec.journal_id = self.env["account.journal"].search([
+                    ("type", "=", "bank"),
+                ], limit=1)
+            
+            if not rec.journal_id:
+                raise UserError(_("Please select a Settlement Journal before settling the loans."))
+            
             for loan in rec.loan_ids:
                 # Create repayment to settle
                 repayment = self.env["alba.loan.repayment"].create({
@@ -417,6 +432,7 @@ class AlbaLoanConsolidation(models.Model):
                     "amount_paid": loan.outstanding_balance,
                     "payment_method": "bank_transfer",
                     "payment_reference": _("Consolidation settlement - %s") % rec.name,
+                    "journal_id": rec.journal_id.id,
                     "notes": _("Loan consolidated into %s") % rec.name,
                 })
                 repayment.action_post()

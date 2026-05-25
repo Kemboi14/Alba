@@ -504,6 +504,14 @@ class AlbaLoanRepayment(models.Model):
             if total_comp == 0.0:
                 rec._auto_allocate_components()
 
+            # Auto-select journal if not set
+            if not rec.journal_id:
+                rec.journal_id = self.env["account.journal"].search([
+                    ("type", "=", "bank"),
+                ], limit=1) or self.env["account.journal"].search([
+                    ("type", "=", "cash"),
+                ], limit=1)
+
             # Validate journal
             if not rec.journal_id:
                 raise UserError(

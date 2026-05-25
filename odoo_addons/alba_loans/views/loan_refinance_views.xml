@@ -71,6 +71,7 @@
                             <field name="settlement_amount" readonly="1"/>
                             <field name="refinance_fee_rate" readonly="state != 'draft'"/>
                             <field name="refinance_fee_amount" readonly="1"/>
+                            <field name="journal_id" options="{'no_create': True}" required="state == 'approved'"/>
                         </group>
                         <group>
                             <field name="cashback_to_customer" readonly="1"/>

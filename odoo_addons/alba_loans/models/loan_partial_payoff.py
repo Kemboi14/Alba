@@ -159,6 +159,12 @@ class AlbaLoanPartialPayoff(models.Model):
         ("cheque", "Cheque"),
     ], string="Payment Method")
     payment_reference = fields.Char(string="Payment Reference")
+    journal_id = fields.Many2one(
+        "account.journal",
+        string="Payment Journal",
+        domain="[('type', 'in', ['bank', 'cash'])]",
+        help="Bank or Cash journal where payment was received",
+    )
     
     # Links
     repayment_id = fields.Many2one(
@@ -374,6 +380,15 @@ class AlbaLoanPartialPayoff(models.Model):
                 raise UserError(_("Quote has expired. Please generate a new quote."))
             
             loan = rec.loan_id
+
+            # Auto-select journal if not set
+            if not rec.journal_id:
+                rec.journal_id = self.env["account.journal"].search([
+                    ("type", "=", "bank"),
+                ], limit=1)
+            
+            if not rec.journal_id:
+                raise UserError(_("Please select a Payment Journal before applying."))
             
             # Create repayment record
             repayment = self.env["alba.loan.repayment"].create({
@@ -382,6 +397,7 @@ class AlbaLoanPartialPayoff(models.Model):
                 "amount_paid": rec.payoff_amount,
                 "payment_method": rec.payment_method or "bank_transfer",
                 "payment_reference": rec.payment_reference or rec.name,
+                "journal_id": rec.journal_id.id,
                 "notes": _("Partial Payoff - %s") % rec.name,
             })
             repayment.action_post()
