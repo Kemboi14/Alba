@@ -94,10 +94,13 @@ class AlbaLoanTopup(models.Model):
         res = super(AlbaLoanTopup, self).action_disburse()
         for rec in self:
             if rec.state == 'disbursed':
-                self.env['alba.loan.modification.hooks']._send_modification_sms(
-                    rec, 'LOAN_TOPUP_DISBURSED',
-                    {'amount': rec.topup_amount, 'new_principal': rec.new_principal}
-                )
+                try:
+                    self.env['alba.loan.modification.hooks']._send_modification_sms(
+                        rec, 'LOAN_TOPUP_DISBURSED',
+                        {'amount': rec.topup_amount, 'new_principal': rec.new_principal}
+                    )
+                except Exception as e:  # ensure SMS errors don't block the action
+                    _logger.exception("alba_sms: failed to send topup disbursed SMS: %s", e)
         return res
 
 class AlbaLoanPartialPayoff(models.Model):
@@ -107,10 +110,13 @@ class AlbaLoanPartialPayoff(models.Model):
         res = super(AlbaLoanPartialPayoff, self).action_apply()
         for rec in self:
             if rec.state == 'applied':
-                self.env['alba.loan.modification.hooks']._send_modification_sms(
-                    rec, 'LOAN_PARTIAL_PAYOFF_APPLIED',
-                    {'amount': rec.payoff_amount, 'savings': rec.interest_saved}
-                )
+                try:
+                    self.env['alba.loan.modification.hooks']._send_modification_sms(
+                        rec, 'LOAN_PARTIAL_PAYOFF_APPLIED',
+                        {'amount': rec.payoff_amount, 'savings': rec.interest_saved}
+                    )
+                except Exception as e:
+                    _logger.exception("alba_sms: failed to send partial payoff SMS: %s", e)
         return res
 
 class AlbaLoanPaymentHoliday(models.Model):
@@ -120,10 +126,13 @@ class AlbaLoanPaymentHoliday(models.Model):
         res = super(AlbaLoanPaymentHoliday, self).action_activate()
         for rec in self:
             if rec.state == 'active':
-                self.env['alba.loan.modification.hooks']._send_modification_sms(
-                    rec, 'LOAN_PAYMENT_HOLIDAY_ACTIVATED',
-                    {'months': rec.holiday_months, 'end_date': rec.end_date}
-                )
+                try:
+                    self.env['alba.loan.modification.hooks']._send_modification_sms(
+                        rec, 'LOAN_PAYMENT_HOLIDAY_ACTIVATED',
+                        {'months': rec.holiday_months, 'end_date': rec.end_date}
+                    )
+                except Exception as e:
+                    _logger.exception("alba_sms: failed to send payment holiday SMS: %s", e)
         return res
 
 class AlbaLoanRefinance(models.Model):
@@ -133,10 +142,13 @@ class AlbaLoanRefinance(models.Model):
         res = super(AlbaLoanRefinance, self).action_complete()
         for rec in self:
             if rec.state == 'completed':
-                self.env['alba.loan.modification.hooks']._send_modification_sms(
-                    rec, 'LOAN_REFINANCE_COMPLETED',
-                    {'new_loan': rec.new_loan_id.loan_number if rec.new_loan_id else ''}
-                )
+                try:
+                    self.env['alba.loan.modification.hooks']._send_modification_sms(
+                        rec, 'LOAN_REFINANCE_COMPLETED',
+                        {'new_loan': rec.new_loan_id.loan_number if rec.new_loan_id else ''}
+                    )
+                except Exception as e:
+                    _logger.exception("alba_sms: failed to send refinance completed SMS: %s", e)
         return res
 
 class AlbaLoanConsolidation(models.Model):
@@ -146,8 +158,11 @@ class AlbaLoanConsolidation(models.Model):
         res = super(AlbaLoanConsolidation, self).action_complete()
         for rec in self:
             if rec.state == 'completed':
-                self.env['alba.loan.modification.hooks']._send_modification_sms(
-                    rec, 'LOAN_CONSOLIDATION_COMPLETED',
-                    {'loan_count': len(rec.loan_ids), 'new_loan': rec.new_loan_id.loan_number if rec.new_loan_id else ''}
-                )
+                try:
+                    self.env['alba.loan.modification.hooks']._send_modification_sms(
+                        rec, 'LOAN_CONSOLIDATION_COMPLETED',
+                        {'loan_count': len(rec.loan_ids), 'new_loan': rec.new_loan_id.loan_number if rec.new_loan_id else ''}
+                    )
+                except Exception as e:
+                    _logger.exception("alba_sms: failed to send consolidation completed SMS: %s", e)
         return res
