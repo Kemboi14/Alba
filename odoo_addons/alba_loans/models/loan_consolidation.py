@@ -479,6 +479,7 @@ class AlbaLoanConsolidation(models.Model):
                 "installment_amount": rec.new_emi,
                 "outstanding_balance": rec.consolidated_amount,
                 "state": "active",
+                "journal_id": rec.journal_id.id,
             })
             
             loan.action_generate_schedule()

@@ -796,6 +796,17 @@ class AlbaLoan(models.Model):
         if self.disbursement_move_id:
             raise UserError(_("Disbursement entry already exists for loan %s.") % self.loan_number)
 
+        # Auto-select journal if not set
+        if not self.journal_id:
+            self.journal_id = self.env["account.journal"].search([
+                ("type", "=", "bank"),
+            ], limit=1) or self.env["account.journal"].search([
+                ("type", "=", "cash"),
+            ], limit=1)
+
+        if not self.journal_id:
+            raise UserError(_("Please select a Disbursement Journal before posting the entry."))
+
         product = self.loan_product_id
         if not product.account_loan_receivable_id or not product.account_clearing_id:
             raise UserError(_("Please configure Loan Receivable and Clearing accounts on product '%s'.") % product.name)

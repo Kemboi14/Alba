@@ -466,6 +466,7 @@ class AlbaLoanRefinance(models.Model):
                 "installment_amount": rec.new_emi,
                 "outstanding_balance": rec.new_principal,
                 "state": "active",
+                "journal_id": rec.journal_id.id,
             })
             
             # Generate schedule
