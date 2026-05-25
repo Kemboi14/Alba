@@ -356,24 +356,11 @@ class AlbaLoanRefinance(models.Model):
             })
             
             rec.message_post(body=_(
-                "<b>REFINANCE QUOTE GENERATED</b><br/>"
-                "Quote Ref: %s<br/>"
-                "Original Product: %s → New Product: %s<br/>"
-                "Settlement Amount: %s %s<br/>"
-                "New Principal: %s %s<br/>"
-                "Refinance Fee: %s %s<br/>"
-                "Cashback to Customer: %s %s<br/>"
-                "Monthly Savings: %s %s<br/>"
-                "Valid Until: %s"
+                "<b>REFINANCE QUOTE</b>: %s %s new principal (%s → %s). Fee: %s %s."
             ) % (
-                rec.name,
-                rec.original_product_id.name, rec.new_product_id.name,
-                rec.currency_id.symbol, rec.settlement_amount,
                 rec.currency_id.symbol, rec.new_principal,
+                rec.original_product_id.name, rec.new_product_id.name,
                 rec.currency_id.symbol, rec.refinance_fee_amount,
-                rec.currency_id.symbol, rec.cashback_to_customer,
-                rec.currency_id.symbol, rec.monthly_savings,
-                rec.quote_valid_until,
             ))
     
     def action_customer_accept(self):
@@ -383,7 +370,7 @@ class AlbaLoanRefinance(models.Model):
                 "state": "customer_accepted",
                 "customer_acceptance_date": fields.Date.today(),
             })
-            rec.message_post(body=_("Customer accepted refinance quote."))
+            rec.message_post(body=_("Quote accepted."))
     
     def action_approve(self):
         """Approve refinance"""
@@ -396,7 +383,7 @@ class AlbaLoanRefinance(models.Model):
                 "approved_by": self.env.user.id,
                 "approved_date": fields.Date.today(),
             })
-            rec.message_post(body=_("Refinance approved by %s.") % self.env.user.name)
+            rec.message_post(body=_("Refinance approved."))
     
     def action_settle_original_loan(self):
         """Create repayment to settle original loan"""
@@ -420,10 +407,8 @@ class AlbaLoanRefinance(models.Model):
                 "state": "closed",
             })
             rec.original_loan_id.message_post(body=_(
-                "<b>LOAN SETTLED VIA REFINANCE</b><br/>"
-                "Refinance Ref: %s<br/>"
-                "Settlement Amount: %s %s"
-            ) % (rec.name, rec.currency_id.symbol, rec.settlement_amount))
+                "<b>SETTLED VIA REFINANCE</b>: %s %s settled."
+            ) % (rec.currency_id.symbol, rec.settlement_amount))
             
             rec.write({"state": "settled"})
             rec.message_post(body=_("Original loan settled."))
@@ -479,11 +464,8 @@ class AlbaLoanRefinance(models.Model):
             })
             
             rec.message_post(body=_(
-                "<b>NEW LOAN DISBURSED</b><br/>"
-                "Loan Number: %s<br/>"
-                "Principal: %s %s<br/>"
-                "EMI: %s %s"
-            ) % (loan.loan_number, rec.currency_id.symbol, rec.new_principal, rec.currency_id.symbol, rec.new_emi))
+                "<b>NEW LOAN DISBURSED</b>: %s (Principal: %s %s)"
+            ) % (loan.loan_number, rec.currency_id.symbol, rec.new_principal))
     
     def action_complete(self):
         """Complete refinance process"""
@@ -504,7 +486,7 @@ class AlbaLoanRefinance(models.Model):
         """Reject refinance"""
         for rec in self:
             rec.write({"state": "rejected"})
-            rec.message_post(body=_("Refinance rejected by %s.") % self.env.user.name)
+            rec.message_post(body=_("Refinance rejected."))
 
     def action_view_original_loan(self):
         """Navigate to the original loan"""

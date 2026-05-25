@@ -382,31 +382,12 @@ class AlbaLoanConsolidation(models.Model):
                 "new_tenure_months": rec.new_tenure_months or max(rec.loan_ids.mapped("remaining_tenure")),
             })
             
-            # Build loan list for message
-            loan_list = "<br/>".join([
-                "• %s: %s %s outstanding" % (l.loan_number, rec.currency_id.symbol, l.outstanding_balance)
-                for l in rec.loan_ids
-            ])
-            
             rec.message_post(body=_(
-                "<b>CONSOLIDATION QUOTE GENERATED</b><br/>"
-                "Loans to Consolidate:<br/>%s<br/><br/>"
-                "Total Outstanding: %s %s<br/>"
-                "Consolidated Amount: %s %s<br/>"
-                "New Interest Rate: %s%%<br/>"
-                "New EMI: %s %s<br/>"
-                "Monthly Savings: %s %s<br/>"
-                "Consolidation Fee: %s %s<br/>"
-                "Valid Until: %s"
+                "<b>CONSOLIDATION QUOTE</b>: %s loans. Total: %s %s. Fee: %s %s."
             ) % (
-                loan_list,
+                len(rec.loan_ids),
                 rec.currency_id.symbol, rec.total_outstanding,
-                rec.currency_id.symbol, rec.consolidated_amount,
-                rec.new_interest_rate,
-                rec.currency_id.symbol, rec.new_emi,
-                rec.currency_id.symbol, rec.monthly_savings,
                 rec.currency_id.symbol, rec.consolidation_fee_amount,
-                rec.quote_valid_until,
             ))
     
     def action_approve(self):
@@ -420,7 +401,7 @@ class AlbaLoanConsolidation(models.Model):
                 "approved_by": self.env.user.id,
                 "approved_date": fields.Date.today(),
             })
-            rec.message_post(body=_("Consolidation approved by %s.") % self.env.user.name)
+            rec.message_post(body=_("Consolidation approved."))
     
     def action_settle_loans(self):
         """Settle all old loans"""
@@ -442,7 +423,7 @@ class AlbaLoanConsolidation(models.Model):
                 
                 # Close loan
                 loan.write({"state": "closed"})
-                loan.message_post(body=Markup(_("<b>LOAN CONSOLIDATED</b><br/>Consolidation Ref: %s")) % rec.name)
+                loan.message_post(body=Markup(_("<b>CONSOLIDATED</b>: Settlement Ref: %s")) % rec.name)
             
             rec.write({"state": "settled"})
             rec.message_post(body=_("All %s loans settled.") % len(rec.loan_ids))
@@ -493,13 +474,8 @@ class AlbaLoanConsolidation(models.Model):
             })
             
             rec.message_post(body=_(
-                "<b>CONSOLIDATED LOAN DISBURSED</b><br/>"
-                "Loan Number: %s<br/>"
-                "Principal: %s %s<br/>"
-                "EMI: %s %s<br/>"
-                "Monthly Savings: %s %s"
-            ) % (loan.loan_number, rec.currency_id.symbol, rec.consolidated_amount,
-                 rec.currency_id.symbol, rec.new_emi, rec.currency_id.symbol, rec.monthly_savings))
+                "<b>CONSOLIDATED LOAN DISBURSED</b>: %s (Principal: %s %s)"
+            ) % (loan.loan_number, rec.currency_id.symbol, rec.consolidated_amount))
     
     def action_complete(self):
         """Complete consolidation"""
@@ -520,7 +496,7 @@ class AlbaLoanConsolidation(models.Model):
         """Reject consolidation"""
         for rec in self:
             rec.write({"state": "rejected"})
-            rec.message_post(body=_("Consolidation rejected by %s.") % self.env.user.name)
+            rec.message_post(body=_("Consolidation rejected."))
 
     def action_view_customer(self):
         """Navigate to the customer"""

@@ -297,7 +297,7 @@ class AlbaLoanTopup(models.Model):
             rec.write({
                 "state": "pending",
             })
-            rec.message_post(body=_("Top-up request submitted for approval."))
+            rec.message_post(body=_("Top-up request submitted."))
     
     def action_approve(self):
         """Approve top-up request"""
@@ -315,7 +315,7 @@ class AlbaLoanTopup(models.Model):
                 "approved_by": self.env.user.id,
                 "approved_date": fields.Date.today(),
             })
-            rec.message_post(body=_("Top-up approved by %s.") % self.env.user.name)
+            rec.message_post(body=_("Top-up approved."))
     
     def action_disburse(self):
         """Disburse top-up amount and update loan"""
@@ -356,20 +356,13 @@ class AlbaLoanTopup(models.Model):
                 template.send_mail(rec.id, force_send=True)
 
             rec.message_post(body=_(
-                "<b>TOP-UP DISBURSED</b><br/>"
-                "Amount: %s %s<br/>"
-                "New Principal: %s %s<br/>"
-                "Method: %s"
+                "<b>TOP-UP DISBURSED</b>: %s %s via %s"
             ) % (rec.currency_id.symbol, rec.topup_amount, 
-                 rec.currency_id.symbol, new_principal,
                  dict(rec._fields["disbursement_method"].selection).get(rec.disbursement_method)))
             
             loan.message_post(body=_(
-                "<b>TOP-UP APPLIED</b><br/>"
-                "Reference: %s<br/>"
-                "Amount Added: %s %s<br/>"
-                "New Principal: %s %s"
-            ) % (rec.name, rec.currency_id.symbol, rec.topup_amount,
+                "<b>TOP-UP APPLIED</b>: %s %s added. New Principal: %s %s"
+            ) % (rec.currency_id.symbol, rec.topup_amount,
                  rec.currency_id.symbol, new_principal))
     
     def _post_disbursement_entry(self):
@@ -421,7 +414,7 @@ class AlbaLoanTopup(models.Model):
             rec.write({
                 "state": "rejected",
             })
-            rec.message_post(body=_("Top-up rejected by %s.") % self.env.user.name)
+            rec.message_post(body=_("Top-up rejected."))
     
     def action_cancel(self):
         """Cancel draft/pending top-up"""

@@ -337,32 +337,14 @@ class AlbaLoanPartialPayoff(models.Model):
             
             # Generate message for customer
             if rec.reduction_mode == "reduce_emi":
-                mode_desc = _(
-                    "EMI will reduce from %s to %s (save %s per month)<br/>"
-                    "Tenure remains %s months"
-                ) % (rec.currency_id.symbol, rec.current_emi, rec.currency_id.symbol, rec.new_emi,
-                     rec.currency_id.symbol, rec.emi_reduction, rec.remaining_tenure)
+                mode_desc = _("EMI will reduce by %s %s") % (rec.currency_id.symbol, rec.emi_reduction)
             else:
-                mode_desc = _(
-                    "Tenure will reduce from %s to %s months (finish %s months earlier)<br/>"
-                    "EMI remains %s"
-                ) % (rec.remaining_tenure, rec.new_tenure, rec.tenure_reduction, rec.currency_id.symbol, rec.new_emi)
+                mode_desc = _("Tenure will reduce by %s months") % rec.tenure_reduction
             
             rec.message_post(body=_(
-                "<b>PARTIAL PAYOFF QUOTE GENERATED</b><br/>"
-                "Quote Ref: %s<br/>"
-                "Payoff Amount: %s %s<br/>"
-                "Principal Reduction: %s %s<br/>"
-                "Interest Saved: %s %s<br/>"
-                "New Outstanding: %s %s<br/><br/>"
-                "%s<br/><br/>"
-                "Quote valid until: %s"
+                "<b>PARTIAL PAYOFF QUOTE</b>: %s %s (%s). Valid until: %s"
             ) % (
-                rec.name,
                 rec.currency_id.symbol, rec.payoff_amount,
-                rec.currency_id.symbol, rec.principal_reduction,
-                rec.currency_id.symbol, rec.interest_saved,
-                rec.currency_id.symbol, rec.new_outstanding,
                 mode_desc,
                 rec.quote_valid_until,
             ))
@@ -378,7 +360,7 @@ class AlbaLoanPartialPayoff(models.Model):
             rec.write({
                 "state": "accepted",
             })
-            rec.message_post(body=_("Quote accepted by customer."))
+            rec.message_post(body=_("Quote accepted."))
     
     def action_apply(self):
         """Apply partial payoff to loan"""
@@ -429,36 +411,21 @@ class AlbaLoanPartialPayoff(models.Model):
 
             # Log
             if rec.reduction_mode == "reduce_emi":
-                mode_result = _(
-                    "New EMI: %s %s (reduced by %s %s)<br/>"
-                    "Tenure unchanged: %s months"
-                ) % (rec.currency_id.symbol, rec.new_emi, rec.currency_id.symbol, rec.emi_reduction, rec.remaining_tenure)
+                mode_result = _("EMI reduced by %s %s") % (rec.currency_id.symbol, rec.emi_reduction)
             else:
-                mode_result = _(
-                    "Tenure reduced to %s months (save %s months)<br/>"
-                    "EMI unchanged: %s %s"
-                ) % (rec.new_tenure, rec.tenure_reduction, rec.currency_id.symbol, rec.new_emi)
+                mode_result = _("Tenure reduced by %s months") % rec.tenure_reduction
             
             rec.message_post(body=_(
-                "<b>PARTIAL PAYOFF APPLIED</b><br/>"
-                "Principal Reduced: %s %s<br/>"
-                "Interest Saved: %s %s<br/>"
-                "New Outstanding: %s %s<br/><br/>"
-                "%s"
+                "<b>PARTIAL PAYOFF APPLIED</b>: %s %s reduced principal. %s."
             ) % (
                 rec.currency_id.symbol, rec.principal_reduction,
-                rec.currency_id.symbol, rec.interest_saved,
-                rec.currency_id.symbol, rec.new_outstanding,
                 mode_result,
             ))
             
             loan.message_post(body=_(
-                "<b>PARTIAL PAYOFF APPLIED</b><br/>"
-                "Reference: %s<br/>"
-                "Amount: %s %s<br/>"
-                "Principal Reduction: %s %s"
-            ) % (rec.name, rec.currency_id.symbol, rec.payoff_amount,
-                 rec.currency_id.symbol, rec.principal_reduction))
+                "<b>PARTIAL PAYOFF APPLIED</b>: %s %s. New Outstanding: %s %s"
+            ) % (rec.currency_id.symbol, rec.payoff_amount,
+                 rec.currency_id.symbol, new_outstanding))
     
     def action_cancel(self):
         """Cancel draft/quoted payoff"""
