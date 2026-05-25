@@ -327,7 +327,7 @@ class AlbaLoanSmsHook(models.Model):
         if not provider or not template:
             return
 
-            for sched in schedules:
+        for sched in schedules:
             customer = sched.loan_id.customer_id
             partner_rec = getattr(customer, 'partner_id', None)
             phone = (
