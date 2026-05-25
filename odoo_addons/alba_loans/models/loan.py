@@ -380,6 +380,23 @@ class AlbaLoan(models.Model):
         compute="_compute_report_fields",
         store=True,
     )
+    total_interest = fields.Monetary(
+        string="Total Interest",
+        currency_field="currency_id",
+        compute="_compute_report_fields",
+        store=True,
+    )
+    accrued_interest = fields.Monetary(
+        string="Accrued Interest",
+        currency_field="currency_id",
+        compute="_compute_report_fields",
+        store=True,
+    )
+    interest_amount = fields.Monetary(
+        string="Interest Amount",
+        compute="_compute_report_fields",
+        help="Total interest amount scheduled for this loan.",
+    )
     outstanding_charges = fields.Monetary(
         string="Outstanding Charges",
         currency_field="currency_id",
@@ -622,6 +639,13 @@ class AlbaLoan(models.Model):
             rec.outstanding_interest = sum(
                 max(line.interest_due - line.interest_paid, 0.0)
                 for line in schedule
+            )
+            rec.total_interest = sum(schedule.mapped("interest_due"))
+            rec.interest_amount = rec.total_interest
+            
+            today = fields.Date.today()
+            rec.accrued_interest = sum(
+                line.interest_due for line in schedule if line.due_date <= today
             )
 
             posted_repayments = rec.repayment_ids.filtered(lambda r: r.state == "posted")
