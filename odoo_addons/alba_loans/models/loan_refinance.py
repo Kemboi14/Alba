@@ -322,6 +322,28 @@ class AlbaLoanRefinance(models.Model):
             old_emi = loan.installment_amount
             rec.monthly_savings = max(0, old_emi - rec.new_emi)
 
+    @api.onchange("original_loan_id")
+    def _onchange_original_loan_id(self):
+        for rec in self:
+            if rec.original_loan_id:
+                loan = rec.original_loan_id
+                if not rec.new_product_id and loan.loan_product_id:
+                    rec.new_product_id = loan.loan_product_id.id
+                if not rec.new_principal:
+                    rec.new_principal = loan.principal_amount
+                if not rec.new_interest_rate:
+                    rec.new_interest_rate = loan.interest_rate
+                if not rec.new_tenure_months:
+                    rec.new_tenure_months = loan.tenure_months
+
+    @api.onchange("new_product_id")
+    def _onchange_new_product_id(self):
+        for rec in self:
+            if rec.new_product_id:
+                product = rec.new_product_id
+                rec.new_interest_rate = product.interest_rate
+                rec.new_tenure_months = product.min_tenure or product.max_tenure or 12
+
     @api.onchange("journal_id")
     def _onchange_journal_id(self):
         for rec in self:
