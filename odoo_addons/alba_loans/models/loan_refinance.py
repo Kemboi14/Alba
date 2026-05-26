@@ -161,6 +161,12 @@ class AlbaLoanRefinance(models.Model):
         domain="[('type', 'in', ['bank', 'cash'])]",
         help="Journal used for settling the original loan",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'inbound'), ('journal_id', '=', journal_id)]",
+        help="Specific payment method for the selected journal.",
+    )
     monthly_savings = fields.Monetary(
         string="Monthly Savings",
         currency_field="currency_id",
@@ -206,6 +212,14 @@ class AlbaLoanRefinance(models.Model):
         "alba.loan",
         string="New Loan",
         readonly=True,
+    )
+
+    # Top-up marker
+    is_topup = fields.Boolean(string="Is Top-Up", default=False)
+    topup_amount = fields.Monetary(
+        string="Top-Up Amount",
+        currency_field="currency_id",
+        help="If this refinance represents a top-up, amount added to original principal.",
     )
 
     document_ids = fields.One2many(
@@ -282,8 +296,17 @@ class AlbaLoanRefinance(models.Model):
             if rec.accrued_interest_to_date:
                 rec.settlement_amount += rec.accrued_interest_to_date
             
-            # Refinance fee = 1% of new principal
-            rec.refinance_fee_amount = rec.new_principal * (rec.refinance_fee_rate / 100)
+            # Refinance fee defaults
+            if rec.is_topup and rec.topup_amount and rec.original_product_id:
+                # For top-ups, apply original product fee templates to the top-up amount
+                try:
+                    rec.refinance_fee_amount = rec.original_product_id.calculate_total_fees(rec.topup_amount)
+                except Exception:
+                    # Fallback to standard refinance percentage if fee templates fail
+                    rec.refinance_fee_amount = rec.new_principal * (rec.refinance_fee_rate / 100)
+            else:
+                # Refinance fee = percentage of new principal
+                rec.refinance_fee_amount = rec.new_principal * (rec.refinance_fee_rate / 100)
             
             total_required = rec.settlement_amount + rec.refinance_fee_amount
             
@@ -298,6 +321,35 @@ class AlbaLoanRefinance(models.Model):
             # Monthly savings
             old_emi = loan.installment_amount
             rec.monthly_savings = max(0, old_emi - rec.new_emi)
+
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
+
+    def _ensure_payment_method_line(self):
+        for rec in self:
+            if not rec.journal_id:
+                continue
+            if rec.payment_method_line_id:
+                if rec.payment_method_line_id.journal_id != rec.journal_id:
+                    raise UserError(_(
+                        "Payment Method '%(method)s' does not belong to Settlement Journal '%(journal)s'.",
+                        method=rec.payment_method_line_id.display_name,
+                        journal=rec.journal_id.display_name,
+                    ))
+                if rec.payment_method_line_id.payment_type != "inbound":
+                    raise UserError(_("Please select an inbound payment method for settlement journal '%s'.") % rec.journal_id.display_name)
+                continue
+
+            method_line = self.env["account.payment.method.line"].search([
+                ("payment_type", "=", "inbound"),
+                ("journal_id", "=", rec.journal_id.id),
+            ], limit=1)
+            if not method_line:
+                raise UserError(_("Please configure an inbound Payment Method on settlement journal '%s'.") % rec.journal_id.display_name)
+            rec.payment_method_line_id = method_line
 
     def _get_modification_comparison_chart(self):
         self.ensure_one()
@@ -405,6 +457,7 @@ class AlbaLoanRefinance(models.Model):
             
             if not rec.journal_id:
                 raise UserError(_("Please select a Settlement Journal before settling the loan."))
+            rec._ensure_payment_method_line()
             
             # Create final repayment for original loan
             repayment = self.env["alba.loan.repayment"].create({
@@ -414,6 +467,7 @@ class AlbaLoanRefinance(models.Model):
                 "payment_method": "bank_transfer",
                 "payment_reference": _("Refinance settlement - %s") % rec.name,
                 "journal_id": rec.journal_id.id,
+                "payment_method_line_id": rec.payment_method_line_id.id,
                 "notes": _("Loan refinanced - settlement via %s") % rec.name,
             })
             repayment.action_post()

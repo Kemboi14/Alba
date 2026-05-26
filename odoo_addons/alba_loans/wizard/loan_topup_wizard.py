@@ -77,6 +77,12 @@ class AlbaLoanTopupWizard(models.TransientModel):
         string="Disbursement Journal",
         domain="[('type', 'in', ['bank', 'cash'])]",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'outbound'), ('journal_id', '=', journal_id)]",
+        help="Specific payment method for the selected journal.",
+    )
     
     # Currency
     currency_id = fields.Many2one(
@@ -142,6 +148,31 @@ class AlbaLoanTopupWizard(models.TransientModel):
             else:
                 rec.is_eligible = True
                 rec.eligibility_message = "✅ Loan is eligible for top-up"
+
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
+
+    def _ensure_payment_method_line(self):
+        self.ensure_one()
+        if not self.journal_id:
+            return
+        if self.payment_method_line_id:
+            if self.payment_method_line_id.journal_id != self.journal_id:
+                raise UserError(_("Selected payment method does not belong to the disbursement journal."))
+            if self.payment_method_line_id.payment_type != "outbound":
+                raise UserError(_("Please select an outbound payment method for disbursement journal '%s'.") % self.journal_id.display_name)
+            return
+
+        method_line = self.env["account.payment.method.line"].search([
+            ("payment_type", "=", "outbound"),
+            ("journal_id", "=", self.journal_id.id),
+        ], limit=1)
+        if not method_line:
+            raise UserError(_("Please configure an outbound Payment Method on disbursement journal '%s'.") % self.journal_id.display_name)
+        self.payment_method_line_id = method_line
     
     # =========================================================================
     # Actions
@@ -163,6 +194,8 @@ class AlbaLoanTopupWizard(models.TransientModel):
             journal = self.env["account.journal"].search([
                 ("type", "=", "bank"),
             ], limit=1)
+            self.journal_id = journal
+        self._ensure_payment_method_line()
         
         # Create top-up
         topup = self.env["alba.loan.topup"].create({
@@ -173,6 +206,7 @@ class AlbaLoanTopupWizard(models.TransientModel):
             "disbursement_method": self.disbursement_method,
             "disbursement_date": self.disbursement_date,
             "journal_id": journal.id if journal else False,
+            "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
         })
         
         # Auto-submit for approval

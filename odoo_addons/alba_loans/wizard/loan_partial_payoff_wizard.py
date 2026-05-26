@@ -64,6 +64,12 @@ class AlbaLoanPartialPayoffWizard(models.TransientModel):
         domain="[('type', 'in', ['bank', 'cash'])]",
         help="Journal for immediate payment",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'inbound'), ('journal_id', '=', journal_id)]",
+        help="Specific payment method for the selected journal.",
+    )
     
     # Calculated Results
     principal_reduction = fields.Monetary(
@@ -186,6 +192,12 @@ class AlbaLoanPartialPayoffWizard(models.TransientModel):
             else:
                 rec.is_valid = True
                 rec.validation_message = "✅ Valid payoff amount"
+
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
     
     # =========================================================================
     # Actions
@@ -204,6 +216,7 @@ class AlbaLoanPartialPayoffWizard(models.TransientModel):
             "payoff_amount": self.payoff_amount,
             "reduction_mode": self.reduction_mode,
             "journal_id": self.journal_id.id if self.journal_id else False,
+            "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
         })
         
         # Generate quote

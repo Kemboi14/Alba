@@ -24,6 +24,12 @@ class AlbaRepaymentSchedule(models.Model):
         ondelete="cascade",
         index=True,
     )
+    batch_id = fields.Many2one(
+        "alba.repayment.schedule.batch",
+        string="Schedule Batch",
+        ondelete="cascade",
+        index=True,
+    )
     customer_id = fields.Many2one(
         "alba.customer",
         string="Customer",

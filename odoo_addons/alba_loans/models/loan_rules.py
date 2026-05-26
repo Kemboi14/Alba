@@ -244,6 +244,12 @@ class AlbaLoanEarlySettlement(models.Model):
         domain="[('type', 'in', ['bank', 'cash'])]",
         help="Journal for settlement payment",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'inbound'), ('journal_id', '=', journal_id)]",
+        help="Specific inbound payment method for the selected settlement journal.",
+    )
     
     # Status
     state = fields.Selection([
@@ -282,6 +288,35 @@ class AlbaLoanEarlySettlement(models.Model):
             # Apply discount
             rec.discount_amount = rec.accrued_interest * (rec.discount_percentage / 100)
             rec.final_settlement_amount = rec.total_settlement_amount - rec.discount_amount
+
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
+
+    def _ensure_payment_method_line(self):
+        for rec in self:
+            if not rec.journal_id:
+                continue
+            if rec.payment_method_line_id:
+                if rec.payment_method_line_id.journal_id != rec.journal_id:
+                    raise UserError(_(
+                        "Payment Method '%(method)s' does not belong to Settlement Journal '%(journal)s'.",
+                        method=rec.payment_method_line_id.display_name,
+                        journal=rec.journal_id.display_name,
+                    ))
+                if rec.payment_method_line_id.payment_type != "inbound":
+                    raise UserError(_("Please select an inbound payment method for settlement journal '%s'.") % rec.journal_id.display_name)
+                continue
+
+            method_line = self.env["account.payment.method.line"].search([
+                ("payment_type", "=", "inbound"),
+                ("journal_id", "=", rec.journal_id.id),
+            ], limit=1)
+            if not method_line:
+                raise UserError(_("Please configure an inbound Payment Method on settlement journal '%s'.") % rec.journal_id.display_name)
+            rec.payment_method_line_id = method_line
     
     def action_generate_quote(self):
         """Generate settlement quote"""
@@ -316,6 +351,7 @@ class AlbaLoanEarlySettlement(models.Model):
             
             if not rec.journal_id:
                 raise UserError(_("Please select a Settlement Journal before marking as paid."))
+            rec._ensure_payment_method_line()
             
             # Create final repayment
             repayment = self.env["alba.loan.repayment"].create({
@@ -324,6 +360,7 @@ class AlbaLoanEarlySettlement(models.Model):
                 "amount_paid": rec.final_settlement_amount,
                 "payment_method": "bank_transfer",
                 "journal_id": rec.journal_id.id,
+                "payment_method_line_id": rec.payment_method_line_id.id,
                 "notes": _("Early settlement - %s") % rec.name,
             })
             repayment.action_post()

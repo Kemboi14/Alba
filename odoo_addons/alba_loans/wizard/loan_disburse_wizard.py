@@ -21,6 +21,11 @@ class AlbaLoanDisburseWizardLine(models.TransientModel):
         required=True,
         domain="[('type', 'in', ['bank', 'cash'])]",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'outbound'), ('journal_id', '=', journal_id)]",
+    )
     amount = fields.Monetary(
         string="Amount",
         required=True,
@@ -37,6 +42,12 @@ class AlbaLoanDisburseWizardLine(models.TransientModel):
         for rec in self:
             if rec.amount <= 0:
                 raise ValidationError(_("Split amount must be greater than zero."))
+
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
 
 
 class AlbaLoanDisburseWizard(models.TransientModel):
@@ -285,6 +296,8 @@ class AlbaLoanDisburseWizard(models.TransientModel):
     def _onchange_single_journal_split(self):
         """Keep the split tab useful for the common one-journal case."""
         for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
             if rec.journal_id and rec.approved_amount and not rec.split_line_ids:
                 rec.split_line_ids = [
                     (
@@ -293,6 +306,7 @@ class AlbaLoanDisburseWizard(models.TransientModel):
                         {
                             "sequence": 10,
                             "journal_id": rec.journal_id.id,
+                            "payment_method_line_id": rec.payment_method_line_id.id if rec.payment_method_line_id else False,
                             "amount": rec.approved_amount,
                         },
                     )
@@ -301,6 +315,25 @@ class AlbaLoanDisburseWizard(models.TransientModel):
                 line = rec.split_line_ids[0]
                 if line.journal_id == rec.journal_id:
                     line.amount = rec.approved_amount
+
+    def _ensure_payment_method_line(self):
+        self.ensure_one()
+        if not self.journal_id:
+            return
+        if self.payment_method_line_id:
+            if self.payment_method_line_id.journal_id != self.journal_id:
+                raise UserError(_("Selected payment method does not belong to the disbursement journal."))
+            if self.payment_method_line_id.payment_type != "outbound":
+                raise UserError(_("Please select an outbound payment method for disbursement journal '%s'.") % self.journal_id.display_name)
+            return
+
+        method_line = self.env["account.payment.method.line"].search([
+            ("payment_type", "=", "outbound"),
+            ("journal_id", "=", self.journal_id.id),
+        ], limit=1)
+        if not method_line:
+            raise UserError(_("Please configure an outbound Payment Method on disbursement journal '%s'.") % self.journal_id.display_name)
+        self.payment_method_line_id = method_line
 
     # =========================================================================
     # Constraints
@@ -372,6 +405,7 @@ class AlbaLoanDisburseWizard(models.TransientModel):
                     "wizard_id": self.id,
                     "sequence": 10,
                     "journal_id": self.journal_id.id,
+                    "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
                     "amount": self.approved_amount,
                 }
             )
@@ -385,11 +419,24 @@ class AlbaLoanDisburseWizard(models.TransientModel):
                     _("The selected journal '%s' has no default account configured.")
                     % line.journal_id.name
                 )
+            if line.payment_method_line_id:
+                if line.payment_method_line_id.journal_id != line.journal_id:
+                    raise UserError(_("Selected payment method does not belong to journal '%s'.") % line.journal_id.display_name)
+                if line.payment_method_line_id.payment_type != "outbound":
+                    raise UserError(_("Please select an outbound payment method for journal '%s'.") % line.journal_id.display_name)
+            else:
+                line.payment_method_line_id = self.env["account.payment.method.line"].search([
+                    ("payment_type", "=", "outbound"),
+                    ("journal_id", "=", line.journal_id.id),
+                ], limit=1)
+                if not line.payment_method_line_id:
+                    raise UserError(_("Please configure an outbound Payment Method on journal '%s'.") % line.journal_id.display_name)
             vals_list.append(
                 {
                     "loan_id": loan.id,
                     "sequence": line.sequence,
                     "journal_id": line.journal_id.id,
+                    "payment_method_line_id": line.payment_method_line_id.id,
                     "amount": line.amount,
                     "state": "approved",
                 }
@@ -436,6 +483,7 @@ class AlbaLoanDisburseWizard(models.TransientModel):
             "repayment_frequency": self.repayment_frequency,
             "disbursement_date": self.disbursement_date,
             "journal_id": self.journal_id.id,
+            "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
             "state": "active",
             "notes": self.notes or "",
         }
@@ -450,6 +498,7 @@ class AlbaLoanDisburseWizard(models.TransientModel):
         net_disbursement = self.approved_amount - total_fees
         
         if net_disbursement > 0:
+            self._ensure_payment_method_line()
             payment_vals = {
                 "date": self.disbursement_date,
                 "amount": net_disbursement,

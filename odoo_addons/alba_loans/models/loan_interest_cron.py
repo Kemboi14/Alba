@@ -61,7 +61,7 @@ class AlbaLoanInterestCron(models.Model):
             daily_rate = product.penalty_rate / 100.0
             total_penalty = 0.0
 
-            overdue_lines = loan.repayment_schedule_ids.filtered(
+            overdue_lines = (loan.current_repayment_schedule_ids or loan.repayment_schedule_ids).filtered(
                 lambda s: s.due_date and s.due_date < today and s.balance_due > 0
             )
             for line in overdue_lines:

@@ -36,6 +36,12 @@ class AlbaLoanRefinanceWizard(models.TransientModel):
         string="New Product",
         required=True,
     )
+    topup_amount = fields.Monetary(
+        string="Top-Up Amount",
+        currency_field="currency_id",
+        help="If opened in Top-Up mode, amount to add to existing principal.",
+    )
+    is_topup = fields.Boolean(string="Top-Up Mode", default=False)
     new_principal = fields.Monetary(
         string="New Principal",
         currency_field="currency_id",
@@ -55,23 +61,53 @@ class AlbaLoanRefinanceWizard(models.TransientModel):
         "res.currency",
         related="original_loan_id.currency_id",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        help="Specific payment method for the selected journal.",
+    )
     
     def _default_loan(self):
         return self.env.context.get("active_id")
+
+    @api.model
+    def default_get(self, fields_list):
+        vals = super().default_get(fields_list)
+        # If opened in top-up mode, prefill fields from original loan/product
+        if self.env.context.get("alba_topup_mode") and vals.get("original_loan_id"):
+            loan = self.env["alba.loan"].browse(vals.get("original_loan_id"))
+            if loan and loan.exists():
+                vals["is_topup"] = True
+                # default new product to original product
+                if loan.loan_product_id:
+                    vals["new_product_id"] = loan.loan_product_id.id
+                    vals["new_interest_rate"] = loan.loan_product_id.interest_rate
+                    vals["new_tenure_months"] = loan.tenure_months
+                # default new_principal to original principal
+                vals["new_principal"] = loan.principal_amount
+        return vals
+
+    @api.onchange("topup_amount", "is_topup")
+    def _onchange_topup_amount(self):
+        if self.is_topup and self.topup_amount and self.original_loan_id:
+            self.new_principal = (self.original_loan_id.principal_amount or 0.0) + (self.topup_amount or 0.0)
     
     def action_create_refinance(self):
         self.ensure_one()
         
         if not self.new_product_id:
             raise UserError(_("Please select a new product."))
-        
-        refinance = self.env["alba.loan.refinance"].create({
+        vals = {
             "original_loan_id": self.original_loan_id.id,
             "new_product_id": self.new_product_id.id,
             "new_principal": self.new_principal,
             "new_interest_rate": self.new_interest_rate,
             "new_tenure_months": self.new_tenure_months,
-        })
+        }
+        if self.is_topup:
+            vals.update({"is_topup": True, "topup_amount": self.topup_amount})
+
+        refinance = self.env["alba.loan.refinance"].create(vals)
         
         refinance.action_generate_quote()
         

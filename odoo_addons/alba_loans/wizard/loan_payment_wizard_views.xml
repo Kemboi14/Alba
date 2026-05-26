@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_loan_payment_wizard_form" model="ir.ui.view">
+    <field name="name">alba.loan.payment.wizard.form</field>
+    <field name="model">alba.loan.payment.wizard</field>
+    <field name="type">form</field>
+    <field name="arch" type="xml">
+      <form string="Loan Payment">
+        <sheet>
+          <group>
+            <field name="loan_id" readonly="1"/>
+            <field name="amount"/>
+            <field name="payment_date"/>
+            <field name="payment_method"/>
+            <field name="mpesa_transaction_id"/>
+            <field name="bank_transaction_id"/>
+            <field name="journal_id" options="{'no_create': True}"/>
+            <field name="payment_method_line_id" options="{'no_create': True}" invisible="not journal_id" required="journal_id"/>
+            <field name="payment_reference"/>
+          </group>
+        </sheet>
+        <footer>
+          <button string="Confirm Payment" name="action_confirm_payment" type="object" class="btn-primary"/>
+          <button string="Cancel" class="btn-link" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+</odoo>

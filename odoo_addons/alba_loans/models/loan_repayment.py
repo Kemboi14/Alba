@@ -227,6 +227,12 @@ class AlbaLoanRepayment(models.Model):
         tracking=True,
         help="Bank or Cash journal into which this payment was received.",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'inbound'), ('journal_id', '=', journal_id)]",
+        help="Specific payment method (e.g. Manual, M-Pesa) for this journal.",
+    )
 
     # ── Currency / Company ────────────────────────────────────────────────────
     company_id = fields.Many2one(
@@ -330,6 +336,40 @@ class AlbaLoanRepayment(models.Model):
                         journal=rec.journal_id.name,
                     ))
 
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
+
+    def _ensure_payment_method_line(self):
+        """Ensure inbound repayments always carry a method line for the journal."""
+        for rec in self:
+            if not rec.journal_id:
+                continue
+            if rec.payment_method_line_id:
+                if rec.payment_method_line_id.journal_id != rec.journal_id:
+                    raise UserError(_(
+                        "Payment Method '%(method)s' does not belong to Payment Journal '%(journal)s'.",
+                        method=rec.payment_method_line_id.display_name,
+                        journal=rec.journal_id.display_name,
+                    ))
+                if rec.payment_method_line_id.payment_type != "inbound":
+                    raise UserError(_(
+                        "Please select an inbound payment method for journal '%s'."
+                    ) % rec.journal_id.display_name)
+                continue
+
+            method_line = self.env["account.payment.method.line"].search([
+                ("payment_type", "=", "inbound"),
+                ("journal_id", "=", rec.journal_id.id),
+            ], limit=1)
+            if not method_line:
+                raise UserError(_(
+                    "Please configure an inbound Payment Method on journal '%s' before posting this repayment."
+                ) % rec.journal_id.display_name)
+            rec.payment_method_line_id = method_line
+
     @api.constrains(
         "amount_paid",
         "principal_component",
@@ -396,13 +436,13 @@ class AlbaLoanRepayment(models.Model):
         principal = 0.0
 
         # Pull overdue/pending schedule entries ordered by due_date asc
-        schedule = self.env["alba.repayment.schedule"].search(
-            [
-                ("loan_id", "=", self.loan_id.id),
-                ("balance_due", ">", 0),
-            ],
-            order="due_date asc",
-        )
+        # Prefer active batch schedules if present
+        Batch = self.env["alba.repayment.schedule.batch"]
+        batch = Batch.search([("loan_id", "=", self.loan_id.id), ("state", "=", "active")], limit=1, order="generated_on desc")
+        domain = [("loan_id", "=", self.loan_id.id), ("balance_due", ">", 0)]
+        if batch:
+            domain.append(("batch_id", "=", batch.id))
+        schedule = self.env["alba.repayment.schedule"].search(domain, order="due_date asc")
 
         # 1. Allocate to penalties first (Daily Compounding)
         for entry in schedule:
@@ -517,6 +557,8 @@ class AlbaLoanRepayment(models.Model):
                 raise UserError(
                     _("Please select a Payment Journal (Bank or Cash) before posting.")
                 )
+            rec._ensure_payment_method_line()
+
             bank_account = rec.journal_id.default_account_id
             if not bank_account:
                 raise UserError(
@@ -662,13 +704,16 @@ class AlbaLoanRepayment(models.Model):
         remaining_principal = self.principal_component
         remaining_interest = self.interest_component
 
-        schedule = self.env["alba.repayment.schedule"].search(
-            [
-                ("loan_id", "=", self.loan_id.id),
-                ("balance_due", ">", 0),
-            ],
-            order="due_date asc",
-        )
+        # Prefer active batch schedules if present
+        Batch = self.env["alba.repayment.schedule.batch"]
+        batch = Batch.search([("loan_id", "=", self.loan_id.id), ("state", "=", "active")], limit=1, order="generated_on desc")
+        domain = [
+            ("loan_id", "=", self.loan_id.id),
+            ("balance_due", ">", 0),
+        ]
+        if batch:
+            domain.append(("batch_id", "=", batch.id))
+        schedule = self.env["alba.repayment.schedule"].search(domain, order="due_date asc")
 
         for entry in schedule:
             if remaining_principal <= 0 and remaining_interest <= 0:
@@ -751,6 +796,13 @@ class AlbaLoanRepayment(models.Model):
                 vals["payment_reference"] = (
                     seq.next_by_code("alba.loan.repayment.seq") or "New"
                 )
+            if vals.get("journal_id") and not vals.get("payment_method_line_id"):
+                method_line = self.env["account.payment.method.line"].search([
+                    ("payment_type", "=", "inbound"),
+                    ("journal_id", "=", vals["journal_id"]),
+                ], limit=1)
+                if method_line:
+                    vals["payment_method_line_id"] = method_line.id
         return super().create(vals_list)
 
     def name_get(self):

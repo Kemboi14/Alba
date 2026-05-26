@@ -9,3 +9,4 @@ from . import loan_refinance_wizard
 from . import loan_consolidation_wizard
 from . import collateral_assignment_wizard
 from . import report_wizards
+from . import loan_payment_wizard

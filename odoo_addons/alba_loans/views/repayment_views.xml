@@ -74,6 +74,7 @@
                                 <field name="journal_id"
                                        readonly="state != 'draft'"
                                        required="state == 'draft'"/>
+                                <field name="payment_method_line_id" options="{'no_create': True}" invisible="not journal_id" readonly="state != 'draft'" required="journal_id and state == 'draft'"/>
                                 <field name="received_by"
                                        readonly="state != 'draft'"/>
                             </group>

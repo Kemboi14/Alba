@@ -135,6 +135,12 @@ class AlbaLoanConsolidation(models.Model):
         domain="[('type', 'in', ['bank', 'cash'])]",
         help="Journal used for settling the original loans",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'inbound'), ('journal_id', '=', journal_id)]",
+        help="Specific payment method for the selected journal.",
+    )
     monthly_savings = fields.Monetary(
         string="Monthly Savings",
         currency_field="currency_id",
@@ -309,6 +315,35 @@ class AlbaLoanConsolidation(models.Model):
                 rec.new_emi = 0
                 rec.new_total_repayable = 0
                 rec.monthly_savings = 0
+
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
+
+    def _ensure_payment_method_line(self):
+        for rec in self:
+            if not rec.journal_id:
+                continue
+            if rec.payment_method_line_id:
+                if rec.payment_method_line_id.journal_id != rec.journal_id:
+                    raise UserError(_(
+                        "Payment Method '%(method)s' does not belong to Settlement Journal '%(journal)s'.",
+                        method=rec.payment_method_line_id.display_name,
+                        journal=rec.journal_id.display_name,
+                    ))
+                if rec.payment_method_line_id.payment_type != "inbound":
+                    raise UserError(_("Please select an inbound payment method for settlement journal '%s'.") % rec.journal_id.display_name)
+                continue
+
+            method_line = self.env["account.payment.method.line"].search([
+                ("payment_type", "=", "inbound"),
+                ("journal_id", "=", rec.journal_id.id),
+            ], limit=1)
+            if not method_line:
+                raise UserError(_("Please configure an inbound Payment Method on settlement journal '%s'.") % rec.journal_id.display_name)
+            rec.payment_method_line_id = method_line
     
     @api.depends("total_outstanding", "consolidation_fee_rate")
     def _compute_fees(self):
@@ -423,6 +458,7 @@ class AlbaLoanConsolidation(models.Model):
             
             if not rec.journal_id:
                 raise UserError(_("Please select a Settlement Journal before settling the loans."))
+            rec._ensure_payment_method_line()
             
             for loan in rec.loan_ids:
                 # Create repayment to settle
@@ -433,6 +469,7 @@ class AlbaLoanConsolidation(models.Model):
                     "payment_method": "bank_transfer",
                     "payment_reference": _("Consolidation settlement - %s") % rec.name,
                     "journal_id": rec.journal_id.id,
+                    "payment_method_line_id": rec.payment_method_line_id.id,
                     "notes": _("Loan consolidated into %s") % rec.name,
                 })
                 repayment.action_post()

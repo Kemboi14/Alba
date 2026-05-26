@@ -78,17 +78,17 @@
                         <group>
                             <field name="new_emi" readonly="1"/>
                             <field name="new_tenure" readonly="1"/>
+                            <separator string="Payment"/>
+                            <field name="journal_id" options="{'no_create': True}" readonly="state == 'applied'" required="state in ('quoted', 'accepted')"/>
+                            <field name="payment_method_line_id" options="{'no_create': True}" invisible="not journal_id" readonly="state == 'applied'" required="journal_id and state in ('quoted', 'accepted')"/>
+                            <field name="payment_date" readonly="state == 'applied'"/>
+                            <field name="payment_method" readonly="state == 'applied'"/>
+                            <field name="payment_reference" readonly="state == 'applied'"/>
                             <field name="emi_reduction" readonly="1" invisible="emi_reduction == 0"/>
                             <field name="tenure_reduction" readonly="1" invisible="tenure_reduction == 0"/>
                         </group>
                     </group>
-                    <group invisible="state in ('draft', 'cancelled')">
-                        <group>
-                            <field name="payment_date"/>
-                            <field name="payment_method"/>
-                            <field name="payment_reference"/>
-                            <field name="journal_id" options="{'no_create': True}" required="state in ('quoted', 'accepted')"/>
-                        </group>
+                    <group string="Processing Summary" invisible="state in ('draft', 'cancelled')">
                         <group>
                             <field name="repayment_id" readonly="1"/>
                             <field name="processed_by" readonly="1"/>
@@ -102,6 +102,95 @@
                     </div>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <!-- Shared bottom panel: summary KPIs, charts, dates, documents -->
+    <record id="view_loan_partial_payoff_form_insights" model="ir.ui.view">
+        <field name="name">alba.loan.partial.payoff.form.insights</field>
+        <field name="model">alba.loan.partial.payoff</field>
+        <field name="inherit_id" ref="view_loan_partial_payoff_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[.//field[@name='repayment_id']]" position="replace"/>
+            <xpath expr="//div[hasclass('oe_chatter')]" position="before">
+                <field name="comparison_chart_data" invisible="1"/>
+                <field name="impact_chart_data" invisible="1"/>
+                <field name="document_count" invisible="1"/>
+                <div class="o_loan_modification_panel border-top pt-4 mt-4">
+                    <h4 class="mb-3 text-primary"><i class="fa fa-line-chart me-2"/> Summary &amp; Supporting Records</h4>
+                    <div class="row g-3 mb-4 mx-0">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="border rounded p-3 bg-light text-center h-100">
+                                <div class="text-muted small text-uppercase">Payoff Amount</div>
+                                <div class="h4 mb-0 fw-bold text-info"><field name="payoff_amount" widget="monetary" nolabel="1"/></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="border rounded p-3 bg-white text-center h-100 border-success">
+                                <div class="text-muted small text-uppercase">Principal Reduction</div>
+                                <div class="h4 mb-0 fw-bold text-success"><field name="principal_reduction" widget="monetary" nolabel="1"/></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="border rounded p-3 bg-white text-center h-100">
+                                <div class="text-muted small text-uppercase">Interest Saved</div>
+                                <div class="h4 mb-0 fw-bold text-primary"><field name="interest_saved" widget="monetary" nolabel="1"/></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="border rounded p-3 bg-white text-center h-100 border-warning">
+                                <div class="text-muted small text-uppercase">New Outstanding</div>
+                                <div class="h4 mb-0 fw-bold text-warning"><field name="new_outstanding" widget="monetary" nolabel="1"/></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-4 mx-0">
+                        <div class="col-lg-6">
+                            <div class="border rounded p-3 bg-white shadow-sm h-100">
+                                <h6 class="text-muted text-uppercase small mb-3">Before vs After</h6>
+                                <field name="comparison_chart_data" widget="loan_dashboard_charts" nolabel="1"/>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="border rounded p-3 bg-white shadow-sm h-100">
+                                <h6 class="text-muted text-uppercase small mb-3">Payoff Impact</h6>
+                                <field name="impact_chart_data" widget="loan_dashboard_charts" nolabel="1"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mx-0">
+                        <div class="col-lg-4">
+                            <group string="Key Dates">
+                                <field name="create_date" string="Created" readonly="1"/>
+                                <field name="quote_date" readonly="1"/>
+                                <field name="quote_valid_until" readonly="1"/>
+                                <field name="payment_date" readonly="1"/>
+                                <field name="processed_date" readonly="1" invisible="not processed_date"/>
+                            </group>
+                            <group string="Payment Details" invisible="state in ('draft', 'cancelled', 'expired')">
+                                <field name="payment_date" readonly="1"/>
+                                <field name="payment_reference" readonly="1"/>
+                                <field name="journal_id" readonly="1"/>
+                                <field name="payment_method_line_id" readonly="1"/>
+                                <field name="repayment_id" readonly="1"/>
+                                <field name="processed_by" readonly="1"/>
+                            </group>
+                        </div>
+                        <div class="col-lg-8">
+                            <group string="Related Documents">
+                                <field name="document_ids" nolabel="1" context="{'default_partner_id': partner_id, 'default_loan_id': loan_id, 'default_partial_payoff_id': id}">
+                                    <list editable="bottom" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'">
+                                        <field name="name"/>
+                                        <field name="document_type"/>
+                                        <field name="create_date" string="Uploaded"/>
+                                        <field name="state" widget="badge"/>
+                                    </list>
+                                </field>
+                            </group>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
         </field>
     </record>
 
@@ -123,66 +212,18 @@
         </field>
     </record>
 
-    <!-- Partial Payoff Wizard Form -->
-    <record id="view_loan_partial_payoff_wizard_form" model="ir.ui.view">
-        <field name="name">alba.loan.partial.payoff.wizard.form</field>
-        <field name="model">alba.loan.partial.payoff.wizard</field>
-        <field name="type">form</field>
-        <field name="arch" type="xml">
-            <form string="Calculate Partial Payoff">
-                <sheet>
-                    <group>
-                        <group>
-                            <field name="loan_id" readonly="1" options="{'no_create': True}"/>
-                            <field name="customer_id" readonly="1"/>
-                            <field name="current_outstanding" readonly="1"/>
-                            <field name="current_emi" readonly="1"/>
-                            <field name="remaining_tenure" readonly="1"/>
-                            <field name="currency_id" invisible="1"/>
-                        </group>
-                        <group>
-                            <field name="is_valid" readonly="1"/>
-                            <field name="validation_message" readonly="1"/>
-                        </group>
-                    </group>
-                    <group>
-                        <group>
-                            <field name="payoff_amount"/>
-                            <field name="reduction_mode"/>
-                            <field name="journal_id" options="{'no_create': True}"/>
-                        </group>
-                        <group>
-                            <field name="principal_reduction" readonly="1"/>
-                            <field name="interest_saved" readonly="1"/>
-                            <field name="new_outstanding" readonly="1"/>
-                            <field name="new_emi" readonly="1"/>
-                            <field name="new_tenure" readonly="1"/>
-                            <field name="emi_reduction" readonly="1" invisible="emi_reduction == 0"/>
-                            <field name="tenure_reduction" readonly="1" invisible="tenure_reduction == 0"/>
-                        </group>
-                    </group>
-                </sheet>
-                <footer>
-                    <button name="action_generate_quote" string="Generate Quote" type="object" class="oe_highlight" invisible="not is_valid"/>
-                    <button name="action_apply_immediately" string="Apply Immediately (If Paying Now)" type="object" class="oe_highlight" invisible="not is_valid"/>
-                    <button string="Cancel" class="oe_link" special="cancel"/>
-                </footer>
-            </form>
-        </field>
-    </record>
-
     <!-- Partial Payoff Action -->
     <record id="action_loan_partial_payoff" model="ir.actions.act_window">
-        <field name="name">Partial Payoffs</field>
+        <field name="name">Loan Partial Payoffs</field>
         <field name="res_model">alba.loan.partial.payoff</field>
         <field name="view_mode">list,form,graph</field>
         <field name="search_view_id" ref="view_loan_partial_payoff_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Create your first partial payoff
+                Create your first partial payoff quote
             </p>
             <p>
-                Partial payoffs allow customers to pay extra to reduce principal without full settlement.
+                Partial payoffs allow customers to make extra payments to reduce their loan tenure or EMI.
             </p>
         </field>
     </record>
@@ -200,10 +241,11 @@
         </field>
     </record>
 
-    <!-- Menu Item -->
+    <!-- Menu Item for Partial Payoffs -->
     <menuitem id="menu_loan_partial_payoff"
               name="Partial Payoffs"
-              parent="menu_alba_loans_root_active"
+              parent="menu_alba_repayments_root"
               action="action_loan_partial_payoff"
-              sequence="31"/>
+              sequence="15"
+              groups="alba_loans.group_loan_user"/>
 </odoo>

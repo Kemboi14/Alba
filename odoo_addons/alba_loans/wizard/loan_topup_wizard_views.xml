@@ -30,6 +30,7 @@
                             <field name="disbursement_method"/>
                             <field name="disbursement_date"/>
                             <field name="journal_id" options="{'no_create': True}"/>
+                            <field name="payment_method_line_id" options="{'no_create': True}" invisible="not journal_id" required="journal_id"/>
                         </group>
                     </group>
                 </sheet>

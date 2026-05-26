@@ -252,6 +252,12 @@ class AlbaLoan(models.Model):
         "loan_id",
         string="Repayment Schedule",
     )
+    current_repayment_schedule_ids = fields.One2many(
+        "alba.repayment.schedule",
+        "loan_id",
+        string="Current Repayment Schedule",
+        compute="_compute_current_repayment_schedule",
+    )
     repayment_ids = fields.One2many(
         "alba.loan.repayment",
         "loan_id",
@@ -280,6 +286,13 @@ class AlbaLoan(models.Model):
         domain="[('type', 'in', ['bank', 'cash'])]",
         tracking=True,
         help="Bank or Cash journal used when disbursing this loan.",
+    )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Disbursement Payment Method",
+        domain="[('payment_type', '=', 'outbound'), ('journal_id', '=', journal_id)]",
+        tracking=True,
+        help="Specific outbound payment method for the disbursement journal.",
     )
 
     # ── Currency / Company ────────────────────────────────────────────────────
@@ -497,7 +510,7 @@ class AlbaLoan(models.Model):
     )
     def _compute_financial_totals(self):
         for rec in self:
-            schedule = rec.repayment_schedule_ids
+            schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
             repayments = rec.repayment_ids.filtered(lambda r: r.state == "posted")
             rec.total_repayable = (
                 sum(schedule.mapped("total_due")) or rec.principal_amount
@@ -522,9 +535,8 @@ class AlbaLoan(models.Model):
     def _compute_par(self):
         today = fields.Date.today()
         for rec in self:
-            overdue = rec.repayment_schedule_ids.filtered(
-                lambda s: s.due_date < today and s.balance_due > 0
-            )
+            schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
+            overdue = schedule.filtered(lambda s: s.due_date < today and s.balance_due > 0)
             if not overdue:
                 rec.arrears_amount = 0.0
                 rec.days_in_arrears = 0
@@ -565,7 +577,8 @@ class AlbaLoan(models.Model):
                 rec.repayment_progress = 0
             
             # Next Payment Info
-            unpaid_schedule = rec.repayment_schedule_ids.filtered(lambda s: s.status != "paid").sorted("due_date")
+            schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
+            unpaid_schedule = schedule.filtered(lambda s: s.status != "paid").sorted("due_date")
             if unpaid_schedule:
                 next_item = unpaid_schedule[0]
                 rec.next_payment_due_date = next_item.due_date
@@ -595,14 +608,16 @@ class AlbaLoan(models.Model):
     @api.depends("repayment_schedule_ids", "repayment_schedule_ids.status")
     def _compute_remaining_tenure(self):
         for rec in self:
-            unpaid = rec.repayment_schedule_ids.filtered(lambda s: s.status != "paid")
+            schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
+            unpaid = schedule.filtered(lambda s: s.status != "paid")
             rec.remaining_tenure = len(unpaid)
 
     @api.depends("repayment_schedule_ids", "repayment_schedule_ids.total_due")
     def _compute_installment_amount(self):
         for rec in self:
             # Get the installment amount from the first unpaid schedule line
-            unpaid = rec.repayment_schedule_ids.filtered(lambda s: s.status != "paid")
+            schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
+            unpaid = schedule.filtered(lambda s: s.status != "paid")
             if unpaid:
                 rec.installment_amount = unpaid[0].total_due
             elif rec.repayment_schedule_ids:
@@ -628,7 +643,7 @@ class AlbaLoan(models.Model):
     )
     def _compute_report_fields(self):
         for rec in self:
-            schedule = rec.repayment_schedule_ids.sorted("due_date")
+            schedule = (rec.current_repayment_schedule_ids or rec.repayment_schedule_ids).sorted("due_date")
             rec.first_installment_date = schedule[:1].due_date if schedule else False
             rec.last_installment_date = schedule[-1:].due_date if schedule else False
 
@@ -665,6 +680,18 @@ class AlbaLoan(models.Model):
             rec.total_topup_amount = sum(
                 rec.topup_ids.filtered(lambda t: t.state == "disbursed").mapped("topup_amount")
             )
+
+    def _compute_current_repayment_schedule(self):
+        """Compute the active repayment schedule lines for the loan (latest active batch)."""
+        for rec in self:
+            Batch = self.env["alba.repayment.schedule.batch"]
+            batch = Batch.search([("loan_id", "=", rec.id), ("state", "=", "active")], limit=1, order="generated_on desc")
+            if batch:
+                schedules = self.env["alba.repayment.schedule"].search([("loan_id", "=", rec.id), ("batch_id", "=", batch.id)], order="installment_number asc")
+                rec.current_repayment_schedule_ids = schedules
+            else:
+                # Fallback to any schedule lines if no batch exists
+                rec.current_repayment_schedule_ids = self.env["alba.repayment.schedule"].search([("loan_id", "=", rec.id)], order="installment_number asc")
 
     # =========================================================================
     # ORM Overrides
@@ -771,6 +798,22 @@ class AlbaLoan(models.Model):
             # Use transaction context to ensure atomicity
             # If any operation fails, all changes are rolled back
             with self.env.cr.savepoint():
+                # Archive any existing active batches for this loan
+                Batch = self.env["alba.repayment.schedule.batch"]
+                existing = Batch.search([("loan_id", "=", rec.id), ("state", "=", "active")])
+                if existing:
+                    existing.write({"state": "archived"})
+
+                # Create new batch
+                batch = Batch.create({
+                    "loan_id": rec.id,
+                    "notes": "Generated by action_generate_schedule",
+                })
+
+                # Attach batch_id to each schedule line
+                for v in schedule_vals:
+                    v["batch_id"] = batch.id
+
                 self.env["alba.repayment.schedule"].create(schedule_vals)
                 rec.write({"schedule_generated": True})
                 rec.message_post(
@@ -806,6 +849,7 @@ class AlbaLoan(models.Model):
 
         if not self.journal_id:
             raise UserError(_("Please select a Disbursement Journal before posting the entry."))
+        self._ensure_disbursement_payment_method_line()
 
         product = self.loan_product_id
         if not product.account_loan_receivable_id or not product.account_clearing_id:
@@ -869,6 +913,35 @@ class AlbaLoan(models.Model):
         self.action_post_provisioning_entry()
         
         return move
+
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
+
+    def _ensure_disbursement_payment_method_line(self):
+        for rec in self:
+            if not rec.journal_id:
+                continue
+            if rec.payment_method_line_id:
+                if rec.payment_method_line_id.journal_id != rec.journal_id:
+                    raise UserError(_(
+                        "Payment Method '%(method)s' does not belong to Disbursement Journal '%(journal)s'.",
+                        method=rec.payment_method_line_id.display_name,
+                        journal=rec.journal_id.display_name,
+                    ))
+                if rec.payment_method_line_id.payment_type != "outbound":
+                    raise UserError(_("Please select an outbound payment method for disbursement journal '%s'.") % rec.journal_id.display_name)
+                continue
+
+            method_line = self.env["account.payment.method.line"].search([
+                ("payment_type", "=", "outbound"),
+                ("journal_id", "=", rec.journal_id.id),
+            ], limit=1)
+            if not method_line:
+                raise UserError(_("Please configure an outbound Payment Method on disbursement journal '%s'.") % rec.journal_id.display_name)
+            rec.payment_method_line_id = method_line
 
     def action_post_provisioning_entry(self):
         """
@@ -993,17 +1066,49 @@ class AlbaLoan(models.Model):
         self.ensure_one()
         if not self.can_request_topup:
             raise UserError(_("This loan is not eligible for top-up."))
-        
+        # Open the refinance wizard prefilled with this loan as a Top-Up flow.
         return {
             "type": "ir.actions.act_window",
-            "name": _("Request Top-Up"),
-            "res_model": "alba.loan.topup.wizard",
+            "name": _("Refinance / Top-Up"),
+            "res_model": "alba.loan.refinance.wizard",
             "view_mode": "form",
             "target": "new",
             "context": {
+                "default_original_loan_id": self.id,
                 "active_id": self.id,
                 "active_model": "alba.loan",
+                "alba_topup_mode": True,
             },
+        }
+
+    def action_quick_payment(self):
+        """Open quick payment wizard for manual partial payments."""
+        self.ensure_one()
+        if self.state != "active":
+            raise UserError(_("Payments are only allowed on active loans."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Quick Payment"),
+            "res_model": "alba.loan.payment.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"active_id": self.id},
+        }
+
+    def action_full_repayment(self):
+        """Open payment wizard prefilled to settle outstanding balance."""
+        self.ensure_one()
+        if self.state != "active":
+            raise UserError(_("Full repayment is only allowed for active loans."))
+        if self.outstanding_balance <= 0.0:
+            raise UserError(_("Loan has no outstanding balance to repay."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Full Repayment"),
+            "res_model": "alba.loan.payment.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"active_id": self.id, "default_amount": self.outstanding_balance},
         }
 
     def action_calculate_partial_payoff(self):
@@ -1424,6 +1529,7 @@ class AlbaLoan(models.Model):
             
             if not loan.journal_id:
                 raise UserError(_("Loan must have a journal configured"))
+            loan._ensure_disbursement_payment_method_line()
             
             # Get loan product for account configuration
             product = loan.loan_product_id

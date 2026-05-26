@@ -58,6 +58,7 @@
                                     <list editable="bottom">
                                         <field name="sequence" widget="handle"/>
                                         <field name="journal_id"/>
+                                        <field name="payment_method_line_id" options="{'no_create': True}" invisible="not journal_id" required="journal_id"/>
                                         <field name="amount" sum="Total"/>
                                         <field name="currency_id" column_invisible="1"/>
                                     </list>

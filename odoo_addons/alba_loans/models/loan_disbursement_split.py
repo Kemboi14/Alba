@@ -36,6 +36,12 @@ class AlbaLoanDisbursementSplit(models.Model):
         domain="[('type', 'in', ['bank', 'cash'])]",
         help="Alba Capital account from which funds are disbursed",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'outbound'), ('journal_id', '=', journal_id)]",
+        help="Specific outbound payment method for this funding source.",
+    )
     account_name = fields.Char(
         string="Account Name",
         compute="_compute_account_name",
@@ -134,6 +140,35 @@ class AlbaLoanDisbursementSplit(models.Model):
             bank_account = rec.journal_id.bank_account_id
             rec.account_number = bank_account.acc_number if bank_account else ""
 
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
+
+    def _ensure_payment_method_line(self):
+        for rec in self:
+            if not rec.journal_id:
+                continue
+            if rec.payment_method_line_id:
+                if rec.payment_method_line_id.journal_id != rec.journal_id:
+                    raise UserError(_(
+                        "Payment Method '%(method)s' does not belong to Source Journal '%(journal)s'.",
+                        method=rec.payment_method_line_id.display_name,
+                        journal=rec.journal_id.display_name,
+                    ))
+                if rec.payment_method_line_id.payment_type != "outbound":
+                    raise UserError(_("Please select an outbound payment method for source journal '%s'.") % rec.journal_id.display_name)
+                continue
+
+            method_line = self.env["account.payment.method.line"].search([
+                ("payment_type", "=", "outbound"),
+                ("journal_id", "=", rec.journal_id.id),
+            ], limit=1)
+            if not method_line:
+                raise UserError(_("Please configure an outbound Payment Method on source journal '%s'.") % rec.journal_id.display_name)
+            rec.payment_method_line_id = method_line
+
     class Meta:
         db_table = "alba_loan_disbursement_split"
 
@@ -180,6 +215,7 @@ class AlbaLoanDisbursementSplit(models.Model):
                 _("The selected journal '%s' has no default account configured.")
                 % self.journal_id.name
             )
+        self._ensure_payment_method_line()
         self.write({
             "state": "disbursed",
             "disbursement_date": fields.Date.today(),

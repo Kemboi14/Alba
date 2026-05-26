@@ -32,6 +32,9 @@
                             <field name="new_outstanding" readonly="1"/>
                             <field name="new_emi" readonly="1"/>
                             <field name="new_tenure" readonly="1"/>
+                            <separator string="Payment"/>
+                            <field name="journal_id" options="{'no_create': True}"/>
+                            <field name="payment_method_line_id" options="{'no_create': True}" invisible="not journal_id" required="journal_id"/>
                             <field name="emi_reduction" readonly="1" invisible="emi_reduction == 0"/>
                             <field name="tenure_reduction" readonly="1" invisible="tenure_reduction == 0"/>
                         </group>

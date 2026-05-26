@@ -100,6 +100,12 @@ class AlbaLoanTopup(models.Model):
         domain="[('type', 'in', ['bank', 'cash'])]",
         help="Bank or Cash journal for disbursement",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'outbound'), ('journal_id', '=', journal_id)]",
+        help="Specific payment method (e.g. Manual, M-Pesa B2C) for this journal.",
+    )
     
     # Currency
     currency_id = fields.Many2one(
@@ -175,6 +181,35 @@ class AlbaLoanTopup(models.Model):
     def _compute_document_count(self):
         for rec in self:
             rec.document_count = len(rec.document_ids)
+
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
+
+    def _ensure_payment_method_line(self):
+        for rec in self:
+            if not rec.journal_id:
+                continue
+            if rec.payment_method_line_id:
+                if rec.payment_method_line_id.journal_id != rec.journal_id:
+                    raise UserError(_(
+                        "Payment Method '%(method)s' does not belong to Disbursement Journal '%(journal)s'.",
+                        method=rec.payment_method_line_id.display_name,
+                        journal=rec.journal_id.display_name,
+                    ))
+                if rec.payment_method_line_id.payment_type != "outbound":
+                    raise UserError(_("Please select an outbound payment method for disbursement journal '%s'.") % rec.journal_id.display_name)
+                continue
+
+            method_line = self.env["account.payment.method.line"].search([
+                ("payment_type", "=", "outbound"),
+                ("journal_id", "=", rec.journal_id.id),
+            ], limit=1)
+            if not method_line:
+                raise UserError(_("Please configure an outbound Payment Method on disbursement journal '%s'.") % rec.journal_id.display_name)
+            rec.payment_method_line_id = method_line
 
     def _get_modification_comparison_chart(self):
         self.ensure_one()
@@ -337,11 +372,14 @@ class AlbaLoanTopup(models.Model):
                 "outstanding_balance": new_outstanding,
             })
             
-            # Clear existing schedule before regenerating
-            loan.repayment_schedule_ids.unlink()
+            # Archive existing active schedule batch instead of deleting schedule lines
+            Batch = self.env["alba.repayment.schedule.batch"]
+            existing = Batch.search([("loan_id", "=", loan.id), ("state", "=", "active")])
+            if existing:
+                existing.write({"state": "archived"})
             loan.write({"schedule_generated": False})
 
-            # Regenerate schedule
+            # Regenerate schedule (will create new active batch)
             loan.action_generate_schedule()
             rec.schedule_regenerated = True
             
@@ -381,6 +419,7 @@ class AlbaLoanTopup(models.Model):
         
         if not self.journal_id:
             raise UserError(_("No bank journal available for disbursement."))
+        self._ensure_payment_method_line()
         
         # DR Loan Receivable (increase balance)
         # CR Bank/Cash (disburse funds)

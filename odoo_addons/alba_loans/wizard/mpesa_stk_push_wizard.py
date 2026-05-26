@@ -183,8 +183,8 @@ class AlbaMpesaStkPushWizard(models.TransientModel):
                 if not phone and hasattr(customer, "mpesa_number"):
                     phone = customer.mpesa_number or ""
 
-                # Next instalment amount
-                next_instalment = loan.repayment_schedule_ids.filtered(
+                # Next instalment amount (use active schedule batch if present)
+                next_instalment = (loan.current_repayment_schedule_ids or loan.repayment_schedule_ids).filtered(
                     lambda s: s.balance_due > 0
                 )
                 amount = (
@@ -226,7 +226,7 @@ class AlbaMpesaStkPushWizard(models.TransientModel):
         """Refresh account_reference and amount when the loan changes."""
         if self.loan_id:
             self.account_reference = (self.loan_id.loan_number or "")[:12]
-            next_inst = self.loan_id.repayment_schedule_ids.filtered(
+            next_inst = (self.loan_id.current_repayment_schedule_ids or self.loan_id.repayment_schedule_ids).filtered(
                 lambda s: s.balance_due > 0
             )
             if next_inst:

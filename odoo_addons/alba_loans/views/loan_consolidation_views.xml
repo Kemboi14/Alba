@@ -75,11 +75,12 @@
                     </group>
                     <group>
                         <group>
-                            <field name="consolidation_fee_rate" readonly="state != 'draft'"/>
-                            <field name="consolidation_fee_amount" readonly="1"/>
+                            <field name="quote_date" readonly="1"/>
+                            <field name="quote_valid_until" readonly="1"/>
                         </group>
                         <group>
                             <field name="journal_id" options="{'no_create': True}" required="state == 'approved'"/>
+                            <field name="payment_method_line_id" readonly="state not in ('draft', 'quoted', 'approved')" options="{'no_create': True}" invisible="not journal_id" required="journal_id and state == 'approved'"/>
                         </group>
                     </group>
                     <group invisible="not new_loan_id">
@@ -92,6 +93,91 @@
                     </div>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <!-- Shared bottom panel: summary KPIs, charts, dates, documents -->
+    <record id="view_loan_consolidation_form_insights" model="ir.ui.view">
+        <field name="name">alba.loan.consolidation.form.insights</field>
+        <field name="model">alba.loan.consolidation</field>
+        <field name="inherit_id" ref="view_loan_consolidation_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[.//field[@name='new_loan_application_id']]" position="replace"/>
+            <xpath expr="//div[hasclass('oe_chatter')]" position="before">
+                <field name="comparison_chart_data" invisible="1"/>
+                <field name="impact_chart_data" invisible="1"/>
+                <field name="document_count" invisible="1"/>
+                <div class="o_loan_modification_panel border-top pt-4 mt-4">
+                    <h4 class="mb-3 text-primary"><i class="fa fa-line-chart me-2"/> Summary &amp; Supporting Records</h4>
+                    <div class="row g-3 mb-4 mx-0">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="border rounded p-3 bg-light text-center h-100">
+                                <div class="text-muted small text-uppercase">Loans Combined</div>
+                                <div class="h4 mb-0 fw-bold text-primary"><field name="loan_count" nolabel="1"/></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="border rounded p-3 bg-white text-center h-100">
+                                <div class="text-muted small text-uppercase">Total Outstanding</div>
+                                <div class="h4 mb-0 fw-bold"><field name="total_outstanding" widget="monetary" nolabel="1"/></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="border rounded p-3 bg-white text-center h-100 border-success">
+                                <div class="text-muted small text-uppercase">New EMI</div>
+                                <div class="h4 mb-0 fw-bold text-success"><field name="new_emi" widget="monetary" nolabel="1"/></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="border rounded p-3 bg-white text-center h-100 border-info">
+                                <div class="text-muted small text-uppercase">Monthly Savings</div>
+                                <div class="h4 mb-0 fw-bold text-info"><field name="monthly_savings" widget="monetary" nolabel="1"/></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-4 mx-0">
+                        <div class="col-lg-6">
+                            <div class="border rounded p-3 bg-white shadow-sm h-100">
+                                <h6 class="text-muted text-uppercase small mb-3">Before vs After</h6>
+                                <field name="comparison_chart_data" widget="loan_dashboard_charts" nolabel="1"/>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="border rounded p-3 bg-white shadow-sm h-100">
+                                <h6 class="text-muted text-uppercase small mb-3">Loans &amp; Fees Breakdown</h6>
+                                <field name="impact_chart_data" widget="loan_dashboard_charts" nolabel="1"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mx-0">
+                        <div class="col-lg-4">
+                            <group string="Key Dates">
+                                <field name="create_date" string="Created" readonly="1"/>
+                                <field name="quote_date" readonly="1"/>
+                                <field name="quote_valid_until" readonly="1"/>
+                                <field name="approved_date" readonly="1" invisible="not approved_date"/>
+                                <field name="approved_by" readonly="1" invisible="not approved_by"/>
+                            </group>
+                            <group string="New Loan" invisible="not new_loan_id">
+                                <field name="new_loan_application_id" readonly="1"/>
+                                <field name="new_loan_id" readonly="1"/>
+                            </group>
+                        </div>
+                        <div class="col-lg-8">
+                            <group string="Related Documents">
+                                <field name="document_ids" nolabel="1" context="{'default_partner_id': partner_id, 'default_consolidation_id': id}">
+                                    <list editable="bottom" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'">
+                                        <field name="name"/>
+                                        <field name="document_type"/>
+                                        <field name="create_date" string="Uploaded"/>
+                                        <field name="state" widget="badge"/>
+                                    </list>
+                                </field>
+                            </group>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
         </field>
     </record>
 
@@ -108,11 +194,26 @@
         </field>
     </record>
 
+    <!-- Loan Consolidation Action -->
     <record id="action_loan_consolidation" model="ir.actions.act_window">
-        <field name="name">Consolidations</field>
+        <field name="name">Loan Consolidations</field>
         <field name="res_model">alba.loan.consolidation</field>
         <field name="view_mode">list,form,graph</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first loan consolidation quote
+            </p>
+            <p>
+                Consolidating loans combines multiple active/overdue loans for a customer into a single new loan with new terms.
+            </p>
+        </field>
     </record>
 
-    <menuitem id="menu_loan_consolidation" name="Consolidations" parent="menu_alba_loans_root_active" action="action_loan_consolidation" sequence="35"/>
+    <!-- Menu Item for Loan Consolidation -->
+    <menuitem id="menu_loan_consolidation"
+              name="Loan Consolidations"
+              parent="menu_alba_loans_root_active"
+              action="action_loan_consolidation"
+              sequence="25"
+              groups="alba_loans.group_loan_user"/>
 </odoo>

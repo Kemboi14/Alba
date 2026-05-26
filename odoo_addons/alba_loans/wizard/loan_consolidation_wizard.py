@@ -32,6 +32,11 @@ class AlbaLoanConsolidationWizard(models.TransientModel):
         "res.currency",
         related="customer_id.currency_id",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        help="Specific payment method for the selected journal.",
+    )
     
     def action_create_consolidation(self):
         self.ensure_one()

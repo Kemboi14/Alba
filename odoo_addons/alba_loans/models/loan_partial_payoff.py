@@ -165,6 +165,12 @@ class AlbaLoanPartialPayoff(models.Model):
         domain="[('type', 'in', ['bank', 'cash'])]",
         help="Bank or Cash journal where payment was received",
     )
+    payment_method_line_id = fields.Many2one(
+        "account.payment.method.line",
+        string="Payment Method",
+        domain="[('payment_type', '=', 'inbound'), ('journal_id', '=', journal_id)]",
+        help="Specific payment method for the selected journal.",
+    )
     
     # Links
     repayment_id = fields.Many2one(
@@ -310,6 +316,35 @@ class AlbaLoanPartialPayoff(models.Model):
                     rec.new_tenure = 0
                 rec.emi_reduction = 0
                 rec.tenure_reduction = loan.remaining_tenure - rec.new_tenure
+
+    @api.onchange("journal_id")
+    def _onchange_journal_id(self):
+        for rec in self:
+            if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
+                rec.payment_method_line_id = False
+
+    def _ensure_payment_method_line(self):
+        for rec in self:
+            if not rec.journal_id:
+                continue
+            if rec.payment_method_line_id:
+                if rec.payment_method_line_id.journal_id != rec.journal_id:
+                    raise UserError(_(
+                        "Payment Method '%(method)s' does not belong to Payment Journal '%(journal)s'.",
+                        method=rec.payment_method_line_id.display_name,
+                        journal=rec.journal_id.display_name,
+                    ))
+                if rec.payment_method_line_id.payment_type != "inbound":
+                    raise UserError(_("Please select an inbound payment method for payment journal '%s'.") % rec.journal_id.display_name)
+                continue
+
+            method_line = self.env["account.payment.method.line"].search([
+                ("payment_type", "=", "inbound"),
+                ("journal_id", "=", rec.journal_id.id),
+            ], limit=1)
+            if not method_line:
+                raise UserError(_("Please configure an inbound Payment Method on payment journal '%s'.") % rec.journal_id.display_name)
+            rec.payment_method_line_id = method_line
     
     # =========================================================================
     # ORM Overrides
@@ -389,6 +424,7 @@ class AlbaLoanPartialPayoff(models.Model):
             
             if not rec.journal_id:
                 raise UserError(_("Please select a Payment Journal before applying."))
+            rec._ensure_payment_method_line()
             
             # Create repayment record
             repayment = self.env["alba.loan.repayment"].create({
@@ -398,6 +434,7 @@ class AlbaLoanPartialPayoff(models.Model):
                 "payment_method": rec.payment_method or "bank_transfer",
                 "payment_reference": rec.payment_reference or rec.name,
                 "journal_id": rec.journal_id.id,
+                "payment_method_line_id": rec.payment_method_line_id.id,
                 "notes": _("Partial Payoff - %s") % rec.name,
             })
             repayment.action_post()
