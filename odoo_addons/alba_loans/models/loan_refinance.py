@@ -342,7 +342,7 @@ class AlbaLoanRefinance(models.Model):
             if rec.new_product_id:
                 product = rec.new_product_id
                 rec.new_interest_rate = product.interest_rate
-                rec.new_tenure_months = product.min_tenure or product.max_tenure or 12
+                rec.new_tenure_months = product.min_tenure_months or product.max_tenure_months or 12
 
     @api.onchange("journal_id")
     def _onchange_journal_id(self):
