@@ -803,6 +803,8 @@ class AlbaLoan(models.Model):
                 existing = Batch.search([("loan_id", "=", rec.id), ("state", "=", "active")])
                 if existing:
                     existing.write({"state": "archived"})
+                # Unlink existing schedule records to avoid unique constraint violations
+                self.env["alba.repayment.schedule"].search([("loan_id", "=", rec.id)]).unlink()
 
                 # Create new batch
                 batch = Batch.create({

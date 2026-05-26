@@ -184,3 +184,6 @@ access_alba_sub_county_admin,alba.sub.county admin,model_alba_sub_county,base.gr
 access_alba_sub_county_user,alba.sub.county user,model_alba_sub_county,base.group_user,1,1,1,1
 access_alba_ward_admin,alba.ward admin,model_alba_ward,base.group_system,1,1,1,1
 access_alba_ward_user,alba.ward user,model_alba_ward,base.group_user,1,1,1,1
+access_alba_loan_payment_wizard_finance,alba.loan.payment.wizard finance,model_alba_loan_payment_wizard,alba_loans.group_finance_officer,1,1,1,0
+access_alba_loan_payment_wizard_finance_admin,alba.loan.payment.wizard finance admin,model_alba_loan_payment_wizard,alba_loans.group_finance_admin,1,1,1,0
+access_alba_loan_payment_wizard_director,alba.loan.payment.wizard director,model_alba_loan_payment_wizard,alba_loans.group_director,1,1,1,0

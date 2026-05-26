@@ -530,7 +530,7 @@ class AlbaLoanRefinance(models.Model):
                         (0, 0, {
                             "account_id": bank_account.id,
                             "name": _("Refinance Fee received — %s") % rec.name,
-                            "debit": rec.refinance_fee_amount if rec.currency_id == rec.company_id.currency_id else 0.0,
+                            "debit": rec.refinance_fee_amount if rec.currency_id == rec.original_loan_id.company_id.currency_id else 0.0,
                             "credit": 0.0,
                             "amount_currency": rec.refinance_fee_amount,
                             "currency_id": rec.currency_id.id,
@@ -541,7 +541,7 @@ class AlbaLoanRefinance(models.Model):
                             "account_id": fee_account.id,
                             "name": _("Refinance Fee income — %s") % rec.name,
                             "debit": 0.0,
-                            "credit": rec.refinance_fee_amount if rec.currency_id == rec.company_id.currency_id else 0.0,
+                            "credit": rec.refinance_fee_amount if rec.currency_id == rec.original_loan_id.company_id.currency_id else 0.0,
                             "amount_currency": -rec.refinance_fee_amount,
                             "currency_id": rec.currency_id.id,
                             "partner_id": rec.partner_id.id,
