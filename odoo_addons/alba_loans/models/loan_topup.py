@@ -404,25 +404,40 @@ class AlbaLoanTopup(models.Model):
                  rec.currency_id.symbol, new_principal))
     
     def _post_disbursement_entry(self):
-        """Create accounting entry for top-up disbursement"""
+        """Create accounting entry for top-up disbursement (plus product fee if applicable)"""
         self.ensure_one()
-        
+
         loan_product = self.loan_id.loan_product_id
         if not loan_product.account_loan_receivable_id:
-            raise UserError(_("Loan receivable account not configured for product %s") % loan_product.name)
-        
+            raise UserError(_(
+                "Loan receivable account not configured for product %s"
+            ) % loan_product.name)
+
         if not self.journal_id:
-            # Auto-select journal if not specified
             self.journal_id = self.env["account.journal"].search([
                 ("type", "=", "bank"),
             ], limit=1)
-        
+
         if not self.journal_id:
             raise UserError(_("No bank journal available for disbursement."))
         self._ensure_payment_method_line()
-        
-        # DR Loan Receivable (increase balance)
-        # CR Bank/Cash (disburse funds)
+
+        bank_account = self.journal_id.default_account_id
+        if not bank_account:
+            raise UserError(_(
+                "Journal '%s' has no default account configured."
+            ) % self.journal_id.name)
+
+        # Calculate top-up fee from the product's fee templates
+        topup_fee = 0.0
+        fee_account = False
+        if loan_product.fee_template_ids:
+            topup_fee = loan_product.calculate_total_fees(self.topup_amount)
+            fee_account = loan_product.account_fees_income_id
+
+        # ── Disbursement entry ────────────────────────────────────────────────
+        # DR Loan Receivable (new principal increase)
+        # CR Bank/Cash        (funds disbursed to customer)
         move_vals = {
             "journal_id": self.journal_id.id,
             "date": self.disbursement_date,
@@ -431,21 +446,49 @@ class AlbaLoanTopup(models.Model):
                 (0, 0, {
                     "account_id": loan_product.account_loan_receivable_id.id,
                     "partner_id": self.partner_id.id,
-                    "name": _("Top-Up - %s") % self.name,
+                    "name": _("Top-Up disbursement — %s") % self.name,
                     "debit": self.topup_amount,
                 }),
                 (0, 0, {
-                    "account_id": self.journal_id.default_account_id.id,
+                    "account_id": bank_account.id,
                     "partner_id": self.partner_id.id,
-                    "name": _("Top-Up Disbursement - %s") % self.name,
+                    "name": _("Top-Up — %s") % self.name,
                     "credit": self.topup_amount,
                 }),
             ],
         }
-        
         move = self.env["account.move"].create(move_vals)
         move.action_post()
         self.disbursement_move_id = move.id
+
+        # ── Fee entry (if product defines fees for top-ups) ───────────────────
+        # DR Bank/Cash    (fee collected from customer)
+        # CR Fee Income   (income recognised)
+        if topup_fee and topup_fee > 0 and fee_account:
+            fee_move_vals = {
+                "journal_id": self.journal_id.id,
+                "date": self.disbursement_date,
+                "ref": _("Top-Up Fee: %s - %s") % (self.name, self.loan_id.loan_number),
+                "line_ids": [
+                    (0, 0, {
+                        "account_id": bank_account.id,
+                        "partner_id": self.partner_id.id,
+                        "name": _("Top-Up fee received — %s") % self.name,
+                        "debit": topup_fee,
+                    }),
+                    (0, 0, {
+                        "account_id": fee_account.id,
+                        "partner_id": self.partner_id.id,
+                        "name": _("Top-Up fee income — %s") % self.name,
+                        "credit": topup_fee,
+                    }),
+                ],
+            }
+            fee_move = self.env["account.move"].create(fee_move_vals)
+            fee_move.action_post()
+            self.message_post(body=_(
+                "<b>TOP-UP FEE POSTED</b>: %s %s → Journal Entry: %s"
+            ) % (self.loan_id.currency_id.symbol, topup_fee, fee_move.name))
     
     def action_reject(self):
         """Reject top-up request"""

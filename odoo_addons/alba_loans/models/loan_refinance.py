@@ -466,22 +466,22 @@ class AlbaLoanRefinance(models.Model):
             rec.message_post(body=_("Refinance approved."))
     
     def action_settle_original_loan(self):
-        """Create repayment to settle original loan"""
+        """Create repayment to settle original loan and post the refinance fee"""
         for rec in self:
             if rec.state != "approved":
                 raise UserError(_("Refinance must be approved first."))
-            
+
             # Auto-select journal if not set
             if not rec.journal_id:
                 rec.journal_id = self.env["account.journal"].search([
                     ("type", "=", "bank"),
                 ], limit=1)
-            
+
             if not rec.journal_id:
                 raise UserError(_("Please select a Settlement Journal before settling the loan."))
             rec._ensure_payment_method_line()
-            
-            # Create final repayment for original loan
+
+            # ── 1. Create final repayment for the original loan ───────────────
             repayment = self.env["alba.loan.repayment"].create({
                 "loan_id": rec.original_loan_id.id,
                 "payment_date": fields.Date.today(),
@@ -493,15 +493,73 @@ class AlbaLoanRefinance(models.Model):
                 "notes": _("Loan refinanced - settlement via %s") % rec.name,
             })
             repayment.action_post()
-            
-            # Close original loan
-            rec.original_loan_id.write({
-                "state": "closed",
-            })
+
+            # ── 2. Post refinance fee journal entry ───────────────────────────
+            if rec.refinance_fee_amount and rec.refinance_fee_amount > 0:
+                product = rec.original_loan_id.loan_product_id
+                fee_account = product.account_fees_income_id if product else False
+                loan_receivable = product.account_loan_receivable_id if product else False
+                bank_account = rec.journal_id.default_account_id
+
+                if not fee_account:
+                    raise UserError(_(
+                        "Please configure the Fee Income account on loan product '%s' "
+                        "before settling this refinance."
+                    ) % (product.name if product else "Unknown"))
+                if not bank_account:
+                    raise UserError(_(
+                        "Journal '%s' has no default account configured."
+                    ) % rec.journal_id.name)
+
+                # DR Bank/Cash (fee collected along with settlement payment)
+                # CR Fee Income  (income recognised for the refinance)
+                fee_move_vals = {
+                    "journal_id": rec.journal_id.id,
+                    "date": fields.Date.today(),
+                    "ref": _("Refinance Fee — %s") % rec.name,
+                    "narration": _(
+                        "Refinance fee @ %.2f%% on new principal %s %s"
+                    ) % (
+                        rec.refinance_fee_rate,
+                        rec.currency_id.symbol,
+                        rec.new_principal,
+                    ),
+                    "currency_id": rec.currency_id.id,
+                    "line_ids": [
+                        # DR Bank / Cash — fee collected from customer
+                        (0, 0, {
+                            "account_id": bank_account.id,
+                            "name": _("Refinance Fee received — %s") % rec.name,
+                            "debit": rec.refinance_fee_amount if rec.currency_id == rec.company_id.currency_id else 0.0,
+                            "credit": 0.0,
+                            "amount_currency": rec.refinance_fee_amount,
+                            "currency_id": rec.currency_id.id,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                        # CR Fee Income — recognised as income
+                        (0, 0, {
+                            "account_id": fee_account.id,
+                            "name": _("Refinance Fee income — %s") % rec.name,
+                            "debit": 0.0,
+                            "credit": rec.refinance_fee_amount if rec.currency_id == rec.company_id.currency_id else 0.0,
+                            "amount_currency": -rec.refinance_fee_amount,
+                            "currency_id": rec.currency_id.id,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                    ],
+                }
+                fee_move = self.env["account.move"].create(fee_move_vals)
+                fee_move.action_post()
+                rec.message_post(body=_(
+                    "<b>REFINANCE FEE POSTED</b>: %s %s → Journal Entry: %s"
+                ) % (rec.currency_id.symbol, rec.refinance_fee_amount, fee_move.name))
+
+            # ── 3. Close original loan ────────────────────────────────────────
+            rec.original_loan_id.write({"state": "closed"})
             rec.original_loan_id.message_post(body=_(
                 "<b>SETTLED VIA REFINANCE</b>: %s %s settled."
             ) % (rec.currency_id.symbol, rec.settlement_amount))
-            
+
             rec.write({"state": "settled"})
             rec.message_post(body=_("Original loan settled."))
     
