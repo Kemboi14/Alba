@@ -34,6 +34,7 @@
                     <button name="action_generate_quote" string="Generate Quote" type="object" class="oe_highlight" invisible="state != 'draft'"/>
                     <button name="action_accept" string="Customer Accepts" type="object" class="oe_highlight" invisible="state != 'quoted'"/>
                     <button name="action_apply" string="Apply Payoff" type="object" class="oe_highlight" invisible="state not in ('quoted', 'accepted')"/>
+                    <button name="action_archive_schedule" string="Archive Existing Schedule" type="object" class="btn-warning" invisible="state not in ('quoted', 'accepted')" confirm="This will archive the current repayment schedule so that a new one can be generated after the payoff. Continue?"/>
                     <button name="action_cancel" string="Cancel" type="object" invisible="state not in ('draft', 'quoted', 'accepted')"/>
                     <button name="action_reset_to_draft" string="Reset to Draft" type="object" invisible="state != 'expired'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,quoted,accepted,applied"/>

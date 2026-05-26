@@ -480,6 +480,28 @@ class AlbaLoanPartialPayoff(models.Model):
             ) % (rec.currency_id.symbol, rec.payoff_amount,
                  rec.currency_id.symbol, new_outstanding))
     
+    def action_archive_schedule(self):
+        """Archive the active repayment schedule batch for this loan so a new
+        one can be generated after the partial payoff is applied."""
+        for rec in self:
+            loan = rec.loan_id
+            Batch = self.env["alba.repayment.schedule.batch"]
+            existing = Batch.search([("loan_id", "=", loan.id), ("state", "=", "active")])
+            if existing:
+                existing.write({"state": "archived"})
+                loan.write({"schedule_generated": False})
+                rec.message_post(body=_(
+                    "<b>Schedule Archived</b>: Existing repayment schedule archived. "
+                    "You can now apply the payoff and a new schedule will be generated."
+                ))
+            else:
+                # No active batch — may use legacy schedule lines; reset the flag
+                loan.write({"schedule_generated": False})
+                rec.message_post(body=_(
+                    "<b>Schedule Reset</b>: schedule_generated flag cleared. "
+                    "You can now apply the payoff."
+                ))
+
     def action_cancel(self):
         """Cancel draft/quoted payoff"""
         for rec in self:
