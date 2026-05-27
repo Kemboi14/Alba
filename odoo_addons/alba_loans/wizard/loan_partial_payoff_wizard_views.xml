@@ -3,7 +3,7 @@
     <record id="view_loan_partial_payoff_wizard_form" model="ir.ui.view">
         <field name="name">alba.loan.partial.payoff.wizard.form</field>
         <field name="model">alba.loan.partial.payoff.wizard</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Calculate Partial Payoff">
                 <sheet>

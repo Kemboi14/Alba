@@ -77,7 +77,7 @@
         <record id="view_alba_customer_form" model="ir.ui.view">
             <field name="name">alba.customer.form</field>
             <field name="model">alba.customer</field>
-            <field name="type">form</field>
+            <!-- FIX: removed deprecated <field name="type">form</field> -->
             <field name="arch" type="xml">
                 <form string="Customer">
                     <header>
@@ -341,7 +341,7 @@
         <record id="view_alba_customer_list" model="ir.ui.view">
             <field name="name">alba.customer.list</field>
             <field name="model">alba.customer</field>
-            <field name="type">list</field>
+            <!-- FIX: removed deprecated <field name="type">list</field> -->
             <field name="arch" type="xml">
                 <list string="Customers"
                       decoration-danger="blacklisted == True"
@@ -379,7 +379,7 @@
         <record id="view_alba_customer_kanban" model="ir.ui.view">
             <field name="name">alba.customer.kanban</field>
             <field name="model">alba.customer</field>
-            <field name="type">kanban</field>
+            <!-- FIX: removed deprecated <field name="type">kanban</field> -->
             <field name="arch" type="xml">
                 <kanban default_group_by="kyc_status" class="o_kanban_small_column">
                     <field name="partner_id"/>
@@ -420,7 +420,7 @@
         <record id="view_alba_customer_search" model="ir.ui.view">
             <field name="name">alba.customer.search</field>
             <field name="model">alba.customer</field>
-            <field name="type">search</field>
+            <!-- FIX: removed deprecated <field name="type">search</field> -->
             <field name="arch" type="xml">
                 <search string="Search Customers">
                     <field name="partner_id"/>

@@ -8,7 +8,7 @@
     <record id="view_alba_loan_form" model="ir.ui.view">
         <field name="name">alba.loan.form</field>
         <field name="model">alba.loan</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Loan">
                 <header>
@@ -231,7 +231,7 @@
     <record id="view_alba_loan_list" model="ir.ui.view">
         <field name="name">alba.loan.list</field>
         <field name="model">alba.loan</field>
-        <field name="type">list</field>
+        <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
             <list string="Loans"
                   decoration-danger="state in ('npl','written_off')"
@@ -270,7 +270,7 @@
     <record id="view_alba_loan_search" model="ir.ui.view">
         <field name="name">alba.loan.search</field>
         <field name="model">alba.loan</field>
-        <field name="type">search</field>
+        <!-- FIX: removed deprecated <field name="type">search</field> -->
         <field name="arch" type="xml">
             <search>
                 <field name="loan_number"/>
