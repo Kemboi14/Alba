@@ -7,7 +7,7 @@
     <record id="view_loan_topup_list" model="ir.ui.view">
         <field name="name">alba.loan.topup.tree</field>
         <field name="model">alba.loan.topup</field>
-        <field name="type">list</field>
+        <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
             <list decoration-muted="state=='cancelled'" decoration-success="state=='disbursed'" decoration-info="state=='pending'" decoration-danger="state=='rejected'">
                 <field name="name"/>
@@ -26,7 +26,7 @@
     <record id="view_loan_topup_form" model="ir.ui.view">
         <field name="name">alba.loan.topup.form</field>
         <field name="model">alba.loan.topup</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Loan Top-Up">
                 <header>
@@ -105,7 +105,7 @@
     <record id="view_loan_topup_search" model="ir.ui.view">
         <field name="name">alba.loan.topup.search</field>
         <field name="model">alba.loan.topup</field>
-        <field name="type">search</field>
+        <!-- FIX: removed deprecated <field name="type">search</field> -->
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
@@ -124,7 +124,7 @@
     <record id="view_loan_topup_wizard_form" model="ir.ui.view">
         <field name="name">alba.loan.topup.wizard.form</field>
         <field name="model">alba.loan.topup.wizard</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Request Top-Up">
                 <sheet>
@@ -185,7 +185,7 @@
     <record id="view_loan_topup_graph" model="ir.ui.view">
         <field name="name">alba.loan.topup.graph</field>
         <field name="model">alba.loan.topup</field>
-        <field name="type">graph</field>
+        <!-- FIX: removed deprecated <field name="type">graph</field> -->
         <field name="arch" type="xml">
             <graph string="Loan Top-Ups" type="line">
                 <field name="create_date" type="row"/>
