@@ -26,7 +26,6 @@ class AlbaLoanTopup(models.Model):
         string="Loan",
         required=True,
         ondelete="restrict",
-        tracking=True,
         index=True,
         domain="[('state', '=', 'active')]",
     )
@@ -63,7 +62,6 @@ class AlbaLoanTopup(models.Model):
         string="Top-Up Amount",
         currency_field="currency_id",
         required=True,
-        tracking=True,
         help="Additional funds to disburse to customer",
     )
     new_principal = fields.Monetary(
@@ -79,7 +77,7 @@ class AlbaLoanTopup(models.Model):
         ("home_improvement", "Home Improvement"),
         ("debt_consolidation", "Debt Consolidation"),
         ("other", "Other"),
-    ], string="Purpose", required=True, tracking=True)
+    ], string="Purpose", required=True)
     purpose_notes = fields.Text(string="Additional Notes")
     
     # Disbursement
@@ -92,7 +90,6 @@ class AlbaLoanTopup(models.Model):
         string="Disbursement Date",
         required=True,
         default=fields.Date.today,
-        tracking=True,
     )
     journal_id = fields.Many2one(
         "account.journal",
@@ -123,7 +120,7 @@ class AlbaLoanTopup(models.Model):
         ("disbursed", "Disbursed"),
         ("rejected", "Rejected"),
         ("cancelled", "Cancelled"),
-    ], string="Status", default="draft", tracking=True)
+    ], string="Status", default="draft")
     
     # Approval
     requested_by = fields.Many2one(

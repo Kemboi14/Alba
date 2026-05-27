@@ -16,7 +16,6 @@ class AlbaLoanRepayment(models.Model):
         string="Payment Reference",
         copy=False,
         index=True,
-        tracking=True,
         help="Unique reference for this payment (e.g. M-Pesa code, bank ref).",
     )
     django_payment_id = fields.Integer(
@@ -32,7 +31,6 @@ class AlbaLoanRepayment(models.Model):
         string="Loan",
         required=True,
         ondelete="restrict",
-        tracking=True,
         index=True,
     )
     customer_id = fields.Many2one(
@@ -62,14 +60,12 @@ class AlbaLoanRepayment(models.Model):
     payment_date = fields.Date(
         string="Payment Date",
         required=True,
-        tracking=True,
         default=fields.Date.today,
     )
     amount_paid = fields.Monetary(
         string="Amount Paid",
         currency_field="currency_id",
         required=True,
-        tracking=True,
     )
 
     # ── Allocation ────────────────────────────────────────────────────────────
@@ -77,25 +73,21 @@ class AlbaLoanRepayment(models.Model):
         string="Principal Component",
         currency_field="currency_id",
         default=0.0,
-        tracking=True,
     )
     interest_component = fields.Monetary(
         string="Interest Component",
         currency_field="currency_id",
         default=0.0,
-        tracking=True,
     )
     fees_component = fields.Monetary(
         string="Fees Component",
         currency_field="currency_id",
         default=0.0,
-        tracking=True,
     )
     penalty_component = fields.Monetary(
         string="Penalty / Late Fee Component",
         currency_field="currency_id",
         default=0.0,
-        tracking=True,
     )
     total_allocated = fields.Monetary(
         string="Total Allocated",
@@ -123,13 +115,11 @@ class AlbaLoanRepayment(models.Model):
         string="Payment Method",
         required=True,
         default="mpesa",
-        tracking=True,
     )
     mpesa_transaction_id = fields.Char(
         string="M-Pesa Transaction ID",
         copy=False,
         index=True,
-        tracking=True,
     )
     bank_transaction_id = fields.Char(
         string="Bank Transaction ID / Cheque No.",
@@ -139,7 +129,6 @@ class AlbaLoanRepayment(models.Model):
         "res.users",
         string="Received By",
         default=lambda self: self.env.uid,
-        tracking=True,
     )
 
     # ── Workflow State ────────────────────────────────────────────────────────
@@ -152,7 +141,6 @@ class AlbaLoanRepayment(models.Model):
         string="Status",
         default="draft",
         required=True,
-        tracking=True,
         copy=False,
         index=True,
     )
@@ -224,7 +212,6 @@ class AlbaLoanRepayment(models.Model):
         "account.journal",
         string="Payment Journal",
         domain="[('type', 'in', ['bank', 'cash'])]",
-        tracking=True,
         help="Bank or Cash journal into which this payment was received.",
     )
     payment_method_line_id = fields.Many2one(

@@ -27,7 +27,6 @@ class AlbaLoanPartialPayoff(models.Model):
         string="Loan",
         required=True,
         ondelete="restrict",
-        tracking=True,
         domain="[('state', '=', 'active')]",
     )
     customer_id = fields.Many2one(
@@ -73,7 +72,6 @@ class AlbaLoanPartialPayoff(models.Model):
         string="Payoff Amount",
         currency_field="currency_id",
         required=True,
-        tracking=True,
         help="Extra amount customer wants to pay to reduce principal",
     )
     reduction_mode = fields.Selection([
@@ -148,7 +146,7 @@ class AlbaLoanPartialPayoff(models.Model):
         ("applied", "Applied"),
         ("expired", "Expired"),
         ("cancelled", "Cancelled"),
-    ], string="Status", default="draft", tracking=True)
+    ], string="Status", default="draft")
     
     # Processing
     payment_date = fields.Date(string="Payment Date")

@@ -20,7 +20,6 @@ class AlbaCustomer(models.Model):
         string="Contact",
         required=True,
         ondelete="restrict",
-        tracking=True,
         index=True,
     )
     display_name = fields.Char(
@@ -62,21 +61,18 @@ class AlbaCustomer(models.Model):
     county_id = fields.Many2one(
         "alba.county",
         string="County",
-        tracking=True,
         index=True,
     )
     sub_county_id = fields.Many2one(
         "alba.sub.county",
         string="Sub-County",
         domain="[('county_id', '=', county_id)]",
-        tracking=True,
         index=True,
     )
     ward_id = fields.Many2one(
         "alba.ward",
         string="Ward",
         domain="[('sub_county_id', '=', sub_county_id)]",
-        tracking=True,
         index=True,
     )
     location_display = fields.Char(
@@ -92,7 +88,6 @@ class AlbaCustomer(models.Model):
         "customer_id",
         "tag_id",
         string="Tags",
-        tracking=True,
     )
 
     # ── Employment ────────────────────────────────────────────────────────────
@@ -105,7 +100,6 @@ class AlbaCustomer(models.Model):
             ("retired", "Retired"),
         ],
         string="Employment Status",
-        tracking=True,
     )
     employer_id = fields.Many2one(related="partner_id.employer_id", store=True, readonly=False)
     employer_name = fields.Char(related="employer_id.name", string="Employer Name", readonly=True)
@@ -137,14 +131,12 @@ class AlbaCustomer(models.Model):
     sector_id = fields.Many2one(
         "alba.business.sector",
         string="Sector",
-        tracking=True,
         index=True,
         help="Customer's primary business sector",
     )
     subsector_id = fields.Many2one(
         "alba.business.subsector",
         string="Subsector",
-        tracking=True,
         index=True,
         domain="[('sector_id', '=', sector_id)]",
         help="Specific subsector within the sector",
@@ -158,12 +150,10 @@ class AlbaCustomer(models.Model):
             ("director", "Director"),
         ],
         string="Referral Source",
-        tracking=True,
         help="How this customer was referred to Alba Capital",
     )
     referral_name = fields.Char(
         string="Referred By",
-        tracking=True,
         help="Name of the person who referred this customer",
     )
 
@@ -178,24 +168,20 @@ class AlbaCustomer(models.Model):
         ],
         string="KYC Status",
         default="pending",
-        tracking=True,
         index=True,
     )
     kyc_verified_by = fields.Many2one(
         "res.users",
         string="KYC Verified By",
         readonly=True,
-        tracking=True,
     )
     kyc_verified_date = fields.Datetime(
         string="KYC Verified On",
         readonly=True,
-        tracking=True,
     )
     credit_score = fields.Integer(
         string="Internal Credit Score",
         default=0,
-        tracking=True,
         help="0-100 internal credit score assigned by the credit team.",
     )
     risk_rating = fields.Selection(
@@ -206,24 +192,20 @@ class AlbaCustomer(models.Model):
             ("very_high", "Very High Risk"),
         ],
         string="Risk Rating",
-        tracking=True,
     )
     blacklisted = fields.Boolean(
         string="Blacklisted",
         default=False,
-        tracking=True,
     )
     active = fields.Boolean(
         string="Active",
         default=True,
-        tracking=True,
     )
     # ── Banking ───────────────────────────────────────────────────────────────
     bank_account_id = fields.Many2one(
         "res.partner.bank",
         string="Bank Account",
         domain="[('partner_id', '=', partner_id)]",
-        tracking=True,
         help="Customer's bank account for disbursements and repayments.",
     )
     mpesa_number = fields.Char(

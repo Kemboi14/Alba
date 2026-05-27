@@ -17,16 +17,16 @@ class AlbaKYCProvider(models.Model):
     _inherit = ["mail.thread"]
     _order = "sequence asc, id desc"
 
-    name = fields.Char(string="Provider Name", required=True, tracking=True)
+    name = fields.Char(string="Provider Name", required=True)
     provider_type = fields.Selection([
         ('sandbox', 'Sandbox / Mock (Testing)'),
         ('smile_identity', 'Smile Identity'),
         ('metamap', 'Metamap'),
         ('iprs', 'Kenya IPRS (Direct)'),
         ('custom', 'Custom Provider'),
-    ], string="Provider Backend", required=True, default='sandbox', tracking=True)
+    ], string="Provider Backend", required=True, default='sandbox')
     
-    is_active = fields.Boolean(string="Active Provider", default=False, tracking=True, 
+    is_active = fields.Boolean(string="Active Provider", default=False, 
                                help="Only one provider should be active at a time.")
     sequence = fields.Integer(default=10)
     

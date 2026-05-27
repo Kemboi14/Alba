@@ -25,20 +25,17 @@ class AlbaLoanStatusReason(models.Model):
         string="Reason",
         required=True,
         translate=True,
-        tracking=True,
     )
     category = fields.Selection(
         selection=CATEGORY_CHOICES,
         string="Status Category",
         required=True,
-        tracking=True,
         index=True,
         help="Whether this reason is for Deferred or Declined status",
     )
     code = fields.Char(
         string="Code",
         size=20,
-        tracking=True,
         help="Short code for reporting",
     )
     sequence = fields.Integer(
@@ -54,7 +51,6 @@ class AlbaLoanStatusReason(models.Model):
     active = fields.Boolean(
         string="Active",
         default=True,
-        tracking=True,
     )
 
     # ── Usage Tracking ────────────────────────────────────────────────────────

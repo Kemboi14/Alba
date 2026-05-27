@@ -22,7 +22,6 @@ class AlbaInvestor(models.Model):
         string="Contact",
         required=False,
         ondelete="restrict",
-        tracking=True,
         index=True,
     )
     name = fields.Char(related="partner_id.name", store=True, readonly=False)
@@ -30,7 +29,7 @@ class AlbaInvestor(models.Model):
     investor_type = fields.Selection([
         ("individual", "Individual"),
         ("company", "Company"),
-    ], string="Investor Type", required=True, default="individual", tracking=True)
+    ], string="Investor Type", required=True, default="individual")
     
     # ─── Identification (Related to Partner) ──────────────────────────────────
     id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
@@ -46,7 +45,6 @@ class AlbaInvestor(models.Model):
         "res.partner.bank",
         string="Bank Account",
         domain="[('partner_id', '=', partner_id)]",
-        tracking=True,
     )
     
     # ─── Investment Details ───────────────────────────────────────────────────
@@ -61,14 +59,12 @@ class AlbaInvestor(models.Model):
         currency_field="currency_id",
         required=False,
         default=0.0,
-        tracking=True,
     )
     interest_rate = fields.Float(
         string="Annual Interest Rate (%)",
         digits=(5, 2),
         required=False,
         default=0.0,
-        tracking=True,
     )
     tenure_months = fields.Integer(string="Tenure (Months)", default=12)
     
@@ -129,7 +125,7 @@ class AlbaInvestor(models.Model):
         ("suspended", "Suspended"),
         ("matured", "Matured"),
         ("closed", "Closed"),
-    ], string="Status", default="active", tracking=True)
+    ], string="Status", default="active")
     
     active = fields.Boolean(string="Active", default=True)
     
@@ -307,7 +303,7 @@ class AlbaInvestorWithdrawal(models.Model):
         ("approved", "Approved"),
         ("processed", "Processed"),
         ("rejected", "Rejected"),
-    ], string="Status", default="pending", tracking=True)
+    ], string="Status", default="pending")
     
     approved_by = fields.Many2one("res.users", string="Approved By")
     processed_date = fields.Date(string="Processed Date")

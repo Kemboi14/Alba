@@ -18,7 +18,7 @@ class AlbaCollateral(models.Model):
     _inherit = ["mail.thread"]
     
     # Basic Information
-    name = fields.Char(string="Description", required=True, tracking=True)
+    name = fields.Char(string="Description", required=True)
     collateral_type = fields.Selection([
         ("land", "Land / Property"),
         ("vehicle", "Vehicle"),
@@ -27,12 +27,11 @@ class AlbaCollateral(models.Model):
         ("deposit", "Fixed Deposit / Chattel"),
         ("guarantee", "Bank Guarantee"),
         ("other", "Other"),
-    ], string="Collateral Type", required=True, tracking=True)
+    ], string="Collateral Type", required=True)
     
     # Identification
     registration_number = fields.Char(
         string="Registration Number",
-        tracking=True,
         help="Title deed, logbook number, serial number, etc.",
     )
     
@@ -96,7 +95,6 @@ class AlbaCollateral(models.Model):
         string="Market Value",
         currency_field="currency_id",
         required=True,
-        tracking=True,
     )
     valuation_date = fields.Date(string="Valuation Date", required=True)
     valued_by = fields.Char(string="Valued By")
@@ -130,7 +128,7 @@ class AlbaCollateral(models.Model):
         ("pledged", "Pledged"),
         ("released", "Released"),
         ("liquidated", "Liquidated"),
-    ], string="Status", default="available", tracking=True)
+    ], string="Status", default="available")
     
     # Currency
     currency_id = fields.Many2one(
@@ -346,7 +344,7 @@ class AlbaLoanCollateral(models.Model):
         ("pledged", "Pledged"),
         ("released", "Released"),
         ("liquidated", "Liquidated"),
-    ], string="Status", default="pledged", tracking=True)
+    ], string="Status", default="pledged")
     
     # Liquidation
     liquidation_date = fields.Date(string="Liquidation Date")

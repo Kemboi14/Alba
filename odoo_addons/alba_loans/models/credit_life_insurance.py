@@ -22,7 +22,6 @@ class AlbaCreditLifeInsurance(models.Model):
         copy=False,
         index=True,
         default=lambda self: _("New"),
-        tracking=True,
     )
 
     # ── Loan Link ─────────────────────────────────────────────────────────────
@@ -31,7 +30,6 @@ class AlbaCreditLifeInsurance(models.Model):
         string="Loan",
         required=True,
         ondelete="restrict",
-        tracking=True,
         index=True,
         help="Loan for which the insurance claim is triggered",
     )
@@ -70,18 +68,15 @@ class AlbaCreditLifeInsurance(models.Model):
         string="Event Type",
         required=True,
         default="death",
-        tracking=True,
         help="Type of insurance event triggering the claim",
     )
     event_date = fields.Date(
         string="Event Date",
         required=True,
-        tracking=True,
         help="Date when the insured event occurred",
     )
     event_description = fields.Text(
         string="Event Description",
-        tracking=True,
         help="Additional details about the event",
     )
 
@@ -90,12 +85,10 @@ class AlbaCreditLifeInsurance(models.Model):
         string="Compensation Amount",
         currency_field="currency_id",
         required=True,
-        tracking=True,
         help="Amount approved for compensation (manual entry by admin)",
     )
     compensation_date = fields.Date(
         string="Compensation Date",
-        tracking=True,
         help="Date compensation was approved/processed",
     )
 
@@ -114,7 +107,6 @@ class AlbaCreditLifeInsurance(models.Model):
         selection=STATE_CHOICES,
         string="Status",
         default="draft",
-        tracking=True,
         index=True,
     )
 
@@ -123,27 +115,22 @@ class AlbaCreditLifeInsurance(models.Model):
         "res.users",
         string="Submitted By",
         readonly=True,
-        tracking=True,
     )
     submitted_date = fields.Datetime(
         string="Submitted Date",
         readonly=True,
-        tracking=True,
     )
     approved_by = fields.Many2one(
         "res.users",
         string="Approved By",
         readonly=True,
-        tracking=True,
     )
     approved_date = fields.Datetime(
         string="Approved Date",
         readonly=True,
-        tracking=True,
     )
     rejection_reason = fields.Text(
         string="Rejection Reason",
-        tracking=True,
         help="Reason for rejection if applicable",
     )
 

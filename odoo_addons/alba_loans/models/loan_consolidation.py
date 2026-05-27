@@ -26,7 +26,6 @@ class AlbaLoanConsolidation(models.Model):
         string="Customer",
         required=True,
         ondelete="restrict",
-        tracking=True,
     )
     partner_id = fields.Many2one(
         "res.partner",
@@ -41,7 +40,6 @@ class AlbaLoanConsolidation(models.Model):
         string="Loans to Consolidate",
         required=True,
         domain="[('customer_id', '=', customer_id), ('state', 'in', ['active', 'overdue'])]",
-        tracking=True,
     )
     loan_count = fields.Integer(
         string="Number of Loans",
@@ -98,19 +96,16 @@ class AlbaLoanConsolidation(models.Model):
         string="Consolidated Principal",
         currency_field="currency_id",
         required=True,
-        tracking=True,
         help="Can include top-up amount",
     )
     new_interest_rate = fields.Float(
         string="New Interest Rate (% p.m.)",
         digits=(5, 2),
         required=True,
-        tracking=True,
     )
     new_tenure_months = fields.Integer(
         string="New Tenure (Months)",
         required=True,
-        tracking=True,
     )
     new_repayment_frequency = fields.Selection([
         ("weekly", "Weekly"),
@@ -179,7 +174,7 @@ class AlbaLoanConsolidation(models.Model):
         ("disbursed", "New Loan Disbursed"),
         ("completed", "Completed"),
         ("rejected", "Rejected"),
-    ], string="Status", default="draft", tracking=True)
+    ], string="Status", default="draft")
     
     # Approval
     quote_date = fields.Date(string="Quote Date")

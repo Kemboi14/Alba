@@ -5,7 +5,7 @@ class ResPartner(models.Model):
     _inherit = "res.partner"
 
     # ── Identity ──────────────────────────────────────────────────────────────
-    id_number = fields.Char(string="ID / Passport Number", tracking=True, index=True)
+    id_number = fields.Char(string="ID / Passport Number", index=True)
     id_type = fields.Selection(
         selection=[
             ("national_id", "National ID"),
@@ -14,7 +14,6 @@ class ResPartner(models.Model):
         ],
         string="ID Type",
         default="national_id",
-        tracking=True,
     )
     date_of_birth = fields.Date(string="Date of Birth")
     gender = fields.Selection(
@@ -24,16 +23,14 @@ class ResPartner(models.Model):
             ("other", "Other / Prefer not to say"),
         ],
         string="Gender",
-        tracking=True,
     )
-    kra_pin = fields.Char(string="KRA PIN", tracking=True)
-    registration_number = fields.Char(string="Company Registration", tracking=True)
+    kra_pin = fields.Char(string="KRA PIN")
+    registration_number = fields.Char(string="Company Registration")
 
     # ── Employment (Centralized) ──────────────────────────────────────────────
     employer_id = fields.Many2one(
         "alba.employer",
         string="Employer",
-        tracking=True,
     )
     job_title = fields.Char(string="Job Title")
     monthly_income = fields.Monetary(

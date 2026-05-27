@@ -26,7 +26,6 @@ class AlbaLoanPaymentHoliday(models.Model):
         string="Loan",
         required=True,
         ondelete="restrict",
-        tracking=True,
         domain="[('state', '=', 'active')]",
     )
     customer_id = fields.Many2one(
@@ -61,13 +60,11 @@ class AlbaLoanPaymentHoliday(models.Model):
     start_date = fields.Date(
         string="Holiday Start Date",
         required=True,
-        tracking=True,
         help="First payment date that will be deferred",
     )
     end_date = fields.Date(
         string="Holiday End Date",
         required=True,
-        tracking=True,
         help="Last payment date that will be deferred",
     )
     holiday_months = fields.Integer(
@@ -83,7 +80,7 @@ class AlbaLoanPaymentHoliday(models.Model):
         ("family_emergency", "Family Emergency"),
         ("natural_disaster", "Natural Disaster"),
         ("other", "Other"),
-    ], string="Reason", required=True, tracking=True)
+    ], string="Reason", required=True)
     reason_notes = fields.Text(string="Additional Details")
     
     # Interest Handling
@@ -141,7 +138,7 @@ class AlbaLoanPaymentHoliday(models.Model):
         ("completed", "Completed"),
         ("rejected", "Rejected"),
         ("cancelled", "Cancelled"),
-    ], string="Status", default="draft", tracking=True)
+    ], string="Status", default="draft")
     
     # Approval
     requested_by = fields.Many2one(

@@ -7,7 +7,7 @@ class AlbaEmployer(models.Model):
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "name asc"
 
-    name = fields.Char(string="Employer / Business Name", required=True, tracking=True)
+    name = fields.Char(string="Employer / Business Name", required=True)
     industry = fields.Selection([
         ("government", "Government / Civil Service"),
         ("education", "Education"),
@@ -20,9 +20,9 @@ class AlbaEmployer(models.Model):
         ("transport", "Transport / Logistics"),
         ("agriculture", "Agriculture"),
         ("other", "Other"),
-    ], string="Industry", tracking=True)
+    ], string="Industry")
     
-    phone = fields.Char(string="Phone Number", tracking=True)
+    phone = fields.Char(string="Phone Number")
     email = fields.Char(string="Email Address")
     website = fields.Char(string="Website")
     

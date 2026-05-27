@@ -27,7 +27,6 @@ class AlbaLoanRefinance(models.Model):
         required=True,
         ondelete="restrict",
         domain="[('state', 'in', ['active', 'overdue'])]",
-        tracking=True,
     )
     customer_id = fields.Many2one(
         "alba.customer",
@@ -78,25 +77,21 @@ class AlbaLoanRefinance(models.Model):
         string="New Loan Product",
         required=True,
         ondelete="restrict",
-        tracking=True,
     )
     new_principal = fields.Monetary(
         string="New Principal Amount",
         currency_field="currency_id",
         required=True,
-        tracking=True,
         help="Can be same, higher (top-up), or lower than original",
     )
     new_interest_rate = fields.Float(
         string="New Interest Rate (% p.m.)",
         digits=(5, 2),
         required=True,
-        tracking=True,
     )
     new_tenure_months = fields.Integer(
         string="New Tenure (Months)",
         required=True,
-        tracking=True,
     )
     new_repayment_frequency = fields.Selection([
         ("weekly", "Weekly"),
@@ -193,7 +188,7 @@ class AlbaLoanRefinance(models.Model):
         ("disbursed", "New Loan Disbursed"),
         ("completed", "Completed"),
         ("rejected", "Rejected"),
-    ], string="Status", default="draft", tracking=True)
+    ], string="Status", default="draft")
     
     # Approval
     quote_date = fields.Date(string="Quote Date")

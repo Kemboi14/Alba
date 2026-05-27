@@ -65,7 +65,6 @@ class AlbaLoanDisbursementSplit(models.Model):
         string="Disbursement Amount",
         currency_field="currency_id",
         required=True,
-        tracking=True,
         help="Amount to disburse from this account",
     )
     percentage = fields.Float(
@@ -88,17 +87,14 @@ class AlbaLoanDisbursementSplit(models.Model):
         selection=STATE_CHOICES,
         string="Status",
         default="pending",
-        tracking=True,
         index=True,
     )
     disbursement_date = fields.Date(
         string="Disbursement Date",
-        tracking=True,
         help="Date when funds were actually disbursed",
     )
     reference_number = fields.Char(
         string="Disbursement Reference",
-        tracking=True,
         help="Reference from the disbursing bank/system",
     )
 

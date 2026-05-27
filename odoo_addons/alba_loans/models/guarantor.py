@@ -53,7 +53,7 @@ class AlbaGuarantor(models.Model):
         ("pending", "Pending Verification"),
         ("verified", "Verified"),
         ("rejected", "Rejected"),
-    ], string="KYC Status", default="pending", tracking=True)
+    ], string="KYC Status", default="pending")
     blacklisted = fields.Boolean(
         string="Blacklisted",
         default=False,
@@ -271,7 +271,7 @@ class AlbaLoanGuarantor(models.Model):
         ("released", "Released"),
         ("liability", "Under Liability"),
         ("recovered", "Recovered"),
-    ], string="Status", default="pending", tracking=True)
+    ], string="Status", default="pending")
     
     # Confirmation
     confirmation_code = fields.Char(string="Confirmation Code", readonly=True)

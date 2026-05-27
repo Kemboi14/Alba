@@ -34,20 +34,17 @@ class AlbaLoanProduct(models.Model):
     name = fields.Char(
         string="Product Name",
         required=True,
-        tracking=True,
     )
     code = fields.Char(
         string="Product Code",
         required=True,
         size=20,
-        tracking=True,
         copy=False,
     )
     category_id = fields.Many2one(
         "alba.loan.category",
         string="Category",
         required=False,
-        tracking=True,
         default=lambda self: self.env["alba.loan.category"].search([], limit=1).id,
     )
     category = fields.Selection(
@@ -74,7 +71,6 @@ class AlbaLoanProduct(models.Model):
     is_active = fields.Boolean(
         string="Active",
         default=True,
-        tracking=True,
     )
 
     currency_id = fields.Many2one(
@@ -113,7 +109,6 @@ class AlbaLoanProduct(models.Model):
         string="Interest Rate (%)",
         digits=(5, 2),
         required=True,
-        tracking=True,
         help="Monthly interest rate percentage.",
     )
     interest_method = fields.Selection(
@@ -124,7 +119,6 @@ class AlbaLoanProduct(models.Model):
         string="Interest Method",
         required=True,
         default="reducing_balance",
-        tracking=True,
     )
     repayment_frequency = fields.Selection(
         selection=[
@@ -174,13 +168,11 @@ class AlbaLoanProduct(models.Model):
     requires_employer = fields.Boolean(
         string="Requires Employer Details",
         default=False,
-        tracking=True,
         help="Show employer, job title, and payslip fields on the application.",
     )
     requires_guarantor = fields.Boolean(
         string="Requires Guarantor",
         default=False,
-        tracking=True,
         help="Show guarantors tab and enforce guarantor confirmation before disbursement.",
     )
     min_guarantors = fields.Integer(
@@ -191,25 +183,21 @@ class AlbaLoanProduct(models.Model):
     requires_collateral = fields.Boolean(
         string="Requires Collateral",
         default=False,
-        tracking=True,
         help="Show collateral tab and enforce collateral pledge before disbursement.",
     )
     requires_business_info = fields.Boolean(
         string="Requires Business Information",
         default=False,
-        tracking=True,
         help="Show business name, registration, type, and revenue fields.",
     )
     requires_payslip = fields.Boolean(
         string="Requires Payslip / Proof of Income",
         default=False,
-        tracking=True,
         help="Enforce payslip document upload before submission.",
     )
     requires_business_reg = fields.Boolean(
         string="Requires Business Registration Docs",
         default=False,
-        tracking=True,
         help="Enforce business registration certificate upload.",
     )
 
@@ -236,91 +224,78 @@ class AlbaLoanProduct(models.Model):
     account_loan_receivable_id = fields.Many2one(
         comodel_name="account.account",
         string="Loan Receivable Account",
-        tracking=True,
         domain="[('account_type', 'in', ['asset_receivable', 'asset_current', 'asset_non_current'])]",
         help="Account debited when a loan is disbursed (e.g. Loans Receivable).",
     )
     account_interest_income_id = fields.Many2one(
         comodel_name="account.account",
         string="Interest Income Account",
-        tracking=True,
         domain="[('account_type', '=', 'income')]",
         help="Account credited when interest is collected.",
     )
     account_fees_income_id = fields.Many2one(
         comodel_name="account.account",
         string="Fee Income Account",
-        tracking=True,
         domain="[('account_type', '=', 'income')]",
         help="Account credited when fees are collected.",
     )
     account_penalty_income_id = fields.Many2one(
         comodel_name="account.account",
         string="Penalty Income Account",
-        tracking=True,
         domain="[('account_type', '=', 'income')]",
         help="Account credited when penalty interest/fees are collected.",
     )
     account_penalty_receivable_id = fields.Many2one(
         comodel_name="account.account",
         string="Penalty Receivable Account",
-        tracking=True,
         domain="[('account_type', '=', 'asset_receivable')]",
         help="Account for tracking accrued penalty fees that haven't been collected yet.",
     )
     account_clearing_id = fields.Many2one(
         comodel_name="account.account",
         string="Loan Clearing Account",
-        tracking=True,
         domain="[('account_type', 'in', ['asset_current', 'liability_current'])]",
         help="Intermediary account for disbursements. DR Loan Receivable, CR Clearing; then Payment Voucher clears this account.",
     )
     account_interest_receivable_id = fields.Many2one(
         comodel_name="account.account",
         string="Interest Receivable Account",
-        tracking=True,
         domain="[('account_type', '=', 'asset_receivable')]",
         help="Account for tracking accrued interest that hasn't been collected yet.",
     )
     account_provision_id = fields.Many2one(
         comodel_name="account.account",
         string="Provision Account (Asset Offset)",
-        tracking=True,
         domain="[('account_type', '=', 'asset_current')]",
         help="The allowance for credit losses account (Contra-asset).",
     )
     account_provision_expense_id = fields.Many2one(
         comodel_name="account.account",
         string="Provision Expense Account",
-        tracking=True,
         domain="[('account_type', '=', 'expense')]",
         help="The expense account for loan loss provisioning.",
     )
     account_interest_expense_id = fields.Many2one(
         comodel_name="account.account",
         string="Interest Expense Account (Investors)",
-        tracking=True,
         domain="[('account_type', '=', 'expense')]",
         help="Account for recording interest expenses owed to investors.",
     )
     account_internal_investment_id = fields.Many2one(
         comodel_name="account.account",
         string="Internal Investment Account",
-        tracking=True,
         domain="[('account_type', '=', 'income')]",
         help="Income account for internal investments.",
     )
     account_insurance_receivable_id = fields.Many2one(
         comodel_name="account.account",
         string="Insurance Receivable Account",
-        tracking=True,
         domain="[('account_type', 'in', ['asset_receivable', 'asset_current', 'asset_non_current'])]",
         help="Account debited when a credit life insurance compensation claim is approved.",
     )
     account_insurance_income_id = fields.Many2one(
         comodel_name="account.account",
         string="Insurance Compensation Income Account",
-        tracking=True,
         domain="[('account_type', 'in', ['income', 'income_other'])]",
         help="Account credited when a credit life insurance compensation claim is approved.",
     )

@@ -55,7 +55,7 @@ class AlbaLoanRestructure(models.Model):
         ("approved", "Approved"),
         ("applied", "Applied"),
         ("rejected", "Rejected"),
-    ], string="Status", default="draft", tracking=True)
+    ], string="Status", default="draft")
     
     # Approval
     requested_by = fields.Many2one("res.users", string="Requested By", default=lambda self: self.env.user)

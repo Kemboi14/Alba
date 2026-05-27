@@ -35,7 +35,6 @@ class AlbaLoanApplication(models.Model):
         string="Customer",
         required=True,
         ondelete="restrict",
-        tracking=True,
         index=True,
     )
     partner_id = fields.Many2one(
@@ -71,7 +70,6 @@ class AlbaLoanApplication(models.Model):
         string="Loan Product",
         required=True,
         ondelete="restrict",
-        tracking=True,
     )
     product_category = fields.Selection(
         related="loan_product_id.category",
@@ -90,17 +88,14 @@ class AlbaLoanApplication(models.Model):
         string="Requested Amount",
         currency_field="currency_id",
         required=True,
-        tracking=True,
     )
     approved_amount = fields.Monetary(
         string="Approved Amount",
         currency_field="currency_id",
-        tracking=True,
     )
     tenure_months = fields.Integer(
         string="Tenure (Months)",
         required=True,
-        tracking=True,
     )
     repayment_frequency = fields.Selection(
         selection=[
@@ -111,7 +106,6 @@ class AlbaLoanApplication(models.Model):
         string="Repayment Frequency",
         required=True,
         default="monthly",
-        tracking=True,
     )
     purpose = fields.Text(
         string="Loan Purpose",
@@ -166,7 +160,6 @@ class AlbaLoanApplication(models.Model):
         string="Status",
         default="draft",
         required=True,
-        tracking=True,
         index=True,
         copy=False,
     )
@@ -175,7 +168,6 @@ class AlbaLoanApplication(models.Model):
     status_reason_id = fields.Many2one(
         "alba.loan.status.reason",
         string="Status Reason",
-        tracking=True,
         help="Reason for deferral or decline",
     )
 
@@ -216,31 +208,27 @@ class AlbaLoanApplication(models.Model):
         "res.users",
         string="Reviewed By",
         readonly=True,
-        tracking=True,
         copy=False,
     )
     approved_by = fields.Many2one(
         "res.users",
         string="Approved By",
         readonly=True,
-        tracking=True,
         copy=False,
     )
     disbursed_by = fields.Many2one(
         "res.users",
         string="Disbursed By",
         readonly=True,
-        tracking=True,
         copy=False,
     )
 
     # ── Decision fields ───────────────────────────────────────────────────────
-    rejection_reason = fields.Text(string="Rejection Reason", tracking=True)
-    cancellation_reason = fields.Text(string="Cancellation Reason", tracking=True)
+    rejection_reason = fields.Text(string="Rejection Reason")
+    cancellation_reason = fields.Text(string="Cancellation Reason")
     internal_notes = fields.Text(string="Internal Notes")
     conditions_of_approval = fields.Text(
         string="Conditions of Approval",
-        tracking=True,
         help="Any special conditions that must be met before disbursement.",
     )
 

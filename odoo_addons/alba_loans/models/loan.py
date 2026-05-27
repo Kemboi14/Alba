@@ -34,7 +34,6 @@ class AlbaLoan(models.Model):
         string="Loan Application",
         required=True,
         ondelete="restrict",
-        tracking=True,
         index=True,
     )
 
@@ -80,7 +79,6 @@ class AlbaLoan(models.Model):
     employer_id = fields.Many2one(
         "alba.employer",
         string="Employer",
-        tracking=True,
         ondelete="restrict",
     )
 
@@ -89,13 +87,11 @@ class AlbaLoan(models.Model):
         string="Principal Amount",
         currency_field="currency_id",
         required=True,
-        tracking=True,
     )
     interest_rate = fields.Float(
         string="Interest Rate (% p.m.)",
         digits=(5, 2),
         required=True,
-        tracking=True,
     )
     interest_method = fields.Selection(
         selection=[
@@ -105,12 +101,10 @@ class AlbaLoan(models.Model):
         string="Interest Method",
         required=True,
         default="reducing_balance",
-        tracking=True,
     )
     tenure_months = fields.Integer(
         string="Tenure (Months)",
         required=True,
-        tracking=True,
     )
     repayment_frequency = fields.Selection(
         selection=[
@@ -121,19 +115,16 @@ class AlbaLoan(models.Model):
         string="Repayment Frequency",
         required=True,
         default="monthly",
-        tracking=True,
     )
 
     # ── Dates ─────────────────────────────────────────────────────────────────
     loan_date = fields.Date(
         string="Loan Date",
         default=fields.Date.context_today,
-        tracking=True,
     )
     disbursement_date = fields.Date(
         string="Disbursement Date",
         required=True,
-        tracking=True,
     )
     maturity_date = fields.Date(
         string="Maturity Date",
@@ -152,7 +143,6 @@ class AlbaLoan(models.Model):
         string="Loan Status",
         default="active",
         required=True,
-        tracking=True,
         index=True,
     )
 
@@ -243,7 +233,6 @@ class AlbaLoan(models.Model):
         string="PAR Bucket",
         compute="_compute_par",
         store=True,
-        tracking=True,
     )
 
     # ── Relationships ─────────────────────────────────────────────────────────
@@ -284,14 +273,12 @@ class AlbaLoan(models.Model):
         "account.journal",
         string="Disbursement Journal",
         domain="[('type', 'in', ['bank', 'cash'])]",
-        tracking=True,
         help="Bank or Cash journal used when disbursing this loan.",
     )
     payment_method_line_id = fields.Many2one(
         "account.payment.method.line",
         string="Disbursement Payment Method",
         domain="[('payment_type', '=', 'outbound'), ('journal_id', '=', journal_id)]",
-        tracking=True,
         help="Specific outbound payment method for the disbursement journal.",
     )
 

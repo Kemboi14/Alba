@@ -86,7 +86,6 @@ class AlbaMpesaConfig(models.Model):
     name = fields.Char(
         string="Configuration Name",
         required=True,
-        tracking=True,
         help=(
             'Human-readable label, e.g. "Alba Capital — Production Paybill" '
             'or "Alba Capital — Sandbox Testing".'
@@ -100,7 +99,6 @@ class AlbaMpesaConfig(models.Model):
     is_active = fields.Boolean(
         string="Active",
         default=True,
-        tracking=True,
         help=(
             "Only active configurations are returned by get_active_config(). "
             "Deactivate instead of deleting to retain the audit trail."
@@ -114,7 +112,6 @@ class AlbaMpesaConfig(models.Model):
         string="Environment",
         required=True,
         default="sandbox",
-        tracking=True,
         help=(
             "Sandbox uses https://sandbox.safaricom.co.ke.  "
             "Production uses https://api.safaricom.co.ke."
@@ -125,7 +122,6 @@ class AlbaMpesaConfig(models.Model):
         string="Company",
         required=True,
         default=lambda self: self.env.company,
-        tracking=True,
         help="Restrict this configuration to a specific company.",
     )
 
@@ -155,7 +151,6 @@ class AlbaMpesaConfig(models.Model):
     shortcode = fields.Char(
         string="Business Short Code (Paybill)",
         required=True,
-        tracking=True,
         help=(
             "Your M-Pesa Paybill number.  "
             "Sandbox default: 174379.  "
@@ -164,7 +159,6 @@ class AlbaMpesaConfig(models.Model):
     )
     till_number = fields.Char(
         string="Till Number (Buy Goods)",
-        tracking=True,
         help=(
             "Optional.  If you accept payments via a Buy Goods Till, enter "
             "the till number here.  It is used as BusinessShortCode for "
@@ -179,7 +173,6 @@ class AlbaMpesaConfig(models.Model):
         string="Default Payment Type",
         default="paybill",
         required=True,
-        tracking=True,
         help=(
             "Determines whether STK Push uses the Paybill short code "
             "(CustomerPayBillOnline) or the Till number "
@@ -246,7 +239,6 @@ class AlbaMpesaConfig(models.Model):
     callback_base_url = fields.Char(
         string="Callback Base URL",
         required=True,
-        tracking=True,
         help=(
             "Public HTTPS base URL of this Odoo instance, "
             "e.g. https://odoo.albacapital.co.ke.  "

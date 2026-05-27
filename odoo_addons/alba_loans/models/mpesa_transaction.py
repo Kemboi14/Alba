@@ -97,7 +97,6 @@ class AlbaMpesaTransaction(models.Model):
         string="M-Pesa Code",
         index=True,
         copy=False,
-        tracking=True,
         help=(
             "Safaricom transaction receipt number, e.g. QGH7YXXXXX.  "
             "Populated after the transaction completes."
@@ -137,7 +136,6 @@ class AlbaMpesaTransaction(models.Model):
         string="Transaction Type",
         required=True,
         index=True,
-        tracking=True,
     )
     status = fields.Selection(
         selection=TRANSACTION_STATUSES,
@@ -145,18 +143,15 @@ class AlbaMpesaTransaction(models.Model):
         default="pending",
         required=True,
         index=True,
-        tracking=True,
     )
     amount = fields.Monetary(
         string="Amount (KES)",
         currency_field="currency_id",
         required=True,
-        tracking=True,
     )
     phone_number = fields.Char(
         string="Phone Number",
         index=True,
-        tracking=True,
         help="Safaricom number in 254XXXXXXXXX format.",
     )
     account_reference = fields.Char(
@@ -184,7 +179,6 @@ class AlbaMpesaTransaction(models.Model):
     completed_at = fields.Datetime(
         string="Completed At",
         readonly=True,
-        tracking=True,
         help="When the transaction was confirmed by Safaricom.",
     )
 
@@ -226,7 +220,6 @@ class AlbaMpesaTransaction(models.Model):
         string="Linked Loan",
         index=True,
         ondelete="set null",
-        tracking=True,
         help="Set manually or auto-matched via account_reference (loan number).",
     )
     repayment_id = fields.Many2one(
@@ -234,7 +227,6 @@ class AlbaMpesaTransaction(models.Model):
         string="Linked Repayment",
         index=True,
         ondelete="set null",
-        tracking=True,
         help="Populated after the transaction is reconciled to a repayment record.",
     )
     config_id = fields.Many2one(
