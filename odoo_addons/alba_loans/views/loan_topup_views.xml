@@ -94,12 +94,9 @@
                     <group invisible="state != 'rejected'">
                         <field name="rejection_reason" readonly="1"/>
                     </group>
-                    <div class="oe_chatter">
-                        <field name="message_follower_ids" widget="mail_followers"/>
-                        <field name="activity_ids" widget="mail_activity"/>
-                        <field name="message_ids" widget="mail_thread"/>
-                    </div>
                 </sheet>
+                <!-- FIX: replaced old Odoo 16 chatter block with Odoo 17+ <chatter/> -->
+                <chatter/>
             </form>
         </field>
     </record>
@@ -205,7 +202,8 @@
         <field name="arch" type="xml">
             <xpath expr="//group[.//field[@name='requested_by']]" position="replace"/>
             <xpath expr="//group[.//field[@name='rejection_reason']]" position="replace"/>
-            <xpath expr="//div[hasclass('oe_chatter')]" position="before">
+            <!-- FIX: updated xpath from //div[hasclass('oe_chatter')] to //chatter -->
+            <xpath expr="//chatter" position="before">
                 <field name="comparison_chart_data" invisible="1"/>
                 <field name="impact_chart_data" invisible="1"/>
                 <field name="document_count" invisible="1"/>
