@@ -148,31 +148,12 @@
                         </group>
                     </group>
 
-                    <group invisible="not new_loan_id">
-                        <field name="new_loan_application_id" readonly="1"/>
-                        <field name="new_loan_id"             readonly="1"/>
                     </group>
 
                 </sheet>
-                <chatter/>
-
-            </form>
-        </field>
-    </record>
-
-    <!-- ================================================================
-         Shared bottom panel: summary KPIs, charts, dates, documents
-         ================================================================ -->
-    <record id="view_loan_consolidation_form_insights" model="ir.ui.view">
-        <field name="name">alba.loan.consolidation.form.insights</field>
-        <field name="model">alba.loan.consolidation</field>
-        <field name="inherit_id" ref="view_loan_consolidation_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//group[.//field[@name='new_loan_application_id']]" position="replace"/>
-            <xpath expr="//chatter" position="before">
                 <field name="comparison_chart_data" invisible="1"/>
-                <field name="impact_chart_data"     invisible="1"/>
-                <field name="document_count"        invisible="1"/>
+                <field name="impact_chart_data" invisible="1"/>
+                <field name="document_count" invisible="1"/>
                 <div class="o_loan_modification_panel border-top pt-4 mt-4">
                     <h4 class="mb-3 text-primary">
                         <i class="fa fa-line-chart me-2"/> Summary &amp; Supporting Records
@@ -267,7 +248,9 @@
                         </div>
                     </div>
                 </div>
-            </xpath>
+                <chatter/>
+
+            </form>
         </field>
     </record>
 
