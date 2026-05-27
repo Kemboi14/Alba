@@ -148,8 +148,6 @@
                         </group>
                     </group>
 
-                    </group>
-
                 </sheet>
                 <field name="comparison_chart_data" invisible="1"/>
                 <field name="impact_chart_data" invisible="1"/>
