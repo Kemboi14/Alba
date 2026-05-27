@@ -5,7 +5,7 @@
     <record id="view_alba_employer_list" model="ir.ui.view">
         <field name="name">alba.employer.list</field>
         <field name="model">alba.employer</field>
-        <field name="type">list</field>
+        <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
             <list string="Employers" decoration-muted="not is_approved">
                 <field name="name"/>
@@ -23,7 +23,7 @@
     <record id="view_alba_employer_form" model="ir.ui.view">
         <field name="name">alba.employer.form</field>
         <field name="model">alba.employer</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Employer">
                 <sheet>
@@ -102,7 +102,7 @@
     <record id="view_alba_employer_search" model="ir.ui.view">
         <field name="name">alba.employer.search</field>
         <field name="model">alba.employer</field>
-        <field name="type">search</field>
+        <!-- FIX: removed deprecated <field name="type">search</field> -->
         <field name="arch" type="xml">
             <search string="Search Employers">
                 <field name="name"/>

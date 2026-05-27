@@ -4,7 +4,7 @@
         <record id="view_alba_kyc_provider_list" model="ir.ui.view">
             <field name="name">alba.kyc.provider.list</field>
             <field name="model">alba.kyc.provider</field>
-            <field name="type">list</field>
+            <!-- FIX: removed deprecated <field name="type">list</field> -->
             <field name="arch" type="xml">
                 <list string="KYC Providers">
                     <field name="sequence" widget="handle"/>
@@ -18,7 +18,7 @@
         <record id="view_alba_kyc_provider_form" model="ir.ui.view">
             <field name="name">alba.kyc.provider.form</field>
             <field name="model">alba.kyc.provider</field>
-            <field name="type">form</field>
+            <!-- FIX: removed deprecated <field name="type">form</field> -->
             <field name="arch" type="xml">
                 <form string="KYC Provider">
                     <header>

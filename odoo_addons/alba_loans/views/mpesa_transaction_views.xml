@@ -8,7 +8,7 @@
     <record id="view_alba_mpesa_transaction_form" model="ir.ui.view">
         <field name="name">alba.mpesa.transaction.form</field>
         <field name="model">alba.mpesa.transaction</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="M-Pesa Transaction">
                 <header>
@@ -175,7 +175,7 @@
     <record id="view_alba_mpesa_transaction_list" model="ir.ui.view">
         <field name="name">alba.mpesa.transaction.list</field>
         <field name="model">alba.mpesa.transaction</field>
-        <field name="type">list</field>
+        <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
             <list
                 string="M-Pesa Transactions"
@@ -218,7 +218,7 @@
     <record id="view_alba_mpesa_transaction_kanban" model="ir.ui.view">
         <field name="name">alba.mpesa.transaction.kanban</field>
         <field name="model">alba.mpesa.transaction</field>
-        <field name="type">kanban</field>
+        <!-- FIX: removed deprecated <field name="type">kanban</field> -->
         <field name="arch" type="xml">
             <kanban
                 default_group_by="status"
@@ -279,7 +279,7 @@
     <record id="view_alba_mpesa_transaction_search" model="ir.ui.view">
         <field name="name">alba.mpesa.transaction.search</field>
         <field name="model">alba.mpesa.transaction</field>
-        <field name="type">search</field>
+        <!-- FIX: removed deprecated <field name="type">search</field> -->
         <field name="arch" type="xml">
             <search string="Search M-Pesa Transactions">
                 <field name="mpesa_code" string="M-Pesa Code" />

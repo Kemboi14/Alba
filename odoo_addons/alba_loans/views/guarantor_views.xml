@@ -8,7 +8,7 @@
     <record id="view_guarantor_list" model="ir.ui.view">
         <field name="name">alba.guarantor.tree</field>
         <field name="model">alba.guarantor</field>
-        <field name="type">list</field>
+        <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
             <list decoration-danger="blacklisted==True" decoration-success="kyc_status=='verified' and not blacklisted">
                 <field name="name"/>
@@ -29,7 +29,7 @@
     <record id="view_guarantor_form" model="ir.ui.view">
         <field name="name">alba.guarantor.form</field>
         <field name="model">alba.guarantor</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Guarantor">
                 <header>
@@ -111,7 +111,7 @@
     <record id="view_guarantor_search" model="ir.ui.view">
         <field name="name">alba.guarantor.search</field>
         <field name="model">alba.guarantor</field>
-        <field name="type">search</field>
+        <!-- FIX: removed deprecated <field name="type">search</field> -->
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
@@ -130,7 +130,7 @@
     <record id="view_loan_guarantor_list" model="ir.ui.view">
         <field name="name">alba.loan.guarantor.tree</field>
         <field name="model">alba.loan.guarantor</field>
-        <field name="type">list</field>
+        <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
             <list decoration-success="status=='confirmed'" decoration-muted="status=='released'" decoration-danger="status=='liability'">
                 <field name="loan_application_id"/>
@@ -149,7 +149,7 @@
     <record id="view_loan_guarantor_form" model="ir.ui.view">
         <field name="name">alba.loan.guarantor.form</field>
         <field name="model">alba.loan.guarantor</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Loan Guarantor Assignment">
                 <header>
@@ -210,7 +210,7 @@
     <record id="view_loan_guarantor_search" model="ir.ui.view">
         <field name="name">alba.loan.guarantor.search</field>
         <field name="model">alba.loan.guarantor</field>
-        <field name="type">search</field>
+        <!-- FIX: removed deprecated <field name="type">search</field> -->
         <field name="arch" type="xml">
             <search>
                 <field name="loan_application_id"/>

@@ -8,7 +8,7 @@
     <record id="view_alba_mpesa_stk_push_wizard_form" model="ir.ui.view">
         <field name="name">alba.mpesa.stk.push.wizard.form</field>
         <field name="model">alba.mpesa.stk.push.wizard</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Request M-Pesa Payment (STK Push)">
                 <sheet>

@@ -8,7 +8,7 @@
     <record id="view_alba_loan_application_form" model="ir.ui.view">
         <field name="name">alba.loan.application.form</field>
         <field name="model">alba.loan.application</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Loan Application">
                 <header>
@@ -188,7 +188,7 @@
     <record id="view_alba_loan_application_list" model="ir.ui.view">
         <field name="name">alba.loan.application.list</field>
         <field name="model">alba.loan.application</field>
-        <field name="type">list</field>
+        <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
             <list string="Loan Applications"
                   decoration-success="state == 'disbursed'"
@@ -217,7 +217,7 @@
     <record id="view_alba_loan_application_kanban" model="ir.ui.view">
         <field name="name">alba.loan.application.kanban</field>
         <field name="model">alba.loan.application</field>
-        <field name="type">kanban</field>
+        <!-- FIX: removed deprecated <field name="type">kanban</field> -->
         <field name="arch" type="xml">
             <kanban default_group_by="state" class="o_kanban_small_column" sample="1">
                 <field name="application_number"/>
@@ -275,7 +275,7 @@
     <record id="view_alba_loan_application_search" model="ir.ui.view">
         <field name="name">alba.loan.application.search</field>
         <field name="model">alba.loan.application</field>
-        <field name="type">search</field>
+        <!-- FIX: removed deprecated <field name="type">search</field> -->
         <field name="arch" type="xml">
             <search>
                 <field name="application_number"/>
@@ -302,7 +302,7 @@
     <record id="view_loan_application_graph" model="ir.ui.view">
         <field name="name">alba.loan.application.graph</field>
         <field name="model">alba.loan.application</field>
-        <field name="type">graph</field>
+        <!-- FIX: removed deprecated <field name="type">graph</field> -->
         <field name="arch" type="xml">
             <graph string="Loan Applications" type="line">
                 <field name="submitted_date" type="row"/>

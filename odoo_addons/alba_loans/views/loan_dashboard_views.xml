@@ -4,7 +4,7 @@
         <record id="view_alba_loan_dashboard_form" model="ir.ui.view">
             <field name="name">alba.loan.dashboard.form</field>
             <field name="model">alba.loan.dashboard</field>
-            <field name="type">form</field>
+            <!-- FIX: removed deprecated <field name="type">form</field> -->
             <field name="arch" type="xml">
                 <form string="Dashboard" create="0" edit="1">
                     <header>

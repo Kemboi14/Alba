@@ -3,7 +3,7 @@
     <record id="view_loan_payment_holiday_list" model="ir.ui.view">
         <field name="name">alba.loan.payment.holiday.tree</field>
         <field name="model">alba.loan.payment.holiday</field>
-        <field name="type">list</field>
+        <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
             <list decoration-muted="state=='cancelled'" decoration-success="state=='completed'" decoration-info="state=='active'">
                 <field name="name"/>
@@ -22,7 +22,7 @@
     <record id="view_loan_payment_holiday_form" model="ir.ui.view">
         <field name="name">alba.loan.payment.holiday.form</field>
         <field name="model">alba.loan.payment.holiday</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Payment Holiday">
                 <header>
@@ -92,7 +92,7 @@
     <record id="view_loan_payment_holiday_graph" model="ir.ui.view">
         <field name="name">alba.loan.payment.holiday.graph</field>
         <field name="model">alba.loan.payment.holiday</field>
-        <field name="type">graph</field>
+        <!-- FIX: removed deprecated <field name="type">graph</field> -->
         <field name="arch" type="xml">
             <graph string="Payment Holidays" type="line">
                 <field name="create_date" type="row"/>

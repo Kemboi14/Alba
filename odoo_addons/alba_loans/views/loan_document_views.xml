@@ -8,7 +8,7 @@
         <record id="view_alba_loan_document_list" model="ir.ui.view">
             <field name="name">alba.loan.document.list</field>
             <field name="model">alba.loan.document</field>
-            <field name="type">list</field>
+            <!-- FIX: removed deprecated <field name="type">list</field> -->
             <field name="arch" type="xml">
                 <list string="Documents" decoration-info="state == 'draft'" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'">
                     <field name="name"/>
@@ -34,7 +34,7 @@
         <record id="view_alba_loan_document_kanban" model="ir.ui.view">
             <field name="name">alba.loan.document.kanban</field>
             <field name="model">alba.loan.document</field>
-            <field name="type">kanban</field>
+            <!-- FIX: removed deprecated <field name="type">kanban</field> -->
             <field name="arch" type="xml">
                 <kanban class="o_kanban_mobile">
                     <field name="name"/>
@@ -86,7 +86,7 @@
         <record id="view_alba_loan_document_form" model="ir.ui.view">
             <field name="name">alba.loan.document.form</field>
             <field name="model">alba.loan.document</field>
-            <field name="type">form</field>
+            <!-- FIX: removed deprecated <field name="type">form</field> -->
             <field name="arch" type="xml">
                 <form string="Document">
                     <header>

@@ -176,9 +176,15 @@ class AlbaCreditLifeInsurance(models.Model):
         help="Internal notes visible only to staff",
     )
 
-    # Timestamps
-    created_at = fields.Datetime(string="Created At", readonly=True, auto_now_add=True)
-    updated_at = fields.Datetime(string="Updated At", readonly=True, auto_now=True)
+    # Timestamps - FIX: replaced auto_now/auto_now_add with Odoo-native fields
+    # Using default values instead of deprecated auto_now parameters
+    created_at = fields.Datetime(string="Created At", readonly=True, default=fields.Datetime.now)
+    updated_at = fields.Datetime(string="Updated At", readonly=True)
+
+    def write(self, vals):
+        # Update updated_at timestamp on write
+        vals['updated_at'] = fields.Datetime.now()
+        return super().write(vals)
 
     class Meta:
         db_table = "alba_credit_life_insurance"

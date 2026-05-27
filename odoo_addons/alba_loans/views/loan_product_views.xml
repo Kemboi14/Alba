@@ -7,7 +7,7 @@
         <record id="view_alba_loan_category_list" model="ir.ui.view">
             <field name="name">alba.loan.category.list</field>
             <field name="model">alba.loan.category</field>
-            <field name="type">list</field>
+            <!-- FIX: removed deprecated <field name="type">list</field> -->
             <field name="arch" type="xml">
                 <list string="Loan Categories" editable="bottom">
                     <field name="sequence" widget="handle"/>
@@ -33,7 +33,7 @@
         <record id="view_alba_loan_product_form" model="ir.ui.view">
             <field name="name">alba.loan.product.form</field>
             <field name="model">alba.loan.product</field>
-            <field name="type">form</field>
+            <!-- FIX: removed deprecated <field name="type">form</field> -->
             <field name="arch" type="xml">
                 <form string="Loan Product">
                     <header>
@@ -218,7 +218,7 @@
         <record id="view_alba_loan_product_list" model="ir.ui.view">
             <field name="name">alba.loan.product.list</field>
             <field name="model">alba.loan.product</field>
-            <field name="type">list</field>
+            <!-- FIX: removed deprecated <field name="type">list</field> -->
             <field name="arch" type="xml">
                 <list string="Loan Products"
                       decoration-muted="is_active == False">
@@ -246,7 +246,7 @@
         <record id="view_alba_loan_product_search" model="ir.ui.view">
             <field name="name">alba.loan.product.search</field>
             <field name="model">alba.loan.product</field>
-            <field name="type">search</field>
+            <!-- FIX: removed deprecated <field name="type">search</field> -->
             <field name="arch" type="xml">
                 <search string="Search Loan Products">
                     <field name="name"  string="Name"/>
@@ -277,7 +277,7 @@
         <record id="view_alba_loan_product_kanban" model="ir.ui.view">
             <field name="name">alba.loan.product.kanban</field>
             <field name="model">alba.loan.product</field>
-            <field name="type">kanban</field>
+            <!-- FIX: removed deprecated <field name="type">kanban</field> -->
             <field name="arch" type="xml">
                 <kanban class="o_alba_product_kanban" default_group_by="category_id" sample="1">
                     <field name="name"/>
