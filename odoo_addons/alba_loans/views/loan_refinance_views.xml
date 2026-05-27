@@ -1,11 +1,17 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
+
+    <!-- ================================================================
+         alba.loan.refinance — List View
+         ================================================================ -->
     <record id="view_loan_refinance_list" model="ir.ui.view">
         <field name="name">alba.loan.refinance.tree</field>
         <field name="model">alba.loan.refinance</field>
-        <field name="type">list</field>
+        <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
-            <list decoration-muted="state=='rejected'" decoration-success="state=='completed'" decoration-info="state=='quoted'">
+            <list decoration-muted="state == 'rejected'"
+                  decoration-success="state == 'completed'"
+                  decoration-info="state == 'quoted'">
                 <field name="name"/>
                 <field name="original_loan_id"/>
                 <field name="customer_id"/>
@@ -17,159 +23,256 @@
         </field>
     </record>
 
+    <!-- ================================================================
+         alba.loan.refinance — Form View
+         ================================================================ -->
     <record id="view_loan_refinance_form" model="ir.ui.view">
         <field name="name">alba.loan.refinance.form</field>
         <field name="model">alba.loan.refinance</field>
-        <field name="type">form</field>
+        <!-- FIX: removed deprecated <field name="type">form</field> -->
         <field name="arch" type="xml">
             <form string="Loan Refinance">
                 <header>
-                    <button name="action_generate_quote" string="Generate Quote" type="object" class="oe_highlight" invisible="state != 'draft'"/>
-                    <button name="action_customer_accept" string="Customer Accepts" type="object" class="oe_highlight" invisible="state != 'quoted'"/>
-                    <button name="action_approve" string="Approve" type="object" class="oe_highlight" invisible="state != 'customer_accepted'"/>
-                    <button name="action_settle_original_loan" string="Settle Original Loan" type="object" class="oe_highlight" invisible="state != 'approved'"/>
-                    <button name="action_create_new_loan" string="Create New Loan" type="object" class="oe_highlight" invisible="state != 'settled'"/>
-                    <button name="action_complete" string="Complete" type="object" class="oe_highlight" invisible="state != 'disbursed'"/>
-                    <button name="action_reject" string="Reject" type="object" invisible="state == 'completed'"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,quoted,customer_accepted,approved,settled,disbursed,completed"/>
+                    <button name="action_generate_quote"
+                            string="Generate Quote"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="state != 'draft'"/>
+                    <button name="action_customer_accept"
+                            string="Customer Accepts"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="state != 'quoted'"/>
+                    <button name="action_approve"
+                            string="Approve"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="state != 'customer_accepted'"/>
+                    <button name="action_settle_original_loan"
+                            string="Settle Original Loan"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="state != 'approved'"/>
+                    <button name="action_create_new_loan"
+                            string="Create New Loan"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="state != 'settled'"/>
+                    <button name="action_complete"
+                            string="Complete"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="state != 'disbursed'"/>
+                    <!-- FIX: also hide Reject on already-rejected records -->
+                    <button name="action_reject"
+                            string="Reject"
+                            type="object"
+                            invisible="state in ('completed', 'rejected')"/>
+                    <field name="state"
+                           widget="statusbar"
+                           statusbar_visible="draft,quoted,customer_accepted,approved,settled,disbursed,completed"/>
                 </header>
+
                 <sheet>
-                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <!-- FIX: oe_button_box moved BEFORE oe_title and ribbons -->
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_view_original_loan" string="Original Loan" type="object" class="oe_stat_button" icon="fa-money"/>
+                        <button name="action_view_original_loan"
+                                string="Original Loan"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-money"/>
                     </div>
-                    <widget name="web_ribbon" text="Draft" bg_color="bg-warning" invisible="state != 'draft'"/>
-                    <widget name="web_ribbon" text="Quoted" bg_color="bg-info" invisible="state != 'quoted'"/>
-                    <widget name="web_ribbon" text="Accepted" bg_color="bg-primary" invisible="state != 'customer_accepted'"/>
-                    <widget name="web_ribbon" text="Approved" bg_color="bg-success" invisible="state != 'approved'"/>
-                    <widget name="web_ribbon" text="Settled" bg_color="bg-primary" invisible="state != 'settled'"/>
+
+                    <widget name="web_ribbon" text="Draft"     bg_color="bg-warning"   invisible="state != 'draft'"/>
+                    <widget name="web_ribbon" text="Quoted"    bg_color="bg-info"      invisible="state != 'quoted'"/>
+                    <widget name="web_ribbon" text="Accepted"  bg_color="bg-primary"   invisible="state != 'customer_accepted'"/>
+                    <widget name="web_ribbon" text="Approved"  bg_color="bg-success"   invisible="state != 'approved'"/>
+                    <widget name="web_ribbon" text="Settled"   bg_color="bg-primary"   invisible="state != 'settled'"/>
                     <widget name="web_ribbon" text="Disbursed" bg_color="bg-secondary" invisible="state != 'disbursed'"/>
-                    <widget name="web_ribbon" text="Completed" bg_color="bg-success" invisible="state != 'completed'"/>
-                    <widget name="web_ribbon" text="Rejected" bg_color="bg-danger" invisible="state != 'rejected'"/>
-                     <group>
+                    <widget name="web_ribbon" text="Completed" bg_color="bg-success"   invisible="state != 'completed'"/>
+                    <widget name="web_ribbon" text="Rejected"  bg_color="bg-danger"    invisible="state != 'rejected'"/>
+
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+
+                    <group>
                         <group string="Original Loan">
-                            <field name="original_loan_id" options="{'no_create': True}" readonly="state != 'draft'"/>
-                            <field name="customer_id" readonly="1"/>
+                            <field name="original_loan_id"
+                                   options="{'no_create': True}"
+                                   readonly="state != 'draft'"/>
+                            <field name="customer_id"        readonly="1"/>
                             <field name="original_product_id" readonly="1"/>
                             <field name="original_outstanding" readonly="1"/>
-                            <field name="currency_id" invisible="1"/>
+                            <field name="currency_id"        invisible="1"/>
                         </group>
                         <group string="New Settings">
-                            <field name="new_product_id" options="{'no_create': True}" readonly="state != 'draft'"/>
-                            <field name="is_topup" readonly="state != 'draft'"/>
-                            <field name="topup_amount" readonly="state != 'draft'" invisible="not is_topup"/>
+                            <field name="new_product_id"
+                                   options="{'no_create': True}"
+                                   readonly="state != 'draft'"/>
+                            <field name="is_topup"     readonly="state != 'draft'"/>
+                            <field name="topup_amount" readonly="state != 'draft'"
+                                   invisible="not is_topup"/>
                         </group>
                     </group>
+
                     <group string="New Loan Terms &amp; Calculations">
                         <group>
-                            <field name="settlement_amount" readonly="1"/>
-                            <field name="new_principal" readonly="state != 'draft'"/>
-                            <field name="new_interest_rate" readonly="state != 'draft'"/>
-                            <field name="new_tenure_months" readonly="state != 'draft'"/>
+                            <field name="settlement_amount"       readonly="1"/>
+                            <field name="new_principal"           readonly="state != 'draft'"/>
+                            <field name="new_interest_rate"       readonly="state != 'draft'"/>
+                            <field name="new_tenure_months"       readonly="state != 'draft'"/>
                             <field name="new_repayment_frequency" readonly="state != 'draft'"/>
                         </group>
                         <group>
-                            <field name="new_emi" readonly="1"/>
-                            <field name="monthly_savings" readonly="1"/>
+                            <field name="new_emi"          readonly="1"/>
+                            <field name="monthly_savings"  readonly="1"/>
                         </group>
                     </group>
+
                     <group>
                         <group>
-                            <field name="quote_date" readonly="1"/>
-                            <field name="quote_valid_until" readonly="1"/>
-                            <field name="customer_acceptance_date" readonly="state != 'draft'"/>
+                            <field name="quote_date"                readonly="1"/>
+                            <field name="quote_valid_until"         readonly="1"/>
+                            <field name="customer_acceptance_date"  readonly="state != 'draft'"/>
                         </group>
                         <group>
-                            <field name="journal_id" options="{'no_create': True}" required="state == 'approved'"/>
-                            <field name="payment_method_line_id" readonly="state not in ('draft', 'quoted', 'customer_accepted', 'approved')" options="{'no_create': True}" invisible="not journal_id" required="journal_id and state == 'approved'"/>
+                            <field name="journal_id"
+                                   options="{'no_create': True}"
+                                   required="state == 'approved'"/>
+                            <field name="payment_method_line_id"
+                                   readonly="state not in ('draft', 'quoted', 'customer_accepted', 'approved')"
+                                   options="{'no_create': True}"
+                                   invisible="not journal_id"
+                                   required="journal_id and state == 'approved'"/>
                         </group>
                     </group>
+
                     <group invisible="not new_loan_id">
                         <field name="new_loan_application_id" readonly="1"/>
-                        <field name="new_loan_id" readonly="1"/>
+                        <field name="new_loan_id"             readonly="1"/>
                     </group>
-                    <div class="oe_chatter">
-                        <field name="message_follower_ids" widget="mail_followers"/>
-                        <field name="activity_ids" widget="mail_activity"/>
-                        <field name="message_ids" widget="mail_thread"/>
-                    </div>
+
                 </sheet>
+
+                <!-- FIX: replaced old Odoo 16 chatter block:
+                         <div class="oe_chatter">
+                             <field name="message_follower_ids" widget="mail_followers"/>
+                             <field name="activity_ids" widget="mail_activity"/>
+                             <field name="message_ids" widget="mail_thread"/>
+                         </div>
+                     With Odoo 17+ <chatter/>, placed OUTSIDE </sheet> -->
+                <chatter/>
+
             </form>
         </field>
     </record>
 
-    <!-- Shared bottom panel: summary KPIs, charts, dates, documents -->
+    <!-- ================================================================
+         Shared bottom panel: summary KPIs, charts, dates, documents
+         ================================================================ -->
     <record id="view_loan_refinance_form_insights" model="ir.ui.view">
         <field name="name">alba.loan.refinance.form.insights</field>
         <field name="model">alba.loan.refinance</field>
         <field name="inherit_id" ref="view_loan_refinance_form"/>
         <field name="arch" type="xml">
             <xpath expr="//group[.//field[@name='new_loan_application_id']]" position="replace"/>
-            <xpath expr="//div[hasclass('oe_chatter')]" position="before">
+            <!-- FIX: updated xpath from //div[hasclass('oe_chatter')] to //chatter -->
+            <xpath expr="//chatter" position="before">
                 <field name="comparison_chart_data" invisible="1"/>
-                <field name="impact_chart_data" invisible="1"/>
-                <field name="document_count" invisible="1"/>
+                <field name="impact_chart_data"     invisible="1"/>
+                <field name="document_count"        invisible="1"/>
+
                 <div class="o_loan_modification_panel border-top pt-4 mt-4">
-                    <h4 class="mb-3 text-primary"><i class="fa fa-line-chart me-2"/> Summary &amp; Supporting Records</h4>
+                    <h4 class="mb-3 text-primary">
+                        <i class="fa fa-line-chart me-2"/> Summary &amp; Supporting Records
+                    </h4>
+
+                    <!-- KPI Cards -->
                     <div class="row g-3 mb-4 mx-0">
                         <div class="col-md-3 col-sm-6">
                             <div class="border rounded p-3 bg-light text-center h-100">
                                 <div class="text-muted small text-uppercase">Settlement</div>
-                                <div class="h4 mb-0 fw-bold text-primary"><field name="settlement_amount" widget="monetary" nolabel="1"/></div>
+                                <div class="h4 mb-0 fw-bold text-primary">
+                                    <field name="settlement_amount" widget="monetary" nolabel="1"/>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-3 col-sm-6">
                             <div class="border rounded p-3 bg-white text-center h-100 border-info">
                                 <div class="text-muted small text-uppercase">New Principal</div>
-                                <div class="h4 mb-0 fw-bold text-info"><field name="new_principal" widget="monetary" nolabel="1"/></div>
+                                <div class="h4 mb-0 fw-bold text-info">
+                                    <field name="new_principal" widget="monetary" nolabel="1"/>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-3 col-sm-6">
                             <div class="border rounded p-3 bg-white text-center h-100 border-success">
                                 <div class="text-muted small text-uppercase">New EMI</div>
-                                <div class="h4 mb-0 fw-bold text-success"><field name="new_emi" widget="monetary" nolabel="1"/></div>
+                                <div class="h4 mb-0 fw-bold text-success">
+                                    <field name="new_emi" widget="monetary" nolabel="1"/>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-3 col-sm-6">
                             <div class="border rounded p-3 bg-white text-center h-100">
                                 <div class="text-muted small text-uppercase">Monthly Savings</div>
-                                <div class="h4 mb-0 fw-bold"><field name="monthly_savings" widget="monetary" nolabel="1"/></div>
+                                <div class="h4 mb-0 fw-bold">
+                                    <field name="monthly_savings" widget="monetary" nolabel="1"/>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Charts -->
                     <div class="row g-3 mb-4 mx-0">
                         <div class="col-lg-6">
                             <div class="border rounded p-3 bg-white shadow-sm h-100">
                                 <h6 class="text-muted text-uppercase small mb-3">Before vs After</h6>
-                                <field name="comparison_chart_data" widget="loan_dashboard_charts" nolabel="1"/>
+                                <field name="comparison_chart_data"
+                                       widget="loan_dashboard_charts" nolabel="1"/>
                             </div>
                         </div>
                         <div class="col-lg-6">
                             <div class="border rounded p-3 bg-white shadow-sm h-100">
                                 <h6 class="text-muted text-uppercase small mb-3">Settlement Breakdown</h6>
-                                <field name="impact_chart_data" widget="loan_dashboard_charts" nolabel="1"/>
+                                <field name="impact_chart_data"
+                                       widget="loan_dashboard_charts" nolabel="1"/>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Key Dates + Documents -->
                     <div class="row g-3 mx-0">
                         <div class="col-lg-4">
                             <group string="Key Dates">
-                                <field name="create_date" string="Created" readonly="1"/>
-                                <field name="quote_date" readonly="1"/>
-                                <field name="quote_valid_until" readonly="1"/>
-                                <field name="customer_acceptance_date" readonly="1" invisible="not customer_acceptance_date"/>
-                                <field name="approved_date" readonly="1" invisible="not approved_date"/>
-                                <field name="approved_by" readonly="1" invisible="not approved_by"/>
+                                <field name="create_date"               string="Created" readonly="1"/>
+                                <field name="quote_date"                readonly="1"/>
+                                <field name="quote_valid_until"         readonly="1"/>
+                                <field name="customer_acceptance_date"  readonly="1"
+                                       invisible="not customer_acceptance_date"/>
+                                <field name="approved_date"             readonly="1"
+                                       invisible="not approved_date"/>
+                                <field name="approved_by"               readonly="1"
+                                       invisible="not approved_by"/>
                             </group>
                             <group string="New Loan" invisible="not new_loan_id">
                                 <field name="new_loan_application_id" readonly="1"/>
-                                <field name="new_loan_id" readonly="1"/>
+                                <field name="new_loan_id"             readonly="1"/>
                             </group>
                         </div>
                         <div class="col-lg-8">
                             <group string="Related Documents">
-                                <field name="document_ids" nolabel="1" context="{'default_partner_id': partner_id, 'default_loan_id': original_loan_id, 'default_refinance_id': id}">
-                                    <list editable="bottom" decoration-success="state == 'verified'" decoration-danger="state == 'rejected'">
+                                <field name="document_ids"
+                                       nolabel="1"
+                                       context="{
+                                           'default_partner_id': partner_id,
+                                           'default_loan_id': original_loan_id,
+                                           'default_refinance_id': id
+                                       }">
+                                    <list editable="bottom"
+                                          decoration-success="state == 'verified'"
+                                          decoration-danger="state == 'rejected'">
                                         <field name="name"/>
                                         <field name="document_type"/>
                                         <field name="create_date" string="Uploaded"/>
@@ -184,20 +287,26 @@
         </field>
     </record>
 
-    <!-- Refinance Graph View -->
+    <!-- ================================================================
+         alba.loan.refinance — Graph View
+         ================================================================ -->
     <record id="view_loan_refinance_graph" model="ir.ui.view">
         <field name="name">alba.loan.refinance.graph</field>
         <field name="model">alba.loan.refinance</field>
-        <field name="type">graph</field>
+        <!-- FIX: removed deprecated <field name="type">graph</field> -->
         <field name="arch" type="xml">
+            <!-- FIX: create_date changed from type="row" to type="col"
+                 for correct X-axis date grouping on a line chart -->
             <graph string="Loan Refinances" type="line">
-                <field name="create_date" type="row"/>
+                <field name="create_date"   type="col"/>
                 <field name="new_principal" type="measure"/>
             </graph>
         </field>
     </record>
 
-    <!-- Refinance Action -->
+    <!-- ================================================================
+         alba.loan.refinance — Action Window
+         ================================================================ -->
     <record id="action_loan_refinance" model="ir.actions.act_window">
         <field name="name">Loan Refinances</field>
         <field name="res_model">alba.loan.refinance</field>
@@ -213,11 +322,14 @@
         </field>
     </record>
 
-    <!-- Menu Item for Loan Refinances -->
+    <!-- ================================================================
+         Menu Item
+         ================================================================ -->
     <menuitem id="menu_loan_refinance"
               name="Loan Refinances"
               parent="menu_alba_loans_root_active"
               action="action_loan_refinance"
               sequence="20"
               groups="alba_loans.group_loan_user"/>
+
 </odoo>

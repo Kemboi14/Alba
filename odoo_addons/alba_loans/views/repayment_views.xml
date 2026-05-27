@@ -8,7 +8,9 @@
         <record id="view_alba_loan_repayment_form" model="ir.ui.view">
             <field name="name">alba.loan.repayment.form</field>
             <field name="model">alba.loan.repayment</field>
-            <field name="type">form</field>
+            <!-- FIX: removed deprecated <field name="type">form</field>
+                 Odoo 17+ auto-detects type from the arch root tag.
+                 Explicit type breaks chatter layout rendering. -->
             <field name="arch" type="xml">
                 <form string="Loan Repayment">
                     <header>
@@ -24,7 +26,8 @@
                                 class="btn-danger"
                                 invisible="state != 'posted'"
                                 groups="alba_loans.group_loan_manager"/>
-                        <field name="state" widget="statusbar"
+                        <field name="state"
+                               widget="statusbar"
                                statusbar_visible="draft,posted,reversed"/>
                     </header>
 
@@ -45,22 +48,20 @@
                             </h1>
                         </div>
 
-                        <widget name="web_ribbon" text="Draft" bg_color="bg-warning" invisible="state != 'draft'"/>
-                        <widget name="web_ribbon" text="Posted" bg_color="bg-success" invisible="state != 'posted'"/>
-                        <widget name="web_ribbon" text="Reversed" bg_color="bg-danger" invisible="state != 'reversed'"/>
+                        <widget name="web_ribbon" text="Draft"    bg_color="bg-warning" invisible="state != 'draft'"/>
+                        <widget name="web_ribbon" text="Posted"   bg_color="bg-success" invisible="state != 'posted'"/>
+                        <widget name="web_ribbon" text="Reversed" bg_color="bg-danger"  invisible="state != 'reversed'"/>
 
                         <group>
                             <group>
                                 <field name="loan_id"
                                        options="{'no_create': True}"
                                        readonly="state != 'draft'"/>
-                                <field name="customer_id" readonly="1"/>
-                                <field name="loan_product_id" readonly="1"/>
-                                <field name="currency_id" invisible="1"/>
-                                <field name="payment_date"
-                                       readonly="state != 'draft'"/>
-                                <field name="amount_paid"
-                                       readonly="state != 'draft'"/>
+                                <field name="customer_id"      readonly="1"/>
+                                <field name="loan_product_id"  readonly="1"/>
+                                <field name="currency_id"      invisible="1"/>
+                                <field name="payment_date"     readonly="state != 'draft'"/>
+                                <field name="amount_paid"      readonly="state != 'draft'"/>
                             </group>
                             <group>
                                 <field name="payment_method"
@@ -74,7 +75,11 @@
                                 <field name="journal_id"
                                        readonly="state != 'draft'"
                                        required="state == 'draft'"/>
-                                <field name="payment_method_line_id" options="{'no_create': True}" invisible="not journal_id" readonly="state != 'draft'" required="journal_id and state == 'draft'"/>
+                                <field name="payment_method_line_id"
+                                       options="{'no_create': True}"
+                                       invisible="not journal_id"
+                                       readonly="state != 'draft'"
+                                       required="journal_id and state == 'draft'"/>
                                 <field name="received_by"
                                        readonly="state != 'draft'"/>
                             </group>
@@ -88,22 +93,18 @@
                                      invisible="state != 'draft'">
                                     <i class="fa fa-info-circle me-1"/>
                                     Allocation will be computed automatically on posting
-                                    if left at zero.  You may override individual
+                                    if left at zero. You may override individual
                                     components manually.
                                 </div>
                                 <group>
                                     <group>
-                                        <field name="principal_component"
-                                               readonly="state != 'draft'"/>
-                                        <field name="interest_component"
-                                               readonly="state != 'draft'"/>
-                                        <field name="fees_component"
-                                               readonly="state != 'draft'"/>
-                                        <field name="penalty_component"
-                                               readonly="state != 'draft'"/>
+                                        <field name="principal_component" readonly="state != 'draft'"/>
+                                        <field name="interest_component"  readonly="state != 'draft'"/>
+                                        <field name="fees_component"      readonly="state != 'draft'"/>
+                                        <field name="penalty_component"   readonly="state != 'draft'"/>
                                     </group>
                                     <group>
-                                        <field name="total_allocated"   readonly="1"/>
+                                        <field name="total_allocated"    readonly="1"/>
                                         <field name="unallocated_amount" readonly="1"/>
                                     </group>
                                 </group>
@@ -130,7 +131,7 @@
                             <page string="Reversal" name="reversal"
                                   invisible="state != 'reversed'">
                                 <group>
-                                    <field name="reversal_reason" readonly="1" nolabel="1"/>
+                                    <field name="reversal_reason"  readonly="1" nolabel="1"/>
                                     <field name="reversal_move_id" readonly="1"/>
                                 </group>
                             </page>
@@ -149,6 +150,8 @@
                         </notebook>
                     </sheet>
 
+                    <!-- Chatter renders correctly once the deprecated
+                         <field name="type"> is removed from the view record -->
                     <chatter/>
                 </form>
             </field>
@@ -160,7 +163,7 @@
         <record id="view_alba_loan_repayment_list" model="ir.ui.view">
             <field name="name">alba.loan.repayment.list</field>
             <field name="model">alba.loan.repayment</field>
-            <field name="type">list</field>
+            <!-- FIX: removed deprecated <field name="type">list</field> -->
             <field name="arch" type="xml">
                 <list string="Repayments"
                       decoration-success="state == 'posted'"
@@ -176,13 +179,15 @@
                     <field name="interest_component"/>
                     <field name="fees_component"/>
                     <field name="penalty_component"/>
-                    <field name="payment_method" widget="badge"
+                    <field name="payment_method"
+                           widget="badge"
                            decoration-success="payment_method == 'mpesa'"
                            decoration-info="payment_method == 'bank_transfer'"
                            decoration-warning="payment_method == 'cash'"/>
                     <field name="mpesa_transaction_id" optional="hide"/>
-                    <field name="journal_id" optional="hide"/>
-                    <field name="state" widget="badge"
+                    <field name="journal_id"           optional="hide"/>
+                    <field name="state"
+                           widget="badge"
                            decoration-success="state == 'posted'"
                            decoration-danger="state == 'reversed'"
                            decoration-muted="state == 'draft'"/>
@@ -199,40 +204,37 @@
         <record id="view_alba_loan_repayment_search" model="ir.ui.view">
             <field name="name">alba.loan.repayment.search</field>
             <field name="model">alba.loan.repayment</field>
-            <field name="type">search</field>
+            <!-- FIX: removed deprecated <field name="type">search</field> -->
             <field name="arch" type="xml">
                 <search string="Search Repayments">
-                    <field name="payment_reference"     string="Reference"/>
-                    <field name="loan_id"               string="Loan #"/>
-                    <field name="customer_id"           string="Customer"/>
-                    <field name="mpesa_transaction_id"  string="M-Pesa TXN ID"/>
+                    <field name="payment_reference"    string="Reference"/>
+                    <field name="loan_id"              string="Loan #"/>
+                    <field name="customer_id"          string="Customer"/>
+                    <field name="mpesa_transaction_id" string="M-Pesa TXN ID"/>
                     <separator/>
-                    <filter string="Draft"
-                            name="draft"
+                    <filter string="Draft"    name="draft"
                             domain="[('state','=','draft')]"/>
-                    <filter string="Posted"
-                            name="posted"
+                    <filter string="Posted"   name="posted"
                             domain="[('state','=','posted')]"/>
-                    <filter string="Reversed"
-                            name="reversed"
+                    <filter string="Reversed" name="reversed"
                             domain="[('state','=','reversed')]"/>
                     <separator/>
-                    <filter string="M-Pesa"
-                            name="mpesa"
+                    <filter string="M-Pesa"        name="mpesa"
                             domain="[('payment_method','=','mpesa')]"/>
-                    <filter string="Bank Transfer"
-                            name="bank"
+                    <filter string="Bank Transfer" name="bank"
                             domain="[('payment_method','=','bank_transfer')]"/>
-                    <filter string="Cash"
-                            name="cash"
+                    <filter string="Cash"          name="cash"
                             domain="[('payment_method','=','cash')]"/>
                     <separator/>
-                    <filter string="Today"
-                            name="today"
-                            domain="[('payment_date','=','2026-03-24')]"/>
-                    <filter string="This Month"
-                            name="this_month"
-                            domain="[('payment_date','&gt;=','2026-03-01')]"/>
+                    <!-- FIX: replaced hardcoded dates with context_today() expressions.
+                         Hardcoded dates silently break once that calendar date passes. -->
+                    <filter string="Today" name="today"
+                            domain="[('payment_date','=', context_today().strftime('%Y-%m-%d'))]"/>
+                    <filter string="This Month" name="this_month"
+                            domain="[
+                                ('payment_date','&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')),
+                                ('payment_date','&lt;=', (context_today() + relativedelta(day=31)).strftime('%Y-%m-%d'))
+                            ]"/>
                 </search>
             </field>
         </record>
@@ -252,7 +254,7 @@
                 </p>
                 <p>
                     Repayments received via M-Pesa, bank transfer or cash
-                    are recorded here.  Post a repayment to automatically
+                    are recorded here. Post a repayment to automatically
                     split it across principal, interest and fees and create
                     the corresponding accounting journal entry.
                 </p>
@@ -265,7 +267,7 @@
         <record id="view_alba_repayment_schedule_list" model="ir.ui.view">
             <field name="name">alba.repayment.schedule.list</field>
             <field name="model">alba.repayment.schedule</field>
-            <field name="type">list</field>
+            <!-- FIX: removed deprecated <field name="type">list</field> -->
             <field name="arch" type="xml">
                 <list string="Repayment Schedule"
                       decoration-danger="status == 'overdue'"
@@ -285,7 +287,8 @@
                     <field name="balance_due"/>
                     <field name="closing_balance"/>
                     <field name="days_overdue"/>
-                    <field name="status" widget="badge"
+                    <field name="status"
+                           widget="badge"
                            decoration-success="status == 'paid'"
                            decoration-danger="status == 'overdue'"
                            decoration-warning="status == 'partial'"
@@ -295,51 +298,53 @@
             </field>
         </record>
 
-        <!-- Search view for repayment schedule -->
+        <!-- ================================================================
+             alba.repayment.schedule — Search View
+             ================================================================ -->
         <record id="view_alba_repayment_schedule_search" model="ir.ui.view">
             <field name="name">alba.repayment.schedule.search</field>
             <field name="model">alba.repayment.schedule</field>
-            <field name="type">search</field>
+            <!-- FIX: removed deprecated <field name="type">search</field> -->
             <field name="arch" type="xml">
                 <search string="Search Schedule">
                     <field name="loan_id"     string="Loan #"/>
                     <field name="customer_id" string="Customer"/>
                     <separator/>
-                    <filter string="Pending"
-                            name="pending"
+                    <filter string="Pending" name="pending"
                             domain="[('status','=','pending')]"/>
-                    <filter string="Partial"
-                            name="partial"
+                    <filter string="Partial" name="partial"
                             domain="[('status','=','partial')]"/>
-                    <filter string="Overdue"
-                            name="overdue"
+                    <filter string="Overdue" name="overdue"
                             domain="[('status','=','overdue')]"/>
-                    <filter string="Paid"
-                            name="paid"
+                    <filter string="Paid"    name="paid"
                             domain="[('status','=','paid')]"/>
                     <separator/>
-                    <filter string="Due This Month"
-                            name="due_this_month"
+                    <!-- FIX: replaced hardcoded month dates with context_today() -->
+                    <filter string="Due This Month" name="due_this_month"
                             domain="[
-                                ('due_date','&gt;=','2026-03-01'),
-                                ('due_date','&lt;=','2026-03-31')
+                                ('due_date','&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')),
+                                ('due_date','&lt;=', (context_today() + relativedelta(day=31)).strftime('%Y-%m-%d'))
                             ]"/>
                 </search>
             </field>
         </record>
 
-    <!-- Loan Repayment Graph View -->
-    <record id="view_alba_loan_repayment_graph" model="ir.ui.view">
-        <field name="name">alba.loan.repayment.graph</field>
-        <field name="model">alba.loan.repayment</field>
-        <field name="type">graph</field>
-        <field name="arch" type="xml">
-            <graph string="Loan Repayments" type="line">
-                <field name="payment_date" type="row"/>
-                <field name="amount_paid" type="measure"/>
-            </graph>
-        </field>
-    </record>
+        <!-- ================================================================
+             alba.loan.repayment — Graph View
+             ================================================================ -->
+        <record id="view_alba_loan_repayment_graph" model="ir.ui.view">
+            <field name="name">alba.loan.repayment.graph</field>
+            <field name="model">alba.loan.repayment</field>
+            <!-- FIX: removed deprecated <field name="type">graph</field> -->
+            <field name="arch" type="xml">
+                <!-- FIX: payment_date changed from type="row" to type="col"
+                     for correct X-axis grouping in a line chart -->
+                <graph string="Loan Repayments" type="line">
+                    <field name="payment_date" type="col"/>
+                    <field name="amount_paid"  type="measure"/>
+                </graph>
+            </field>
+        </record>
 
     </data>
 </odoo>
