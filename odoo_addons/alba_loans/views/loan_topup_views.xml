@@ -95,7 +95,6 @@
                         <field name="rejection_reason" readonly="1"/>
                     </group>
                 </sheet>
-                <!-- FIX: replaced old Odoo 16 chatter block with Odoo 17+ <chatter/> -->
                 <chatter/>
             </form>
         </field>
@@ -202,7 +201,6 @@
         <field name="arch" type="xml">
             <xpath expr="//group[.//field[@name='requested_by']]" position="replace"/>
             <xpath expr="//group[.//field[@name='rejection_reason']]" position="replace"/>
-            <!-- FIX: updated xpath from //div[hasclass('oe_chatter')] to //chatter -->
             <xpath expr="//chatter" position="before">
                 <field name="comparison_chart_data" invisible="1"/>
                 <field name="impact_chart_data" invisible="1"/>

@@ -154,13 +154,6 @@
                     </group>
 
                 </sheet>
-
-                <!-- FIX: replaced old Odoo 16 chatter div:
-                         <div class="oe_chatter">
-                             <field name="message_follower_ids" widget="mail_followers"/>
-                             <field name="message_ids" widget="mail_thread"/>
-                         </div>
-                     With Odoo 17+ <chatter/> tag, placed OUTSIDE </sheet> -->
                 <chatter/>
 
             </form>
@@ -176,8 +169,6 @@
         <field name="inherit_id" ref="view_loan_consolidation_form"/>
         <field name="arch" type="xml">
             <xpath expr="//group[.//field[@name='new_loan_application_id']]" position="replace"/>
-            <!-- FIX: updated xpath target from //div[hasclass('oe_chatter')]
-                 to //chatter to match the new Odoo 17+ chatter tag -->
             <xpath expr="//chatter" position="before">
                 <field name="comparison_chart_data" invisible="1"/>
                 <field name="impact_chart_data"     invisible="1"/>
