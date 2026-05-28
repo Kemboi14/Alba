@@ -544,10 +544,21 @@ class AlbaLoanRepayment(models.Model):
                 raise UserError(
                     _("Please select a Payment Journal (Bank or Cash) before posting.")
                 )
+            if not rec.journal_id.payment_credit_account_id:
+                raise UserError(
+                    _(
+                        'Journal "%s" has no Outstanding Receipts account configured. '
+                        'Please set it under Accounting > Configuration > Journals > '
+                        'Incoming Payments tab before posting repayments.'
+                    ) % rec.journal_id.name
+                )
             rec._ensure_payment_method_line()
 
-            bank_account = rec.journal_id.default_account_id
-            if not bank_account:
+            outstanding_account = (
+                rec.journal_id.payment_credit_account_id
+                or rec.journal_id.default_account_id
+            )  # FIX: resolve Outstanding Receipts transit account
+            if not outstanding_account:
                 raise UserError(
                     _("Journal '%s' has no default account configured.")
                     % rec.journal_id.name
@@ -567,10 +578,11 @@ class AlbaLoanRepayment(models.Model):
                 "currency_id": rec.currency_id.id,
                 "narration": _("Loan repayment — %s — %s")
                 % (rec.loan_id.loan_number, rec.customer_id.display_name),
+                "payment_method_line_id": rec.payment_method_line_id.id if rec.payment_method_line_id else False,  # FIX: pass through payment method
                 "line_ids": [
-                    # DR Bank / Cash
+                    # DR Outstanding Receipts transit account
                     (0, 0, {
-                        "account_id": bank_account.id,
+                        "account_id": outstanding_account.id,  # FIX: use Outstanding Receipts transit account
                         "name": _("Repayment — %s") % (rec.payment_reference or rec.loan_id.loan_number),
                         "debit": rec.amount_paid if rec.currency_id == rec.company_id.currency_id else 0.0,
                         "credit": 0.0,
@@ -639,6 +651,16 @@ class AlbaLoanRepayment(models.Model):
                 }))
             move = rec.env["account.move"].create(move_vals)
             move.action_post()
+            move.write({
+                "ref": move.ref,
+                "payment_id": False,  # FIX: mark as non-native payment move for reconciliation
+                "is_move_sent": False,
+            })
+            transit_line = move.line_ids.filtered(
+                lambda l: l.account_id == outstanding_account
+            )
+            if transit_line:
+                transit_line.write({"is_reconciled": False})  # FIX: ensure outstanding transit line remains reconcilable
 
             rec.write({"state": "posted", "move_id": move.id})
 

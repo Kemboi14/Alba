@@ -474,6 +474,14 @@ class AlbaLoanRefinance(models.Model):
 
             if not rec.journal_id:
                 raise UserError(_("Please select a Settlement Journal before settling the loan."))
+            if not rec.journal_id.payment_credit_account_id:
+                raise UserError(
+                    _(
+                        'Journal "%s" has no Outstanding Receipts account configured. '
+                        'Please set it under Accounting > Configuration > Journals > '
+                        'Incoming Payments tab before settling the loan.'
+                    ) % rec.journal_id.name
+                )  # FIX: validate Outstanding Receipts account exists for settlement
             rec._ensure_payment_method_line()
 
             # ── 1. Create final repayment for the original loan ───────────────
@@ -601,9 +609,9 @@ class AlbaLoanRefinance(models.Model):
             # Generate schedule
             loan.action_generate_schedule()
             
-            # Post disbursement entry
-            loan.action_post_disbursement_entry()
-            
+            # Post disbursement accounting for the new loan
+            loan.action_post_disbursement_entry()  # FIX: create the new refinance loan disbursement move
+
             rec.write({
                 "state": "disbursed",
                 "new_loan_id": loan.id,

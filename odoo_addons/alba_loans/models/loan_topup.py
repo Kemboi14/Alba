@@ -419,8 +419,19 @@ class AlbaLoanTopup(models.Model):
             raise UserError(_("No bank journal available for disbursement."))
         self._ensure_payment_method_line()
 
-        bank_account = self.journal_id.default_account_id
-        if not bank_account:
+        outstanding_account = (
+            self.journal_id.payment_debit_account_id
+            or self.journal_id.default_account_id
+        )  # FIX: resolve Outstanding Payments transit account
+        if not self.journal_id.payment_debit_account_id:
+            raise UserError(
+                _(
+                    'Journal "%s" has no Outstanding Payments account configured. '
+                    'Please set it under Accounting > Configuration > Journals > '
+                    'Outgoing Payments tab before posting top-up disbursements.'
+                ) % self.journal_id.name
+            )
+        if not outstanding_account:
             raise UserError(_(
                 "Journal '%s' has no default account configured."
             ) % self.journal_id.name)
@@ -439,6 +450,7 @@ class AlbaLoanTopup(models.Model):
             "journal_id": self.journal_id.id,
             "date": self.disbursement_date,
             "ref": _("Top-Up: %s - %s") % (self.name, self.loan_id.loan_number),
+            "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,  # FIX: pass through payment method
             "line_ids": [
                 (0, 0, {
                     "account_id": loan_product.account_loan_receivable_id.id,
@@ -447,7 +459,7 @@ class AlbaLoanTopup(models.Model):
                     "debit": self.topup_amount,
                 }),
                 (0, 0, {
-                    "account_id": bank_account.id,
+                    "account_id": outstanding_account.id,  # FIX: use Outstanding Payments transit account
                     "partner_id": self.partner_id.id,
                     "name": _("Top-Up — %s") % self.name,
                     "credit": self.topup_amount,
@@ -456,6 +468,16 @@ class AlbaLoanTopup(models.Model):
         }
         move = self.env["account.move"].create(move_vals)
         move.action_post()
+        move.write({
+            "ref": move.ref,
+            "payment_id": False,  # FIX: mark as non-native payment move for reconciliation
+            "is_move_sent": False,
+        })
+        transit_line = move.line_ids.filtered(
+            lambda l: l.account_id == outstanding_account
+        )
+        if transit_line:
+            transit_line.write({"is_reconciled": False})  # FIX: ensure outstanding transit line remains reconcilable
         self.disbursement_move_id = move.id
 
         # ── Fee entry (if product defines fees for top-ups) ───────────────────

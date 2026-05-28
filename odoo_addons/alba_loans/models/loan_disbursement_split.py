@@ -42,6 +42,12 @@ class AlbaLoanDisbursementSplit(models.Model):
         domain="[('payment_type', '=', 'outbound'), ('journal_id', '=', journal_id)]",
         help="Specific outbound payment method for this funding source.",
     )
+    move_id = fields.Many2one(
+        "account.move",
+        string="Disbursement Move",
+        readonly=True,
+        copy=False,
+    )
     account_name = fields.Char(
         string="Account Name",
         compute="_compute_account_name",
@@ -206,15 +212,69 @@ class AlbaLoanDisbursementSplit(models.Model):
         """Mark this split as disbursed"""
         if self.state != "approved":
             raise UserError(_("Only approved splits can be disbursed."))
+        if not self.journal_id.payment_debit_account_id:
+            raise UserError(
+                _(
+                    'Journal "%s" has no Outstanding Payments account configured. '
+                    'Please set it under Accounting > Configuration > Journals > '
+                    'Outgoing Payments tab before posting disbursements.'
+                ) % self.journal_id.name
+            )  # FIX: validate Outstanding Payments account exists for split disbursement
         if not self.journal_id.default_account_id:
             raise UserError(
                 _("The selected journal '%s' has no default account configured.")
                 % self.journal_id.name
             )
         self._ensure_payment_method_line()
+
+        if not self.loan_id.loan_product_id.account_loan_receivable_id:
+            raise UserError(
+                _(
+                    "Loan product '%s' has no Loan Receivable account configured."
+                ) % self.loan_id.loan_product_id.name
+            )
+
+        outstanding_account = (
+            self.journal_id.payment_debit_account_id
+            or self.journal_id.default_account_id
+        )
+
+        move_vals = {
+            "journal_id": self.journal_id.id,
+            "date": fields.Date.today(),
+            "ref": _("Disbursement Split: %s") % self.display_name,
+            "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,  # FIX: pass through payment method
+            "line_ids": [
+                (0, 0, {
+                    "account_id": self.loan_id.loan_product_id.account_loan_receivable_id.id,
+                    "partner_id": self.loan_id.customer_id.partner_id.id,
+                    "name": _("Disbursement split — %s") % self.display_name,
+                    "debit": self.amount,
+                }),
+                (0, 0, {
+                    "account_id": outstanding_account.id,  # FIX: use Outstanding Payments transit account
+                    "partner_id": self.loan_id.customer_id.partner_id.id,
+                    "name": _("Disbursement split — %s") % self.display_name,
+                    "credit": self.amount,
+                }),
+            ],
+        }
+        move = self.env["account.move"].create(move_vals)
+        move.action_post()
+        move.write({
+            "ref": move.ref,
+            "payment_id": False,  # FIX: mark as non-native payment move for reconciliation
+            "is_move_sent": False,
+        })
+        transit_line = move.line_ids.filtered(
+            lambda l: l.account_id == outstanding_account
+        )
+        if transit_line:
+            transit_line.write({"is_reconciled": False})  # FIX: ensure outstanding transit line remains reconcilable
         self.write({
             "state": "disbursed",
             "disbursement_date": fields.Date.today(),
+            "move_id": move.id,
         })
 
     def action_mark_failed(self):

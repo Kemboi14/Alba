@@ -838,11 +838,24 @@ class AlbaLoan(models.Model):
 
         if not self.journal_id:
             raise UserError(_("Please select a Disbursement Journal before posting the entry."))
+        if not self.journal_id.payment_debit_account_id:
+            raise UserError(
+                _(
+                    'Journal "%s" has no Outstanding Payments account configured. '
+                    'Please set it under Accounting > Configuration > Journals > '
+                    'Outgoing Payments tab before posting disbursements.'
+                ) % self.journal_id.name
+            )
         self._ensure_disbursement_payment_method_line()
 
         product = self.loan_product_id
-        if not product.account_loan_receivable_id or not product.account_clearing_id:
-            raise UserError(_("Please configure Loan Receivable and Clearing accounts on product '%s'.") % product.name)
+        if not product.account_loan_receivable_id:
+            raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
+
+        outstanding_account = (
+            self.journal_id.payment_debit_account_id
+            or self.journal_id.default_account_id
+        )  # FIX: resolve Outstanding Payments transit account
 
         application = self.application_id
         total_fees = sum(application.fee_line_ids.mapped("calculated_amount"))
@@ -853,6 +866,7 @@ class AlbaLoan(models.Model):
             "date": self.disbursement_date,
             "ref": f"DISB/{self.loan_number}",
             "move_type": "entry",
+            "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,  # FIX: pass through payment method
             "line_ids": [
                 # DR Loan Receivable (Full Principal)
                 (0, 0, {
@@ -862,10 +876,10 @@ class AlbaLoan(models.Model):
                     "credit": 0.0,
                     "partner_id": self.customer_id.partner_id.id,
                 }),
-                # CR Loan Clearing (Net Amount to be paid)
+                # CR Outstanding Payments transit account
                 (0, 0, {
-                    "account_id": product.account_clearing_id.id,
-                    "name": _("Loan Disbursement Clearing — %s") % self.loan_number,
+                    "account_id": outstanding_account.id,  # FIX: use Outstanding Payments transit account
+                    "name": _("Disbursement — %s") % self.loan_number,
                     "debit": 0.0,
                     "credit": net_amount,
                     "partner_id": self.customer_id.partner_id.id,
@@ -892,6 +906,16 @@ class AlbaLoan(models.Model):
 
         move = self.env["account.move"].create(move_vals)
         move.action_post()
+        move.write({
+            "ref": move.ref,
+            "payment_id": False,  # FIX: mark as non-native payment move for reconciliation
+            "is_move_sent": False,
+        })
+        transit_line = move.line_ids.filtered(
+            lambda l: l.account_id == outstanding_account
+        )
+        if transit_line:
+            transit_line.write({"is_reconciled": False})  # FIX: ensure outstanding transit line remains reconcilable
         self.write({"disbursement_move_id": move.id})
         self.message_post(
             body=_("Disbursement journal entry %s posted for KES %s.")
@@ -1527,16 +1551,34 @@ class AlbaLoan(models.Model):
             
             if not product.account_loan_receivable_id:
                 raise UserError(_("Please configure the Loan Receivable account on product '%s'.") % product.name)
-            
+            if not loan.journal_id.payment_debit_account_id:
+                raise UserError(
+                    _(
+                        'Journal "%s" has no Outstanding Payments account configured. '
+                        'Please set it under Accounting > Configuration > Journals > '
+                        'Outgoing Payments tab before creating loan accounting moves.'
+                    ) % loan.journal_id.name
+                )
+
+            outstanding_account = (
+                loan.journal_id.payment_debit_account_id
+                or loan.journal_id.default_account_id
+            )
+            if not outstanding_account:
+                raise UserError(_(
+                    "Journal '%s' has no default account configured." % loan.journal_id.name
+                ))
+
             company_currency = loan.company_id.currency_id
             loan_currency = loan.currency_id
-            
+
             move_vals = {
                 'journal_id': loan.journal_id.id,
                 'date': loan.disbursement_date or fields.Date.context_today(self),
                 'ref': f"LOAN/{loan.loan_number}",
                 'currency_id': loan_currency.id,
                 'narration': _("Loan disbursement — %s — %s") % (loan.loan_number, loan.customer_id.display_name),
+                'payment_method_line_id': loan.payment_method_line_id.id if loan.payment_method_line_id else False,  # FIX: pass through payment method
                 'line_ids': [
                     # DR Loan Receivable
                     (0, 0, {
@@ -1548,9 +1590,9 @@ class AlbaLoan(models.Model):
                         'currency_id': loan_currency.id,
                         'partner_id': loan.customer_id.partner_id.id,
                     }),
-                    # CR Bank / Cash
+                    # CR Outstanding Payments transit account
                     (0, 0, {
-                        'account_id': loan.journal_id.default_account_id.id if loan.journal_id.default_account_id else False,
+                        'account_id': outstanding_account.id,  # FIX: use Outstanding Payments transit account
                         'name': _("Disbursement — %s") % loan.loan_number,
                         'debit': 0.0,
                         'credit': loan.principal_amount if loan_currency == company_currency else 0.0,
@@ -1560,10 +1602,27 @@ class AlbaLoan(models.Model):
                     }),
                 ],
             }
-            
+
             move = self.env['account.move'].create(move_vals)
             move.action_post()
+            move.write({
+                'ref': move.ref,
+                'payment_id': False,  # FIX: mark as non-native payment move for reconciliation
+                'is_move_sent': False,
+            })
+            transit_line = move.line_ids.filtered(
+                lambda l: l.account_id == outstanding_account
+            )
+            if transit_line:
+                transit_line.write({'is_reconciled': False})  # FIX: ensure outstanding transit line remains reconcilable
             loan.message_post(body=_("Accounting move created: %s") % move.name)
+            return {
+                'type': 'ir.actions.act_window',
+                'name': _('Accounting Move'),
+                'res_model': 'account.move',
+                'res_id': move.id,
+                'view_mode': 'form',
+            }
             return {
                 'type': 'ir.actions.act_window',
                 'name': _('Accounting Move'),
