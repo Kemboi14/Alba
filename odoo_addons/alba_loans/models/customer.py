@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import base64
+
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError, UserError
 from markupsafe import Markup
@@ -39,6 +41,7 @@ class AlbaCustomer(models.Model):
 
     # ── Identity (Related to Partner) ────────────────────────────────────────
     image_1920 = fields.Image(related="partner_id.image_1920", string="Image", readonly=False)
+    avatar_128 = fields.Image(related="partner_id.avatar_128", string="Avatar", readonly=False)
     id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
     id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
     phone = fields.Char(related="partner_id.phone", store=True, readonly=False)
@@ -80,6 +83,22 @@ class AlbaCustomer(models.Model):
         compute="_compute_location_display",
         store=True,
     )
+
+    @api.constrains('image_1920')
+    def _check_image_file_size(self):
+        max_bytes = 5 * 1024 * 1024
+        for rec in self:
+            image_data = rec.image_1920
+            if image_data:
+                try:
+                    if len(base64.b64decode(image_data)) > max_bytes:
+                        raise ValidationError(
+                            _("Customer image cannot exceed 5 MB. Please upload a smaller file.")
+                        )
+                except (TypeError, ValueError):
+                    raise ValidationError(
+                        _("Unable to validate customer image size. Please re-upload the file.")
+                    )
 
     # ── Tags ─────────────────────────────────────────────────────────────────
     tag_ids = fields.Many2many(

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import base64
 import mimetypes
 import logging
 
@@ -48,12 +49,29 @@ class AlbaInvestorPro(models.Model):
 
     # ── Identity (Related to Partner) ────────────────────────────────────────
     image_1920 = fields.Image(related="partner_id.image_1920", string="Image", readonly=False)
+    avatar_128 = fields.Image(related="partner_id.avatar_128", string="Avatar", readonly=False)
     id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
     id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
     date_of_birth = fields.Date(related="partner_id.date_of_birth", store=True, readonly=False)
     age = fields.Integer(string="Age", compute="_compute_age", store=False)
     gender = fields.Selection(related="partner_id.gender", store=True, readonly=False)
     nationality = fields.Char(string="Nationality", default="Kenyan")
+
+    @api.constrains('image_1920')
+    def _check_image_file_size(self):
+        max_bytes = 5 * 1024 * 1024
+        for rec in self:
+            image_data = rec.image_1920
+            if image_data:
+                try:
+                    if len(base64.b64decode(image_data)) > max_bytes:
+                        raise ValidationError(
+                            _("Investor image cannot exceed 5 MB. Please upload a smaller file.")
+                        )
+                except (TypeError, ValueError):
+                    raise ValidationError(
+                        _("Unable to validate investor image size. Please re-upload the file.")
+                    )
 
     # ── Location ─────────────────────────────────────────────────────────────
     county_id = fields.Many2one(
