@@ -406,6 +406,50 @@ class AlbaLoanRepayment(models.Model):
     # Business Logic
     # =========================================================================
 
+    def _get_schedule_lines(self):
+        """
+        Safely retrieve the active repayment schedule lines for this loan.
+
+        SAFE PATTERN: Always query by loan_id only (indexed, guaranteed to
+        return rows). Then filter to the active batch IN PYTHON MEMORY so we
+        are never at the mercy of a stale stored-computed `balance_due` field
+        in the database.
+
+        Fallback chain:
+          1. Lines belonging to the latest active batch   (preferred)
+          2. All lines for the loan                       (fallback when batch
+             returns zero lines or no batch exists)
+        """
+        self.ensure_one()
+        # Fetch ALL lines for this loan — single indexed query, always correct
+        all_lines = self.env["alba.repayment.schedule"].search(
+            [("loan_id", "=", self.loan_id.id)],
+            order="due_date asc",
+        )
+        if not all_lines:
+            return all_lines
+
+        # Try to narrow to the latest active batch
+        Batch = self.env["alba.repayment.schedule.batch"]
+        batch = Batch.search(
+            [("loan_id", "=", self.loan_id.id), ("state", "=", "active")],
+            limit=1,
+            order="generated_on desc",
+        )
+        if batch:
+            batch_lines = all_lines.filtered(lambda l: l.batch_id == batch)
+            # Only use batch lines if they actually exist; otherwise fall back
+            if batch_lines:
+                all_lines = batch_lines
+
+        # Filter for unpaid lines in Python memory — never rely on stored
+        # `balance_due` which may be stale across transaction boundaries
+        unpaid = all_lines.filtered(
+            lambda l: (l.principal_due - l.principal_paid) > 0.001
+            or (l.interest_due - l.interest_paid) > 0.001
+        )
+        return unpaid
+
     def _auto_allocate_components(self):
         """
         Auto-allocate payment amount to components in priority order:
@@ -422,51 +466,50 @@ class AlbaLoanRepayment(models.Model):
         interest = 0.0
         principal = 0.0
 
-        # Pull overdue/pending schedule entries ordered by due_date asc
-        # Prefer active batch schedules if present
-        Batch = self.env["alba.repayment.schedule.batch"]
-        batch = Batch.search([("loan_id", "=", self.loan_id.id), ("state", "=", "active")], limit=1, order="generated_on desc")
-        domain = [("loan_id", "=", self.loan_id.id), ("balance_due", ">", 0)]
-        if batch:
-            domain.append(("batch_id", "=", batch.id))
-        schedule = self.env["alba.repayment.schedule"].search(domain, order="due_date asc")
+        # SAFE: use in-memory filtering — never depends on stale stored balance_due
+        schedule = self._get_schedule_lines()
 
         # 1. Allocate to penalties first (Daily Compounding)
+        today = fields.Date.today()
         for entry in schedule:
             if remaining <= 0:
                 break
-            
-            if entry.due_date and entry.due_date < fields.Date.today():
+            if entry.due_date and entry.due_date < today:
                 loan_product = self.loan_id.loan_product_id
                 if loan_product and loan_product.penalty_rate > 0:
-                    days_overdue = (fields.Date.today() - entry.due_date).days
-                    overdue_amount = entry.balance_due
-                    # Daily compounding: A = P(1+r)^n - P
-                    daily_rate = (loan_product.penalty_rate / 100)
-                    penalty_owed = overdue_amount * ((1 + daily_rate)**days_overdue - 1)
-                    
-                    pay_penalty = min(remaining, penalty_owed)
-                    penalty += pay_penalty
-                    remaining -= pay_penalty
+                    days_overdue = (today - entry.due_date).days
+                    # Use raw fields — not stored balance_due
+                    overdue_amount = max(
+                        (entry.principal_due - entry.principal_paid)
+                        + (entry.interest_due - entry.interest_paid),
+                        0.0,
+                    )
+                    if overdue_amount > 0:
+                        # Daily compounding: A = P(1+r)^n - P
+                        daily_rate = loan_product.penalty_rate / 100
+                        penalty_owed = overdue_amount * ((1 + daily_rate) ** days_overdue - 1)
+                        pay_penalty = min(remaining, penalty_owed)
+                        penalty += pay_penalty
+                        remaining -= pay_penalty
 
-        # 2. Allocate to fees / other charges
-        for entry in schedule:
-            if remaining <= 0:
-                break
-            
-            # Allocate to fees based on loan product fee structure
-            if fees == 0:  # Only allocate fees once if they are fixed, or per instalment if applicable
-                loan_product = self.loan_id.loan_product_id
-                if loan_product:
-                    fee_amount = loan_product.calculate_total_fees(self.loan_id.principal_amount)
-                    # Only pay unpaid portion
-                    total_fees_paid = sum(self.loan_id.repayment_ids.mapped('fees_component'))
-                    unpaid_fees = max(0, fee_amount - total_fees_paid)
-                    pay_fees = min(remaining, unpaid_fees)
-                    fees += pay_fees
-                    remaining -= pay_fees
-        
-        # 3. Allocate to interest across all instalments
+        # 2. Allocate to fees / other charges (loan-level, not per instalment)
+        if remaining > 0:
+            loan_product = self.loan_id.loan_product_id
+            if loan_product:
+                fee_amount = loan_product.calculate_total_fees(self.loan_id.principal_amount)
+                # Exclude fees already collected on previously POSTED repayments
+                # (exclude self to avoid counting a partially-saved draft)
+                total_fees_paid = sum(
+                    r.fees_component
+                    for r in self.loan_id.repayment_ids
+                    if r.state == "posted" and r.id != self.id
+                )
+                unpaid_fees = max(0.0, fee_amount - total_fees_paid)
+                pay_fees = min(remaining, unpaid_fees)
+                fees += pay_fees
+                remaining -= pay_fees
+
+        # 3. Allocate to interest across all instalments (oldest first)
         for entry in schedule:
             if remaining <= 0:
                 break
@@ -475,8 +518,8 @@ class AlbaLoanRepayment(models.Model):
                 pay_interest = min(remaining, interest_owed)
                 interest += pay_interest
                 remaining -= pay_interest
-        
-        # 4. Allocate to principal across all instalments
+
+        # 4. Allocate to principal across all instalments (oldest first)
         for entry in schedule:
             if remaining <= 0:
                 break
@@ -699,21 +742,19 @@ class AlbaLoanRepayment(models.Model):
         Mark schedule entries as paid/partial based on the posted repayment
         components.  Allocates principal and interest across the oldest
         unpaid/partial instalments first.
+
+        SAFE PATTERN: Uses _get_schedule_lines() which filters in Python memory
+        rather than relying on the stale stored `balance_due` DB field.
         """
         self.ensure_one()
         remaining_principal = self.principal_component
         remaining_interest = self.interest_component
 
-        # Prefer active batch schedules if present
-        Batch = self.env["alba.repayment.schedule.batch"]
-        batch = Batch.search([("loan_id", "=", self.loan_id.id), ("state", "=", "active")], limit=1, order="generated_on desc")
-        domain = [
-            ("loan_id", "=", self.loan_id.id),
-            ("balance_due", ">", 0),
-        ]
-        if batch:
-            domain.append(("batch_id", "=", batch.id))
-        schedule = self.env["alba.repayment.schedule"].search(domain, order="due_date asc")
+        if remaining_principal <= 0 and remaining_interest <= 0:
+            return
+
+        # SAFE: in-memory filtering via raw principal/interest fields
+        schedule = self._get_schedule_lines()
 
         for entry in schedule:
             if remaining_principal <= 0 and remaining_interest <= 0:
@@ -737,7 +778,8 @@ class AlbaLoanRepayment(models.Model):
                     "principal_paid": new_principal_paid,
                 }
             )
-            # Recompute status
+            # Recompute status immediately so balance_due is fresh
+            entry._compute_balance_due()
             entry._compute_status()
 
             remaining_interest -= interest_pay
