@@ -423,7 +423,6 @@ class AlbaLoanTopup(models.Model):
             self.payment_method_line_id.payment_account_id
             or self.journal_id.default_account_id
         )
-        bank_account = self.journal_id.default_account_id
         if not outstanding_account:
             raise UserError(
                 _(
@@ -432,6 +431,16 @@ class AlbaLoanTopup(models.Model):
                     'Outgoing Payments tab before posting top-up disbursements.'
                 ) % self.journal_id.name
             )
+
+        # Inbound Outstanding Receipts transit account (used for fee collection entry)
+        inbound_method_line = self.env["account.payment.method.line"].search([
+            ("payment_type", "=", "inbound"),
+            ("journal_id", "=", self.journal_id.id),
+        ], limit=1)
+        fee_transit_account = (
+            inbound_method_line.payment_account_id
+            or self.journal_id.default_account_id
+        )
 
         # Calculate top-up fee from the product's fee templates
         topup_fee = 0.0
@@ -471,17 +480,18 @@ class AlbaLoanTopup(models.Model):
         })
         self.disbursement_move_id = move.id
 
-        # ── Fee entry (if product defines fees for top-ups) ───────────────────
-        # DR Bank/Cash    (fee collected from customer)
-        # CR Fee Income   (income recognised)
+        # ── Fee entry (if product defines fees for top-ups) ────────────────────
+        # DR Outstanding Receipts transit  (fee received from customer — bank-matchable)
+        # CR Fee Income                    (income recognised)
         if topup_fee and topup_fee > 0 and fee_account:
             fee_move_vals = {
                 "journal_id": self.journal_id.id,
                 "date": self.disbursement_date,
                 "ref": _("Top-Up Fee: %s - %s") % (self.name, self.loan_id.loan_number),
+                "preferred_payment_method_line_id": inbound_method_line.id if inbound_method_line else False,
                 "line_ids": [
                     (0, 0, {
-                        "account_id": bank_account.id,
+                        "account_id": fee_transit_account.id,  # FIX: use Outstanding Receipts transit, not direct bank
                         "partner_id": self.partner_id.id,
                         "name": _("Top-Up fee received — %s") % self.name,
                         "debit": topup_fee,

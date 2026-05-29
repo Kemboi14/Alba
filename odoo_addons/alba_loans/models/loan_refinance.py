@@ -510,25 +510,21 @@ class AlbaLoanRefinance(models.Model):
             if rec.refinance_fee_amount and rec.refinance_fee_amount > 0:
                 product = rec.original_loan_id.loan_product_id
                 fee_account = product.account_fees_income_id if product else False
-                loan_receivable = product.account_loan_receivable_id if product else False
-                bank_account = rec.journal_id.default_account_id
 
                 if not fee_account:
                     raise UserError(_(
                         "Please configure the Fee Income account on loan product '%s' "
                         "before settling this refinance."
                     ) % (product.name if product else "Unknown"))
-                if not bank_account:
-                    raise UserError(_(
-                        "Journal '%s' has no default account configured."
-                    ) % rec.journal_id.name)
 
-                # DR Bank/Cash (fee collected along with settlement payment)
+                # DR Outstanding Receipts transit (fee collected from customer — bank-matchable)
                 # CR Fee Income  (income recognised for the refinance)
+                # outstanding_account already computed above from payment_method_line_id
                 fee_move_vals = {
                     "journal_id": rec.journal_id.id,
                     "date": fields.Date.today(),
                     "ref": _("Refinance Fee — %s") % rec.name,
+                    "preferred_payment_method_line_id": rec.payment_method_line_id.id if rec.payment_method_line_id else False,
                     "narration": _(
                         "Refinance fee @ %.2f%% on new principal %s %s"
                     ) % (
@@ -538,9 +534,9 @@ class AlbaLoanRefinance(models.Model):
                     ),
                     "currency_id": rec.currency_id.id,
                     "line_ids": [
-                        # DR Bank / Cash — fee collected from customer
+                        # DR Outstanding Receipts transit — fee collected from customer (bank feed will match this)
                         (0, 0, {
-                            "account_id": bank_account.id,
+                            "account_id": outstanding_account.id,  # FIX: use Outstanding Receipts transit, not direct bank
                             "name": _("Refinance Fee received — %s") % rec.name,
                             "debit": rec.refinance_fee_amount if rec.currency_id == rec.original_loan_id.company_id.currency_id else 0.0,
                             "credit": 0.0,
