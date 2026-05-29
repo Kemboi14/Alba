@@ -40,7 +40,7 @@
             <field name="name">Application Approved</field>
             <field name="code">application_approved</field>
             <field name="category">application_approved</field>
-            <field name="content">Dear {customer_name}, congratulations! Your loan application {loan_number} has been approved for KES {amount}. We will contact you for disbursement. - {company_name}</field>
+            <field name="content">Dear {customer_name}, congratulations! Your loan application {application_number} has been approved for KES {amount}. We will contact you for disbursement. - {company_name}</field>
         </record>
 
         <!-- 6. Application Submitted -->

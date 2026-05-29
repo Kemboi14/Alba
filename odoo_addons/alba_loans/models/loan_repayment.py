@@ -216,7 +216,7 @@ class AlbaLoanRepayment(models.Model):
     )
     payment_method_line_id = fields.Many2one(
         "account.payment.method.line",
-        string="Payment Method",
+        string="Journal Payment Method",
         domain="[('payment_type', '=', 'inbound'), ('journal_id', '=', journal_id)]",
         help="Specific payment method (e.g. Manual, M-Pesa) for this journal.",
     )

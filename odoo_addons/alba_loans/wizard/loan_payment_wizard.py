@@ -40,7 +40,7 @@ class AlbaLoanPaymentWizard(models.TransientModel):
     )
     payment_method_line_id = fields.Many2one(
         "account.payment.method.line",
-        string="Payment Method",
+        string="Journal Payment Method",
         domain="[('payment_type', '=', 'inbound'), ('journal_id', '=', journal_id)]",
         help="Specific inbound payment method for the selected journal.",
     )

@@ -263,7 +263,7 @@ class AlbaLoan(models.Model):
     credit_life_insurance_ids = fields.One2many(
         "alba.credit.life.insurance",
         "loan_id",
-        string="Insurance Events",
+        string="Insurance Claim Details",
         help="Credit life insurance claims against this loan",
     )
     # Note: journal entries are tracked via disbursement_move_id (Many2one below)
@@ -362,39 +362,46 @@ class AlbaLoan(models.Model):
         string="First Installment Date",
         compute="_compute_report_fields",
         store=True,
+        compute_sudo=True,
     )
     last_installment_date = fields.Date(
         string="Last Installment Date",
         compute="_compute_report_fields",
         store=True,
+        compute_sudo=True,
     )
     outstanding_principal = fields.Monetary(
         string="Outstanding Principal",
         currency_field="currency_id",
         compute="_compute_report_fields",
         store=True,
+        compute_sudo=True,
     )
     outstanding_interest = fields.Monetary(
         string="Outstanding Interest",
         currency_field="currency_id",
         compute="_compute_report_fields",
         store=True,
+        compute_sudo=True,
     )
     total_interest = fields.Monetary(
         string="Total Interest",
         currency_field="currency_id",
         compute="_compute_report_fields",
         store=True,
+        compute_sudo=True,
     )
     accrued_interest = fields.Monetary(
         string="Accrued Interest",
         currency_field="currency_id",
-        compute="_compute_report_fields",
-        store=True,
+        compute="_compute_accrued_interest",
+        compute_sudo=True,
     )
     interest_amount = fields.Monetary(
         string="Interest Amount",
         compute="_compute_report_fields",
+        store=True,
+        compute_sudo=True,
         help="Total interest amount scheduled for this loan.",
     )
     outstanding_charges = fields.Monetary(
@@ -402,18 +409,21 @@ class AlbaLoan(models.Model):
         currency_field="currency_id",
         compute="_compute_report_fields",
         store=True,
+        compute_sudo=True,
     )
     prepayment_amount = fields.Monetary(
         string="Prepayments",
         currency_field="currency_id",
         compute="_compute_report_fields",
         store=True,
+        compute_sudo=True,
     )
     total_topup_amount = fields.Monetary(
         string="Top-Up Amount",
         currency_field="currency_id",
         compute="_compute_report_fields",
         store=True,
+        compute_sudo=True,
     )
 
     # ── Loan Modifications ──────────────────────────────────────────────────
@@ -644,11 +654,6 @@ class AlbaLoan(models.Model):
             )
             rec.total_interest = sum(schedule.mapped("interest_due"))
             rec.interest_amount = rec.total_interest
-            
-            today = fields.Date.today()
-            rec.accrued_interest = sum(
-                line.interest_due for line in schedule if line.due_date <= today
-            )
 
             posted_repayments = rec.repayment_ids.filtered(lambda r: r.state == "posted")
             paid_charges = sum(posted_repayments.mapped("fees_component")) + sum(
@@ -668,6 +673,14 @@ class AlbaLoan(models.Model):
                 rec.topup_ids.filtered(lambda t: t.state == "disbursed").mapped("topup_amount")
             )
 
+    @api.depends("repayment_schedule_ids.due_date", "repayment_schedule_ids.interest_due")
+    def _compute_accrued_interest(self):
+        today = fields.Date.today()
+        for rec in self:
+            schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
+            rec.accrued_interest = sum(
+                line.interest_due for line in schedule if line.due_date <= today
+            )
     def _compute_current_repayment_schedule(self):
         """Compute the active repayment schedule lines for the loan (latest active batch)."""
         for rec in self:

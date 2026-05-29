@@ -17,7 +17,7 @@ class AlbaInvestorPro(models.Model):
     _order = "create_date desc"
 
     display_name = fields.Char(
-        string="Name",
+        string="Display Name",
         compute="_compute_display_name",
         store=True,
         index=True,

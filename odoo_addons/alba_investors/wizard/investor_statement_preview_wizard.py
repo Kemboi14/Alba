@@ -25,7 +25,7 @@ class InvestorStatementPreviewWizard(models.TransientModel):
         readonly=True,
     )
     investor_name = fields.Char(
-        string="Investor",
+        string="Investor Name",
         related="investor_id.display_name",
         readonly=True,
     )

@@ -273,17 +273,20 @@ class AlbaInvestment(models.Model):
     )
     earliest_withdrawal_date = fields.Date(
         string="Earliest Withdrawal Date",
-        compute="_compute_withdrawal_notice",
+        compute="_compute_earliest_withdrawal_date",
         store=True,
         readonly=True,
+        compute_sudo=True,
     )
     days_to_withdrawal = fields.Integer(
         string="Days to Withdrawal",
         compute="_compute_withdrawal_notice",
+        compute_sudo=True,
     )
     can_withdraw_now = fields.Boolean(
         string="Can Withdraw Now",
         compute="_compute_withdrawal_notice",
+        compute_sudo=True,
     )
 
     # ── Currency / Company ────────────────────────────────────────────────────
@@ -397,15 +400,8 @@ class AlbaInvestment(models.Model):
                 rec.maturity_progress = 0
                 rec.days_to_maturity = 0
 
-    @api.depends(
-        "withdrawal_notice_date",
-        "investment_product_id.early_withdrawal_notice_days",
-        "state",
-        "investment_type",
-        "maturity_date",
-    )
-    def _compute_withdrawal_notice(self):
-        today = fields.Date.today()
+    @api.depends("withdrawal_notice_date", "investment_product_id.early_withdrawal_notice_days")
+    def _compute_earliest_withdrawal_date(self):
         for rec in self:
             notice_days = rec.investment_product_id.early_withdrawal_notice_days or 60
             rec.earliest_withdrawal_date = (
@@ -413,6 +409,16 @@ class AlbaInvestment(models.Model):
                 if rec.withdrawal_notice_date
                 else False
             )
+
+    @api.depends(
+        "earliest_withdrawal_date",
+        "state",
+        "investment_type",
+        "maturity_date",
+    )
+    def _compute_withdrawal_notice(self):
+        today = fields.Date.today()
+        for rec in self:
             if rec.earliest_withdrawal_date:
                 rec.days_to_withdrawal = max(0, (rec.earliest_withdrawal_date - today).days)
             else:
