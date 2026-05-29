@@ -422,15 +422,21 @@ class AlbaLoanPartialPayoff(models.Model):
             
             if not rec.journal_id:
                 raise UserError(_("Please select a Payment Journal before applying."))
-            if not rec.journal_id.payment_credit_account_id:
+            
+            rec._ensure_payment_method_line()
+            
+            outstanding_account = (
+                rec.payment_method_line_id.payment_account_id
+                or rec.journal_id.default_account_id
+            )
+            if not outstanding_account:
                 raise UserError(
                     _(
                         'Journal "%s" has no Outstanding Receipts account configured. '
                         'Please set it under Accounting > Configuration > Journals > '
                         'Incoming Payments tab before applying partial payoff.'
                     ) % rec.journal_id.name
-                )  # FIX: validate Outstanding Receipts account exists for payoff posting
-            rec._ensure_payment_method_line()
+                )
             
             # Create repayment record
             repayment = self.env["alba.loan.repayment"].create({

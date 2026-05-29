@@ -420,10 +420,10 @@ class AlbaLoanTopup(models.Model):
         self._ensure_payment_method_line()
 
         outstanding_account = (
-            self.journal_id.payment_debit_account_id
+            self.payment_method_line_id.payment_account_id
             or self.journal_id.default_account_id
-        )  # FIX: resolve Outstanding Payments transit account
-        if not self.journal_id.payment_debit_account_id:
+        )
+        if not outstanding_account:
             raise UserError(
                 _(
                     'Journal "%s" has no Outstanding Payments account configured. '
@@ -431,10 +431,6 @@ class AlbaLoanTopup(models.Model):
                     'Outgoing Payments tab before posting top-up disbursements.'
                 ) % self.journal_id.name
             )
-        if not outstanding_account:
-            raise UserError(_(
-                "Journal '%s' has no default account configured."
-            ) % self.journal_id.name)
 
         # Calculate top-up fee from the product's fee templates
         topup_fee = 0.0

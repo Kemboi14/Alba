@@ -544,24 +544,20 @@ class AlbaLoanRepayment(models.Model):
                 raise UserError(
                     _("Please select a Payment Journal (Bank or Cash) before posting.")
                 )
-            if not rec.journal_id.payment_credit_account_id:
+            
+            rec._ensure_payment_method_line()
+
+            outstanding_account = (
+                rec.payment_method_line_id.payment_account_id
+                or rec.journal_id.default_account_id
+            )
+            if not outstanding_account:
                 raise UserError(
                     _(
                         'Journal "%s" has no Outstanding Receipts account configured. '
                         'Please set it under Accounting > Configuration > Journals > '
                         'Incoming Payments tab before posting repayments.'
                     ) % rec.journal_id.name
-                )
-            rec._ensure_payment_method_line()
-
-            outstanding_account = (
-                rec.journal_id.payment_credit_account_id
-                or rec.journal_id.default_account_id
-            )  # FIX: resolve Outstanding Receipts transit account
-            if not outstanding_account:
-                raise UserError(
-                    _("Journal '%s' has no default account configured.")
-                    % rec.journal_id.name
                 )
 
             product = rec.loan_product_id

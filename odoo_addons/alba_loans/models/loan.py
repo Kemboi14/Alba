@@ -838,7 +838,14 @@ class AlbaLoan(models.Model):
 
         if not self.journal_id:
             raise UserError(_("Please select a Disbursement Journal before posting the entry."))
-        if not self.journal_id.payment_debit_account_id:
+        
+        self._ensure_disbursement_payment_method_line()
+
+        outstanding_account = (
+            self.payment_method_line_id.payment_account_id
+            or self.journal_id.default_account_id
+        )
+        if not outstanding_account:
             raise UserError(
                 _(
                     'Journal "%s" has no Outstanding Payments account configured. '
@@ -846,16 +853,10 @@ class AlbaLoan(models.Model):
                     'Outgoing Payments tab before posting disbursements.'
                 ) % self.journal_id.name
             )
-        self._ensure_disbursement_payment_method_line()
 
         product = self.loan_product_id
         if not product.account_loan_receivable_id:
             raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
-
-        outstanding_account = (
-            self.journal_id.payment_debit_account_id
-            or self.journal_id.default_account_id
-        )  # FIX: resolve Outstanding Payments transit account
 
         application = self.application_id
         total_fees = sum(application.fee_line_ids.mapped("calculated_amount"))
@@ -1551,7 +1552,12 @@ class AlbaLoan(models.Model):
             
             if not product.account_loan_receivable_id:
                 raise UserError(_("Please configure the Loan Receivable account on product '%s'.") % product.name)
-            if not loan.journal_id.payment_debit_account_id:
+            
+            outstanding_account = (
+                loan.payment_method_line_id.payment_account_id
+                or loan.journal_id.default_account_id
+            )
+            if not outstanding_account:
                 raise UserError(
                     _(
                         'Journal "%s" has no Outstanding Payments account configured. '
@@ -1559,15 +1565,6 @@ class AlbaLoan(models.Model):
                         'Outgoing Payments tab before creating loan accounting moves.'
                     ) % loan.journal_id.name
                 )
-
-            outstanding_account = (
-                loan.journal_id.payment_debit_account_id
-                or loan.journal_id.default_account_id
-            )
-            if not outstanding_account:
-                raise UserError(_(
-                    "Journal '%s' has no default account configured." % loan.journal_id.name
-                ))
 
             company_currency = loan.company_id.currency_id
             loan_currency = loan.currency_id
