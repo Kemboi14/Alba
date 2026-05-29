@@ -880,7 +880,7 @@ class AlbaLoan(models.Model):
             "date": self.disbursement_date,
             "ref": f"DISB/{self.loan_number}",
             "move_type": "entry",
-            "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,  # FIX: pass through payment method
+            "preferred_payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
             "line_ids": [
                 # DR Loan Receivable (Full Principal)
                 (0, 0, {

@@ -446,7 +446,7 @@ class AlbaLoanTopup(models.Model):
             "journal_id": self.journal_id.id,
             "date": self.disbursement_date,
             "ref": _("Top-Up: %s - %s") % (self.name, self.loan_id.loan_number),
-            "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,  # FIX: pass through payment method
+            "preferred_payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
             "line_ids": [
                 (0, 0, {
                     "account_id": loan_product.account_loan_receivable_id.id,

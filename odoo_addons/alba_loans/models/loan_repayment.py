@@ -574,7 +574,7 @@ class AlbaLoanRepayment(models.Model):
                 "currency_id": rec.currency_id.id,
                 "narration": _("Loan repayment — %s — %s")
                 % (rec.loan_id.loan_number, rec.customer_id.display_name),
-                "payment_method_line_id": rec.payment_method_line_id.id if rec.payment_method_line_id else False,  # FIX: pass through payment method
+                "preferred_payment_method_line_id": rec.payment_method_line_id.id if rec.payment_method_line_id else False,
                 "line_ids": [
                     # DR Outstanding Receipts transit account
                     (0, 0, {

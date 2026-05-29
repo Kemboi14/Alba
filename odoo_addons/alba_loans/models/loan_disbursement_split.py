@@ -238,7 +238,7 @@ class AlbaLoanDisbursementSplit(models.Model):
             "journal_id": self.journal_id.id,
             "date": fields.Date.today(),
             "ref": _("Disbursement Split: %s") % self.display_name,
-            "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,  # FIX: pass through payment method
+            "preferred_payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
             "line_ids": [
                 (0, 0, {
                     "account_id": self.loan_id.loan_product_id.account_loan_receivable_id.id,
