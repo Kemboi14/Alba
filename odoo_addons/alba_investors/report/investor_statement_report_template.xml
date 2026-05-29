@@ -51,11 +51,12 @@
                         .alba-acct-page .stmt-table tfoot td.num { text-align: right; }
                     </style>
 
+                    <t t-set="company_logo" t-value="res_company and (res_company.logo or res_company.logo_web)"/>
                     <table width="100%" style="border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e; margin-bottom: 18px; border-collapse: collapse;">
                         <tr>
                             <td style="padding: 7px 0; vertical-align: middle;">
-                                <t t-if="res_company and res_company.logo">
-                                    <img t-att-src="'data:image/png;base64,%s' % (res_company.logo)" style="height:54px; max-height:54px;"/>
+                                <t t-if="company_logo">
+                                    <img t-att-src="'data:image/png;base64,%s' % (company_logo)" style="height:54px; max-height:54px;"/>
                                 </t>
                             </td>
                             <td style="padding: 7px 0; font-size: 13.5px; font-weight: 700; color: #0d2d5e;">
@@ -175,7 +176,7 @@
                     <div class="footer o_standard_footer mt-5 text-center text-muted small" style="margin-top:28px;">
                         <t t-if="res_company">
                             <div style="margin-bottom:6px;">
-                                <t t-if="res_company.logo"><img t-att-src="'data:image/png;base64,%s' % (res_company.logo)" style="height:36px; max-height:36px;"/></t>
+                                <t t-if="company_logo"><img t-att-src="'data:image/png;base64,%s' % (company_logo)" style="height:36px; max-height:36px;"/></t>
                             </div>
                             <div><strong><t t-esc="res_company.name"/></strong></div>
                             <div>
