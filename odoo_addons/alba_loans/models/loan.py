@@ -922,7 +922,6 @@ class AlbaLoan(models.Model):
         move.action_post()
         move.write({
             "ref": move.ref,
-            "payment_id": False,  # FIX: mark as non-native payment move for reconciliation
             "is_move_sent": False,
         })
         transit_line = move.line_ids.filtered(
