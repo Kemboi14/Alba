@@ -46,6 +46,7 @@ class AlbaLoanRefinanceWizard(models.TransientModel):
         string="New Principal",
         currency_field="currency_id",
         required=True,
+        default=0.0,
     )
     new_interest_rate = fields.Float(
         string="New Interest Rate (%)",
@@ -97,6 +98,8 @@ class AlbaLoanRefinanceWizard(models.TransientModel):
         
         if not self.new_product_id:
             raise UserError(_("Please select a new product."))
+        if self.new_principal <= 0.0:
+            raise UserError(_("New Principal Amount must be greater than 0.00 and is mandatory."))
         vals = {
             "original_loan_id": self.original_loan_id.id,
             "new_product_id": self.new_product_id.id,

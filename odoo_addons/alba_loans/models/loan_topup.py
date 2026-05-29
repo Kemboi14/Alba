@@ -423,6 +423,7 @@ class AlbaLoanTopup(models.Model):
             self.payment_method_line_id.payment_account_id
             or self.journal_id.default_account_id
         )
+        bank_account = self.journal_id.default_account_id
         if not outstanding_account:
             raise UserError(
                 _(
@@ -468,11 +469,6 @@ class AlbaLoanTopup(models.Model):
             "ref": move.ref,
             "is_move_sent": False,
         })
-        transit_line = move.line_ids.filtered(
-            lambda l: l.account_id == outstanding_account
-        )
-        if transit_line:
-            transit_line.write({"is_reconciled": False})  # FIX: ensure outstanding transit line remains reconcilable
         self.disbursement_move_id = move.id
 
         # ── Fee entry (if product defines fees for top-ups) ───────────────────

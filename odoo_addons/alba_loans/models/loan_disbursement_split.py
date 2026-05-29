@@ -260,11 +260,6 @@ class AlbaLoanDisbursementSplit(models.Model):
             "ref": move.ref,
             "is_move_sent": False,
         })
-        transit_line = move.line_ids.filtered(
-            lambda l: l.account_id == outstanding_account
-        )
-        if transit_line:
-            transit_line.write({"is_reconciled": False})  # FIX: ensure outstanding transit line remains reconcilable
         self.write({
             "state": "disbursed",
             "disbursement_date": fields.Date.today(),

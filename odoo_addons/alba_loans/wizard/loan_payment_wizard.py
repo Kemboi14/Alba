@@ -86,7 +86,10 @@ class AlbaLoanPaymentWizard(models.TransientModel):
             res.setdefault("loan_id", loan.id)
             # default amount may be provided in context
             if "default_amount" not in res:
-                res.setdefault("amount", loan.outstanding_balance or 0.0)
+                if ctx.get("is_quick_payment"):
+                    res.setdefault("amount", loan.installment_amount or 0.0)
+                else:
+                    res.setdefault("amount", loan.outstanding_balance or 0.0)
         return res
 
     def action_confirm_payment(self):
@@ -95,6 +98,13 @@ class AlbaLoanPaymentWizard(models.TransientModel):
             raise UserError(_("No loan selected."))
         if self.amount <= 0:
             raise UserError(_("Payment amount must be positive."))
+        if self.env.context.get("is_quick_payment"):
+            if self.amount >= self.loan_id.outstanding_balance:
+                raise UserError(_(
+                    "Quick payment is only for partial payments. The payment amount (%s) "
+                    "must be less than the full outstanding balance (%s). "
+                    "For a full payoff, please use the Full Repayment button."
+                ) % (self.amount, self.loan_id.outstanding_balance))
         self._ensure_payment_method_line()
 
         # Create repayment record and post it using existing flow

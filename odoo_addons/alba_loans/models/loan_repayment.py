@@ -589,14 +589,15 @@ class AlbaLoanRepayment(models.Model):
                 ],
             }
 
-            # CR Loan Receivable (principal)
-            if rec.principal_component > 0:
+            # CR Loan Receivable (principal + unallocated prepayment)
+            receivable_amount = rec.principal_component + rec.unallocated_amount
+            if receivable_amount > 0:
                 move_vals["line_ids"].append((0, 0, {
                     "account_id": product.account_loan_receivable_id.id,
-                    "name": _("Principal repayment — %s") % rec.loan_id.loan_number,
+                    "name": _("Principal repayment (incl. prepayment) — %s") % rec.loan_id.loan_number,
                     "debit": 0.0,
-                    "credit": rec.principal_component if rec.currency_id == rec.company_id.currency_id else 0.0,
-                    "amount_currency": -rec.principal_component,
+                    "credit": receivable_amount if rec.currency_id == rec.company_id.currency_id else 0.0,
+                    "amount_currency": -receivable_amount,
                     "currency_id": rec.currency_id.id,
                     "partner_id": rec.partner_id.id,
                 }))
@@ -651,11 +652,6 @@ class AlbaLoanRepayment(models.Model):
                 "ref": move.ref,
                 "is_move_sent": False,
             })
-            transit_line = move.line_ids.filtered(
-                lambda l: l.account_id == outstanding_account
-            )
-            if transit_line:
-                transit_line.write({"is_reconciled": False})  # FIX: ensure outstanding transit line remains reconcilable
 
             rec.write({"state": "posted", "move_id": move.id})
 

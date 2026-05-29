@@ -924,11 +924,6 @@ class AlbaLoan(models.Model):
             "ref": move.ref,
             "is_move_sent": False,
         })
-        transit_line = move.line_ids.filtered(
-            lambda l: l.account_id == outstanding_account
-        )
-        if transit_line:
-            transit_line.write({"is_reconciled": False})  # FIX: ensure outstanding transit line remains reconcilable
         self.write({"disbursement_move_id": move.id})
         self.message_post(
             body=_("Disbursement journal entry %s posted for KES %s.")
@@ -1118,7 +1113,7 @@ class AlbaLoan(models.Model):
             "res_model": "alba.loan.payment.wizard",
             "view_mode": "form",
             "target": "new",
-            "context": {"active_id": self.id},
+            "context": {"active_id": self.id, "is_quick_payment": True},
         }
 
     def action_full_repayment(self):
@@ -1134,7 +1129,7 @@ class AlbaLoan(models.Model):
             "res_model": "alba.loan.payment.wizard",
             "view_mode": "form",
             "target": "new",
-            "context": {"active_id": self.id, "default_amount": self.outstanding_balance},
+            "context": {"active_id": self.id, "default_amount": self.outstanding_balance, "is_full_payment": True},
         }
 
     def action_calculate_partial_payoff(self):
@@ -1619,11 +1614,6 @@ class AlbaLoan(models.Model):
                 'payment_id': False,  # FIX: mark as non-native payment move for reconciliation
                 'is_move_sent': False,
             })
-            transit_line = move.line_ids.filtered(
-                lambda l: l.account_id == outstanding_account
-            )
-            if transit_line:
-                transit_line.write({'is_reconciled': False})  # FIX: ensure outstanding transit line remains reconcilable
             loan.message_post(body=_("Accounting move created: %s") % move.name)
             return {
                 'type': 'ir.actions.act_window',

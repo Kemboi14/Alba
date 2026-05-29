@@ -82,8 +82,16 @@ class AlbaLoanRefinance(models.Model):
         string="New Principal Amount",
         currency_field="currency_id",
         required=True,
+        default=0.0,
         help="Can be same, higher (top-up), or lower than original",
     )
+
+    @api.constrains("new_principal")
+    def _check_new_principal(self):
+        for rec in self:
+            if rec.new_principal <= 0.0:
+                raise ValidationError(_("New Principal Amount must be greater than 0.00 and is mandatory."))
+
     new_interest_rate = fields.Float(
         string="New Interest Rate (% p.m.)",
         digits=(5, 2),
@@ -283,13 +291,9 @@ class AlbaLoanRefinance(models.Model):
             
             loan = rec.original_loan_id
             
-            # Settlement = outstanding + accrued interest to settlement date
-            rec.settlement_amount = loan.outstanding_balance
+            # Settlement = outstanding principal + accrued interest + outstanding charges
+            rec.settlement_amount = loan.outstanding_principal + (loan.accrued_interest or 0.0) + (loan.outstanding_charges or 0.0)
             rec.accrued_interest_to_date = loan.accrued_interest or 0
-            
-            # Add accrued interest if any
-            if rec.accrued_interest_to_date:
-                rec.settlement_amount += rec.accrued_interest_to_date
             
             # Refinance fee defaults
             if rec.is_topup and rec.topup_amount and rec.original_product_id:
@@ -324,12 +328,11 @@ class AlbaLoanRefinance(models.Model):
                 loan = rec.original_loan_id
                 if not rec.new_product_id and loan.loan_product_id:
                     rec.new_product_id = loan.loan_product_id.id
-                if not rec.new_principal:
-                    rec.new_principal = loan.principal_amount
                 if not rec.new_interest_rate:
                     rec.new_interest_rate = loan.interest_rate
                 if not rec.new_tenure_months:
                     rec.new_tenure_months = loan.tenure_months
+
 
     @api.onchange("new_product_id")
     def _onchange_new_product_id(self):
@@ -563,10 +566,21 @@ class AlbaLoanRefinance(models.Model):
                     "<b>REFINANCE FEE POSTED</b>: %s %s → Journal Entry: %s"
                 ) % (rec.currency_id.symbol, rec.refinance_fee_amount, fee_move.name))
 
-            # ── 3. Close original loan ────────────────────────────────────────
+            # ── 3. Close original loan & forgive future interest/principal ───
             rec.original_loan_id.write({"state": "closed"})
+            
+            # Set unpaid future schedule lines due amounts to 0 (forgive future interest and principal since they are settled)
+            schedule_to_adjust = rec.original_loan_id.repayment_schedule_ids.filtered(lambda s: s.balance_due > 0)
+            for line in schedule_to_adjust:
+                line.write({
+                    "principal_due": line.principal_paid,
+                    "interest_due": line.interest_paid,
+                })
+            # Force compute of financial totals on the loan to update outstanding_balance to 0
+            rec.original_loan_id._compute_financial_totals()
+            
             rec.original_loan_id.message_post(body=_(
-                "<b>SETTLED VIA REFINANCE</b>: %s %s settled."
+                "<b>SETTLED VIA REFINANCE</b>: %s %s settled. Future schedule adjusted."
             ) % (rec.currency_id.symbol, rec.settlement_amount))
 
             rec.write({"state": "settled"})
