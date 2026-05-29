@@ -42,7 +42,7 @@ class AlbaCustomer(models.Model):
     # ── Identity (Related to Partner) ────────────────────────────────────────
     image_1920 = fields.Image(related="partner_id.image_1920", string="Image", readonly=False)
     avatar_128 = fields.Image(related="partner_id.avatar_128", string="Avatar", readonly=False)
-    id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
+    id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False, required=True)
     id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
     phone = fields.Char(related="partner_id.phone", store=True, readonly=False)
     email = fields.Char(related="partner_id.email", store=True, readonly=False)
@@ -58,19 +58,21 @@ class AlbaCustomer(models.Model):
         ],
         string="Marital Status",
     )
-    nationality = fields.Char(string="Nationality", default="Kenyan")
+    nationality = fields.Char(string="Nationality", default="Kenyan", required=True)
 
     # ── Location (Kenya) ──────────────────────────────────────────────────────
     county_id = fields.Many2one(
         "alba.county",
         string="County",
         index=True,
+        required=True,
     )
     sub_county_id = fields.Many2one(
         "alba.sub.county",
         string="Sub-County",
         domain="[('county_id', '=', county_id)]",
         index=True,
+        required=True,
     )
     ward_id = fields.Many2one(
         "alba.ward",
