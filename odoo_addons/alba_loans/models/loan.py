@@ -1586,7 +1586,7 @@ class AlbaLoan(models.Model):
                 'ref': f"LOAN/{loan.loan_number}",
                 'currency_id': loan_currency.id,
                 'narration': _("Loan disbursement — %s — %s") % (loan.loan_number, loan.customer_id.display_name),
-                'payment_method_line_id': loan.payment_method_line_id.id if loan.payment_method_line_id else False,  # FIX: pass through payment method
+                'preferred_payment_method_line_id': loan.payment_method_line_id.id if loan.payment_method_line_id else False,
                 'line_ids': [
                     # DR Loan Receivable
                     (0, 0, {
