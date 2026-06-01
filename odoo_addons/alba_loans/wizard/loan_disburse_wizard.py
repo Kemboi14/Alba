@@ -502,7 +502,9 @@ class AlbaLoanDisburseWizard(models.TransientModel):
             payment_vals = {
                 "date": self.disbursement_date,
                 "amount": net_disbursement,
-                "payment_type": "outbound",
+                # FIX: swap the payment move sides so the clearing account is credited
+                # and the bank account is debited in the disbursement payment entry.
+                "payment_type": "inbound",
                 "partner_type": "customer",
                 "partner_id": application.customer_id.partner_id.id,
                 "journal_id": self.journal_id.id,
