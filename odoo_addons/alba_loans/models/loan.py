@@ -854,6 +854,12 @@ class AlbaLoan(models.Model):
         
         self._ensure_disbursement_payment_method_line()
 
+        product = self.loan_product_id
+        if not product:
+            raise UserError(_("Please configure a Loan Product before posting disbursement entry."))
+        if not product.account_loan_receivable_id:
+            raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
+
         # Prefer product-level Loan Clearing account for disbursements.
         # FIX: use product clearing account for net disbursement credit instead
         # of the bank Outstanding Payments control account.
@@ -870,10 +876,6 @@ class AlbaLoan(models.Model):
                     'Outgoing Payments tab before posting disbursements.'
                 ) % self.journal_id.name
             )
-
-        product = self.loan_product_id
-        if not product.account_loan_receivable_id:
-            raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
 
         application = self.application_id
         total_fees = sum(application.fee_line_ids.mapped("calculated_amount"))
