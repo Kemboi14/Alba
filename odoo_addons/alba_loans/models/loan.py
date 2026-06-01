@@ -854,8 +854,12 @@ class AlbaLoan(models.Model):
         
         self._ensure_disbursement_payment_method_line()
 
+        # Prefer product-level Loan Clearing account for disbursements.
+        # FIX: use product clearing account for net disbursement credit instead
+        # of the bank Outstanding Payments control account.
         outstanding_account = (
-            self.payment_method_line_id.payment_account_id
+            product.account_clearing_id
+            or self.payment_method_line_id.payment_account_id
             or self.journal_id.default_account_id
         )
         if not outstanding_account:

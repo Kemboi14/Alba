@@ -249,6 +249,15 @@ class AlbaInterestAccrual(models.Model):
                     % (rec.company_id.name, investment.investment_number)
                 )
 
+            # Convert interest amount to company currency when accrual currency differs
+            # FIX: ensure debit/credit in company currency are set using Odoo's conversion
+            amount_in_company = rec.currency_id._convert(
+                rec.interest_amount,
+                rec.company_id.currency_id,
+                rec.company_id,
+                rec.accrual_date or fields.Date.today(),
+            )
+
             move_vals = {
                 "journal_id": journal.id,
                 "date": rec.accrual_date,
@@ -277,7 +286,7 @@ class AlbaInterestAccrual(models.Model):
                                 if rec.period_start
                                 else "",
                             ),
-                            "debit": rec.interest_amount if rec.currency_id == rec.company_id.currency_id else 0.0,
+                            "debit": amount_in_company,
                             "credit": 0.0,
                             "amount_currency": rec.interest_amount,
                             "currency_id": rec.currency_id.id,
@@ -298,7 +307,7 @@ class AlbaInterestAccrual(models.Model):
                                 else "",
                             ),
                             "debit": 0.0,
-                            "credit": rec.interest_amount if rec.currency_id == rec.company_id.currency_id else 0.0,
+                            "credit": amount_in_company,
                             "amount_currency": -rec.interest_amount,
                             "currency_id": rec.currency_id.id,
                             "partner_id": rec.partner_id.id,
