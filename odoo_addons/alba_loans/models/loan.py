@@ -860,12 +860,8 @@ class AlbaLoan(models.Model):
         if not product.account_loan_receivable_id:
             raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
 
-        # Prefer product-level Loan Clearing account for disbursements.
-        # FIX: use product clearing account for net disbursement credit instead
-        # of the bank Outstanding Payments control account.
         outstanding_account = (
-            product.account_clearing_id
-            or self.payment_method_line_id.payment_account_id
+            self.payment_method_line_id.payment_account_id
             or self.journal_id.default_account_id
         )
         if not outstanding_account:
@@ -891,15 +887,15 @@ class AlbaLoan(models.Model):
                 # DR Loan Receivable (Full Principal)
                 (0, 0, {
                     "account_id": product.account_loan_receivable_id.id,
-                    "name": _("Loan Principal — %s") % self.loan_number,
+                    "name": _("Loan Receivable — %s") % self.loan_number,
                     "debit": self.principal_amount,
                     "credit": 0.0,
                     "partner_id": self.customer_id.partner_id.id,
                 }),
-                # CR Outstanding Payments transit account
+                # CR Outstanding Payments control account for net disbursement
                 (0, 0, {
-                    "account_id": outstanding_account.id,  # FIX: use Outstanding Payments transit account
-                    "name": _("Disbursement — %s") % self.loan_number,
+                    "account_id": outstanding_account.id,
+                    "name": _("Net disbursement — %s") % self.loan_number,
                     "debit": 0.0,
                     "credit": net_amount,
                     "partner_id": self.customer_id.partner_id.id,
