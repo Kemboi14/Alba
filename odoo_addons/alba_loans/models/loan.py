@@ -1615,7 +1615,6 @@ class AlbaLoan(models.Model):
             move.action_post()
             move.write({
                 'ref': move.ref,
-                'payment_id': False,  # FIX: mark as non-native payment move for reconciliation
                 'is_move_sent': False,
             })
             loan.message_post(body=_("Accounting move created: %s") % move.name)
