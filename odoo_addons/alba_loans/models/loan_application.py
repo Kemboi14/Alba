@@ -1217,6 +1217,7 @@ class AlbaLoanApplication(models.Model):
                     except Exception as e:
                         _logger.error(f"Failed to create fee lines for app {app.id}: {str(e)}")
                         raise
+        return applications
 
     def action_post_approval_entry(self):
         """
@@ -1289,7 +1290,7 @@ class AlbaLoanApplication(models.Model):
             move.action_post()
             rec.write({"approval_move_id": move.id})
         
-        return applications
+        return True
 
     @api.model
     def _check_company(self, company_id):
