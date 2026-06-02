@@ -645,14 +645,14 @@ class AlbaLoanRepayment(models.Model):
                     "partner_id": rec.partner_id.id,
                 }))
 
-            # CR Interest Income
+            # CR Interest Receivable (settling previously accrued interest)
             if rec.interest_component > 0:
-                interest_account = product.account_interest_income_id
-                if not interest_account:
-                    raise UserError(_("Please configure the Interest Income account on product '%s'.") % product.name)
+                interest_receivable_account = product.account_interest_receivable_id
+                if not interest_receivable_account:
+                    raise UserError(_("Please configure the Interest Receivable account on product '%s'.") % product.name)
                 move_vals["line_ids"].append((0, 0, {
-                    "account_id": interest_account.id,
-                    "name": _("Interest collected — %s") % rec.loan_id.loan_number,
+                    "account_id": interest_receivable_account.id,
+                    "name": _("Interest settlement — %s") % rec.loan_id.loan_number,
                     "debit": 0.0,
                     "credit": rec.interest_component if rec.currency_id == rec.company_id.currency_id else 0.0,
                     "amount_currency": -rec.interest_component,

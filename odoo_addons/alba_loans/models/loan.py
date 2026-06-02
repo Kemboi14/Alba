@@ -859,19 +859,8 @@ class AlbaLoan(models.Model):
             raise UserError(_("Please configure a Loan Product before posting disbursement entry."))
         if not product.account_loan_receivable_id:
             raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
-
-        outstanding_account = (
-            self.payment_method_line_id.payment_account_id
-            or self.journal_id.default_account_id
-        )
-        if not outstanding_account:
-            raise UserError(
-                _(
-                    'Journal "%s" has no Outstanding Payments account configured. '
-                    'Please set it under Accounting > Configuration > Journals > '
-                    'Outgoing Payments tab before posting disbursements.'
-                ) % self.journal_id.name
-            )
+        if not product.account_clearing_id:
+            raise UserError(_("Please configure Loan Clearing account on product '%s'.") % product.name)
 
         application = self.application_id
         total_fees = sum(application.fee_line_ids.mapped("calculated_amount"))
@@ -892,10 +881,10 @@ class AlbaLoan(models.Model):
                     "credit": 0.0,
                     "partner_id": self.customer_id.partner_id.id,
                 }),
-                # CR Outstanding Payments control account for net disbursement
+                # CR Loan Clearing account for net disbursement
                 (0, 0, {
-                    "account_id": outstanding_account.id,
-                    "name": _("Net disbursement — %s") % self.loan_number,
+                    "account_id": product.account_clearing_id.id,
+                    "name": _("Loan Clearing — %s") % self.loan_number,
                     "debit": 0.0,
                     "credit": net_amount,
                     "partner_id": self.customer_id.partner_id.id,
