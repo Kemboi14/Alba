@@ -493,21 +493,8 @@ class AlbaLoanRepayment(models.Model):
                         remaining -= pay_penalty
 
         # 2. Allocate to fees / other charges (loan-level, not per instalment)
-        if remaining > 0:
-            loan_product = self.loan_id.loan_product_id
-            if loan_product:
-                fee_amount = loan_product.calculate_total_fees(self.loan_id.principal_amount)
-                # Exclude fees already collected on previously POSTED repayments
-                # (exclude self to avoid counting a partially-saved draft)
-                total_fees_paid = sum(
-                    r.fees_component
-                    for r in self.loan_id.repayment_ids
-                    if r.state == "posted" and r.id != self.id
-                )
-                unpaid_fees = max(0.0, fee_amount - total_fees_paid)
-                pay_fees = min(remaining, unpaid_fees)
-                fees += pay_fees
-                remaining -= pay_fees
+        # Application fees are recognised at disbursement only and are not
+        # collected again on repayments. Do not allocate fees during repayment.
 
         # 3. Allocate to interest across all instalments (oldest first)
         for entry in schedule:
@@ -546,7 +533,6 @@ class AlbaLoanRepayment(models.Model):
                DR  Bank / Cash Account       (amount_paid)
                CR  Loan Receivable           (principal_component)
                CR  Interest Income           (interest_component)
-               CR  Fee Income                (fees_component)
                CR  Penalty Income            (penalty_component)
         3. Update the repayment schedule entries.
         4. Close the loan if fully repaid.
@@ -645,32 +631,17 @@ class AlbaLoanRepayment(models.Model):
                     "partner_id": rec.partner_id.id,
                 }))
 
-            # CR Interest Receivable (settling previously accrued interest)
+            # CR Interest Income (settling interest on the repayment)
             if rec.interest_component > 0:
-                interest_receivable_account = product.account_interest_receivable_id
-                if not interest_receivable_account:
-                    raise UserError(_("Please configure the Interest Receivable account on product '%s'.") % product.name)
+                interest_income_account = product.account_interest_income_id
+                if not interest_income_account:
+                    raise UserError(_("Please configure the Interest Income account on product '%s'.") % product.name)
                 move_vals["line_ids"].append((0, 0, {
-                    "account_id": interest_receivable_account.id,
+                    "account_id": interest_income_account.id,
                     "name": _("Interest settlement — %s") % rec.loan_id.loan_number,
                     "debit": 0.0,
                     "credit": rec.interest_component if rec.currency_id == rec.company_id.currency_id else 0.0,
                     "amount_currency": -rec.interest_component,
-                    "currency_id": rec.currency_id.id,
-                    "partner_id": rec.partner_id.id,
-                }))
-
-            # CR Fee Income for any fees allocated to this repayment.
-            if rec.fees_component > 0:
-                fee_income_account = product.account_fees_income_id
-                if not fee_income_account:
-                    raise UserError(_("Please configure the Fee Income account on product '%s'.") % product.name)
-                move_vals["line_ids"].append((0, 0, {
-                    "account_id": fee_income_account.id,
-                    "name": _("Fee collected — %s") % rec.loan_id.loan_number,
-                    "debit": 0.0,
-                    "credit": rec.fees_component if rec.currency_id == rec.company_id.currency_id else 0.0,
-                    "amount_currency": -rec.fees_component,
                     "currency_id": rec.currency_id.id,
                     "partner_id": rec.partner_id.id,
                 }))
