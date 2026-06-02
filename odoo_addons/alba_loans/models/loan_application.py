@@ -1219,7 +1219,7 @@ class AlbaLoanApplication(models.Model):
                         raise
         return applications
 
-    def action_post_approval_entry(self):
+    def action_post_approval_entry(self, journal=None):
         """
         ENTRY 1 — Loan Approval:
         DR  Loan Receivable                full principal
@@ -1231,8 +1231,9 @@ class AlbaLoanApplication(models.Model):
             if rec.approval_move_id:
                 continue
             
-            if not rec.journal_id:
-                raise UserError(_("Please select a Disbursement Journal before approving."))
+            target_journal = journal or rec.journal_id
+            if not target_journal:
+                raise UserError(_("Please select a Disbursement Journal before posting the approval entry."))
 
             product = rec.loan_product_id
             if not product.account_loan_receivable_id:
@@ -1245,7 +1246,7 @@ class AlbaLoanApplication(models.Model):
             net_amount = principal - total_fees
 
             move_vals = {
-                "journal_id": rec.journal_id.id,
+                "journal_id": target_journal.id,
                 "date": fields.Date.context_today(rec),
                 "ref": f"APPR/{rec.application_number}",
                 "move_type": "entry",

@@ -832,17 +832,21 @@ class AlbaLoan(models.Model):
 
     def action_post_disbursement_entry(self):
         """
-        ENTRY 2 — Loan Disbursement:
-        DR  Loan Clearing Account          net disbursement amount
-        CR  Outstanding Payments Bank      net disbursement amount
+        Consolidated Disbursement Posting:
+        1. ENTRY 1 — Loan Approval (DR Rec, CR Clearing, CR Fees)
+        2. ENTRY 2 — Loan Disbursement (DR Clearing, CR Outstanding Payments)
         """
         self.ensure_one()
+        if not self.journal_id:
+            raise UserError(_("Please select a Disbursement Journal before posting the entry."))
+
+        # 1. Post ENTRY 1 (if not already posted)
+        self.application_id.action_post_approval_entry(journal=self.journal_id)
+
+        # 2. Post ENTRY 2
         if self.disbursement_move_id:
             return self.disbursement_move_id
 
-        if not self.journal_id:
-            raise UserError(_("Please select a Disbursement Journal before posting the entry."))
-        
         self._ensure_disbursement_payment_method_line()
 
         product = self.loan_product_id
