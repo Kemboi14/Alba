@@ -596,6 +596,14 @@ class AlbaLoanRepayment(models.Model):
                     % product.name
                 )
 
+            # Get accounts from product
+            if not product.account_outstanding_receipts_id:
+                raise UserError(_("Please configure Outstanding Receipts account on product '%s'.") % product.name)
+            if not product.account_loan_receivable_id:
+                raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
+            if not product.account_interest_receivable_id:
+                raise UserError(_("Please configure Interest Receivable account on product '%s'.") % product.name)
+
             move_vals = {
                 "journal_id": rec.journal_id.id,
                 "date": rec.payment_date,
@@ -607,7 +615,7 @@ class AlbaLoanRepayment(models.Model):
                 "line_ids": [
                     # DR Outstanding Receipts transit account
                     (0, 0, {
-                        "account_id": outstanding_account.id,  # FIX: use Outstanding Receipts transit account
+                        "account_id": product.account_outstanding_receipts_id.id,
                         "name": _("Repayment — %s") % (rec.payment_reference or rec.loan_id.loan_number),
                         "debit": rec.amount_paid if rec.currency_id == rec.company_id.currency_id else 0.0,
                         "credit": 0.0,
@@ -618,12 +626,12 @@ class AlbaLoanRepayment(models.Model):
                 ],
             }
 
-            # CR Loan Receivable (principal + unallocated prepayment)
+            # CR Loan Receivable (principal portion + prepayment)
             receivable_amount = rec.principal_component + rec.unallocated_amount
             if receivable_amount > 0:
                 move_vals["line_ids"].append((0, 0, {
                     "account_id": product.account_loan_receivable_id.id,
-                    "name": _("Principal repayment (incl. prepayment) — %s") % rec.loan_id.loan_number,
+                    "name": _("Principal repayment — %s") % rec.loan_id.loan_number,
                     "debit": 0.0,
                     "credit": receivable_amount if rec.currency_id == rec.company_id.currency_id else 0.0,
                     "amount_currency": -receivable_amount,
@@ -631,14 +639,11 @@ class AlbaLoanRepayment(models.Model):
                     "partner_id": rec.partner_id.id,
                 }))
 
-            # CR Interest Income (settling interest on the repayment)
+            # CR Loan Interest Receivable (interest portion)
             if rec.interest_component > 0:
-                interest_income_account = product.account_interest_income_id
-                if not interest_income_account:
-                    raise UserError(_("Please configure the Interest Income account on product '%s'.") % product.name)
                 move_vals["line_ids"].append((0, 0, {
-                    "account_id": interest_income_account.id,
-                    "name": _("Interest settlement — %s") % rec.loan_id.loan_number,
+                    "account_id": product.account_interest_receivable_id.id,
+                    "name": _("Interest repayment — %s") % rec.loan_id.loan_number,
                     "debit": 0.0,
                     "credit": rec.interest_component if rec.currency_id == rec.company_id.currency_id else 0.0,
                     "amount_currency": -rec.interest_component,
@@ -646,14 +651,12 @@ class AlbaLoanRepayment(models.Model):
                     "partner_id": rec.partner_id.id,
                 }))
 
-            # CR Penalty Income
+            # CR Penalty Receivable (if any)
             if rec.penalty_component > 0:
-                penalty_account = product.account_penalty_income_id or product.account_fees_income_id or product.account_interest_income_id
-                if not penalty_account:
-                    raise UserError(_("Please configure the Penalty Income account on product '%s'.") % product.name)
+                penalty_acc = product.account_penalty_receivable_id or product.account_interest_receivable_id
                 move_vals["line_ids"].append((0, 0, {
-                    "account_id": penalty_account.id,
-                    "name": _("Penalty collected — %s") % rec.loan_id.loan_number,
+                    "account_id": penalty_acc.id,
+                    "name": _("Penalty repayment — %s") % rec.loan_id.loan_number,
                     "debit": 0.0,
                     "credit": rec.penalty_component if rec.currency_id == rec.company_id.currency_id else 0.0,
                     "amount_currency": -rec.penalty_component,

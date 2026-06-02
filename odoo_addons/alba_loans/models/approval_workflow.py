@@ -241,6 +241,9 @@ class AlbaLoanApplication(models.Model):
                 "approved_by_user_id": self.env.user.id,
                 "approved_by_role_id": limit.approver_group_id.id if limit else False,
             })
+            # ENTRY 1 — Loan Approval
+            rec.action_post_approval_entry()
+            
             rec.message_post(
                 body=Markup(_("Application <b>approved</b> for %s %s by %s."))
                 % (rec.currency_id.name, rec.approved_amount, self.env.user.name)

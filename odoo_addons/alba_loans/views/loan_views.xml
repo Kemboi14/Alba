@@ -14,6 +14,7 @@
                 <header>
                     <button name="action_generate_schedule" string="Generate Schedule" type="object" class="btn-primary" invisible="schedule_generated == True" groups="alba_loans.group_loan_officer"/>
                     <button name="action_post_disbursement_entry" string="Post Disbursement Entry" type="object" class="btn-primary" invisible="disbursement_move_id != False" groups="account.group_account_manager"/>
+                    <button name="action_post_interest_accrual_entry" string="Post Interest Accrual" type="object" class="btn-info" groups="account.group_account_manager"/>
                     <button name="action_mark_npl" string="Mark as NPL" type="object" class="btn-warning" invisible="state != 'active'" groups="alba_loans.group_loan_manager"/>
                     <button name="action_close" string="Close Loan" type="object" class="btn-success" invisible="state != 'active'" groups="alba_loans.group_loan_manager"/>
                     <button name="action_write_off" string="Write Off" type="object" class="btn-danger" invisible="state not in ('active','npl')" groups="alba_loans.group_loan_manager"/>

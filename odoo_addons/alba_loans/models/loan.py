@@ -832,22 +832,13 @@ class AlbaLoan(models.Model):
 
     def action_post_disbursement_entry(self):
         """
-        Post disbursement accounting journal entry:
-            DR  Loan Receivable      (Principal)
-            CR  Loan Clearing        (Net Amount)
-            CR  Fee Income           (Total Fees)
+        ENTRY 2 — Loan Disbursement:
+        DR  Loan Clearing Account          net disbursement amount
+        CR  Outstanding Payments Bank      net disbursement amount
         """
         self.ensure_one()
         if self.disbursement_move_id:
-            raise UserError(_("Disbursement entry already exists for loan %s.") % self.loan_number)
-
-        # Auto-select journal if not set
-        if not self.journal_id:
-            self.journal_id = self.env["account.journal"].search([
-                ("type", "=", "bank"),
-            ], limit=1) or self.env["account.journal"].search([
-                ("type", "=", "cash"),
-            ], limit=1)
+            return self.disbursement_move_id
 
         if not self.journal_id:
             raise UserError(_("Please select a Disbursement Journal before posting the entry."))
@@ -857,10 +848,10 @@ class AlbaLoan(models.Model):
         product = self.loan_product_id
         if not product:
             raise UserError(_("Please configure a Loan Product before posting disbursement entry."))
-        if not product.account_loan_receivable_id:
-            raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
         if not product.account_clearing_id:
             raise UserError(_("Please configure Loan Clearing account on product '%s'.") % product.name)
+        if not product.account_outstanding_payments_id:
+            raise UserError(_("Please configure Outstanding Payments account on product '%s'.") % product.name)
 
         application = self.application_id
         total_fees = sum(application.fee_line_ids.mapped("calculated_amount"))
@@ -873,18 +864,18 @@ class AlbaLoan(models.Model):
             "move_type": "entry",
             "preferred_payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
             "line_ids": [
-                # DR Loan Receivable (Full Principal)
-                (0, 0, {
-                    "account_id": product.account_loan_receivable_id.id,
-                    "name": _("Loan Receivable — %s") % self.loan_number,
-                    "debit": self.principal_amount,
-                    "credit": 0.0,
-                    "partner_id": self.customer_id.partner_id.id,
-                }),
-                # CR Loan Clearing account for net disbursement
+                # DR Loan Clearing Account
                 (0, 0, {
                     "account_id": product.account_clearing_id.id,
                     "name": _("Loan Clearing — %s") % self.loan_number,
+                    "debit": net_amount,
+                    "credit": 0.0,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
+                # CR Outstanding Payments Bank
+                (0, 0, {
+                    "account_id": product.account_outstanding_payments_id.id,
+                    "name": _("Net Disbursement — %s") % self.loan_number,
                     "debit": 0.0,
                     "credit": net_amount,
                     "partner_id": self.customer_id.partner_id.id,
@@ -892,38 +883,67 @@ class AlbaLoan(models.Model):
             ],
         }
 
-        # Add Fee Income lines
-        for fee in application.fee_line_ids:
-            income_account = fee.fee_product_id.property_account_income_id or fee.fee_product_id.categ_id.property_account_income_categ_id
-            if not income_account:
-                income_account = product.account_fees_income_id
-            
-            if not income_account:
-                raise UserError(_("No income account found for fee product '%s' or loan product.") % fee.fee_product_id.name)
-
-            move_vals["line_ids"].append((0, 0, {
-                "account_id": income_account.id,
-                "name": _("Fee: %s — %s") % (fee.fee_product_id.name, self.loan_number),
-                "debit": 0.0,
-                "credit": fee.calculated_amount,
-                "partner_id": self.customer_id.partner_id.id,
-            }))
-
         move = self.env["account.move"].create(move_vals)
         move.action_post()
-        move.write({
-            "ref": move.ref,
-            "is_move_sent": False,
-        })
         self.write({"disbursement_move_id": move.id})
         self.message_post(
             body=_("Disbursement journal entry %s posted for KES %s.")
-            % (move.name, f"{self.principal_amount:,.2f}")
+            % (move.name, f"{net_amount:,.2f}")
         )
         
         # Trigger automatic provisioning
         self.action_post_provisioning_entry()
         
+        return move
+
+    def action_post_interest_accrual_entry(self, amount=None):
+        """
+        ENTRY 3 — Interest Accrual:
+        DR  Loan Interest Receivable       interest amount
+        CR  Loan Interest Income           interest amount
+        """
+        self.ensure_one()
+        product = self.loan_product_id
+        if not product.account_interest_receivable_id:
+            raise UserError(_("Please configure Interest Receivable account on product '%s'.") % product.name)
+        if not product.account_interest_income_id:
+            raise UserError(_("Please configure Interest Income account on product '%s'.") % product.name)
+
+        interest_amount = amount if amount is not None else self.total_interest
+        if interest_amount <= 0:
+            return False
+
+        move_vals = {
+            "journal_id": self.journal_id.id,
+            "date": fields.Date.context_today(self),
+            "ref": f"INT/{self.loan_number}",
+            "move_type": "entry",
+            "line_ids": [
+                # DR Loan Interest Receivable
+                (0, 0, {
+                    "account_id": product.account_interest_receivable_id.id,
+                    "name": _("Interest Accrual — %s") % self.loan_number,
+                    "debit": interest_amount,
+                    "credit": 0.0,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
+                # CR Loan Interest Income
+                (0, 0, {
+                    "account_id": product.account_interest_income_id.id,
+                    "name": _("Interest Income — %s") % self.loan_number,
+                    "debit": 0.0,
+                    "credit": interest_amount,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
+            ],
+        }
+
+        move = self.env["account.move"].create(move_vals)
+        move.action_post()
+        self.message_post(
+            body=_("Interest accrual journal entry %s posted for KES %s.")
+            % (move.name, f"{interest_amount:,.2f}")
+        )
         return move
 
     @api.onchange("journal_id")

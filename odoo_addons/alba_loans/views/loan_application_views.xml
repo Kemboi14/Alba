@@ -84,6 +84,8 @@
                         <group>
                             <field name="customer_id" options="{'no_create': False}" readonly="state != 'draft'"/>
                             <field name="partner_id" readonly="1"/>
+                            <field name="journal_id" groups="alba_loans.group_loan_manager" invisible="state == 'draft'"/>
+                            <field name="approval_move_id" groups="alba_loans.group_loan_manager" invisible="not approval_move_id"/>
                         </group>
                         <group>
                             <field name="approved_amount" readonly="state not in ('pending_approval','approved','employer_verification','guarantor_confirmation')" groups="alba_loans.group_loan_manager"/>

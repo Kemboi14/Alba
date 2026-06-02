@@ -70,6 +70,9 @@ class AlbaLoanInterestCron(models.Model):
                 total_penalty += penalty
 
             if total_penalty > 0.01:
+                # ENTRY 3 — Interest Accrual (Default/Penalty)
+                loan.action_post_interest_accrual_entry(amount=total_penalty)
+
                 loan.message_post(
                     body=Markup(
                         _(

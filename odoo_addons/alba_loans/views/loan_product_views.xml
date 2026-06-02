@@ -173,7 +173,11 @@
                                                options="{'no_create': True}"/>
                                         <field name="account_clearing_id"
                                                options="{'no_create': True}"/>
-                                    </group>
+                                        <field name="account_outstanding_payments_id"
+                                               options="{'no_create': True}"/>
+                                        <field name="account_outstanding_receipts_id"
+                                               options="{'no_create': True}"/>
+                                        </group>
                                     <group>
                                         <field name="account_provision_id"
                                                options="{'no_create': True}"/>

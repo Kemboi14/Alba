@@ -255,13 +255,25 @@ class AlbaLoanProduct(models.Model):
         comodel_name="account.account",
         string="Loan Clearing Account",
         domain="[('account_type', 'in', ['asset_current', 'liability_current'])]",
-        help="Intermediary account for disbursements. DR Loan Receivable, CR Clearing; then Payment Voucher clears this account.",
+        help="Intermediary account for disbursements. DR Loan Receivable, CR Clearing; then Entry 2 clears this account.",
     )
     account_interest_receivable_id = fields.Many2one(
         comodel_name="account.account",
         string="Interest Receivable Account",
         domain="[('account_type', '=', 'asset_receivable')]",
         help="Account for tracking accrued interest that hasn't been collected yet.",
+    )
+    account_outstanding_payments_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Outstanding Payments Account",
+        domain="[('account_type', '=', 'asset_current')]",
+        help="Bank/Cash transit account for outbound payments (Entry 2).",
+    )
+    account_outstanding_receipts_id = fields.Many2one(
+        comodel_name="account.account",
+        string="Outstanding Receipts Account",
+        domain="[('account_type', '=', 'asset_current')]",
+        help="Bank/Cash transit account for inbound receipts (Entry 4).",
     )
     account_provision_id = fields.Many2one(
         comodel_name="account.account",

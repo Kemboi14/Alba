@@ -164,6 +164,20 @@ class AlbaLoanApplication(models.Model):
         copy=False,
     )
 
+    # ── Accounting ────────────────────────────────────────────────────────────
+    journal_id = fields.Many2one(
+        "account.journal",
+        string="Disbursement Journal",
+        domain="[('type', 'in', ['bank', 'cash'])]",
+        help="Journal to be used for disbursement. Entry 1 will be posted here on approval.",
+    )
+    approval_move_id = fields.Many2one(
+        "account.move",
+        string="Approval Journal Entry (Entry 1)",
+        readonly=True,
+        copy=False,
+    )
+
     # ── Deferred/Declined Reason (Req #8) ─────────────────────────────────────
     status_reason_id = fields.Many2one(
         "alba.loan.status.reason",
@@ -1203,6 +1217,77 @@ class AlbaLoanApplication(models.Model):
                     except Exception as e:
                         _logger.error(f"Failed to create fee lines for app {app.id}: {str(e)}")
                         raise
+
+    def action_post_approval_entry(self):
+        """
+        ENTRY 1 — Loan Approval:
+        DR  Loan Receivable                full principal
+        CR  Loan Clearing Account          principal minus all fees
+        CR  Application Fee Income         application fee amount
+        CR  Processing Fee Income          processing fee amount
+        """
+        for rec in self:
+            if rec.approval_move_id:
+                continue
+            
+            if not rec.journal_id:
+                raise UserError(_("Please select a Disbursement Journal before approving."))
+
+            product = rec.loan_product_id
+            if not product.account_loan_receivable_id:
+                raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
+            if not product.account_clearing_id:
+                raise UserError(_("Please configure Loan Clearing account on product '%s'.") % product.name)
+
+            principal = rec.approved_amount or rec.requested_amount
+            total_fees = sum(rec.fee_line_ids.mapped("calculated_amount"))
+            net_amount = principal - total_fees
+
+            move_vals = {
+                "journal_id": rec.journal_id.id,
+                "date": fields.Date.context_today(rec),
+                "ref": f"APPR/{rec.application_number}",
+                "move_type": "entry",
+                "line_ids": [
+                    # DR Loan Receivable (Full Principal)
+                    (0, 0, {
+                        "account_id": product.account_loan_receivable_id.id,
+                        "name": _("Loan Receivable — %s") % rec.application_number,
+                        "debit": principal,
+                        "credit": 0.0,
+                        "partner_id": rec.customer_id.partner_id.id,
+                    }),
+                    # CR Loan Clearing account for net disbursement
+                    (0, 0, {
+                        "account_id": product.account_clearing_id.id,
+                        "name": _("Loan Clearing — %s") % rec.application_number,
+                        "debit": 0.0,
+                        "credit": net_amount,
+                        "partner_id": rec.customer_id.partner_id.id,
+                    }),
+                ],
+            }
+
+            # Add Fee Income lines
+            for fee in rec.fee_line_ids:
+                income_account = fee.fee_product_id.property_account_income_id or fee.fee_product_id.categ_id.property_account_income_categ_id
+                if not income_account:
+                    income_account = product.account_fees_income_id
+                
+                if not income_account:
+                    raise UserError(_("No income account found for fee product '%s' or loan product.") % fee.fee_product_id.name)
+
+                move_vals["line_ids"].append((0, 0, {
+                    "account_id": income_account.id,
+                    "name": _("Fee: %s — %s") % (fee.fee_product_id.name, rec.application_number),
+                    "debit": 0.0,
+                    "credit": fee.calculated_amount,
+                    "partner_id": rec.customer_id.partner_id.id,
+                }))
+
+            move = self.env["account.move"].create(move_vals)
+            move.action_post()
+            rec.write({"approval_move_id": move.id})
         
         return applications
 
