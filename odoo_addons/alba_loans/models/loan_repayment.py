@@ -660,9 +660,20 @@ class AlbaLoanRepayment(models.Model):
                     "partner_id": rec.partner_id.id,
                 }))
 
-            # Application/processing fees should be recognised at disbursement,
-            # not during repayment posting. Exclude them from repayment moves.
-            # FIX: Do not include application fee income on repayment journal entries.
+            # CR Fee Income for any fees allocated to this repayment.
+            if rec.fees_component > 0:
+                fee_income_account = product.account_fees_income_id
+                if not fee_income_account:
+                    raise UserError(_("Please configure the Fee Income account on product '%s'.") % product.name)
+                move_vals["line_ids"].append((0, 0, {
+                    "account_id": fee_income_account.id,
+                    "name": _("Fee collected — %s") % rec.loan_id.loan_number,
+                    "debit": 0.0,
+                    "credit": rec.fees_component if rec.currency_id == rec.company_id.currency_id else 0.0,
+                    "amount_currency": -rec.fees_component,
+                    "currency_id": rec.currency_id.id,
+                    "partner_id": rec.partner_id.id,
+                }))
 
             # CR Penalty Income
             if rec.penalty_component > 0:
