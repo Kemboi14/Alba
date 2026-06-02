@@ -489,61 +489,11 @@ class AlbaLoanDisburseWizard(models.TransientModel):
         }
         loan = self.env["alba.loan"].create(loan_vals)
 
-        # ── 2. Post Disbursement Clearing Entry ──────────────────────────────
-        # This creates: DR Loan Receivable, CR Clearing Account, CR Fee Income
+        # ── 2. Post Disbursement Consolidated Entries ────────────────────────
+        # This creates: 
+        #   ENTRY 1: DR Loan Receivable, CR Clearing Account, CR Fee Income
+        #   ENTRY 2: DR Loan Clearing, CR Outstanding Payments
         loan.action_post_disbursement_entry()
-
-        # ── 3. Create Payment Voucher (Net Amount) ──────────────────────────
-        total_fees = sum(application.fee_line_ids.mapped("calculated_amount"))
-        net_disbursement = self.approved_amount - total_fees
-        
-        if net_disbursement > 0:
-            self._ensure_payment_method_line()
-            outstanding_account = (
-                self.payment_method_line_id.payment_account_id
-                or self.journal_id.default_account_id
-            )
-            if not outstanding_account:
-                raise UserError(
-                    _(
-                        'Journal "%s" has no Outstanding Payments account configured. '
-                        'Please set it under Accounting > Configuration > Journals > '
-                        'Outgoing Payments tab before posting disbursements.'
-                    ) % self.journal_id.name
-                )
-            if not application.loan_product_id.account_clearing_id:
-                raise UserError(
-                    _(
-                        'Loan Product "%s" has no Loan Clearing account configured. '
-                        'Please set the Loan Clearing Account before posting disbursements.'
-                    ) % application.loan_product_id.name
-                )
-
-            move_vals = {
-                "journal_id": self.journal_id.id,
-                "date": self.disbursement_date,
-                "ref": _("DISB/PAY/%s") % loan.loan_number,
-                "move_type": "entry",
-                "line_ids": [
-                    (0, 0, {
-                        "account_id": outstanding_account.id,
-                        "name": _("Clear Outstanding Payments — %s") % loan.loan_number,
-                        "partner_id": application.customer_id.partner_id.id,
-                        "debit": net_disbursement,
-                        "credit": 0.0,
-                    }),
-                    (0, 0, {
-                        "account_id": application.loan_product_id.account_clearing_id.id,
-                        "name": _("Salary Loan Clearing — %s") % loan.loan_number,
-                        "partner_id": application.customer_id.partner_id.id,
-                        "debit": 0.0,
-                        "credit": net_disbursement,
-                    }),
-                ],
-            }
-            payment_move = self.env["account.move"].create(move_vals)
-            payment_move.action_post()
-            loan.message_post(body=_("Disbursement payment entry created: <a href='#' data-oe-model='account.move' data-oe-id='%s'>%s</a>") % (payment_move.id, payment_move.name))
 
         # ── 4. Create Vendor POs for Credit Life ────────────────────────────
         credit_life_fees = application.fee_line_ids.filtered(lambda f: f.is_credit_life and f.vendor_id)
