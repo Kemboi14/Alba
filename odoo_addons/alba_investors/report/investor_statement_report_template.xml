@@ -9,29 +9,25 @@
 
             <!-- Custom Header -->
             <div class="header" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding-bottom: 8px;">
-                <table width="100%" style="border-collapse: collapse; margin-bottom: 8px;">
-                    <tr>
-                        <td width="40%" style="padding: 0; vertical-align: middle;">
-                            <t t-if="company and (company.logo_web or company.logo)">
-                                <img t-att-src="'/web/image/res.company/' + str(company.id) + '/logo'" style="height:48px; max-height:48px; width: auto;"/>
-                            </t>
-                        </td>
-                        <td width="60%" style="padding: 0; text-align: right; vertical-align: middle;">
-                            <div style="font-size: 13px; font-weight: 700; color: #0d2d5e; text-transform: uppercase;"><t t-esc="account_number"/></div>
-                        </td>
-                    </tr>
-                </table>
-                <div style="border-bottom: 1px solid #0d2d5e; margin-bottom: 8px;"></div>
-                <table width="100%" style="border-collapse: collapse;">
-                    <tr>
-                        <td width="50%" style="padding: 0;">
-                            <div style="font-size: 11px; font-weight: 700; color: #0d2d5e;">BRANCH: <t t-esc="branch_name"/> - Investors</div>
-                        </td>
-                        <td width="50%" style="padding: 0; text-align: right;">
-                            <div style="font-size: 13px; font-weight: 700; color: #0d2d5e; text-transform: uppercase;"><t t-esc="statement_title or 'ACCOUNT STATEMENT'"/></div>
-                        </td>
-                    </tr>
-                </table>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="padding: 0;">
+                        <t t-if="company and (company.logo_web or company.logo)">
+                            <img t-att-src="'/web/image/res.company/' + str(company.id) + '/logo'" style="height:70px; max-height:70px; width: auto;"/>
+                        </t>
+                    </div>
+                    <div style="text-align: right; padding: 0;">
+                        <div style="font-size: 13px; font-weight: 700; color: #0d2d5e; text-transform: uppercase;"><t t-esc="account_number"/></div>
+                    </div>
+                </div>
+                <div style="border-bottom: 1px solid #0d2d5e; margin-bottom: 8px; width: 100%;"></div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: #0d2d5e;">BRANCH: <t t-esc="branch_name"/> - Investors</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 13px; font-weight: 700; color: #0d2d5e; text-transform: uppercase;"><t t-esc="statement_title or 'ACCOUNT STATEMENT'"/></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Page Content -->
@@ -133,23 +129,23 @@
                         <table width="100%" style="margin-bottom: 20px; border-collapse: collapse; border: 1.5px solid #2e6bbf;">
                             <thead>
                                 <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Opening Balance</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Deposits</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Withdrawals</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Interest Accrued</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">WHT Deducted (<t t-esc="wht_rate"/>%)</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Net Interest</th>
+                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Opening Balance</th>
+                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Deposits</th>
+                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Withdrawals</th>
+                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Interest Accrued</th>
+                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">WHT Deducted (<t t-esc="wht_rate"/>%)</th>
+                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Net Interest</th>
                                     <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Closing Balance</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr style="background-color: #ffffff;">
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="opening_balance_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="deposits_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="withdrawals_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="interest_accrued_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="wht_amount_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="net_interest_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center;"><t t-esc="opening_balance_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center;"><t t-esc="deposits_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center;"><t t-esc="withdrawals_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center;"><t t-esc="interest_accrued_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 700; color: #0d2d5e; text-align: center;"><t t-esc="wht_amount_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 700; color: #0d2d5e; text-align: center;"><t t-esc="net_interest_fmt"/></td>
                                     <td style="padding: 12px 12px; font-size: 13px; font-weight: 700; color: #0d2d5e; text-align: center;"><t t-esc="closing_balance_fmt"/></td>
                                 </tr>
                             </tbody>
