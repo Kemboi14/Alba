@@ -136,8 +136,7 @@
                         <button name="%(alba_investors.action_investor_statement_preview_wizard)d"
                                 type="action"
                                 class="oe_stat_button"
-                                icon="fa-print"
-                                invisible="not has_active_investments">
+                                icon="fa-print">
                             <div class="o_stat_info">
                                 <span class="o_stat_value"><i class="fa fa-file-pdf-o"/></span>
                                 <span class="o_stat_text">Statement</span>

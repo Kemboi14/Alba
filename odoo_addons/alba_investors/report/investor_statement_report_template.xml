@@ -5,27 +5,26 @@
     <template id="account_statement_document">
         <t t-call="web.external_layout">
             <t t-set="company" t-value="res_company or company or (docs and docs[0].company_id) or (o and o.company_id) or env.company"/>
-            
-            <!-- Custom Header within the page -->
-            <div style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; border-bottom: 2px solid #0d2d5e; padding-bottom: 5px; margin-bottom: 15px;">
-                <table width="100%" style="border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 0; vertical-align: middle; width: 40%;">
-                            <div style="font-size: 14px; font-weight: 700; color: #0d2d5e; letter-spacing: 0.5px; text-transform: uppercase;">
-                                <t t-esc="statement_title or 'ACCOUNT STATEMENT'"/>
-                            </div>
-                        </td>
-                        <td style="padding: 0; text-align: right; vertical-align: middle; width: 60%;">
-                            <div style="font-size: 10px; color: #0d2d5e; font-weight: 600;">
-                                BRANCH: <t t-esc="branch_name"/> - Investors
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-            </div>
 
             <!-- Page Content -->
             <div class="page">
+                <!-- Custom Header within the page content -->
+                <div style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; border-bottom: 2px solid #0d2d5e; padding-bottom: 5px; margin-bottom: 15px;">
+                    <table width="100%" style="border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 0; vertical-align: middle; width: 40%;">
+                                <div style="font-size: 14px; font-weight: 700; color: #0d2d5e; letter-spacing: 0.5px; text-transform: uppercase;">
+                                    <t t-esc="statement_title or 'ACCOUNT STATEMENT'"/>
+                                </div>
+                            </td>
+                            <td style="padding: 0; text-align: right; vertical-align: middle; width: 60%;">
+                                <div style="font-size: 10px; color: #0d2d5e; font-weight: 600;">
+                                    BRANCH: <t t-esc="branch_name"/> - Investors
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
                 <div class="alba-acct-page" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; background: #ffffff; padding-top: 5px;">
 
                     <style>
