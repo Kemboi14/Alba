@@ -10,7 +10,7 @@
         <field name="model">alba.investor.statement.preview.wizard</field>
         <field name="type">form</field>
         <field name="arch" type="xml">
-            <form string="Account Statement">
+            <form string="Preview / Print Account Statement">
                 <sheet>
                     <!-- Investor Summary Banner -->
                     <div class="alert alert-info d-flex align-items-center gap-3 mb-3" role="alert"

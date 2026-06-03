@@ -38,6 +38,14 @@
                         />
                     <button
                             name="%(alba_investors.action_report_investment_statement)d"
+                            string="Preview PDF"
+                            type="action"
+                            class="btn-secondary"
+                            icon="fa-eye"
+                            invisible="state != 'draft'"
+                        />
+                    <button
+                            name="%(alba_investors.action_report_investment_statement)d"
                             string="Print / Download"
                             type="action"
                             class="btn-info"
@@ -202,7 +210,6 @@
                         type="action"
                         icon="fa-file-pdf-o"
                         title="Print / Download PDF"
-                        invisible="state == 'draft'"
                     />
             </list>
         </field>

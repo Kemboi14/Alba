@@ -105,7 +105,7 @@
                             invisible="state != 'suspended'"
                             groups="alba_investors.group_investor_manager"/>
                     <button name="%(alba_investors.action_investor_statement_preview_wizard)d"
-                            string="Account Statement"
+                            string="Preview / Print Statement"
                             type="action"
                             class="btn-primary"
                             icon="fa-file-pdf-o"

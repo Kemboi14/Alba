@@ -3,9 +3,53 @@
 
     <!-- Shared account statement layout (bank-style PDF) -->
     <template id="account_statement_document">
-        <t t-call="web.external_layout">
+        <t t-call="web.basic_layout">
+            <t t-set="company" t-value="res_company or company or (docs and docs[0].company_id) or (o and o.company_id) or env.company"/>
+            
+            <!-- Running Header -->
+            <div class="header" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; border-bottom: 2px solid #0d2d5e; padding-bottom: 5px;">
+                <table width="100%" style="border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 0; vertical-align: middle; width: 40%;">
+                            <t t-if="company and (company.logo_web or company.logo)">
+                                <img t-att-src="'data:image/png;base64,%s' % (company.logo_web or company.logo)" style="height:48px; max-height:48px;"/>
+                            </t>
+                        </td>
+                        <td style="padding: 0; text-align: right; vertical-align: middle; width: 60%;">
+                            <div style="font-size: 14px; font-weight: 700; color: #0d2d5e; letter-spacing: 0.5px; text-transform: uppercase;">
+                                <t t-esc="statement_title or 'ACCOUNT STATEMENT'"/>
+                            </div>
+                            <div style="font-size: 10px; color: #4b5563; font-weight: 600;">
+                                BRANCH: <t t-esc="branch_name"/> - Investors
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Running Footer -->
+            <div class="footer" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5px; color: #4b5563; border-top: 1px solid #c8d9f0; padding-top: 6px;">
+                <table width="100%" style="border-collapse: collapse;">
+                    <tr>
+                        <td style="width: 75%; line-height: 1.4;">
+                            <span style="font-weight: bold; color: #0d2d5e;"><t t-esc="company.name"/></span> | 
+                            Address: <t t-esc="company.street"/>, <t t-esc="company.city"/> | 
+                            Phone: <t t-esc="company.phone"/> | 
+                            Email: <t t-esc="company.email"/> | 
+                            Web: <t t-esc="company.website"/>
+                            <br/>
+                            <span style="font-style: italic; color: #9ca3af; font-size: 8.5px;">This is a system generated statement. Please report any discrepancies within 14 days.</span>
+                        </td>
+                        <td style="width: 25%; text-align: right; vertical-align: bottom; white-space: nowrap; font-size: 10px; font-weight: 600; color: #0d2d5e;">
+                            Page <span class="page"/> of <span class="topage"/>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Page Content -->
             <div class="page">
-                <div class="alba-acct-page" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; background: #ffffff;">
+                <div class="alba-acct-page" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; background: #ffffff; padding-top: 5px;">
 
                     <style>
                         .alba-acct-page .stmt-table {
@@ -50,24 +94,6 @@
                         }
                         .alba-acct-page .stmt-table tfoot td.num { text-align: right; }
                     </style>
-
-                    <!-- Logo: prefer logo_web (web-optimised, always set) then fall back to raw logo binary -->
-                    <t t-set="company_logo" t-value="res_company and (res_company.logo_web or res_company.logo)"/>
-                    <table width="100%" style="border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e; margin-bottom: 18px; border-collapse: collapse;">
-                        <tr>
-                            <td style="padding: 7px 0; vertical-align: middle;">
-                                <t t-if="company_logo">
-                                    <img t-att-src="'data:image/png;base64,%s' % (company_logo)" style="height:54px; max-height:54px;"/>
-                                </t>
-                            </td>
-                            <td style="padding: 7px 0; font-size: 13.5px; font-weight: 700; color: #0d2d5e;">
-                                BRANCH: <t t-esc="branch_name"/> - Investors
-                            </td>
-                            <td style="padding: 7px 0; text-align: right; font-size: 14px; font-weight: 700; color: #0d2d5e; letter-spacing: 0.5px;">
-                                ACCOUNT STATEMENT
-                            </td>
-                        </tr>
-                    </table>
 
                     <table width="100%" style="margin-bottom: 24px; border-collapse: collapse;">
                         <tr>
@@ -184,6 +210,7 @@
                 <t t-set="res_company" t-value="stmt_data['res_company']"/>
                 <t t-set="company" t-value="stmt_data['res_company']"/>
                 <t t-call="alba_investors.account_statement_document">
+                    <t t-set="statement_title" t-value="'INVESTMENT STATEMENT'"/>
                     <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
                     <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
                     <t t-set="customer_name" t-value="stmt_data['customer_name']"/>
@@ -215,6 +242,7 @@
                 <t t-set="res_company" t-value="stmt_data['res_company']"/>
                 <t t-set="company" t-value="stmt_data['res_company']"/>
                 <t t-call="alba_investors.account_statement_document">
+                    <t t-set="statement_title" t-value="'INVESTOR ACCOUNT STATEMENT'"/>
                     <t t-set="barcode_number" t-value="stmt_data['barcode_number']"/>
                     <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
                     <t t-set="customer_name" t-value="stmt_data['customer_name']"/>
