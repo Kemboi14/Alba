@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 
 class AlbaInvestmentStatement(models.Model):
@@ -335,9 +339,6 @@ class AlbaInvestmentStatement(models.Model):
                 _logger.error("Failed to auto-send statement %s: %s", stmt.reference, str(e))
             created_count += 1
 
-        import logging
-
-        _logger = logging.getLogger(__name__)
         _logger.info(
             "alba.investment.statement: Monthly generation complete — "
             "%d statements created for period %s – %s.",
@@ -427,14 +428,10 @@ class AlbaInvestmentStatement(models.Model):
                 try:
                     stmt.action_send()
                 except Exception as e:
-                    import logging
-                    _logger = logging.getLogger(__name__)
                     _logger.error("Failed to auto-send statement %s: %s", stmt.reference, str(e))
                 created_count += 1
 
         if created_count > 0:
-            import logging
-            _logger = logging.getLogger(__name__)
             _logger.info(
                 "alba.investment.statement: Automated statement generation complete — "
                 "%d statements created on %s.",
@@ -469,13 +466,6 @@ class AlbaInvestmentStatement(models.Model):
 
     @api.model
     def _check_company(self, company_id):
-        """"Ensure company consistency for multi-company setup"""
-        if company_id:
-            self.company_id = company_id
-
-
-    @api.model
-    def _check_company(self, company_id):
-        """Ensure company consistency for multi-company setup"""
+        """Ensure company consistency for multi-company setup."""
         if company_id:
             self.company_id = company_id

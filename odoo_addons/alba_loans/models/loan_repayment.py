@@ -603,6 +603,8 @@ class AlbaLoanRepayment(models.Model):
                 raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
             if not product.account_interest_receivable_id:
                 raise UserError(_("Please configure Interest Receivable account on product '%s'.") % product.name)
+            if rec.fees_component > 0 and not product.account_fees_income_id:
+                raise UserError(_("Please configure a Fee Income account on product '%s' to post fee components.") % product.name)
 
             move_vals = {
                 "journal_id": rec.journal_id.id,
@@ -626,7 +628,8 @@ class AlbaLoanRepayment(models.Model):
                 ],
             }
 
-            # CR Loan Receivable (principal portion + prepayment)
+            # CR Loan Receivable (principal portion + any true prepayments only)
+            # fees_component is handled separately via the Fee Income account below
             receivable_amount = rec.principal_component + rec.unallocated_amount
             if receivable_amount > 0:
                 move_vals["line_ids"].append((0, 0, {
@@ -660,6 +663,18 @@ class AlbaLoanRepayment(models.Model):
                     "debit": 0.0,
                     "credit": rec.penalty_component if rec.currency_id == rec.company_id.currency_id else 0.0,
                     "amount_currency": -rec.penalty_component,
+                    "currency_id": rec.currency_id.id,
+                    "partner_id": rec.partner_id.id,
+                }))
+
+            # CR Fee Income (fee component — recognised as income, not a receivable reduction)
+            if rec.fees_component > 0 and product.account_fees_income_id:
+                move_vals["line_ids"].append((0, 0, {
+                    "account_id": product.account_fees_income_id.id,
+                    "name": _("Fee income — %s") % rec.loan_id.loan_number,
+                    "debit": 0.0,
+                    "credit": rec.fees_component if rec.currency_id == rec.company_id.currency_id else 0.0,
+                    "amount_currency": -rec.fees_component,
                     "currency_id": rec.currency_id.id,
                     "partner_id": rec.partner_id.id,
                 }))

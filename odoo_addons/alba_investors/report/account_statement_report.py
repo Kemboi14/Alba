@@ -134,7 +134,9 @@ class AccountStatementReportMixin(models.AbstractModel):
                         "balance_fmt": self._format_amount(balance, currency),
                     })
 
-        if stmt.withdrawals and not any(l.get("debit") for l in lines[1:]):
+        # Fallback withdrawal line — only when no transaction lines already cover it
+        tx_has_debits = any(l.get("debit", 0) > 0 for l in lines[1:])
+        if stmt.withdrawals and not tx_has_debits:
             balance -= stmt.withdrawals
             lines.append({
                 "date": self._format_stmt_date(stmt.period_end),
@@ -147,7 +149,9 @@ class AccountStatementReportMixin(models.AbstractModel):
                 "balance_fmt": self._format_amount(balance, currency),
             })
 
-        if stmt.deposits:
+        # Fallback deposit line — only when no transaction lines already cover it
+        tx_has_credits = any(l.get("credit", 0) > 0 for l in lines[1:])
+        if stmt.deposits and not tx_has_credits:
             balance += stmt.deposits
             lines.append({
                 "date": self._format_stmt_date(stmt.period_end),
@@ -160,9 +164,11 @@ class AccountStatementReportMixin(models.AbstractModel):
                 "balance_fmt": self._format_amount(balance, currency),
             })
 
+        # Accrual lines — use additive running balance, not accrual.closing_balance
+        # (closing_balance on the accrual may predate transactions, causing a mismatch)
         for accrual in stmt.accrual_ids.sorted("accrual_date"):
-            balance = accrual.closing_balance
             credit = accrual.interest_amount
+            balance += credit
             lines.append({
                 "date": self._format_stmt_date(accrual.accrual_date),
                 "description": self._clean_string(self._accrual_description(accrual, account_number)),

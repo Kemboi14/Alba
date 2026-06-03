@@ -43,12 +43,12 @@ class ReportInvestorStatement(models.AbstractModel):
 
         investments = self.env["alba.investment"].search([
             ("investor_id", "=", investor.id),
-            ("state", "=", "active"),
+            ("state", "in", ["active", "matured", "withdrawn"]),
         ])
         if not investments:
             investments = self.env["alba.investment"].search([
                 ("investor_id", "=", investor.id),
-            ], limit=1)
+            ], limit=10)
 
         accruals = self.env["alba.interest.accrual"].search([
             ("investor_id", "=", investor.id),
@@ -63,7 +63,25 @@ class ReportInvestorStatement(models.AbstractModel):
             ("state", "=", "posted"),
         ])
         principal = sum(investments.mapped("principal_amount"))
-        opening_balance = principal + sum(prior_accruals.mapped("interest_amount"))
+        prior_interest = sum(prior_accruals.mapped("interest_amount"))
+
+        # Include prior-period transactions (deposits/withdrawals) in opening balance
+        Transaction = self.env["alba.investor.transaction"]
+        prior_txs = Transaction.browse()
+        if Transaction._name in self.env:
+            prior_txs = Transaction.search([
+                ("investor_id", "=", investor.id),
+                ("date", "<", date_from),
+            ])
+        prior_deposits = sum(
+            tx.amount for tx in prior_txs
+            if tx.transaction_type != "withdrawal" and tx.amount > 0
+        )
+        prior_withdrawals = sum(
+            abs(tx.amount) for tx in prior_txs
+            if tx.transaction_type == "withdrawal" or tx.amount < 0
+        )
+        opening_balance = principal + prior_interest + prior_deposits - prior_withdrawals
 
         currency = investor.currency_id or self.env.company.currency_id
         account_number = investor.investor_number or ""
@@ -118,9 +136,11 @@ class ReportInvestorStatement(models.AbstractModel):
                         "balance_fmt": self._format_amount(balance, currency),
                     })
 
+        # Accrual lines — use additive running balance, not accrual.closing_balance
+        # (closing_balance may be stale or predate transactions within the period)
         for accrual in accruals:
-            balance = accrual.closing_balance
             credit = accrual.interest_amount
+            balance += credit
             inv_num = accrual.investment_id.investment_number or account_number
             lines.append({
                 "date": self._format_stmt_date(accrual.accrual_date),

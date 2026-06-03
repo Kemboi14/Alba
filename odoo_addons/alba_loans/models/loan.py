@@ -905,6 +905,10 @@ class AlbaLoan(models.Model):
         ENTRY 3 — Interest Accrual:
         DR  Loan Interest Receivable       interest amount
         CR  Loan Interest Income           interest amount
+
+        NOTE: This entry must use a General journal (type='general'), NOT the
+        disbursement bank/cash journal, because it is a P&L accrual with no
+        cash movement.
         """
         self.ensure_one()
         product = self.loan_product_id
@@ -917,8 +921,26 @@ class AlbaLoan(models.Model):
         if interest_amount <= 0:
             return False
 
+        # Resolve a General journal — never use the bank/cash disbursement journal
+        # for a pure P&L accrual entry (no cash movement involved).
+        accrual_journal = (
+            self.journal_id
+            if self.journal_id and self.journal_id.type == "general"
+            else False
+        )
+        if not accrual_journal:
+            accrual_journal = self.env["account.journal"].search(
+                [("type", "=", "general"), ("company_id", "=", self.company_id.id)],
+                limit=1,
+            )
+        if not accrual_journal:
+            raise UserError(_(
+                "No General journal found for company '%s'. "
+                "Please create one under Accounting > Configuration > Journals."
+            ) % self.company_id.name)
+
         move_vals = {
-            "journal_id": self.journal_id.id,
+            "journal_id": accrual_journal.id,
             "date": fields.Date.context_today(self),
             "ref": f"INT/{self.loan_number}",
             "move_type": "entry",
@@ -926,7 +948,7 @@ class AlbaLoan(models.Model):
                 # DR Loan Interest Receivable
                 (0, 0, {
                     "account_id": product.account_interest_receivable_id.id,
-                    "name": _("Interest Accrual — %s") % self.loan_number,
+                    "name": _("Interest Accrual \u2014 %s") % self.loan_number,
                     "debit": interest_amount,
                     "credit": 0.0,
                     "partner_id": self.customer_id.partner_id.id,
@@ -934,7 +956,7 @@ class AlbaLoan(models.Model):
                 # CR Loan Interest Income
                 (0, 0, {
                     "account_id": product.account_interest_income_id.id,
-                    "name": _("Interest Income — %s") % self.loan_number,
+                    "name": _("Interest Income \u2014 %s") % self.loan_number,
                     "debit": 0.0,
                     "credit": interest_amount,
                     "partner_id": self.customer_id.partner_id.id,
@@ -949,6 +971,7 @@ class AlbaLoan(models.Model):
             % (move.name, f"{interest_amount:,.2f}")
         )
         return move
+
 
     @api.onchange("journal_id")
     def _onchange_journal_id(self):
