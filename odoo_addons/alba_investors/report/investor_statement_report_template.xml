@@ -19,7 +19,7 @@
                             <div style="font-size: 14px; font-weight: 700; color: #0d2d5e; letter-spacing: 0.5px; text-transform: uppercase;">
                                 <t t-esc="statement_title or 'ACCOUNT STATEMENT'"/>
                             </div>
-                            <div style="font-size: 10px; color: #4b5563; font-weight: 600;">
+                            <div style="font-size: 10px; color: #0d2d5e; font-weight: 600;">
                                 BRANCH: <t t-esc="branch_name"/> - Investors
                             </div>
                         </td>
@@ -28,7 +28,7 @@
             </div>
 
             <!-- Running Footer -->
-            <div class="footer" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5px; color: #4b5563; border-top: 1px solid #c8d9f0; padding-top: 6px;">
+            <div class="footer" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5px; color: #111827; border-top: 1.5px solid #2e6bbf; padding-top: 6px;">
                 <table width="100%" style="border-collapse: collapse;">
                     <tr>
                         <td style="width: 75%; line-height: 1.4;">
