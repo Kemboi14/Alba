@@ -108,8 +108,7 @@
                             string="Preview / Print Statement"
                             type="action"
                             class="btn-primary"
-                            icon="fa-file-pdf-o"
-                            invisible="not has_active_investments"/>
+                            icon="fa-file-pdf-o"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="active,suspended,blacklisted"/>
                 </header>
