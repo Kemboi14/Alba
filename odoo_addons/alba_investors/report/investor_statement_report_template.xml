@@ -8,24 +8,20 @@
         <t t-call="web.basic_layout">
 
             <!-- Custom Header -->
-            <div class="header" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; border-bottom: 3px solid #0d2d5e; padding: 12px 0; margin-bottom: 8px;">
-                <table width="100%" style="border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 0 8px 0 0; vertical-align: middle; width: 30%;">
-                            <t t-if="company and (company.logo_web or company.logo)">
-                                <img t-att-src="'/web/image/res.company/' + str(company.id) + '/logo'" style="height:100px; max-height:100px; width: auto;"/>
-                            </t>
-                        </td>
-                        <td style="padding: 0 0 0 12px; text-align: right; vertical-align: middle; width: 70%;">
-                            <div style="font-size: 16px; font-weight: 700; color: #0d2d5e; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 4px;">
-                                <t t-esc="statement_title or 'ACCOUNT STATEMENT'"/>
-                            </div>
-                            <div style="font-size: 11px; color: #2e6bbf; font-weight: 600; line-height: 1.4;">
-                                BRANCH: <t t-esc="branch_name"/> - Investors
-                            </div>
-                        </td>
-                    </tr>
-                </table>
+            <div class="header" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; border-bottom: 3px solid #0d2d5e; padding: 12px 0; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                <div style="width: 30%;">
+                    <t t-if="company and (company.logo_web or company.logo)">
+                        <img t-att-src="'/web/image/res.company/' + str(company.id) + '/logo'" style="height:100px; max-height:100px; width: auto;"/>
+                    </t>
+                </div>
+                <div style="width: 70%; text-align: right; padding-left: 12px;">
+                    <div style="font-size: 16px; font-weight: 700; color: #0d2d5e; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 4px;">
+                        <t t-esc="statement_title or 'ACCOUNT STATEMENT'"/>
+                    </div>
+                    <div style="font-size: 11px; color: #2e6bbf; font-weight: 600; line-height: 1.4;">
+                        BRANCH: <t t-esc="branch_name"/> - Investors
+                    </div>
+                </div>
             </div>
 
             <!-- Page Content -->
