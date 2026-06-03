@@ -47,5 +47,10 @@
             </field>
         </record>
 
+        <!-- ── Director Integration ──────────────────────────────────────── -->
+        <record id="alba_loans.group_director" model="res.groups">
+            <field name="implied_ids" eval="[(4, ref('group_investor_manager'))]"/>
+        </record>
+
     </data>
 </odoo>
