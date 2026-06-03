@@ -196,12 +196,16 @@ class AlbaInterestAccrual(models.Model):
 
     def action_post(self):
         """
-        Post the interest accrual:
-        1. Validate required accounting configuration on the investment.
-        2. Create and post journal entry:
-               DR  Interest Expense Account   (interest_amount)
-               CR  Interest Payable Account   (interest_amount)
-        3. Set state to 'posted'.
+        Post the interest accrual with WHT split:
+
+        When WHT is configured on the investment:
+            DR  Interest Expense Account        (gross interest_amount)
+            CR  WHT Payable Account             (wht_rate% of interest)
+            CR  Interest Payable Account        (net interest after WHT)
+
+        When WHT is NOT configured (safe fallback):
+            DR  Interest Expense Account        (interest_amount)
+            CR  Interest Payable Account        (interest_amount)
         """
         for rec in self:
             if rec.state != "draft":
@@ -258,11 +262,75 @@ class AlbaInterestAccrual(models.Model):
                 rec.accrual_date or fields.Date.today(),
             )
 
+            # ── WHT split calculation ─────────────────────────────────────────
+            # If the investment has WHT configured, split the CR into:
+            #   CR WHT Payable  (tax portion)
+            #   CR Interest Payable  (net = gross - wht)
+            # Otherwise the full gross goes to Interest Payable.
+            wht_rate = investment.wht_rate or 0.0
+            wht_account = investment.account_wht_payable_id
+            use_wht_split = bool(wht_rate > 0 and wht_account)
+
+            wht_amount = round(rec.interest_amount * (wht_rate / 100.0), 2) if use_wht_split else 0.0
+            net_interest = rec.interest_amount - wht_amount
+
+            # Convert to company currency
+            wht_amount_company = rec.currency_id._convert(
+                wht_amount, rec.company_id.currency_id,
+                rec.company_id, rec.accrual_date or fields.Date.today(),
+            ) if use_wht_split else 0.0
+            net_interest_company = amount_in_company - wht_amount_company
+
+            # ── Build journal lines ───────────────────────────────────────────
+            period_label = rec.period_start.strftime("%b %Y") if rec.period_start else ""
+
+            credit_lines = []
+            if use_wht_split:
+                # CR WHT Payable
+                credit_lines.append((0, 0, {
+                    "account_id": wht_account.id,
+                    "name": _(
+                        "WHT on interest — %(inv)s — %(period)s",
+                        inv=investment.investment_number, period=period_label,
+                    ),
+                    "debit": 0.0,
+                    "credit": wht_amount_company,
+                    "amount_currency": -wht_amount,
+                    "currency_id": rec.currency_id.id,
+                    "partner_id": rec.partner_id.id,
+                }))
+                # CR Net Interest Payable
+                credit_lines.append((0, 0, {
+                    "account_id": investment.account_interest_payable_id.id,
+                    "name": _(
+                        "Net interest payable — %(inv)s — %(period)s",
+                        inv=investment.investment_number, period=period_label,
+                    ),
+                    "debit": 0.0,
+                    "credit": net_interest_company,
+                    "amount_currency": -net_interest,
+                    "currency_id": rec.currency_id.id,
+                    "partner_id": rec.partner_id.id,
+                }))
+            else:
+                # CR Gross Interest Payable (no WHT)
+                credit_lines.append((0, 0, {
+                    "account_id": investment.account_interest_payable_id.id,
+                    "name": _(
+                        "Interest payable — %(inv)s — %(period)s",
+                        inv=investment.investment_number, period=period_label,
+                    ),
+                    "debit": 0.0,
+                    "credit": amount_in_company,
+                    "amount_currency": -rec.interest_amount,
+                    "currency_id": rec.currency_id.id,
+                    "partner_id": rec.partner_id.id,
+                }))
+
             move_vals = {
                 "journal_id": journal.id,
                 "date": rec.accrual_date,
-                "ref": "ACCR/%s/%s"
-                % (
+                "ref": "ACCR/%s/%s" % (
                     investment.investment_number,
                     rec.accrual_date.strftime("%Y%m") if rec.accrual_date else "",
                 ),
@@ -273,58 +341,37 @@ class AlbaInterestAccrual(models.Model):
                 ),
                 "currency_id": rec.currency_id.id,
                 "line_ids": [
-                    # DR Interest Expense
-                    (
-                        0,
-                        0,
-                        {
-                            "account_id": investment.account_interest_expense_id.id,
-                            "name": _(
-                                "Interest expense — %(inv)s — %(period)s",
-                                inv=investment.investment_number,
-                                period=rec.period_start.strftime("%b %Y")
-                                if rec.period_start
-                                else "",
-                            ),
-                            "debit": amount_in_company,
-                            "credit": 0.0,
-                            "amount_currency": rec.interest_amount,
-                            "currency_id": rec.currency_id.id,
-                            "partner_id": rec.partner_id.id,
-                        },
-                    ),
-                    # CR Interest Payable
-                    (
-                        0,
-                        0,
-                        {
-                            "account_id": investment.account_interest_payable_id.id,
-                            "name": _(
-                                "Interest payable — %(inv)s — %(period)s",
-                                inv=investment.investment_number,
-                                period=rec.period_start.strftime("%b %Y")
-                                if rec.period_start
-                                else "",
-                            ),
-                            "debit": 0.0,
-                            "credit": amount_in_company,
-                            "amount_currency": -rec.interest_amount,
-                            "currency_id": rec.currency_id.id,
-                            "partner_id": rec.partner_id.id,
-                        },
-                    ),
-                ],
+                    # DR Interest Expense (gross)
+                    (0, 0, {
+                        "account_id": investment.account_interest_expense_id.id,
+                        "name": _(
+                            "Interest expense — %(inv)s — %(period)s",
+                            inv=investment.investment_number, period=period_label,
+                        ),
+                        "debit": amount_in_company,
+                        "credit": 0.0,
+                        "amount_currency": rec.interest_amount,
+                        "currency_id": rec.currency_id.id,
+                        "partner_id": rec.partner_id.id,
+                    }),
+                ] + credit_lines,
             }
             move = rec.env["account.move"].create(move_vals)
             move.action_post()
 
             rec.write({"state": "posted", "move_id": move.id})
+            wht_msg = (
+                _(", WHT: <b>%(currency)s %(wht).2f</b>, Net: <b>%(currency)s %(net).2f</b>",
+                  currency=rec.currency_id.name, wht=wht_amount, net=net_interest)
+                if use_wht_split else ""
+            )
             rec.message_post(
                 body=_(
-                    "Accrual posted: <b>%(currency)s %(amount).2f</b>. "
+                    "Accrual posted: <b>%(currency)s %(amount).2f</b>%(wht_info)s. "
                     "Journal entry: <b>%(move)s</b>.",
                     currency=rec.currency_id.name,
                     amount=rec.interest_amount,
+                    wht_info=wht_msg,
                     move=move.name,
                 )
             )

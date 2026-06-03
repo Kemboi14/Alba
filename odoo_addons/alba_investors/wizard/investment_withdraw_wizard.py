@@ -69,37 +69,90 @@ class InvestmentWithdrawWizard(models.TransientModel):
             if not investment.journal_id:
                 raise UserError(_("Please configure the Accrual Journal on the investment."))
 
-            move_vals = {
-                'date': self.payment_date,
-                'journal_id': investment.journal_id.id,
-                'ref': f"WHT/ADJ/{investment.investment_number}",
-                'move_type': 'entry',
-                'line_ids': [
-                    # DR Interest Payable Account
-                    (0, 0, {
-                        'name': f"Clear Interest Payable - {investment.investment_number}",
-                        'account_id': investment.account_interest_payable_id.id,
-                        'debit': investment.total_interest_accrued,
-                        'credit': 0.0,
-                    }),
-                    # CR Investment Liability Account (offsetting interest part of payout)
-                    (0, 0, {
-                        'name': f"Investment Liability Interest Offset - {investment.investment_number}",
-                        'account_id': investment.account_investment_liability_id.id,
-                        'debit': 0.0,
-                        'credit': investment.net_interest_payable,
-                    }),
-                    # CR WHT Payable Account
-                    (0, 0, {
-                        'name': f"Withholding Tax Payable - {investment.investment_number}",
-                        'account_id': investment.account_wht_payable_id.id,
-                        'debit': 0.0,
-                        'credit': investment.wht_amount,
-                    }),
-                ]
-            }
-            move = self.env['account.move'].create(move_vals)
-            move.action_post()
+            # Determine how much WHT and Interest Payable has already been posted in accrual moves.
+            accrued_wht_already_posted = 0.0
+            accrued_interest_payable_posted = 0.0
+
+            posted_accruals = investment.accrual_ids.filtered(lambda a: a.state == "posted")
+            for accrual in posted_accruals:
+                if accrual.move_id:
+                    for line in accrual.move_id.line_ids:
+                        if line.account_id == investment.account_wht_payable_id:
+                            accrued_wht_already_posted += abs(line.amount_currency)
+                        elif line.account_id == investment.account_interest_payable_id:
+                            accrued_interest_payable_posted += abs(line.amount_currency)
+
+            # Clear whatever was posted to Interest Payable
+            interest_payable_to_clear = accrued_interest_payable_posted
+
+            # Remaining WHT to post during withdrawal
+            wht_to_post = max(0.0, investment.wht_amount - accrued_wht_already_posted)
+
+            # Net interest to offset (force-balanced to ensure DR = CR in foreign currency)
+            net_interest_to_offset = interest_payable_to_clear - wht_to_post
+
+            # Convert values to company currency
+            company = investment.company_id or self.env.company
+            comp_currency = company.currency_id
+            inv_currency = investment.currency_id
+
+            interest_payable_company = inv_currency._convert(
+                interest_payable_to_clear, comp_currency, company, self.payment_date
+            )
+            wht_company = inv_currency._convert(
+                wht_to_post, comp_currency, company, self.payment_date
+            )
+            net_interest_company = interest_payable_company - wht_company
+
+            line_ids = []
+
+            # 1. DR Interest Payable Account
+            if interest_payable_to_clear > 0:
+                line_ids.append((0, 0, {
+                    'name': f"Clear Interest Payable - {investment.investment_number}",
+                    'account_id': investment.account_interest_payable_id.id,
+                    'debit': interest_payable_company,
+                    'credit': 0.0,
+                    'amount_currency': interest_payable_to_clear,
+                    'currency_id': inv_currency.id,
+                    'partner_id': investment.partner_id.id,
+                }))
+
+            # 2. CR Investment Liability Account
+            if net_interest_to_offset > 0:
+                line_ids.append((0, 0, {
+                    'name': f"Investment Liability Interest Offset - {investment.investment_number}",
+                    'account_id': investment.account_investment_liability_id.id,
+                    'debit': 0.0,
+                    'credit': net_interest_company,
+                    'amount_currency': -net_interest_to_offset,
+                    'currency_id': inv_currency.id,
+                    'partner_id': investment.partner_id.id,
+                }))
+
+            # 3. CR WHT Payable Account
+            if wht_to_post > 0:
+                line_ids.append((0, 0, {
+                    'name': f"Withholding Tax Payable - {investment.investment_number}",
+                    'account_id': investment.account_wht_payable_id.id,
+                    'debit': 0.0,
+                    'credit': wht_company,
+                    'amount_currency': -wht_to_post,
+                    'currency_id': inv_currency.id,
+                    'partner_id': investment.partner_id.id,
+                }))
+
+            if line_ids:
+                move_vals = {
+                    'date': self.payment_date,
+                    'journal_id': investment.journal_id.id,
+                    'ref': f"WHT/ADJ/{investment.investment_number}",
+                    'move_type': 'entry',
+                    'currency_id': inv_currency.id,
+                    'line_ids': line_ids
+                }
+                move = self.env['account.move'].create(move_vals)
+                move.action_post()
 
         # Update the investment
         investment.write({
