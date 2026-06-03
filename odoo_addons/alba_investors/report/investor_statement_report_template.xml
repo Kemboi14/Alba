@@ -9,11 +9,6 @@
 
             <!-- Page Content -->
             <div class="page">
-                <!-- DEBUG: Verify company is resolving -->
-                <div style="background: yellow; padding: 10px; margin-bottom: 10px; font-size: 12px;">
-                    DEBUG: Company: <t t-esc="company.name"/> | Logo exists: <t t-esc="bool(company.logo)"/> | Website: <t t-esc="company.website or 'None'"/>
-                </div>
-                
                 <!-- Custom Header within the page content -->
                 <div style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; border-bottom: 2px solid #0d2d5e; padding-bottom: 5px; margin-bottom: 15px;">
                     <table width="100%" style="border-collapse: collapse;">
