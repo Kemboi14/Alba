@@ -233,6 +233,9 @@
                                     <field name="preferred_payment_method"/>
                                 </group>
                             </group>
+                            <group string="Payment Instructions">
+                                <field name="payment_details" placeholder="Please provide detailed payment instructions (e.g., Bank Name, Account Number, Account Name or M-Pesa details)"/>
+                            </group>
                         </page>
 
                         <page string="Documents" name="documents">

@@ -48,14 +48,26 @@ class AlbaInvestorPro(models.Model):
     )
 
     # ── Identity (Related to Partner) ────────────────────────────────────────
+    partner_id = fields.Many2one(
+        "res.partner",
+        string="Contact",
+        required=True,
+        ondelete="restrict",
+        index=True,
+    )
     image_1920 = fields.Image(related="partner_id.image_1920", string="Image", readonly=False)
     avatar_128 = fields.Image(related="partner_id.avatar_128", string="Avatar", readonly=False)
-    id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
+    id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False, required=True)
     id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
-    date_of_birth = fields.Date(related="partner_id.date_of_birth", store=True, readonly=False)
+    date_of_birth = fields.Date(related="partner_id.date_of_birth", store=True, readonly=False, required=True)
     age = fields.Integer(string="Age", compute="_compute_age", store=False)
     gender = fields.Selection(related="partner_id.gender", store=True, readonly=False)
-    nationality = fields.Char(string="Nationality", default="Kenyan")
+    nationality = fields.Char(string="Nationality", default="Kenyan", required=True)
+    payment_details = fields.Text(
+        string="Payment Details",
+        required=True,
+        help="Specify bank account details or mobile money info for payouts."
+    )
 
     @api.constrains('image_1920')
     def _check_image_file_size(self):
