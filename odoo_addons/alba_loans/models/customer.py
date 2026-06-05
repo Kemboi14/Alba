@@ -27,7 +27,6 @@ class AlbaCustomer(models.Model):
     display_name = fields.Char(
         string="Name",
         compute="_compute_display_name",
-        store=True,
         index=True,
     )
 

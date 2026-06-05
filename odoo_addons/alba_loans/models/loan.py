@@ -328,7 +328,7 @@ class AlbaLoan(models.Model):
     )
 
     # ── UX Helpers ────────────────────────────────────────────────────────────
-    display_name = fields.Char(string="Name", compute="_compute_display_name", store=True)
+    display_name = fields.Char(string="Name", compute="_compute_display_name")
 
     @api.depends("loan_number", "customer_id", "customer_id.display_name")
     def _compute_display_name(self):
