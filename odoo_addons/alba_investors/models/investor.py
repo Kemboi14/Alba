@@ -340,14 +340,13 @@ class AlbaInvestorPro(models.Model):
                 rec.investor_name = name
 
     @api.model
-    def _name_search(self, name='', domain=None, operator='ilike', limit=None, order=None):
-        # IMPORT-FIX: use exact '=' on investor_number so INV-XXXX resolves during import
+    def _name_search(self, name='', domain=None, operator='ilike',
+                     limit=100, order=None):
         domain = list(domain or [])
         if name:
-            domain = [
-                '|',
-                ('investor_number', '=', name),   # exact match — used by Odoo import
-                ('name', operator, name),           # ilike match — used by UI dropdowns
+            domain = ['|',
+                ('investor_number', '=', name),
+                ('name', operator, name),
             ] + domain
         return self._search(domain, limit=limit, order=order)
 
@@ -596,22 +595,19 @@ class AlbaInvestorPro(models.Model):
                 )
         return super().create(vals_list)
 
-    @api.model
     def _get_default_list_export_fields(self):
-        # IMPORT-FIX: exclude Odoo's built-in display_name (name_get output — never importable),
-        # investor_name (computed, causes 'Display Name' confusion), and __last_update.
-        fields_list = super()._get_default_list_export_fields()
-        return [f for f in fields_list if f not in ('display_name', 'investor_name', '__last_update')]
+        fields = super()._get_default_list_export_fields()
+        return [f for f in fields 
+                if f not in ('display_name', '__last_update')]
 
     def name_get(self):
-        return [
-            (
-                rec.id,
-                "[%s] %s"
-                % (rec.investor_number, rec.partner_id.name or _("New Investor")),
-            )
-            for rec in self
-        ]
+        result = []
+        for rec in self:
+            # Use investor_number as the display value so export and
+            # import use the same identifier
+            label = rec.investor_number or rec.name or str(rec.id)
+            result.append((rec.id, label))
+        return result
 
     def write(self, vals):
         if vals.get("state") == "suspended":
