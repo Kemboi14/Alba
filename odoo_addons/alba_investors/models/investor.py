@@ -19,11 +19,11 @@ class AlbaInvestorPro(models.Model):
     _order = "create_date desc"
 
     investor_name = fields.Char(
-        string="Display Name",
+        string="Investor Full Name",  # IMPORT-FIX: must NOT be 'Display Name' — Odoo's built-in
         compute="_compute_investor_name",
-        store=True,  # IMPORT-EXPORT FIX: store=True makes it searchable and consistent on export
+        store=True,
         index=True,
-    )  # IMPORT-FIX: avoid using display_name as custom field name
+    )
 
     # ── Investor Number ───────────────────────────────────────────────────────
     investor_number = fields.Char(
@@ -340,13 +340,16 @@ class AlbaInvestorPro(models.Model):
                 rec.investor_name = name
 
     @api.model
-    def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
-        domain = domain or []
+    def _name_search(self, name='', domain=None, operator='ilike', limit=None, order=None):
+        # IMPORT-FIX: use exact '=' on investor_number so INV-XXXX resolves during import
+        domain = list(domain or [])
         if name:
-            # Search by name or investor number
-            name_domain = ["|", ("partner_id.name", operator, name), ("investor_number", operator, name)]
-            return self._search(name_domain + domain, limit=limit, order=order)
-        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
+            domain = [
+                '|',
+                ('investor_number', '=', name),   # exact match — used by Odoo import
+                ('name', operator, name),           # ilike match — used by UI dropdowns
+            ] + domain
+        return self._search(domain, limit=limit, order=order)
 
     @api.depends("county_id", "sub_county_id", "ward_id")
     def _compute_location_display(self):
@@ -595,10 +598,10 @@ class AlbaInvestorPro(models.Model):
 
     @api.model
     def _get_default_list_export_fields(self):
-        # IMPORT-FIX: exclude Odoo's built-in display_name — it is never importable
-        # (it is the name_get() output, not a stored field)
+        # IMPORT-FIX: exclude Odoo's built-in display_name (name_get output — never importable),
+        # investor_name (computed, causes 'Display Name' confusion), and __last_update.
         fields_list = super()._get_default_list_export_fields()
-        return [f for f in fields_list if f != "display_name"]
+        return [f for f in fields_list if f not in ('display_name', 'investor_name', '__last_update')]
 
     def name_get(self):
         return [
