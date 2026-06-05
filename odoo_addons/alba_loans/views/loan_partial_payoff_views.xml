@@ -48,7 +48,7 @@
                             string="Archive Existing Schedule"
                             type="object"
                             class="btn-warning"
-                            invisible="state not in ('quoted', 'accepted') or not loan_id or not loan_id.schedule_generated"
+                            invisible="state not in ('quoted', 'accepted') or not loan_id or not schedule_generated"
                             confirm="This will archive the current repayment schedule so that a new one can be generated after the payoff. Continue?"/>
                     <button name="action_apply"
                             string="Apply Payoff"
@@ -70,7 +70,13 @@
                 </header>
 
                 <sheet>
-                    <!-- FIX: oe_button_box moved BEFORE oe_title and ribbons -->
+                    <widget name="web_ribbon" title="Draft"     bg_color="bg-warning"   invisible="state != 'draft'"/>
+                    <widget name="web_ribbon" title="Quoted"    bg_color="bg-info"      invisible="state != 'quoted'"/>
+                    <widget name="web_ribbon" title="Accepted"  bg_color="bg-primary"   invisible="state != 'accepted'"/>
+                    <widget name="web_ribbon" title="Applied"   bg_color="bg-success"   invisible="state != 'applied'"/>
+                    <widget name="web_ribbon" title="Cancelled" bg_color="bg-secondary" invisible="state != 'cancelled'"/>
+                    <widget name="web_ribbon" title="Expired"   bg_color="bg-danger"    invisible="state != 'expired'"/>
+
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_loan"
                                 string="View Loan"
@@ -78,13 +84,6 @@
                                 class="oe_stat_button"
                                 icon="fa-arrow-right"/>
                     </div>
-
-                    <widget name="web_ribbon" text="Draft"     bg_color="bg-warning"   invisible="state != 'draft'"/>
-                    <widget name="web_ribbon" text="Quoted"    bg_color="bg-info"      invisible="state != 'quoted'"/>
-                    <widget name="web_ribbon" text="Accepted"  bg_color="bg-primary"   invisible="state != 'accepted'"/>
-                    <widget name="web_ribbon" text="Applied"   bg_color="bg-success"   invisible="state != 'applied'"/>
-                    <widget name="web_ribbon" text="Cancelled" bg_color="bg-secondary" invisible="state != 'cancelled'"/>
-                    <widget name="web_ribbon" text="Expired"   bg_color="bg-danger"    invisible="state != 'expired'"/>
 
                     <div class="oe_title">
                         <h1>

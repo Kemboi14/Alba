@@ -66,6 +66,11 @@ class AlbaLoanPartialPayoff(models.Model):
         related="loan_id.remaining_tenure",
         store=True,
     )
+    schedule_generated = fields.Boolean(
+        related="loan_id.schedule_generated",
+        string="Schedule Generated",
+        readonly=True,
+    )
     
     # Payoff Details
     payoff_amount = fields.Monetary(
