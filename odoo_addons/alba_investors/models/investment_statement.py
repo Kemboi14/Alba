@@ -31,6 +31,7 @@ class AlbaInvestmentStatement(models.Model):
         ondelete="restrict",
         tracking=True,
         index=True,
+    )
     investor_id = fields.Many2one(
         "alba.investor",
         string="Investor",
