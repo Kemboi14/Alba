@@ -28,11 +28,11 @@ class AlbaInvestorPro(models.Model):
     # ── Investor Number ───────────────────────────────────────────────────────
     investor_number = fields.Char(
         string="Investor Number",
-        readonly=True,
+        readonly=False,  # IMPORT-FIX: must be writable so the CSV importer can set INV-XXXX
         copy=True,
         index=True,
         default=lambda self: _("New"),
-    )  # IMPORT-FIX: copy=True so sequence generated values are importable
+    )
 
     # ── Django sync ───────────────────────────────────────────────────────────
     django_investor_id = fields.Integer(
@@ -592,6 +592,13 @@ class AlbaInvestorPro(models.Model):
                     "New"
                 )
         return super().create(vals_list)
+
+    @api.model
+    def _get_default_list_export_fields(self):
+        # IMPORT-FIX: exclude Odoo's built-in display_name — it is never importable
+        # (it is the name_get() output, not a stored field)
+        fields_list = super()._get_default_list_export_fields()
+        return [f for f in fields_list if f != "display_name"]
 
     def name_get(self):
         return [
