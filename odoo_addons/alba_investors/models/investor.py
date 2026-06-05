@@ -18,21 +18,21 @@ class AlbaInvestorPro(models.Model):
     _rec_name = "investor_number"
     _order = "create_date desc"
 
-    display_name = fields.Char(
+    investor_name = fields.Char(
         string="Display Name",
-        compute="_compute_display_name",
+        compute="_compute_investor_name",
         store=True,  # IMPORT-EXPORT FIX: store=True makes it searchable and consistent on export
         index=True,
-    )
+    )  # IMPORT-FIX: avoid using display_name as custom field name
 
     # ── Investor Number ───────────────────────────────────────────────────────
     investor_number = fields.Char(
         string="Investor Number",
         readonly=True,
-        copy=False,
+        copy=True,
         index=True,
         default=lambda self: _("New"),
-    )
+    )  # IMPORT-FIX: copy=True so sequence generated values are importable
 
     # ── Django sync ───────────────────────────────────────────────────────────
     django_investor_id = fields.Integer(
@@ -59,7 +59,12 @@ class AlbaInvestorPro(models.Model):
     )
     image_1920 = fields.Image(related="partner_id.image_1920", string="Image", readonly=False)
     avatar_128 = fields.Image(related="partner_id.avatar_128", string="Avatar", readonly=False)
-    id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False, required=True)
+    id_number = fields.Char(
+        string="ID / Passport Number",
+        store=True,
+        readonly=False,
+        required=True,
+    )  # IMPORT-FIX: plain Char with correct header matching
     id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
     date_of_birth = fields.Date(related="partner_id.date_of_birth", store=True, readonly=False, required=True)
     age = fields.Integer(string="Age", compute="_compute_age", store=False)
@@ -192,11 +197,13 @@ class AlbaInvestorPro(models.Model):
     active_investment_count = fields.Integer(
         string="Active Investments",
         compute="_compute_portfolio",
+        inverse="_inverse_noop",
         store=True,
     )
     total_invested = fields.Monetary(
         string="Total Principal Invested",
         compute="_compute_portfolio",
+        inverse="_inverse_noop",
         store=True,
         currency_field="currency_id",
     )
@@ -209,6 +216,7 @@ class AlbaInvestorPro(models.Model):
     current_portfolio_value = fields.Monetary(
         string="Current Portfolio Value",
         compute="_compute_portfolio",
+        inverse="_inverse_noop",
         store=True,
         currency_field="currency_id",
         help="Sum of all active investments' current values (principal + accrued interest).",
@@ -318,14 +326,18 @@ class AlbaInvestorPro(models.Model):
             
         return True
 
+    def _inverse_noop(self):
+        # IMPORT-FIX: no-op inverse to satisfy Odoo's import requirements
+        pass
+
     @api.depends("investor_number", "partner_id", "partner_id.name")
-    def _compute_display_name(self):
+    def _compute_investor_name(self):
         for rec in self:
             name = rec.partner_id.name or _("New Investor")
             if rec.investor_number and rec.investor_number != _("New"):
-                rec.display_name = "[%s] %s" % (rec.investor_number, name)
+                rec.investor_name = "[%s] %s" % (rec.investor_number, name)
             else:
-                rec.display_name = name
+                rec.investor_name = name
 
     @api.model
     def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
@@ -549,7 +561,7 @@ class AlbaInvestorPro(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Investments — %s") % self.display_name,
+            "name": _("Investments — %s") % self.investor_name,
             "res_model": "alba.investment",
             "view_mode": "list,kanban,form",
             "domain": [("investor_id", "=", self.id)],
@@ -560,7 +572,7 @@ class AlbaInvestorPro(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Statements — %s") % self.display_name,
+            "name": _("Statements — %s") % self.investor_name,
             "res_model": "alba.investment.statement",
             "view_mode": "list,form",
             "domain": [("investor_id", "=", self.id)],
@@ -597,7 +609,7 @@ class AlbaInvestorPro(models.Model):
             if blocked:
                 raise UserError(
                     _("You cannot suspend investors with active investments: %s")
-                    % ", ".join(blocked.mapped("display_name"))
+                    % ", ".join(blocked.mapped("investor_name"))
                 )
         return super().write(vals)
 

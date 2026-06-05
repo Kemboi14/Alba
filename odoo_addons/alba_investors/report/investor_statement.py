@@ -89,7 +89,7 @@ class ReportInvestorStatement(models.AbstractModel):
         currency = investor.currency_id or self.env.company.currency_id
         account_number = investor.investor_number or ""
         company = investor.company_id or self.env.company
-        _logger.debug("Investor %s company=%s logo=%s logo_web=%s", investor.display_name, bool(company.logo), bool(company.logo_web))
+        _logger.debug("Investor %s company=%s logo=%s logo_web=%s", investor.investor_name, bool(company.logo), bool(company.logo_web))
         partner = investor.partner_id
         lines = []
         balance = opening_balance

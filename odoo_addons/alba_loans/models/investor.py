@@ -15,7 +15,7 @@ class AlbaInvestor(models.Model):
     _order = "create_date desc"
     # IMPORT-EXPORT FIX: _rec_name uses display_name (store=True below) for human-readable export labels.
     # The alba_investors addon overrides this to investor_number for unambiguous import resolution.
-    _rec_name = "display_name"
+    _rec_name = "investor_name"  # IMPORT-FIX: avoid using display_name as custom field name
 
     # ─── Basic Information ──────────────────────────────────────────────────
     # ─── Partner link ──────────────────────────────────────────────────────────
@@ -27,19 +27,23 @@ class AlbaInvestor(models.Model):
         index=True,
     )
     name = fields.Char(related="partner_id.name", store=True, readonly=False)
-    display_name = fields.Char(
+    investor_name = fields.Char(
         string="Display Name",
-        compute="_compute_display_name",
-        store=True,   # IMPORT-EXPORT FIX: must be stored so it is searchable and exported correctly
+        compute="_compute_investor_name",
+        store=True,
         index=True,
-    )
+    )  # IMPORT-FIX: avoid using display_name as custom field name
     investor_type = fields.Selection([
         ("individual", "Individual"),
         ("company", "Company"),
     ], string="Investor Type", required=True, default="individual")
     
     # ─── Identification (Related to Partner) ──────────────────────────────────
-    id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False)
+    id_number = fields.Char(
+        string="ID / Passport Number",
+        store=True,
+        readonly=False,
+    )  # IMPORT-FIX: plain Char with correct header matching
     kra_pin = fields.Char(related="partner_id.kra_pin", store=True, readonly=False)
     registration_number = fields.Char(related="partner_id.registration_number", store=True, readonly=False)
     
@@ -169,16 +173,16 @@ class AlbaInvestor(models.Model):
 
     # ─── Compute Methods ──────────────────────────────────────────────────────
     @api.depends("name", "investor_type")
-    def _compute_display_name(self):
+    def _compute_investor_name(self):
         for rec in self:
-            rec.display_name = f"{rec.name} ({rec.investor_type})"
+            rec.investor_name = f"{rec.name} ({rec.investor_type})"
 
     @api.model
     def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
         # IMPORT-EXPORT FIX: search by display_name OR name so import can resolve Many2one links
         domain = domain or []
         if name:
-            name_domain = ["|", ("display_name", operator, name), ("name", operator, name)]
+            name_domain = ["|", ("investor_name", operator, name), ("name", operator, name)]
             return self._search(name_domain + domain, limit=limit, order=order)
         return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
     

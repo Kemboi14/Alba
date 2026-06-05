@@ -26,7 +26,7 @@ class InvestorStatementPreviewWizard(models.TransientModel):
     )
     investor_name = fields.Char(
         string="Investor Name",
-        related="investor_id.display_name",
+        related="investor_id.investor_name",
         readonly=True,
     )
     portfolio_value = fields.Monetary(
@@ -155,7 +155,7 @@ class InvestorStatementPreviewWizard(models.TransientModel):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Statements — %s") % self.investor_id.display_name,
+            "name": _("Statements — %s") % self.investor_id.investor_name,
             "res_model": "alba.investment.statement",
             "view_mode": "list,form",
             "domain": [
@@ -200,7 +200,7 @@ class InvestorStatementPreviewWizard(models.TransientModel):
         if not investments:
             raise UserError(_(
                 "No active investments found for %s in the selected period."
-            ) % self.investor_id.display_name)
+            ) % self.investor_id.investor_name)
 
         # For simplicity, generate/return the first matching statement;
         # if the investor has multiple investments, generate one per investment

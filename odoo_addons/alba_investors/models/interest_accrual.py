@@ -431,3 +431,18 @@ class AlbaInterestAccrual(models.Model):
         self.write({"state": "draft", "move_id": False, "reversal_move_id": False})
         self.message_post(body=_("Accrual reset to <b>Draft</b>."))
         return True
+
+    @api.model
+    def _get_default_list_export_fields(self):
+        # IMPORT-FIX: Ensure default export fields use the sub-field path for Many2one relations to make re-importing robust
+        return [
+            "accrual_date",
+            "investment_id/investment_number",
+            "investor_id/investor_number",
+            "period_start",
+            "period_end",
+            "opening_balance",
+            "interest_amount",
+            "closing_balance",
+            "state",
+        ]

@@ -35,4 +35,4 @@ class AlbaInvestmentNotificationHook(models.Model):
                 template.send_mail(rec.id, force_send=False)
                 _logger.info("Automated email (%s) queued for %s", template_xmlid, rec.investment_number)
             else:
-                _logger.warning("Investor %s has no email address.", rec.investor_id.display_name)
+                _logger.warning("Investor %s has no email address.", rec.investor_id.investor_name)

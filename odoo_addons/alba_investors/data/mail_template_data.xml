@@ -12,7 +12,7 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.investor_id.display_name }}</strong>,<br/><br/>
+                        Dear <strong>{{ object.investor_id.investor_name }}</strong>,<br/><br/>
                         Your investment account <strong>{{ object.investment_number }}</strong> has been successfully activated.<br/><br/>
                         <strong>Investment Details:</strong><br/>
                         - Principal Amount: {{ object.currency_id.symbol }} {{ object.principal_amount }}<br/>
@@ -37,7 +37,7 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.investment_id.investor_id.display_name }}</strong>,<br/><br/>
+                        Dear <strong>{{ object.investment_id.investor_id.investor_name }}</strong>,<br/><br/>
                         Interest has been credited to your investment account <strong>{{ object.investment_id.investment_number }}</strong>.<br/><br/>
                         <strong>Accrual Details:</strong><br/>
                         - Amount: {{ object.currency_id.symbol }} {{ object.interest_amount }}<br/>
@@ -61,7 +61,7 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.investor_id.display_name }}</strong>,<br/><br/>
+                        Dear <strong>{{ object.investor_id.investor_name }}</strong>,<br/><br/>
                         Please find below your investment statement for the period <strong>{{ object.period_start }}</strong> to <strong>{{ object.period_end }}</strong>.<br/><br/>
                         <strong>Summary:</strong><br/>
                         - Opening Balance: {{ object.currency_id.symbol }} {{ object.opening_balance }}<br/>

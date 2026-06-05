@@ -15,7 +15,7 @@ class AlbaInvestment(models.Model):
     # ── Identification ────────────────────────────────────────────────────────
     investment_number = fields.Char(
         string="Investment Number",
-        readonly=True,
+        readonly=False,  # IMPORT-FIX: make writable for import matching
         copy=False,
         index=True,
         default=lambda self: _("New"),
@@ -1092,7 +1092,7 @@ class AlbaInvestment(models.Model):
         return [
             (
                 rec.id,
-                "[%s] %s" % (rec.investment_number, rec.investor_id.display_name),
+                "[%s] %s" % (rec.investment_number, rec.investor_id.investor_name),
             )
             for rec in self
         ]

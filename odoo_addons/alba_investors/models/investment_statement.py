@@ -472,7 +472,7 @@ class AlbaInvestmentStatement(models.Model):
         return [
             (
                 rec.id,
-                "%s — %s" % (rec.reference, rec.investor_id.display_name),
+                "%s — %s" % (rec.reference, rec.investor_id.investor_name),
             )
             for rec in self
         ]
