@@ -70,6 +70,7 @@
                 </header>
 
                 <sheet>
+                    <field name="schedule_generated" invisible="1"/>
                     <widget name="web_ribbon" title="Draft"     bg_color="bg-warning"   invisible="state != 'draft'"/>
                     <widget name="web_ribbon" title="Quoted"    bg_color="bg-info"      invisible="state != 'quoted'"/>
                     <widget name="web_ribbon" title="Accepted"  bg_color="bg-primary"   invisible="state != 'accepted'"/>
