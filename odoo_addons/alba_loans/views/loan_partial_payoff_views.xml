@@ -71,12 +71,11 @@
 
                 <sheet>
                     <field name="schedule_generated" invisible="1"/>
-                    <widget name="web_ribbon" title="Draft"     bg_color="bg-warning"   invisible="state != 'draft'"/>
-                    <widget name="web_ribbon" title="Quoted"    bg_color="bg-info"      invisible="state != 'quoted'"/>
-                    <widget name="web_ribbon" title="Accepted"  bg_color="bg-primary"   invisible="state != 'accepted'"/>
-                    <widget name="web_ribbon" title="Applied"   bg_color="bg-success"   invisible="state != 'applied'"/>
-                    <widget name="web_ribbon" title="Cancelled" bg_color="bg-secondary" invisible="state != 'cancelled'"/>
-                    <widget name="web_ribbon" title="Expired"   bg_color="bg-danger"    invisible="state != 'expired'"/>
+                    <widget name="web_ribbon" title="Draft"          bg_color="bg-warning"   invisible="state != 'draft'"/>
+                    <widget name="web_ribbon" title="Payoff Created" bg_color="bg-info"      invisible="state != 'quoted'"/>
+                    <widget name="web_ribbon" title="Applied"        bg_color="bg-success"   invisible="state != 'applied'"/>
+                    <widget name="web_ribbon" title="Cancelled"      bg_color="bg-secondary" invisible="state != 'cancelled'"/>
+                    <widget name="web_ribbon" title="Expired"        bg_color="bg-danger"    invisible="state != 'expired'"/>
 
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_loan"

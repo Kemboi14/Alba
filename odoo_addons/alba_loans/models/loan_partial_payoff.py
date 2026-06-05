@@ -146,7 +146,7 @@ class AlbaLoanPartialPayoff(models.Model):
     # Status
     state = fields.Selection([
         ("draft", "Draft"),
-        ("quoted", "Quoted"),
+        ("quoted", "Payoff Created"),
         ("accepted", "Accepted"),
         ("applied", "Applied"),
         ("expired", "Expired"),
