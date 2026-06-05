@@ -121,20 +121,26 @@ class AlbaInvestment(models.Model):
         string="Current Value",
         currency_field="currency_id",
         compute="_compute_financials",
+        inverse="_inverse_current_value",
         store=True,
         help="Principal + total interest accrued to date.",
+        # IMPORT-EXPORT FIX: inverse allows import to write value; compute resets on next trigger
     )
     total_interest_accrued = fields.Monetary(
         string="Total Interest Accrued",
         currency_field="currency_id",
         compute="_compute_financials",
+        inverse="_inverse_total_interest_accrued",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     total_interest_paid = fields.Monetary(
         string="Total Interest Paid Out",
         currency_field="currency_id",
         compute="_compute_financials",
+        inverse="_inverse_total_interest_paid",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     accrual_count = fields.Integer(
         string="Accruals",
@@ -234,19 +240,25 @@ class AlbaInvestment(models.Model):
         string="Withholding Tax Amount",
         currency_field="currency_id",
         compute="_compute_wht_amount",
+        inverse="_inverse_wht_amount",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     net_interest_payable = fields.Monetary(
         string="Net Interest Payable",
         currency_field="currency_id",
         compute="_compute_wht_amount",
+        inverse="_inverse_net_interest_payable",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     net_payout_amount = fields.Monetary(
         string="Net Payout Amount",
         currency_field="currency_id",
         compute="_compute_wht_amount",
+        inverse="_inverse_net_payout_amount",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     payment_id = fields.Many2one(
         "account.payment",
@@ -351,11 +363,14 @@ class AlbaInvestment(models.Model):
         for rec in self:
             posted_accruals = rec.accrual_ids.filtered(lambda a: a.state == "posted")
             total_accrued = sum(posted_accruals.mapped("interest_amount"))
-            # total interest paid = accruals where payout has been made
-            # (for now we track this separately; defaulting to 0 until payout model added)
             rec.total_interest_accrued = total_accrued
             rec.total_interest_paid = 0.0
             rec.current_value = rec.principal_amount + total_accrued
+
+    # IMPORT-EXPORT FIX: no-op inverses — import can write these fields; compute resets them on trigger
+    def _inverse_current_value(self): pass
+    def _inverse_total_interest_accrued(self): pass
+    def _inverse_total_interest_paid(self): pass
 
     @api.depends("total_interest_accrued", "principal_amount", "wht_rate")
     def _compute_wht_amount(self):
@@ -363,6 +378,11 @@ class AlbaInvestment(models.Model):
             rec.wht_amount = rec.total_interest_accrued * (rec.wht_rate / 100.0)
             rec.net_interest_payable = rec.total_interest_accrued - rec.wht_amount
             rec.net_payout_amount = rec.principal_amount + rec.net_interest_payable
+
+    # IMPORT-EXPORT FIX: no-op inverses for WHT fields
+    def _inverse_wht_amount(self): pass
+    def _inverse_net_interest_payable(self): pass
+    def _inverse_net_payout_amount(self): pass
 
     def _compute_accrual_count(self):
         for rec in self:

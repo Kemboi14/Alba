@@ -13,7 +13,9 @@ class AlbaCustomer(models.Model):
     _name = "alba.customer"
     _description = "Alba Capital Customer"
     _inherit = ["mail.thread", "mail.activity.mixin"]
-    _rec_name = "display_name"
+    # IMPORT-EXPORT FIX: _rec_name set to id_number (unique stored Char) so Odoo import can
+    # resolve customer Many2one references unambiguously. _name_search still covers name lookup.
+    _rec_name = "id_number"
     _order = "create_date desc"
 
     # ── Partner link ─────────────────────────────────────────────────────────
@@ -27,6 +29,7 @@ class AlbaCustomer(models.Model):
     display_name = fields.Char(
         string="Name",
         compute="_compute_display_name",
+        store=True,   # IMPORT-EXPORT FIX: store=True makes export column stable and searchable
         index=True,
     )
 
@@ -249,24 +252,32 @@ class AlbaCustomer(models.Model):
     loan_application_count = fields.Integer(
         string="Applications",
         compute="_compute_loan_stats",
+        inverse="_inverse_loan_application_count",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     active_loan_count = fields.Integer(
         string="Active Loans",
         compute="_compute_loan_stats",
+        inverse="_inverse_active_loan_count",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     total_borrowed = fields.Monetary(
         string="Total Disbursed",
         compute="_compute_loan_stats",
+        inverse="_inverse_total_borrowed",
         store=True,
         currency_field="currency_id",
+        # IMPORT-EXPORT FIX
     )
     outstanding_balance = fields.Monetary(
         string="Total Outstanding",
         compute="_compute_loan_stats",
+        inverse="_inverse_outstanding_balance",
         store=True,
         currency_field="currency_id",
+        # IMPORT-EXPORT FIX
     )
 
     # ── Currency / Company ────────────────────────────────────────────────────
@@ -449,6 +460,12 @@ class AlbaCustomer(models.Model):
             rec.active_loan_count = len(active_loans)
             rec.total_borrowed = sum(active_loans.mapped("principal_amount"))
             rec.outstanding_balance = sum(active_loans.mapped("outstanding_balance"))
+
+    # IMPORT-EXPORT FIX: no-op inverses — import can write these; compute resets on trigger
+    def _inverse_loan_application_count(self): pass
+    def _inverse_active_loan_count(self): pass
+    def _inverse_total_borrowed(self): pass
+    def _inverse_outstanding_balance(self): pass
 
     # =========================================================================
     # Constraint methods

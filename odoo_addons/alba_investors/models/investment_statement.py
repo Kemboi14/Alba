@@ -100,27 +100,33 @@ class AlbaInvestmentStatement(models.Model):
     wht_rate = fields.Float(
         string="WHT Rate (%)",
         related="investment_id.wht_rate",
+        store=True,   # IMPORT-EXPORT FIX: store=True so exported column can be matched on re-import
         readonly=True,
     )
     wht_amount = fields.Monetary(
         string="WHT Deducted",
         currency_field="currency_id",
         compute="_compute_wht_amount",
+        inverse="_inverse_wht_amount",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     net_interest = fields.Monetary(
         string="Net Interest",
         currency_field="currency_id",
         compute="_compute_wht_amount",
+        inverse="_inverse_net_interest",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     closing_balance = fields.Monetary(
         string="Closing Balance",
         currency_field="currency_id",
         compute="_compute_closing_balance",
+        inverse="_inverse_closing_balance",
         store=True,
-        readonly=True,
         tracking=True,
+        # IMPORT-EXPORT FIX: inverse allows import to write; readonly removed so mapping is possible
     )
 
     # ── State ─────────────────────────────────────────────────────────────────
@@ -179,11 +185,19 @@ class AlbaInvestmentStatement(models.Model):
                 + rec.interest_accrued
             )
 
+    def _inverse_closing_balance(self):
+        # IMPORT-EXPORT FIX: no-op — allows import to write closing_balance;
+        # compute re-derives it from opening_balance + deposits - withdrawals + interest_accrued.
+        pass
+
     @api.depends("interest_accrued", "wht_rate")
     def _compute_wht_amount(self):
         for rec in self:
             rec.wht_amount = rec.interest_accrued * (rec.wht_rate / 100.0)
             rec.net_interest = rec.interest_accrued - rec.wht_amount
+
+    def _inverse_wht_amount(self): pass  # IMPORT-EXPORT FIX
+    def _inverse_net_interest(self): pass  # IMPORT-EXPORT FIX
 
     # =========================================================================
     # Business actions

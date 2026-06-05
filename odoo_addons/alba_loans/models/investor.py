@@ -13,6 +13,8 @@ class AlbaInvestor(models.Model):
     _description = "Alba Capital Investor"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "create_date desc"
+    # IMPORT-EXPORT FIX: _rec_name uses display_name (store=True below) for human-readable export labels.
+    # The alba_investors addon overrides this to investor_number for unambiguous import resolution.
     _rec_name = "display_name"
 
     # ─── Basic Information ──────────────────────────────────────────────────
@@ -25,7 +27,12 @@ class AlbaInvestor(models.Model):
         index=True,
     )
     name = fields.Char(related="partner_id.name", store=True, readonly=False)
-    display_name = fields.Char(string="Display Name", compute="_compute_display_name", store=True)
+    display_name = fields.Char(
+        string="Display Name",
+        compute="_compute_display_name",
+        store=True,   # IMPORT-EXPORT FIX: must be stored so it is searchable and exported correctly
+        index=True,
+    )
     investor_type = fields.Selection([
         ("individual", "Individual"),
         ("company", "Company"),
@@ -91,7 +98,9 @@ class AlbaInvestor(models.Model):
         string="Accrued Interest",
         currency_field="currency_id",
         compute="_compute_interest",
+        inverse="_inverse_accrued_interest",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     
     paid_interest = fields.Monetary(
@@ -104,14 +113,18 @@ class AlbaInvestor(models.Model):
         string="Total Interest Earned",
         currency_field="currency_id",
         compute="_compute_totals",
+        inverse="_inverse_total_interest",
         store=True,
+        # IMPORT-EXPORT FIX
     )
-    
+
     balance = fields.Monetary(
         string="Current Balance",
         currency_field="currency_id",
         compute="_compute_totals",
+        inverse="_inverse_balance",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     
     # ─── Dates ────────────────────────────────────────────────────────────────
@@ -159,6 +172,15 @@ class AlbaInvestor(models.Model):
     def _compute_display_name(self):
         for rec in self:
             rec.display_name = f"{rec.name} ({rec.investor_type})"
+
+    @api.model
+    def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
+        # IMPORT-EXPORT FIX: search by display_name OR name so import can resolve Many2one links
+        domain = domain or []
+        if name:
+            name_domain = ["|", ("display_name", operator, name), ("name", operator, name)]
+            return self._search(name_domain + domain, limit=limit, order=order)
+        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
     
     @api.depends("start_date", "tenure_months")
     def _compute_maturity(self):
@@ -202,6 +224,11 @@ class AlbaInvestor(models.Model):
         for rec in self:
             rec.total_interest = rec.accrued_interest + rec.paid_interest
             rec.balance = rec.principal_amount + rec.accrued_interest
+
+    # IMPORT-EXPORT FIX: no-op inverses — import can write these; compute resets on trigger
+    def _inverse_accrued_interest(self): pass
+    def _inverse_total_interest(self): pass
+    def _inverse_balance(self): pass
     
     def _compute_counts(self):
         for rec in self:

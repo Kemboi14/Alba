@@ -44,9 +44,10 @@ class ResPartner(models.Model):
     )
 
     # ── Alba Links ────────────────────────────────────────────────────────────
-    is_alba_customer = fields.Boolean(string="Is Alba Customer", compute="_compute_alba_links", store=True)
-    is_alba_guarantor = fields.Boolean(string="Is Alba Guarantor", compute="_compute_alba_links", store=True)
-    is_alba_investor = fields.Boolean(string="Is Alba Investor", compute="_compute_alba_links", store=True)
+    # IMPORT-EXPORT FIX: stored computed Booleans get no-op inverses so import can map them
+    is_alba_customer = fields.Boolean(string="Is Alba Customer", compute="_compute_alba_links", inverse="_inverse_alba_links", store=True)
+    is_alba_guarantor = fields.Boolean(string="Is Alba Guarantor", compute="_compute_alba_links", inverse="_inverse_alba_links", store=True)
+    is_alba_investor = fields.Boolean(string="Is Alba Investor", compute="_compute_alba_links", inverse="_inverse_alba_links", store=True)
 
     def _compute_alba_links(self):
         for rec in self:
@@ -67,3 +68,8 @@ class ResPartner(models.Model):
             
             if 'alba.investor' in registry.models and 'partner_id' in registry.models['alba.investor']._fields:
                 rec.is_alba_investor = bool(self.env['alba.investor'].search([('partner_id', '=', rec.id)], limit=1))
+
+    def _inverse_alba_links(self):
+        # IMPORT-EXPORT FIX: no-op inverse — these flags are derived from linked records;
+        # importing a True/False value does not create/remove the linked record.
+        pass

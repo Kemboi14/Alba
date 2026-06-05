@@ -13,12 +13,15 @@ _logger = logging.getLogger(__name__)
 
 class AlbaInvestorPro(models.Model):
     _inherit = "alba.investor"
-    _rec_name = "display_name"
+    # IMPORT-EXPORT FIX: _rec_name set to investor_number (unique stored Char) so Odoo can
+    # resolve Many2one references during import. display_name is kept for UI display.
+    _rec_name = "investor_number"
     _order = "create_date desc"
 
     display_name = fields.Char(
         string="Display Name",
         compute="_compute_display_name",
+        store=True,  # IMPORT-EXPORT FIX: store=True makes it searchable and consistent on export
         index=True,
     )
 

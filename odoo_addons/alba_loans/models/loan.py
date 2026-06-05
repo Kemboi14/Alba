@@ -186,40 +186,52 @@ class AlbaLoan(models.Model):
     total_repayable = fields.Monetary(
         string="Total Repayable",
         compute="_compute_financial_totals",
+        inverse="_inverse_total_repayable",
         store=True,
         currency_field="currency_id",
         help="Principal + all scheduled interest and fees.",
+        # IMPORT-EXPORT FIX
     )
     net_disbursement_amount = fields.Monetary(
         string="Net Disbursed",
         currency_field="currency_id",
         compute="_compute_net_disbursement_amount",
-        store=True
+        inverse="_inverse_net_disbursement_amount",
+        store=True,
+        # IMPORT-EXPORT FIX
     )
     total_paid = fields.Monetary(
         string="Total Paid",
         compute="_compute_financial_totals",
+        inverse="_inverse_total_paid",
         store=True,
         currency_field="currency_id",
+        # IMPORT-EXPORT FIX
     )
     outstanding_balance = fields.Monetary(
         string="Outstanding Balance",
         compute="_compute_financial_totals",
+        inverse="_inverse_outstanding_balance",
         store=True,
         currency_field="currency_id",
+        # IMPORT-EXPORT FIX
     )
     arrears_amount = fields.Monetary(
         string="Arrears Amount",
         compute="_compute_par",
+        inverse="_inverse_arrears_amount",
         store=True,
         currency_field="currency_id",
         help="Sum of overdue but unpaid instalments.",
+        # IMPORT-EXPORT FIX
     )
     days_in_arrears = fields.Integer(
         string="Days in Arrears",
         compute="_compute_par",
+        inverse="_inverse_days_in_arrears",
         store=True,
         help="Number of days since the oldest overdue unpaid instalment.",
+        # IMPORT-EXPORT FIX
     )
     par_bucket = fields.Selection(
         selection=[
@@ -373,48 +385,62 @@ class AlbaLoan(models.Model):
     remaining_tenure = fields.Integer(
         string="Remaining Tenure (Months)",
         compute="_compute_remaining_tenure",
+        inverse="_inverse_remaining_tenure",
         store=True,
         help="Number of unpaid installments remaining",
+        # IMPORT-EXPORT FIX
     )
     installment_amount = fields.Monetary(
         string="Installment Amount (EMI)",
         currency_field="currency_id",
         compute="_compute_installment_amount",
+        inverse="_inverse_installment_amount",
         store=True,
         help="Equal Monthly Installment amount",
+        # IMPORT-EXPORT FIX
     )
     first_installment_date = fields.Date(
         string="First Installment Date",
         compute="_compute_report_fields",
+        inverse="_inverse_first_installment_date",
         store=True,
         compute_sudo=True,
+        # IMPORT-EXPORT FIX
     )
     last_installment_date = fields.Date(
         string="Last Installment Date",
         compute="_compute_report_fields",
+        inverse="_inverse_last_installment_date",
         store=True,
         compute_sudo=True,
+        # IMPORT-EXPORT FIX
     )
     outstanding_principal = fields.Monetary(
         string="Outstanding Principal",
         currency_field="currency_id",
         compute="_compute_report_fields",
+        inverse="_inverse_outstanding_principal",
         store=True,
         compute_sudo=True,
+        # IMPORT-EXPORT FIX
     )
     outstanding_interest = fields.Monetary(
         string="Outstanding Interest",
         currency_field="currency_id",
         compute="_compute_report_fields",
+        inverse="_inverse_outstanding_interest",
         store=True,
         compute_sudo=True,
+        # IMPORT-EXPORT FIX
     )
     total_interest = fields.Monetary(
         string="Total Interest",
         currency_field="currency_id",
         compute="_compute_report_fields",
+        inverse="_inverse_total_interest",
         store=True,
         compute_sudo=True,
+        # IMPORT-EXPORT FIX
     )
     accrued_interest = fields.Monetary(
         string="Accrued Interest",
@@ -425,30 +451,38 @@ class AlbaLoan(models.Model):
     interest_amount = fields.Monetary(
         string="Interest Amount",
         compute="_compute_report_fields",
+        inverse="_inverse_interest_amount",
         store=True,
         compute_sudo=True,
         help="Total interest amount scheduled for this loan.",
+        # IMPORT-EXPORT FIX
     )
     outstanding_charges = fields.Monetary(
         string="Outstanding Charges",
         currency_field="currency_id",
         compute="_compute_report_fields",
+        inverse="_inverse_outstanding_charges",
         store=True,
         compute_sudo=True,
+        # IMPORT-EXPORT FIX
     )
     prepayment_amount = fields.Monetary(
         string="Prepayments",
         currency_field="currency_id",
         compute="_compute_report_fields",
+        inverse="_inverse_prepayment_amount",
         store=True,
         compute_sudo=True,
+        # IMPORT-EXPORT FIX
     )
     total_topup_amount = fields.Monetary(
         string="Top-Up Amount",
         currency_field="currency_id",
         compute="_compute_report_fields",
+        inverse="_inverse_total_topup_amount",
         store=True,
         compute_sudo=True,
+        # IMPORT-EXPORT FIX
     )
 
     # ── Loan Modifications ──────────────────────────────────────────────────
@@ -706,6 +740,28 @@ class AlbaLoan(models.Model):
             rec.accrued_interest = sum(
                 line.interest_due for line in schedule if line.due_date <= today
             )
+
+    # =========================================================================
+    # IMPORT-EXPORT FIX: no-op inverse methods for all computed+stored fields
+    # Import can write to these; compute logic resets them on the next trigger.
+    # =========================================================================
+    def _inverse_total_repayable(self): pass
+    def _inverse_net_disbursement_amount(self): pass
+    def _inverse_total_paid(self): pass
+    def _inverse_outstanding_balance(self): pass
+    def _inverse_arrears_amount(self): pass
+    def _inverse_days_in_arrears(self): pass
+    def _inverse_remaining_tenure(self): pass
+    def _inverse_installment_amount(self): pass
+    def _inverse_first_installment_date(self): pass
+    def _inverse_last_installment_date(self): pass
+    def _inverse_outstanding_principal(self): pass
+    def _inverse_outstanding_interest(self): pass
+    def _inverse_total_interest(self): pass
+    def _inverse_interest_amount(self): pass
+    def _inverse_outstanding_charges(self): pass
+    def _inverse_prepayment_amount(self): pass
+    def _inverse_total_topup_amount(self): pass
     def _compute_current_repayment_schedule(self):
         """Compute the active repayment schedule lines for the loan (latest active batch)."""
         for rec in self:

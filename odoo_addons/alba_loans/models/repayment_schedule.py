@@ -79,7 +79,9 @@ class AlbaRepaymentSchedule(models.Model):
         string="Total Due",
         currency_field="currency_id",
         compute="_compute_total_due",
+        inverse="_inverse_total_due",
         store=True,
+        # IMPORT-EXPORT FIX
     )
     closing_balance = fields.Monetary(
         string="Closing Balance",
@@ -103,7 +105,9 @@ class AlbaRepaymentSchedule(models.Model):
         string="Total Paid",
         currency_field="currency_id",
         compute="_compute_total_paid",
+        inverse="_inverse_total_paid",
         store=True,
+        # IMPORT-EXPORT FIX
     )
 
     # ── Balances ──────────────────────────────────────────────────────────────
@@ -111,13 +115,17 @@ class AlbaRepaymentSchedule(models.Model):
         string="Balance Due",
         currency_field="currency_id",
         compute="_compute_balance_due",
+        inverse="_inverse_balance_due",
         store=True,
         help="Remaining amount to be paid for this instalment.",
+        # IMPORT-EXPORT FIX
     )
     days_overdue = fields.Integer(
         string="Days Overdue",
         compute="_compute_days_overdue",
+        inverse="_inverse_days_overdue",
         store=True,
+        # IMPORT-EXPORT FIX
     )
 
     # ── Status ────────────────────────────────────────────────────────────────
@@ -131,8 +139,10 @@ class AlbaRepaymentSchedule(models.Model):
         string="Status",
         default="pending",
         compute="_compute_status",
+        inverse="_inverse_status",
         store=True,
         index=True,
+        # IMPORT-EXPORT FIX
     )
 
     # ── SQL Constraints ───────────────────────────────────────────────────────
@@ -201,7 +211,6 @@ class AlbaRepaymentSchedule(models.Model):
             if rec.balance_due <= 0.0:
                 rec.status = "paid"
             elif rec.total_paid > 0.0:
-                # Some payment received but not fully cleared
                 if rec.due_date and rec.due_date < today:
                     rec.status = "overdue"
                 else:
@@ -210,6 +219,13 @@ class AlbaRepaymentSchedule(models.Model):
                 rec.status = "overdue"
             else:
                 rec.status = "pending"
+
+    # IMPORT-EXPORT FIX: no-op inverses — import can write these; compute resets on trigger
+    def _inverse_total_due(self): pass
+    def _inverse_total_paid(self): pass
+    def _inverse_balance_due(self): pass
+    def _inverse_days_overdue(self): pass
+    def _inverse_status(self): pass
 
     # =========================================================================
     # Constraint Methods

@@ -15,6 +15,7 @@ class AlbaInterestAccrual(models.Model):
         string="Reference",
         compute="_compute_display_name",
         store=True,
+        # IMPORT-EXPORT FIX: store=True ensures _rec_name is resolvable during import
     )
 
     # ── Investment Link ───────────────────────────────────────────────────────
@@ -84,9 +85,10 @@ class AlbaInterestAccrual(models.Model):
         string="Closing Balance",
         currency_field="currency_id",
         compute="_compute_closing_balance",
+        inverse="_inverse_closing_balance",
         store=True,
-        readonly=True,
         help="Opening balance + accrued interest.",
+        # IMPORT-EXPORT FIX: inverse allows Odoo import to write this field; compute still runs on triggers
     )
 
     # ── State ─────────────────────────────────────────────────────────────────
@@ -171,6 +173,11 @@ class AlbaInterestAccrual(models.Model):
     def _compute_closing_balance(self):
         for rec in self:
             rec.closing_balance = rec.opening_balance + rec.interest_amount
+
+    def _inverse_closing_balance(self):
+        # IMPORT-EXPORT FIX: no-op inverse — allows import to write closing_balance;
+        # the value is always recomputed from opening_balance + interest_amount on next trigger.
+        pass
 
     # =========================================================================
     # Constraint methods
