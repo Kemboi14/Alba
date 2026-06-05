@@ -1293,14 +1293,28 @@ class AlbaLoanApplication(models.Model):
         
         return True
 
+    @api.depends("application_number", "customer_id", "customer_id.display_name")
+    def _compute_display_name(self):
+        for rec in self:
+            name = rec.customer_id.display_name or ""
+            if rec.application_number and rec.application_number != _("New"):
+                rec.display_name = "%s — %s" % (rec.application_number, name)
+            else:
+                rec.display_name = name
+
+    @api.model
+    def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
+        domain = domain or []
+        if name:
+            # Search by application number or customer name/ID
+            name_domain = [
+                "|", "|",
+                ("application_number", operator, name),
+                ("customer_id.partner_id.name", operator, name),
+                ("customer_id.id_number", operator, name)
+            ]
+            return self._search(name_domain + domain, limit=limit, order=order)
+        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
+
     @api.model
     def _check_company(self, company_id):
-        """Ensure company consistency for multi-company setup"""
-        if company_id:
-            self.company_id = company_id
-    
-    def name_get(self):
-        return [
-            (rec.id, "%s — %s" % (rec.application_number, rec.customer_id.display_name))
-            for rec in self
-        ]

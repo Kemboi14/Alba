@@ -328,6 +328,31 @@ class AlbaLoan(models.Model):
     )
 
     # ── UX Helpers ────────────────────────────────────────────────────────────
+    display_name = fields.Char(string="Name", compute="_compute_display_name", store=True)
+
+    @api.depends("loan_number", "customer_id", "customer_id.display_name")
+    def _compute_display_name(self):
+        for rec in self:
+            name = rec.customer_id.display_name or ""
+            if rec.loan_number and rec.loan_number != "New":
+                rec.display_name = "%s — %s" % (rec.loan_number, name)
+            else:
+                rec.display_name = name
+
+    @api.model
+    def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
+        domain = domain or []
+        if name:
+            # Search by loan number or customer name/ID
+            name_domain = [
+                "|", "|",
+                ("loan_number", operator, name),
+                ("customer_id.partner_id.name", operator, name),
+                ("customer_id.id_number", operator, name)
+            ]
+            return self._search(name_domain + domain, limit=limit, order=order)
+        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
+
     repayment_progress = fields.Integer(
         string="Repayment Progress %",
         compute="_compute_ux_helpers",
