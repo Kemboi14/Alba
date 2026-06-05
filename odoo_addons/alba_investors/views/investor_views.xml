@@ -310,7 +310,7 @@
                   decoration-warning="state == 'suspended'"
                   decoration-muted="active == False">
                 <field name="investor_number"/>
-                <field name="partner_id" string="Name"/>
+                <field name="display_name" string="Name"/>
                 <field name="id_number" optional="show"/>
                 <field name="date_of_birth" optional="hide"/>
                 <field name="gender" optional="hide"/>

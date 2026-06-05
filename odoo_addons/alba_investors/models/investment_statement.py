@@ -37,6 +37,7 @@ class AlbaInvestmentStatement(models.Model):
         string="Investor",
         related="investment_id.investor_id",
         store=True,
+        readonly=True,
         index=True,
     )
     partner_id = fields.Many2one(
@@ -44,6 +45,7 @@ class AlbaInvestmentStatement(models.Model):
         string="Contact",
         related="investment_id.partner_id",
         store=True,
+        readonly=True,
     )
     # ── Period ────────────────────────────────────────────────────────────────
     statement_date = fields.Date(
@@ -117,7 +119,7 @@ class AlbaInvestmentStatement(models.Model):
         currency_field="currency_id",
         compute="_compute_closing_balance",
         store=True,
-        readonly=False,
+        readonly=True,
         tracking=True,
     )
 

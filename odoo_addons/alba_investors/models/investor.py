@@ -316,10 +316,23 @@ class AlbaInvestorPro(models.Model):
             
         return True
 
-    @api.depends("partner_id", "partner_id.name")
+    @api.depends("investor_number", "partner_id", "partner_id.name")
     def _compute_display_name(self):
         for rec in self:
-            rec.display_name = rec.partner_id.name or _("New Investor")
+            name = rec.partner_id.name or _("New Investor")
+            if rec.investor_number and rec.investor_number != _("New"):
+                rec.display_name = "[%s] %s" % (rec.investor_number, name)
+            else:
+                rec.display_name = name
+
+    @api.model
+    def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
+        domain = domain or []
+        if name:
+            # Search by name or investor number
+            name_domain = ["|", ("partner_id.name", operator, name), ("investor_number", operator, name)]
+            return self._search(name_domain + domain, limit=limit, order=order)
+        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
 
     @api.depends("county_id", "sub_county_id", "ward_id")
     def _compute_location_display(self):
