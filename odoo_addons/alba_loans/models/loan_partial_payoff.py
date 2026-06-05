@@ -439,11 +439,20 @@ class AlbaLoanPartialPayoff(models.Model):
                 )
             
             # Create repayment record
+            pay_method = rec.payment_method
+            if not pay_method:
+                if rec.journal_id.type == 'cash':
+                    pay_method = 'cash'
+                elif 'mpesa' in (rec.journal_id.name or '').lower():
+                    pay_method = 'mpesa'
+                else:
+                    pay_method = 'bank_transfer'
+
             repayment = self.env["alba.loan.repayment"].create({
                 "loan_id": loan.id,
                 "payment_date": rec.payment_date or fields.Date.today(),
                 "amount_paid": rec.payoff_amount,
-                "payment_method": rec.payment_method or "bank_transfer",
+                "payment_method": pay_method,
                 "payment_reference": rec.payment_reference or rec.name,
                 "journal_id": rec.journal_id.id,
                 "payment_method_line_id": rec.payment_method_line_id.id,

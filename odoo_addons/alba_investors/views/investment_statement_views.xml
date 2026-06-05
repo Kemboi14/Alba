@@ -118,7 +118,7 @@
                         <field name="wht_rate" />
                         <field name="wht_amount" />
                         <field name="net_interest" />
-                        <field name="closing_balance" readonly="1" />
+                        <field name="closing_balance" readonly="state != 'draft'" />
                     </group>
 
                     <notebook>

@@ -238,8 +238,12 @@
                   decoration-danger="state in ('npl','written_off')"
                   decoration-success="state == 'closed'">
                 <field name="loan_number"/>
+                <field name="application_id" optional="hide"/>
                 <field name="loan_date" optional="show"/>
                 <field name="customer_id"/>
+                <field name="interest_method" optional="hide"/>
+                <field name="tenure_months" optional="hide"/>
+                <field name="repayment_frequency" optional="hide"/>
                 <field name="sector_id" optional="hide"/>
                 <field name="subsector_id" optional="hide"/>
                 <field name="referral_source" optional="hide"/>

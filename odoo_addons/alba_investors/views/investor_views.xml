@@ -311,6 +311,12 @@
                   decoration-muted="active == False">
                 <field name="investor_number"/>
                 <field name="partner_id" string="Name"/>
+                <field name="id_number" optional="show"/>
+                <field name="date_of_birth" optional="hide"/>
+                <field name="gender" optional="hide"/>
+                <field name="nationality" optional="hide"/>
+                <field name="investor_type" optional="hide"/>
+                <field name="investment_product" optional="hide"/>
                 <field name="kyc_status" widget="badge"
                        decoration-success="kyc_status == 'verified'"
                        decoration-warning="kyc_status in ('partial','complete')"

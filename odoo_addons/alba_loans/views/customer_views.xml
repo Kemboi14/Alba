@@ -347,8 +347,14 @@
                       decoration-danger="blacklisted == True"
                       decoration-muted="active == False">
                     <field name="partner_id" string="Name"/>
-                    <field name="id_type"/>
+                    <field name="id_type" optional="hide"/>
                     <field name="id_number"/>
+                    <field name="date_of_birth" optional="hide"/>
+                    <field name="gender" optional="hide"/>
+                    <field name="nationality" optional="hide"/>
+                    <field name="county_id" optional="hide"/>
+                    <field name="sub_county_id" optional="hide"/>
+                    <field name="ward_id" optional="hide"/>
                     <field name="employment_status"/>
                     <field name="referral_source" optional="show"/>
                     <field name="referral_name" optional="show"/>

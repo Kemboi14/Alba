@@ -215,6 +215,8 @@
                 <field name="investor_id"/>
                 <field name="investment_product_id"/>
                 <field name="investment_type" widget="badge" decoration-info="investment_type == 'fixed_term'"/>
+                <field name="compounding_frequency" optional="hide"/>
+                <field name="start_date"/>
                 <field name="principal_amount" sum="Total Principal"/>
                 <field name="currency_id"/>
                 <field name="interest_rate" string="Rate (%)"/>

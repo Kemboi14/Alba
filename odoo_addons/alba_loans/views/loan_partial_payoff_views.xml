@@ -40,26 +40,22 @@
             <form string="Loan Partial Payoff">
                 <header>
                     <button name="action_generate_quote"
-                            string="Generate Quote"
+                            string="Create Payoff"
                             type="object"
                             class="oe_highlight"
                             invisible="state != 'draft'"/>
-                    <button name="action_accept"
-                            string="Customer Accepts"
-                            type="object"
-                            class="oe_highlight"
-                            invisible="state != 'quoted'"/>
-                    <button name="action_apply"
-                            string="Apply Payoff"
-                            type="object"
-                            class="oe_highlight"
-                            invisible="state not in ('quoted', 'accepted')"/>
                     <button name="action_archive_schedule"
                             string="Archive Existing Schedule"
                             type="object"
                             class="btn-warning"
-                            invisible="state not in ('quoted', 'accepted')"
+                            invisible="state not in ('quoted', 'accepted') or not loan_id or not loan_id.schedule_generated"
                             confirm="This will archive the current repayment schedule so that a new one can be generated after the payoff. Continue?"/>
+                    <button name="action_apply"
+                            string="Apply Payoff"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="state not in ('quoted', 'accepted')"
+                            confirm="Are you sure you want to apply this partial payoff? This will post a repayment and regenerate the schedule."/>
                     <button name="action_cancel"
                             string="Cancel"
                             type="object"
@@ -135,7 +131,6 @@
                                    readonly="state == 'applied'"
                                    required="journal_id and state in ('quoted', 'accepted')"/>
                             <field name="payment_date"      readonly="state == 'applied'"/>
-                            <field name="payment_method"    readonly="state == 'applied'"/>
                             <field name="payment_reference" readonly="state == 'applied'"/>
                             <field name="emi_reduction"     readonly="1" invisible="emi_reduction == 0"/>
                             <field name="tenure_reduction"  readonly="1" invisible="tenure_reduction == 0"/>

@@ -567,7 +567,7 @@ class AlbaLoanApplication(models.Model):
             rec.can_review = rec.state == "submitted"
             rec.can_credit_analysis = rec.state == "under_review"
             rec.can_pending_approval = rec.state == "credit_analysis"
-            rec.can_approve = rec.state == "pending_approval" or (admin_override and open_state)
+            rec.can_approve = rec.state == "pending_approval" or (admin_override and rec.state not in ("approved", "disbursed", "declined", "rejected", "cancelled"))
             # Employer verification only shown when product requires it
             rec.can_employer_verify = rec.state == "approved" and needs_employer
             # Guarantor confirmation only shown when product requires it

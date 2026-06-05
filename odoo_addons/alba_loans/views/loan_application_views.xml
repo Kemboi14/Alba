@@ -12,11 +12,11 @@
         <field name="arch" type="xml">
             <form string="Loan Application">
                 <header>
-                    <button name="action_submit" string="Submit Application" type="object" class="btn-primary" invisible="not can_submit"/>
+                    <button name="action_submit" string="Submit Application" type="object" class="btn-primary" invisible="not can_submit" confirm="Are you sure you want to submit this application?"/>
                     <button name="action_under_review" string="Start Review" type="object" class="btn-primary" invisible="not can_review" groups="alba_loans.group_loan_officer"/>
                     <button name="action_credit_analysis" string="Send to Credit Analysis" type="object" class="btn-primary" invisible="not can_credit_analysis" groups="alba_loans.group_loan_officer"/>
-                    <button name="action_pending_approval" string="Forward for Approval" type="object" class="btn-primary" invisible="not can_pending_approval" groups="alba_loans.group_loan_officer"/>
-                    <button name="action_approve" string="Approve" type="object" class="btn-success" invisible="not can_approve" groups="alba_loans.group_loan_manager"/>
+                    <button name="action_pending_approval" string="Forward for Approval" type="object" class="btn-primary" invisible="not can_pending_approval" groups="alba_loans.group_loan_officer" confirm="Forward this application for final approval?"/>
+                    <button name="action_approve" string="Approve" type="object" class="btn-success" invisible="not can_approve" groups="alba_loans.group_loan_manager" confirm="Are you sure you want to approve this application?"/>
                     <button name="action_employer_verification" string="Send for Employer Verification" type="object" class="btn-primary" invisible="not can_employer_verify" groups="alba_loans.group_loan_officer"/>
                     <button name="action_guarantor_confirmation" string="Send for Guarantor Confirmation" type="object" class="btn-primary" invisible="not can_guarantor_confirm" groups="alba_loans.group_loan_officer"/>
                     <button name="action_open_disburse_wizard" string="Manual Disburse" type="object" class="btn-secondary" invisible="not can_disburse" groups="alba_loans.group_loan_manager"/>

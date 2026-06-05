@@ -909,21 +909,38 @@ class AlbaInvestment(models.Model):
             
             target_day = product.auto_accrual_day or 28
             run_day = min(target_day, last_day)
-            
-            if today.day == run_day:
+
+            # Robust logic: run if we are on or after the target day
+            if today.day >= run_day:
                 try:
-                    month = today.month - 1 or 12
-                    year = today.year if today.month > 1 else today.year - 1
+                    # Accrue for the current month if not already done.
+                    # This ensures that if the server was down on the exact run_day,
+                    # it catches up immediately the next day it runs.
+                    month = today.month
+                    year = today.year
                     month_last_day = calendar.monthrange(year, month)[1]
                     from datetime import date
                     period_start = date(year, month, 1)
                     period_end = date(year, month, month_last_day)
-                    
+
+                    # For monthly compounding, we usually accrue at the end of the month
+                    # or on the set auto_accrual_day.
+                    # The existing code was looking at (today.month - 1), which means
+                    # it was accruing for the PREVIOUS month. 
+                    # Let's stick to the previous month logic if that's the intent, 
+                    # but make it robust.
+
+                    prev_month = today.month - 1 or 12
+                    prev_year = today.year if today.month > 1 else today.year - 1
+                    prev_month_last_day = calendar.monthrange(prev_year, prev_month)[1]
+                    prev_period_start = date(prev_year, prev_month, 1)
+                    prev_period_end = date(prev_year, prev_month, prev_month_last_day)
+
                     existing = self.env["alba.interest.accrual"].search(
                         [
                             ("investment_id", "=", inv.id),
-                            ("period_start", "=", period_start),
-                            ("period_end", "=", period_end),
+                            ("period_start", "=", prev_period_start),
+                            ("period_end", "=", prev_period_end),
                             ("state", "!=", "reversed"),
                         ],
                         limit=1,
