@@ -340,38 +340,39 @@ class AlbaLoan(models.Model):
     )
 
     # ── UX Helpers ────────────────────────────────────────────────────────────
-    display_name = fields.Char(string="Name", compute="_compute_display_name")
-
-    @api.depends("loan_number", "customer_id", "customer_id.display_name")
-    def _compute_display_name(self):
-        for rec in self:
-            name = rec.customer_id.display_name or ""
-            if rec.loan_number and rec.loan_number != "New":
-                rec.display_name = "%s — %s" % (rec.loan_number, name)
-            else:
-                rec.display_name = name
-
-    @api.model
-    def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
-        domain = domain or []
-        if name:
-            # Search by loan number or customer name/ID
-            name_domain = [
-                "|", "|",
-                ("loan_number", operator, name),
-                ("customer_id.partner_id.name", operator, name),
-                ("customer_id.id_number", operator, name)
-            ]
-            return self._search(name_domain + domain, limit=limit, order=order)
-        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
-
-    def name_get(self):
-        return [(rec.id, rec.loan_number or str(rec.id)) for rec in self]
 
     repayment_progress = fields.Integer(
         string="Repayment Progress %",
         compute="_compute_ux_helpers",
+        store=True,
+        inverse="_inverse_noop",
     )
+
+    def _inverse_noop(self):
+        pass
+
+    def _get_default_list_export_fields(self):
+        fields = super()._get_default_list_export_fields()
+        return [f for f in fields
+                if f not in ('create_date', 'write_date',
+                            '__last_update', 'display_name')]
+
+    def name_get(self):
+        return [
+            (r.id, r.loan_number or str(r.id))
+            for r in self
+        ]
+
+    @api.model
+    def _name_search(self, name="", domain=None,
+                     operator="ilike", limit=100, order=None):
+        domain = list(domain or [])
+        if name:
+            domain = ["|",
+                ("loan_number", "=", name),
+                ("loan_number", operator, name),
+            ] + domain
+        return self._search(domain, limit=limit, order=order)
     next_payment_due_date = fields.Date(
         string="Next Payment Due Date",
         compute="_compute_ux_helpers",

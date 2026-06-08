@@ -276,6 +276,8 @@ class AlbaLoanApplication(models.Model):
     application_progress = fields.Integer(
         string="Progress",
         compute="_compute_ux_helpers",
+        store=True,
+        inverse="_inverse_noop",
     )
     has_guarantor_block = fields.Boolean(
         string="Guarantor Block",
@@ -289,7 +291,17 @@ class AlbaLoanApplication(models.Model):
         string="Credit Risk Score",
         compute="_compute_risk_score",
         store=True,
+        inverse="_inverse_noop",
     )
+
+    def _inverse_noop(self):
+        pass
+
+    def _get_default_list_export_fields(self):
+        fields = super()._get_default_list_export_fields()
+        return [f for f in fields
+                if f not in ('create_date', 'write_date',
+                            '__last_update', 'display_name')]
 
     # ── Guarantors ────────────────────────────────────────────────────────────
     loan_guarantor_ids = fields.One2many(
@@ -1297,28 +1309,22 @@ class AlbaLoanApplication(models.Model):
         
         return True
 
-    @api.depends("application_number", "customer_id", "customer_id.display_name")
-    def _compute_display_name(self):
-        for rec in self:
-            name = rec.customer_id.display_name or ""
-            if rec.application_number and rec.application_number != _("New"):
-                rec.display_name = "%s — %s" % (rec.application_number, name)
-            else:
-                rec.display_name = name
+    def name_get(self):
+        return [
+            (r.id, r.application_number or str(r.id))
+            for r in self
+        ]
 
     @api.model
-    def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
-        domain = domain or []
+    def _name_search(self, name="", domain=None,
+                     operator="ilike", limit=100, order=None):
+        domain = list(domain or [])
         if name:
-            # Search by application number or customer name/ID
-            name_domain = [
-                "|", "|",
+            domain = ["|",
+                ("application_number", "=", name),
                 ("application_number", operator, name),
-                ("customer_id.partner_id.name", operator, name),
-                ("customer_id.id_number", operator, name)
-            ]
-            return self._search(name_domain + domain, limit=limit, order=order)
-        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
+            ] + domain
+        return self._search(domain, limit=limit, order=order)
 
     @api.model
     def _check_company(self, company_id):
