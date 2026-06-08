@@ -44,7 +44,7 @@ class AlbaLoan(models.Model):
         related="application_id.customer_id",
         store=True,
         index=True,
-        readonly=True,
+        readonly=False,
     )
     loan_product_id = fields.Many2one(
         "alba.loan.product",
@@ -365,6 +365,9 @@ class AlbaLoan(models.Model):
             return self._search(name_domain + domain, limit=limit, order=order)
         return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
 
+    def name_get(self):
+        return [(rec.id, rec.loan_number or str(rec.id)) for rec in self]
+
     repayment_progress = fields.Integer(
         string="Repayment Progress %",
         compute="_compute_ux_helpers",
@@ -372,6 +375,8 @@ class AlbaLoan(models.Model):
     next_payment_due_date = fields.Date(
         string="Next Payment Due Date",
         compute="_compute_ux_helpers",
+        store=True,
+        inverse="_inverse_noop",
     )
     next_payment_amount = fields.Monetary(
         string="Next Payment Amount",
@@ -762,6 +767,9 @@ class AlbaLoan(models.Model):
     def _inverse_outstanding_charges(self): pass
     def _inverse_prepayment_amount(self): pass
     def _inverse_total_topup_amount(self): pass
+    def _inverse_noop(self):
+        pass
+
     def _compute_current_repayment_schedule(self):
         """Compute the active repayment schedule lines for the loan (latest active batch)."""
         for rec in self:

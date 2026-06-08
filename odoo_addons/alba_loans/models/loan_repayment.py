@@ -38,7 +38,7 @@ class AlbaLoanRepayment(models.Model):
         string="Customer",
         related="loan_id.customer_id",
         store=True,
-        readonly=True,
+        readonly=False,
         index=True,
     )
     partner_id = fields.Many2one(
@@ -46,14 +46,14 @@ class AlbaLoanRepayment(models.Model):
         string="Contact",
         related="loan_id.customer_id.partner_id",
         store=True,
-        readonly=True,
+        readonly=False,
     )
     loan_product_id = fields.Many2one(
         "alba.loan.product",
         string="Loan Product",
         related="loan_id.loan_product_id",
         store=True,
-        readonly=True,
+        readonly=False,
     )
 
     # ── Payment Details ───────────────────────────────────────────────────────

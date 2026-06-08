@@ -34,12 +34,14 @@ class AlbaLoanPartialPayoff(models.Model):
         string="Customer",
         related="loan_id.customer_id",
         store=True,
+        readonly=False,
     )
     partner_id = fields.Many2one(
         "res.partner",
         string="Contact",
         related="loan_id.customer_id.partner_id",
         store=True,
+        readonly=False,
     )
     
     # Current Loan Details
@@ -91,40 +93,47 @@ class AlbaLoanPartialPayoff(models.Model):
         currency_field="currency_id",
         compute="_compute_reduction",
         store=True,
+        inverse="_inverse_noop",
     )
     interest_saved = fields.Monetary(
         string="Interest Saved",
         currency_field="currency_id",
         compute="_compute_reduction",
         store=True,
+        inverse="_inverse_noop",
     )
     new_outstanding = fields.Monetary(
         string="New Outstanding",
         currency_field="currency_id",
         compute="_compute_reduction",
         store=True,
+        inverse="_inverse_noop",
     )
     new_emi = fields.Monetary(
         string="New EMI",
         currency_field="currency_id",
         compute="_compute_reduction",
         store=True,
+        inverse="_inverse_noop",
     )
     new_tenure = fields.Integer(
         string="New Tenure (Months)",
         compute="_compute_reduction",
         store=True,
+        inverse="_inverse_noop",
     )
     emi_reduction = fields.Monetary(
         string="EMI Reduction",
         currency_field="currency_id",
         compute="_compute_reduction",
         store=True,
+        inverse="_inverse_noop",
     )
     tenure_reduction = fields.Integer(
         string="Tenure Reduction (Months)",
         compute="_compute_reduction",
         store=True,
+        inverse="_inverse_noop",
     )
     
     # Quote Validity
@@ -133,6 +142,7 @@ class AlbaLoanPartialPayoff(models.Model):
         string="Quote Valid Until",
         compute="_compute_quote_validity",
         store=True,
+        inverse="_inverse_noop",
     )
     
     # Currency
@@ -325,6 +335,9 @@ class AlbaLoanPartialPayoff(models.Model):
         for rec in self:
             if rec.payment_method_line_id and rec.payment_method_line_id.journal_id != rec.journal_id:
                 rec.payment_method_line_id = False
+
+    def _inverse_noop(self):
+        pass
 
     def _ensure_payment_method_line(self):
         for rec in self:
