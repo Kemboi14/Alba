@@ -49,12 +49,6 @@
                             invisible="state != 'active'"
                             confirm="This will create a journal entry to reclassify the principal to the long-term liability account. Are you sure?"
                             groups="alba_investors.group_investor_manager"/>
-                    <button name="action_create_accounting_move"
-                            string="Create Accounting Move"
-                            type="object"
-                            class="btn-primary"
-                            invisible="initial_accounting_posted or state == 'draft'"
-                            groups="alba_investors.group_investor_manager"/>
                     <button name="action_sync_currency_rates"
                             string="Sync Currency Rates"
                             type="object"

@@ -189,7 +189,7 @@ class AlbaLoan(models.Model):
         inverse="_inverse_total_repayable",
         store=True,
         currency_field="currency_id",
-        help="Principal + all scheduled interest and fees.",
+        help="Principal + all scheduled interest.",
         # IMPORT-EXPORT FIX
     )
     net_disbursement_amount = fields.Monetary(

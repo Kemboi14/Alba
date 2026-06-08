@@ -486,40 +486,44 @@ class AlbaLoanApplication(models.Model):
         if self.requested_amount:
             self._onchange_loan_product_fees()
 
-    @api.depends("loan_product_id", "requested_amount", "approved_amount", "tenure_months", "fee_line_ids.calculated_amount")
+    @api.depends("loan_product_id", "requested_amount", "approved_amount", "tenure_months", "fee_line_ids.calculated_amount", "state")
     def _compute_estimated_totals(self):
         for rec in self:
             product = rec.loan_product_id
-            amount = rec.requested_amount or 0.0
-            approved = rec.approved_amount or amount
+            requested = rec.requested_amount or 0.0
+            approved = rec.approved_amount or requested
             months = rec.tenure_months or 0
-            if not product or amount <= 0 or months <= 0:
+
+            # Determine base amount: approved amount if approved/active, else requested amount
+            if rec.state in ('approved', 'disbursed', 'active', 'closed'):
+                base_amount = approved
+            else:
+                base_amount = requested
+
+            if not product or base_amount <= 0 or months <= 0:
                 rec.estimated_total_interest = 0.0
                 rec.estimated_total_fees = 0.0
                 rec.estimated_total_repayable = 0.0
                 rec.net_disbursement_amount = 0.0
                 continue
+
             if product.interest_method == "flat_rate":
-                interest = product.calculate_flat_interest(amount, months)
+                interest = product.calculate_flat_interest(base_amount, months)
             else:
-                schedule = product.calculate_reducing_schedule(amount, months)
+                schedule = product.calculate_reducing_schedule(base_amount, months)
                 interest = sum(row["interest_due"] for row in schedule)
-            
-            # Use fee lines if they exist, otherwise fallback to product logic (for UI responsiveness)
+
+            # Use fee lines if they exist, otherwise fallback to product logic
             if rec.fee_line_ids:
                 fees = sum(rec.fee_line_ids.mapped("calculated_amount"))
             else:
-                fees = product.calculate_total_fees(amount)
-                
+                fees = product.calculate_total_fees(base_amount)
+
             rec.estimated_total_interest = interest
             rec.estimated_total_fees = fees
-            rec.estimated_total_repayable = amount + interest + fees
-            
-            # Net disbursement: use approved amount if loan is approved, otherwise use requested amount
-            if rec.state in ('approved', 'disbursed', 'active', 'closed'):
-                base_amount = approved
-            else:
-                base_amount = amount
+            # FIX: Indicative total is Principal + Interest.
+            # Fees are already deducted from the net payout, not paid on top of principal+interest.
+            rec.estimated_total_repayable = base_amount + interest
             rec.net_disbursement_amount = base_amount - fees
 
     def _compute_loan_count(self):

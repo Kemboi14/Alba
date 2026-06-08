@@ -19,11 +19,9 @@
                     <button name="action_close" string="Close Loan" type="object" class="btn-success" invisible="state != 'active'" groups="alba_loans.group_loan_manager"/>
                     <button name="action_write_off" string="Write Off" type="object" class="btn-danger" invisible="state not in ('active','npl')" groups="alba_loans.group_loan_manager"/>
                     <button name="action_full_repayment" string="Full Repayment" type="object" class="btn-success" invisible="state != 'active'" groups="alba_loans.group_loan_officer"/>
-                    <button name="action_quick_payment" string="Quick Payment" type="object" class="btn-primary" invisible="state != 'active'" groups="alba_loans.group_loan_officer"/>
                     <button name="action_request_topup" string="Refinance / Top-Up" type="object" class="btn-primary" invisible="state != 'active'" groups="alba_loans.group_loan_officer"/>
                     <button name="action_calculate_partial_payoff" string="Calculate Partial Payoff" type="object" class="btn-primary" invisible="state != 'active'" groups="alba_loans.group_loan_officer"/>
                     <button name="action_sync_loan_currency_to_accounting" string="Sync Currency" type="object" class="btn-info" groups="alba_loans.group_loan_manager"/>
-                    <button name="action_create_loan_accounting_move" string="Create Accounting Move" type="object" class="btn-primary" groups="alba_loans.group_loan_manager"/>
                     <field name="state" widget="statusbar" statusbar_visible="active,npl,closed,written_off"/>
                 </header>
 
