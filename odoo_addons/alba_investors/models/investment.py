@@ -1099,6 +1099,39 @@ class AlbaInvestment(models.Model):
         ]
 
     @api.model
+    def _name_search(self, name='', domain=None, operator='ilike', limit=100, order=None):
+        """
+        Allow Odoo's CSV importer to resolve investment_id by a bare investment_number
+        (e.g. 'INV-0001'), which is what the export column investment_id/investment_number
+        contains. Falls back to the full display name search for UI autocomplete.
+        """
+        domain = list(domain or [])
+        if name:
+            domain = ['|',
+                ('investment_number', '=', name),
+                ('investment_number', operator, name),
+            ] + domain
+        return self._search(domain, limit=limit, order=order)
+
+    @api.model
+    def _get_default_list_export_fields(self):
+        # IMPORT-EXPORT FIX: export investment_number as the import key for investment_id.
+        # investor_id, partner_id, currency_id, company_id are all derived from
+        # investment_id — they are readonly on import and must not be included as
+        # separate columns.
+        return [
+            "investment_number",
+            "investor_id/investor_number",
+            "start_date",
+            "maturity_date",
+            "investment_type",
+            "principal_amount",
+            "interest_rate",
+            "compounding_frequency",
+            "state",
+        ]
+
+    @api.model
     def _check_company(self, company_id):
         """Ensure company consistency for multi-company setup"""
         if company_id:

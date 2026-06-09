@@ -433,12 +433,27 @@ class AlbaInterestAccrual(models.Model):
         return True
 
     @api.model
+    def _name_search(self, name='', domain=None, operator='ilike', limit=100, order=None):
+        """Allow Odoo's importer to resolve investment_id by investment_number."""
+        domain = list(domain or [])
+        if name:
+            domain = ['|',
+                ('investment_id.investment_number', '=', name),
+                ('display_name', operator, name),
+            ] + domain
+        return self._search(domain, limit=limit, order=order)
+
+    @api.model
     def _get_default_list_export_fields(self):
-        # IMPORT-FIX: Ensure default export fields use the sub-field path for Many2one relations to make re-importing robust
+        # IMPORT-EXPORT FIX:
+        # - investment_id/investment_number is the only import key needed;
+        #   investor_id, partner_id, currency_id, company_id are all readonly related
+        #   fields that Odoo silently ignores on import — exporting them misleads users.
+        # - Do NOT include investor_id/investor_number here; the investor is fully
+        #   resolved via the investment_id relationship.
         return [
             "accrual_date",
             "investment_id/investment_number",
-            "investor_id/investor_number",
             "period_start",
             "period_end",
             "opening_balance",
