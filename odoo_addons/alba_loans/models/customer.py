@@ -90,14 +90,14 @@ class AlbaCustomer(models.Model):
 
     @api.constrains('image_1920')
     def _check_image_file_size(self):
-        max_bytes = 5 * 1024 * 1024
+        max_bytes = 50 * 1024 * 1024
         for rec in self:
             image_data = rec.image_1920
             if image_data:
                 try:
                     if len(base64.b64decode(image_data)) > max_bytes:
                         raise ValidationError(
-                            _("Customer image cannot exceed 5 MB. Please upload a smaller file.")
+                            _("Customer image cannot exceed 50 MB. Please upload a smaller file.")
                         )
                 except (TypeError, ValueError):
                     raise ValidationError(

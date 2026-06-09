@@ -5,6 +5,7 @@ Loan Document Model
 Stores documents and files related to loan applications and loans.
 """
 
+import base64
 from odoo import api, fields, models, _, exceptions
 
 
@@ -130,6 +131,13 @@ class LoanDocument(models.Model):
         default=lambda self: self.env.company,
         required=True,
     )
+
+    @api.constrains('datas')
+    def _check_datas_size(self):
+        max_bytes = 50 * 1024 * 1024
+        for rec in self:
+            if rec.datas and len(base64.b64decode(rec.datas)) > max_bytes:
+                raise exceptions.ValidationError(_("Document file size cannot exceed 50 MB."))
 
     @api.depends('attachment_id', 'attachment_id.datas', 'attachment_id.name')
     def _compute_datas(self):

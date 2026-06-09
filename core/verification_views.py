@@ -44,7 +44,7 @@ _ALLOWED_IMAGE_TYPES = {
     "image/heif",
 }
 _ALLOWED_DOC_TYPES = _ALLOWED_IMAGE_TYPES | {"application/pdf"}
-_MAX_FILE_BYTES = 5 * 1024 * 1024  # 5 MB
+_MAX_FILE_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +69,7 @@ def _validate_file(f, allowed_types: set, label: str):
             f"{label}: unsupported type '{f.content_type}'. Allowed: {', '.join(sorted(allowed_types))}",
         )
     if f.size > _MAX_FILE_BYTES:
-        return False, f"{label}: file too large ({f.size // 1024} KB). Max 5 MB."
+        return False, f"{label}: file too large ({f.size // 1024} KB). Max 50 MB."
     return True, ""
 
 

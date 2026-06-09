@@ -4,8 +4,9 @@ Alba Capital Collateral Management
 Tracks land, vehicle, equipment, shares, and other collateral
 LTV validation, margin call alerts, release on loan closure
 """
+import base64
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from markupsafe import Markup
 
 
@@ -499,3 +500,10 @@ class AlbaCollateralDocument(models.Model):
     verified_date = fields.Date(string="Verified On")
     
     notes = fields.Text(string="Notes")
+
+    @api.constrains('attachment')
+    def _check_attachment_size(self):
+        max_bytes = 50 * 1024 * 1024
+        for rec in self:
+            if rec.attachment and len(base64.b64decode(rec.attachment)) > max_bytes:
+                raise ValidationError(_("Document file size cannot exceed 50 MB."))
