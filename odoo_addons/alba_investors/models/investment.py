@@ -4,6 +4,8 @@ from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
+from .accrual_backfill import iter_missing_accrual_periods
+
 
 class AlbaInvestment(models.Model):
     _name = "alba.investment"
@@ -541,7 +543,7 @@ class AlbaInvestment(models.Model):
             "annually": 1,
         }.get(self.compounding_frequency, 12)
 
-    def compute_compound_interest_for_period(self):
+    def compute_compound_interest_for_period(self, opening_balance=None):
         """
         Calculate compound interest for one compounding period.
 
@@ -556,11 +558,11 @@ class AlbaInvestment(models.Model):
         self.ensure_one()
         n = self._get_periods_per_year()
         r = self.interest_rate / 100.0
-        current = self.current_value
+        current = opening_balance if opening_balance is not None else self.current_value
         period_interest = current * ((1 + r / n) - 1)
         return round(period_interest, 2)
 
-    def action_accrue_monthly_interest(self):
+    def action_accrue_monthly_interest(self, accrual_date=None, opening_balance=None):
         """
         Accrue one month's compound interest on this investment.
         Creates an alba.interest.accrual record and posts its journal entry.
@@ -573,8 +575,8 @@ class AlbaInvestment(models.Model):
                 % (self.investment_number, self.state)
             )
 
-        today = fields.Date.today()
-        period_interest = self.compute_compound_interest_for_period()
+        today = fields.Date.to_date(accrual_date) if accrual_date else fields.Date.today()
+        period_interest = self.compute_compound_interest_for_period(opening_balance=opening_balance)
 
         if period_interest <= 0:
             raise UserError(
@@ -605,12 +607,13 @@ class AlbaInvestment(models.Model):
         if existing:
             return False
 
+        accrual_opening_balance = opening_balance if opening_balance is not None else self.current_value
         accrual_vals = {
             "investment_id": self.id,
             "accrual_date": today,
             "period_start": period_start,
             "period_end": period_end,
-            "opening_balance": self.current_value,
+            "opening_balance": accrual_opening_balance,
             "interest_amount": period_interest,
         }
         accrual = self.env["alba.interest.accrual"].create(accrual_vals)
@@ -912,73 +915,70 @@ class AlbaInvestment(models.Model):
         return True
 
     @api.model
-    def action_run_automated_interest_accrual(self):
-        """
-        Called by a daily cron job to run automated interest accruals
-        for products that match the current date.
-        """
-        today = fields.Date.context_today(self)
-        import calendar
-        last_day = calendar.monthrange(today.year, today.month)[1]
-        
+    def action_backfill_missing_accruals(self, as_of_date=None):
+        """Generate any missing monthly accruals for active investments."""
+        as_of_date = fields.Date.to_date(as_of_date) if as_of_date else fields.Date.today()
         errors = []
-        active_investments = self.search([("state", "=", "active")])
-        for inv in active_investments:
+
+        for inv in self.search([("state", "=", "active")]):
             product = inv.investment_product_id
             if not product:
                 continue
-            
+
             target_day = product.auto_accrual_day or 28
-            run_day = min(target_day, last_day)
+            if as_of_date.day < target_day:
+                continue
 
-            # Robust logic: run if we are on or after the target day
-            if today.day >= run_day:
-                try:
-                    # Accrue for the current month if not already done.
-                    # This ensures that if the server was down on the exact run_day,
-                    # it catches up immediately the next day it runs.
-                    month = today.month
-                    year = today.year
-                    month_last_day = calendar.monthrange(year, month)[1]
-                    from datetime import date
-                    period_start = date(year, month, 1)
-                    period_end = date(year, month, month_last_day)
-
-                    # For monthly compounding, we usually accrue at the end of the month
-                    # or on the set auto_accrual_day.
-                    # The existing code was looking at (today.month - 1), which means
-                    # it was accruing for the PREVIOUS month. 
-                    # Let's stick to the previous month logic if that's the intent, 
-                    # but make it robust.
-
-                    prev_month = today.month - 1 or 12
-                    prev_year = today.year if today.month > 1 else today.year - 1
-                    prev_month_last_day = calendar.monthrange(prev_year, prev_month)[1]
-                    prev_period_start = date(prev_year, prev_month, 1)
-                    prev_period_end = date(prev_year, prev_month, prev_month_last_day)
-
+            start_date = inv.start_date or as_of_date
+            try:
+                for run_date, period_start, period_end in iter_missing_accrual_periods(
+                    start_date, as_of_date, target_day
+                ):
                     existing = self.env["alba.interest.accrual"].search(
                         [
                             ("investment_id", "=", inv.id),
-                            ("period_start", "=", prev_period_start),
-                            ("period_end", "=", prev_period_end),
+                            ("period_start", "=", period_start),
+                            ("period_end", "=", period_end),
                             ("state", "!=", "reversed"),
                         ],
                         limit=1,
                     )
-                    if not existing:
-                        inv.action_accrue_monthly_interest()
-                except Exception as e:
-                    errors.append("Investment %s: %s" % (inv.investment_number, str(e)))
+                    if existing:
+                        continue
+
+                    prior_accruals = self.env["alba.interest.accrual"].search(
+                        [
+                            ("investment_id", "=", inv.id),
+                            ("state", "=", "posted"),
+                            ("period_end", "<", period_start),
+                        ],
+                        order="period_end asc",
+                    )
+                    opening_balance = inv.principal_amount + sum(prior_accruals.mapped("interest_amount"))
+                    inv.action_accrue_monthly_interest(accrual_date=run_date, opening_balance=opening_balance)
+            except Exception as exc:
+                errors.append("Investment %s: %s" % (inv.investment_number, str(exc)))
 
         if errors:
-            import logging
-            _logger = logging.getLogger(__name__)
+            _logger = __import__("logging").getLogger(__name__)
             _logger.warning(
-                "alba.investment: Automated monthly accrual completed with errors:\n%s",
+                "alba.investment: Backfill missing accruals completed with errors:\n%s",
                 "\n".join(errors),
             )
         return True
+
+    @api.model
+    def action_run_automated_interest_accrual(self):
+        """
+        Called by a daily cron job to accrue interest on all active investments.
+
+        Delegates entirely to action_backfill_missing_accruals, which iterates
+        every active investment month-by-month from its start_date through today,
+        posting any missing accruals (including January catch-ups) and skipping
+        periods that already have a posted record.
+        """
+        today = fields.Date.context_today(self)
+        return self.action_backfill_missing_accruals(as_of_date=today)
 
     @api.model
     def action_check_maturing_investments(self):
