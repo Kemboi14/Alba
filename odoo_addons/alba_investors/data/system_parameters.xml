@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Increase the maximum file upload size for the Odoo web client to 100MB (104,857,600 bytes) -->
+        <record id="param_web_max_file_upload_size" model="ir.config_parameter">
+            <field name="key">web.max_file_upload_size</field>
+            <field name="value">104857600</field>
+        </record>
+    </data>
+</odoo>

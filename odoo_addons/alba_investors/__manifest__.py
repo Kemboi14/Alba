@@ -37,6 +37,7 @@ Manages the full investor lifecycle:
         "data/sequence_data.xml",
         "data/cron_data.xml",
         "data/mail_template_data.xml",
+        "data/system_parameters.xml",
         # Reports
         "report/investor_reports.xml",
         "report/investment_statement_report.xml",

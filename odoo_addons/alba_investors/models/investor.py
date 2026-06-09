@@ -78,14 +78,14 @@ class AlbaInvestorPro(models.Model):
 
     @api.constrains('image_1920')
     def _check_image_file_size(self):
-        max_bytes = 50 * 1024 * 1024
+        max_bytes = 100 * 1024 * 1024
         for rec in self:
             image_data = rec.image_1920
             if image_data:
                 try:
                     if len(base64.b64decode(image_data)) > max_bytes:
                         raise ValidationError(
-                            _("Investor image cannot exceed 50 MB. Please upload a smaller file.")
+                            _("Investor image cannot exceed 100 MB. Please upload a smaller file.")
                         )
                 except (TypeError, ValueError):
                     raise ValidationError(
@@ -669,10 +669,10 @@ class AlbaInvestorDocument(models.Model):
 
     @api.constrains('attachment')
     def _check_attachment_size(self):
-        max_bytes = 50 * 1024 * 1024
+        max_bytes = 100 * 1024 * 1024
         for rec in self:
             if rec.attachment and len(base64.b64decode(rec.attachment)) > max_bytes:
-                raise ValidationError(_("Document file size cannot exceed 50 MB."))
+                raise ValidationError(_("Document file size cannot exceed 100 MB."))
 
     @api.depends("attachment", "filename", "name")
     def _compute_file_metadata(self):

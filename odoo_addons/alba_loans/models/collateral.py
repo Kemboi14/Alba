@@ -503,7 +503,7 @@ class AlbaCollateralDocument(models.Model):
 
     @api.constrains('attachment')
     def _check_attachment_size(self):
-        max_bytes = 50 * 1024 * 1024
+        max_bytes = 100 * 1024 * 1024
         for rec in self:
             if rec.attachment and len(base64.b64decode(rec.attachment)) > max_bytes:
-                raise ValidationError(_("Document file size cannot exceed 50 MB."))
+                raise ValidationError(_("Document file size cannot exceed 100 MB."))
