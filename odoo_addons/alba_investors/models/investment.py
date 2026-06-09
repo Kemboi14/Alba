@@ -18,6 +18,7 @@ class AlbaInvestment(models.Model):
         readonly=False,  # IMPORT-FIX: make writable for import matching
         copy=False,
         index=True,
+        store=True,
         default=lambda self: _("New"),
     )
 
