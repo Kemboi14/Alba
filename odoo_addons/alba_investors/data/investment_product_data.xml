@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- 1. Fixed Term KES 1.0% -->
+        <record id="investment_product_kes_1m" model="alba.investment.product">
+            <field name="name">Fixed Term KES 1.0%</field>
+            <field name="code">FT-KES-1M</field>
+            <field name="investment_type">fixed_term</field>
+            <field name="currency_id" ref="base.KES"/>
+            <field name="interest_rate">1.0</field>
+            <field name="compounding_frequency">monthly</field>
+            <field name="is_default">True</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 2. Fixed Term KES 1.5% -->
+        <record id="investment_product_kes_1_5m" model="alba.investment.product">
+            <field name="name">Fixed Term KES 1.5%</field>
+            <field name="code">FT-KES-1.5M</field>
+            <field name="investment_type">fixed_term</field>
+            <field name="currency_id" ref="base.KES"/>
+            <field name="interest_rate">1.5</field>
+            <field name="compounding_frequency">monthly</field>
+            <field name="is_default">False</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 3. Fixed Term KES 2.5% -->
+        <record id="investment_product_kes_2_5m" model="alba.investment.product">
+            <field name="name">Fixed Term KES 2.5%</field>
+            <field name="code">FT-KES-2.5M</field>
+            <field name="investment_type">fixed_term</field>
+            <field name="currency_id" ref="base.KES"/>
+            <field name="interest_rate">2.5</field>
+            <field name="compounding_frequency">monthly</field>
+            <field name="is_default">False</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 4. Fixed Term KES 3.0% -->
+        <record id="investment_product_kes_3m" model="alba.investment.product">
+            <field name="name">Fixed Term KES 3.0%</field>
+            <field name="code">FT-KES-3M</field>
+            <field name="investment_type">fixed_term</field>
+            <field name="currency_id" ref="base.KES"/>
+            <field name="interest_rate">3.0</field>
+            <field name="compounding_frequency">monthly</field>
+            <field name="is_default">False</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+</odoo>

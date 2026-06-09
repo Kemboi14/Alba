@@ -17,6 +17,9 @@
                 <field name="compounding_frequency"/>
                 <field name="auto_accrual_day"/>
                 <field name="early_withdrawal_notice_days"/>
+                <field name="is_default" widget="boolean_toggle"
+                       string="Default"
+                       optional="show"/>
                 <field name="active" widget="boolean_toggle"/>
             </list>
         </field>
@@ -65,8 +68,11 @@
                             <field name="auto_accrual_day"/>
                             <field name="early_withdrawal_notice_days"/>
                         </group>
-                        <group string="Company">
+                        <group string="Company &amp; Default">
                             <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="is_default"
+                                   widget="boolean_toggle"
+                                   help="Mark as the default product selected when creating new investments for this type/currency/company."/>
                         </group>
                     </group>
 

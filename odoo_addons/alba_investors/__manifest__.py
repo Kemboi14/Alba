@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Investors",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "category": "Finance",
     "summary": "Investor profiles, investment accounts, compound interest accrual and monthly statement generation",
     "description": """
@@ -38,6 +38,7 @@ Manages the full investor lifecycle:
         "data/cron_data.xml",
         "data/mail_template_data.xml",
         "data/system_parameters.xml",
+        "data/investment_product_data.xml",
         # Reports
         "report/investor_reports.xml",
         "report/investment_statement_report.xml",
@@ -62,6 +63,7 @@ Manages the full investor lifecycle:
     "installable": True,
     "auto_install": False,
     "application": True,
+    "pre_init_hook": "pre_init_hook",
     "sequence": 20,
     "web_icon": "alba_investors,static/description/icon.png",
     "assets": {
