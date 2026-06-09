@@ -13,6 +13,14 @@ def pre_init_hook(env):
             IF EXISTS (
                 SELECT 1
                 FROM pg_constraint
+                WHERE conname = 'alba_investment_product_type_currency_company_unique'
+            ) THEN
+                ALTER TABLE alba_investment_product
+                    DROP CONSTRAINT alba_investment_product_type_currency_company_unique;
+            END IF;
+            IF EXISTS (
+                SELECT 1
+                FROM pg_constraint
                 WHERE conname = 'alba_investment_product_investment_type_currency_id_company_id_key'
             ) THEN
                 ALTER TABLE alba_investment_product
