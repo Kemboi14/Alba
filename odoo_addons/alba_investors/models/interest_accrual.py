@@ -179,6 +179,44 @@ class AlbaInterestAccrual(models.Model):
         # the value is always recomputed from opening_balance + interest_amount on next trigger.
         pass
 
+    @api.onchange('investment_id')
+    def _onchange_investment_id(self):
+        """Auto-fill period dates, opening balance and interest when investment is selected."""
+        if not self.investment_id:
+            return
+        import calendar
+        inv = self.investment_id
+        today = fields.Date.context_today(self)
+
+        self.accrual_date = today
+        self.period_start = today.replace(day=1)
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        self.period_end = today.replace(day=last_day)
+
+        # Opening balance = closing balance of last posted accrual, or principal if none
+        last_accrual = self.env['alba.interest.accrual'].search([
+            ('investment_id', '=', inv.id),
+            ('state', '=', 'posted'),
+        ], order='period_end desc', limit=1)
+
+        if last_accrual:
+            self.opening_balance = last_accrual.closing_balance
+        else:
+            self.opening_balance = inv.principal_amount
+
+        if inv.interest_rate:
+            monthly_rate = inv.interest_rate / 100.0 / 12.0
+            self.interest_amount = round(self.opening_balance * monthly_rate, 2)
+            self.closing_balance = self.opening_balance + self.interest_amount
+
+    @api.onchange('opening_balance')
+    def _onchange_opening_balance(self):
+        """Recalculate interest amount when opening balance is changed manually."""
+        if self.investment_id and self.investment_id.interest_rate:
+            monthly_rate = self.investment_id.interest_rate / 100.0 / 12.0
+            self.interest_amount = round(self.opening_balance * monthly_rate, 2)
+            self.closing_balance = self.opening_balance + self.interest_amount
+
     # =========================================================================
     # Constraint methods
     # =========================================================================

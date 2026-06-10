@@ -600,7 +600,7 @@ class AlbaInvestment(models.Model):
                 ("investment_id", "=", self.id),
                 ("period_start", "=", period_start),
                 ("period_end", "=", period_end),
-                ("state", "!=", "reversed"),
+                ("state", "=", "posted"),
             ],
             limit=1,
         )
@@ -939,7 +939,7 @@ class AlbaInvestment(models.Model):
                             ("investment_id", "=", inv.id),
                             ("period_start", "=", period_start),
                             ("period_end", "=", period_end),
-                            ("state", "!=", "reversed"),
+                            ("state", "=", "posted"),
                         ],
                         limit=1,
                     )

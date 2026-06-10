@@ -79,12 +79,12 @@
                             <field name="closing_balance" readonly="1"/>
                         </group>
                     </group>
-                    <group string="Accounting" groups="account.group_account_user">
+                    <group string="Accounting" groups="account.group_account_user" invisible="state == 'draft'">
                         <group>
                             <field name="move_id" readonly="1"/>
                         </group>
                         <group>
-                            <field name="reversal_move_id" readonly="1"/>
+                            <field name="reversal_move_id" readonly="1" invisible="state != 'reversed'"/>
                         </group>
                     </group>
                     <group string="Notes">
