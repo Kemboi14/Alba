@@ -13,9 +13,9 @@ _logger = logging.getLogger(__name__)
 
 class AlbaInvestorPro(models.Model):
     _inherit = "alba.investor"
-    # IMPORT-EXPORT FIX: _rec_name set to investor_number (unique stored Char) so Odoo can
-    # resolve Many2one references during import. display_name is kept for UI display.
-    _rec_name = "investor_number"
+    # Use the investor name for UI display in selection lists and forms.
+    # The stored investor number remains available for search and imports.
+    _rec_name = "investor_name"
     _order = "create_date desc"
 
     investor_name = fields.Char(
@@ -338,6 +338,13 @@ class AlbaInvestorPro(models.Model):
                 rec.investor_name = "[%s] %s" % (rec.investor_number, name)
             else:
                 rec.investor_name = name
+
+    def name_get(self):
+        result = []
+        for rec in self:
+            label = rec.investor_name or rec.investor_number or rec.partner_id.name or rec.name or _("Investor")
+            result.append((rec.id, label))
+        return result
 
     @api.model
     def _name_search(self, name='', domain=None, operator='ilike',

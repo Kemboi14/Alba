@@ -27,8 +27,8 @@ class AccrualBackfillTests(unittest.TestCase):
 
         periods = list(iter_missing_accrual_periods(start_date, as_of_date, 28))
 
-        self.assertEqual(periods[0], (date(2026, 6, 28), date(2026, 5, 1), date(2026, 5, 31)))
+        self.assertEqual(periods[0], (date(2026, 4, 28), date(2026, 3, 1), date(2026, 3, 31)))
         self.assertEqual(periods[1], (date(2026, 5, 28), date(2026, 4, 1), date(2026, 4, 30)))
-        self.assertEqual(periods[2], (date(2026, 4, 28), date(2026, 3, 1), date(2026, 3, 31)))
+        self.assertEqual(periods[2], (date(2026, 6, 28), date(2026, 5, 1), date(2026, 5, 31)))
 
         self.assertTrue(all(period_end >= start_date for _, _, period_end in periods))
