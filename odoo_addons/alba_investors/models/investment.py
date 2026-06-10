@@ -468,6 +468,8 @@ class AlbaInvestment(models.Model):
         for rec in self:
             if rec.investment_product_id:
                 rec._apply_product_defaults()
+            else:
+                rec.interest_rate = 0.0
 
     @api.onchange("investment_type", "currency_id", "investor_id")
     def _onchange_investment_product_lookup(self):

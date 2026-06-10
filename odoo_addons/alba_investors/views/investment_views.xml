@@ -108,15 +108,15 @@
                     <div class="row mt-4 mb-4 border rounded p-3 bg-light mx-0 shadow-sm">
                         <div class="col-md-4 border-end text-center">
                             <div class="text-muted small text-uppercase">Initial Investment</div>
-                            <div class="h4 mb-0 fw-bold"><field name="principal_amount" widget="monetary"/></div>
+                            <div class="h4 mb-0 fw-bold"><field name="principal_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/></div>
                         </div>
                         <div class="col-md-4 border-end text-center text-success">
                             <div class="text-muted small text-uppercase">Total Accrued</div>
-                            <div class="h4 mb-0 fw-bold">+ <field name="total_interest_accrued" widget="monetary"/></div>
+                            <div class="h4 mb-0 fw-bold">+ <field name="total_interest_accrued" widget="monetary" options="{'currency_field': 'currency_id'}"/></div>
                         </div>
                         <div class="col-md-4 text-center text-primary">
                             <div class="text-muted small text-uppercase">Current Portfolio</div>
-                            <div class="h4 mb-0 fw-bold"><field name="current_value" widget="monetary"/></div>
+                            <div class="h4 mb-0 fw-bold"><field name="current_value" widget="monetary" options="{'currency_field': 'currency_id'}"/></div>
                         </div>
                     </div>
 

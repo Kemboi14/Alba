@@ -602,7 +602,7 @@ class AlbaInvestorPro(models.Model):
 
     def name_get(self):
         return [
-            (r.id, r.name or r.investor_number or str(r.id))
+            (r.id, r.investor_name or r.investor_number or str(r.id))
             for r in self
         ]
 
