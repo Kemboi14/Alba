@@ -601,13 +601,10 @@ class AlbaInvestorPro(models.Model):
                 if f not in ('display_name', '__last_update')]
 
     def name_get(self):
-        result = []
-        for rec in self:
-            # Use investor_number as the display value so export and
-            # import use the same identifier
-            label = rec.investor_number or rec.name or str(rec.id)
-            result.append((rec.id, label))
-        return result
+        return [
+            (r.id, r.name or str(r.id))
+            for r in self
+        ]
 
     def write(self, vals):
         if vals.get("state") == "suspended":
