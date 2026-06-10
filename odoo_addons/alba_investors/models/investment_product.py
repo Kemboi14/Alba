@@ -154,8 +154,8 @@ class AlbaInvestmentProduct(models.Model):
     @api.constrains("interest_rate")
     def _check_interest_rate(self):
         for rec in self:
-            if rec.interest_rate < 0 or rec.interest_rate > 100:
-                raise ValidationError(_("Interest rate must be between 0 and 100."))
+            if rec.interest_rate < 0 or rec.interest_rate > 1200:
+                raise ValidationError(_("Interest rate must be between 0 and 1200 (max 100% per month)."))
 
     @api.constrains("auto_accrual_day")
     def _check_auto_accrual_day(self):
