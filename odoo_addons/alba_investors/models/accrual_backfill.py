@@ -18,19 +18,28 @@ def previous_month_bounds(run_date):
 
 def iter_missing_accrual_periods(start_date, as_of_date, target_day):
     """
-    Yield accrual run dates and their previous-month periods, from newest to oldest,
-    skipping any period that ends before the investment start date.
+    Yield (run_date, period_start, period_end) for every month
+    from start_date up to as_of_date, in ASCENDING order (oldest first).
+    This ensures journal entries are posted chronologically and
+    compound interest accumulates correctly.
     """
+    periods = []
     current_year = as_of_date.year
     current_month = as_of_date.month
 
-    while (current_year, current_month) >= (start_date.year, start_date.month):
+    while (current_year, current_month) >= (
+        start_date.year, start_date.month
+    ):
         run_date = accrual_run_date(current_year, current_month, target_day)
         if run_date <= as_of_date:
             period_start, period_end = previous_month_bounds(run_date)
             if period_end >= start_date:
-                yield run_date, period_start, period_end
+                periods.append((run_date, period_start, period_end))
         current_month -= 1
         if current_month == 0:
             current_month = 12
             current_year -= 1
+
+    # Yield oldest first so journal entries post chronologically
+    for period in reversed(periods):
+        yield period

@@ -602,7 +602,7 @@ class AlbaInvestment(models.Model):
                 ("investment_id", "=", self.id),
                 ("period_start", "=", period_start),
                 ("period_end", "=", period_end),
-                ("state", "=", "posted"),
+                ("state", "in", ["posted", "draft"]),
             ],
             limit=1,
         )
@@ -928,8 +928,6 @@ class AlbaInvestment(models.Model):
                 continue
 
             target_day = product.auto_accrual_day or 28
-            if as_of_date.day < target_day:
-                continue
 
             start_date = inv.start_date or as_of_date
             try:
@@ -941,22 +939,27 @@ class AlbaInvestment(models.Model):
                             ("investment_id", "=", inv.id),
                             ("period_start", "=", period_start),
                             ("period_end", "=", period_end),
-                            ("state", "=", "posted"),
+                            ("state", "in", ["posted", "draft"]),
                         ],
                         limit=1,
                     )
                     if existing:
                         continue
 
-                    prior_accruals = self.env["alba.interest.accrual"].search(
+                    last_accrual = self.env["alba.interest.accrual"].search(
                         [
                             ("investment_id", "=", inv.id),
                             ("state", "=", "posted"),
                             ("period_end", "<", period_start),
                         ],
-                        order="period_end asc",
+                        order="period_end desc",
+                        limit=1,
                     )
-                    opening_balance = inv.principal_amount + sum(prior_accruals.mapped("interest_amount"))
+                    opening_balance = (
+                        last_accrual.closing_balance
+                        if last_accrual
+                        else inv.principal_amount
+                    )
                     inv.action_accrue_monthly_interest(accrual_date=run_date, opening_balance=opening_balance)
             except Exception as exc:
                 errors.append("Investment %s: %s" % (inv.investment_number, str(exc)))
