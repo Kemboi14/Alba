@@ -527,8 +527,8 @@ class AlbaInvestment(models.Model):
         for rec in self:
             if rec.interest_rate < 0:
                 raise ValidationError(_("Interest rate cannot be negative."))
-            if rec.interest_rate > 100:
-                raise ValidationError(_("Interest rate cannot exceed 100%."))
+            if rec.interest_rate > 1200:
+                raise ValidationError(_("Interest rate cannot exceed 1200%."))
 
     # =========================================================================
     # Compound Interest Engine

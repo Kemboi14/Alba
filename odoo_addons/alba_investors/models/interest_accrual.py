@@ -42,6 +42,18 @@ class AlbaInterestAccrual(models.Model):
         store=True,
         readonly=True,
     )
+    investment_product_id = fields.Many2one(
+        "alba.investment.product",
+        string="Investment Product",
+        related="investment_id.investment_product_id",
+        store=True,
+        readonly=True,
+    )
+    interest_rate = fields.Float(
+        string="Annual Interest Rate (%)",
+        related="investment_id.interest_rate",
+        readonly=True,
+    )
 
     # ── Period ────────────────────────────────────────────────────────────────
     accrual_date = fields.Date(
