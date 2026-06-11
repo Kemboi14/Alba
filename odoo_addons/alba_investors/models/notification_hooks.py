@@ -14,8 +14,11 @@ class AlbaInvestmentNotificationHook(models.Model):
                 rec._send_investment_email("alba_investors.email_template_investment_active")
         return res
 
-    def action_accrue_monthly_interest(self):
-        accrual = super(AlbaInvestmentNotificationHook, self).action_accrue_monthly_interest()
+    def action_accrue_monthly_interest(self, accrual_date=None, opening_balance=None):
+        accrual = super(AlbaInvestmentNotificationHook, self).action_accrue_monthly_interest(
+            accrual_date=accrual_date,
+            opening_balance=opening_balance,
+        )
         if accrual:
             template = self.env.ref("alba_investors.email_template_interest_accrued", raise_if_not_found=False)
             if template and self.investor_id.email:
