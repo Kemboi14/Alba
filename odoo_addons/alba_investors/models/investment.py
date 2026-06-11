@@ -896,25 +896,9 @@ class AlbaInvestment(models.Model):
     @api.model
     def action_accrue_all_active_investments(self):
         """
-        Called by the monthly cron on the 1st of each month.
-        Accrues compound interest on every active investment.
+        Backward-compatible wrapper for the daily backfill accrual flow.
         """
-        active_investments = self.search([("state", "=", "active")])
-        errors = []
-        for inv in active_investments:
-            try:
-                inv.action_accrue_monthly_interest()
-            except Exception as e:
-                errors.append("Investment %s: %s" % (inv.investment_number, str(e)))
-
-        if errors:
-            import logging
-            _logger = logging.getLogger(__name__)
-            _logger.warning(
-                "alba.investment: Monthly accrual completed with errors:\n%s",
-                "\n".join(errors),
-            )
-        return True
+        return self.action_backfill_missing_accruals()
 
     @api.model
     def action_backfill_missing_accruals(self, as_of_date=None):
