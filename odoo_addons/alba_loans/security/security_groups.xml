@@ -89,7 +89,6 @@
                 (4, ref('group_finance_admin')),
                 (4, ref('group_loan_officer')),
                 (4, ref('group_loan_manager')),
-                (4, ref('account.group_account_manager')),
                 (4, ref('base.group_erp_manager'))
             ]"/>
             <field name="comment">
