@@ -19,6 +19,7 @@ class AlbaLoanApplication(models.Model):
         string='Application Number',
         readonly=True,
         copy=False,
+        store=True,
         index=True,
         default=lambda self: _("New"),
     )
@@ -94,8 +95,8 @@ class AlbaLoanApplication(models.Model):
         currency_field="currency_id",
     )
     tenure_months = fields.Integer(
-        string="Tenure (Months)",
-        default=0,
+        string='Tenure (Months)',
+        default=None,
     )
     repayment_frequency = fields.Selection(
         selection=[
@@ -1159,7 +1160,8 @@ class AlbaLoanApplication(models.Model):
     @api.constrains("tenure_months", "loan_product_id")
     def _check_tenure_within_product_limits(self):
         for rec in self:
-            if not rec.loan_product_id:
+            # Skip validation if no product or no tenure set
+            if not rec.loan_product_id or not rec.tenure_months:
                 continue
             product = rec.loan_product_id
             if rec.tenure_months < product.min_tenure_months:

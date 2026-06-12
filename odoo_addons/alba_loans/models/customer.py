@@ -412,27 +412,34 @@ class AlbaCustomer(models.Model):
                      limit=None, order=None):
         domain = domain or []
         if name:
-            # Try exact match first
-            exact = self._search(
+            # Try exact name match first - returns earliest record
+            exact_ids = self._search(
                 [("partner_id.name", "=", name)] + domain,
                 limit=1,
                 order="id asc",
             )
-            if exact:
-                return exact
-            name_domain = [
-                "|",
-                ("partner_id.name", operator, name),
-                ("id_number", operator, name),
-            ]
+            if exact_ids:
+                return exact_ids
+            # Try exact ID number match
+            id_ids = self._search(
+                [("id_number", "=", name)] + domain,
+                limit=1,
+                order="id asc",
+            )
+            if id_ids:
+                return id_ids
+            # Fall back to ilike search
             return self._search(
-                name_domain + domain,
+                ["|",
+                 ("partner_id.name", operator, name),
+                 ("id_number", operator, name),
+                ] + domain,
                 limit=limit,
                 order="id asc",
             )
         return super()._name_search(
             name, domain=domain, operator=operator,
-            limit=limit, order=order
+            limit=limit, order=order,
         )
 
     @api.depends("county_id", "sub_county_id", "ward_id")

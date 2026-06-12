@@ -201,6 +201,7 @@
                 <field name="loan_product_id"/>
                 <field name="requested_amount" sum="Total Requested"/>
                 <field name="approved_amount" sum="Total Approved"/>
+                <field name="tenure_months" optional="show"/>
                 <field name="application_progress" widget="progressbar" string="Progress"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'disbursed'"
