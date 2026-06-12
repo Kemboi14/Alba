@@ -208,7 +208,6 @@
                        decoration-danger="state in ('rejected','declined')"
                        decoration-info="state not in ('disbursed','rejected','declined','deferred')"/>
                 <field name="status_reason_id" optional="hide"/>
-                <field name="submitted_date" widget="date"/>
             </list>
         </field>
     </record>

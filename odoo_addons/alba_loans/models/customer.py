@@ -408,13 +408,32 @@ class AlbaCustomer(models.Model):
             rec.display_name = rec.partner_id.name or _("New Customer")
 
     @api.model
-    def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
+    def _name_search(self, name, domain=None, operator="ilike",
+                     limit=None, order=None):
         domain = domain or []
         if name:
-            # Search by name or ID number
-            name_domain = ["|", ("partner_id.name", operator, name), ("id_number", operator, name)]
-            return self._search(name_domain + domain, limit=limit, order=order)
-        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
+            # Try exact match first
+            exact = self._search(
+                [("partner_id.name", "=", name)] + domain,
+                limit=1,
+                order="id asc",
+            )
+            if exact:
+                return exact
+            name_domain = [
+                "|",
+                ("partner_id.name", operator, name),
+                ("id_number", operator, name),
+            ]
+            return self._search(
+                name_domain + domain,
+                limit=limit,
+                order="id asc",
+            )
+        return super()._name_search(
+            name, domain=domain, operator=operator,
+            limit=limit, order=order
+        )
 
     @api.depends("county_id", "sub_county_id", "ward_id")
     def _compute_location_display(self):

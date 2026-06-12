@@ -12,11 +12,11 @@ class AlbaLoanApplication(models.Model):
     _description = "Alba Capital Loan Application"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "create_date desc"
-    _rec_name = "application_number"
+    _rec_name = 'application_number'
 
     # ── Identification ────────────────────────────────────────────────────────
     application_number = fields.Char(
-        string="Application Number",
+        string='Application Number',
         readonly=True,
         copy=False,
         index=True,
@@ -108,8 +108,9 @@ class AlbaLoanApplication(models.Model):
         default="monthly",
     )
     purpose = fields.Text(
-        string="Loan Purpose",
-        required=True,
+        string='Loan Purpose',
+        required=False,
+        default='',
     )
 
     # ── Computed totals (indicative) ──────────────────────────────────────────
