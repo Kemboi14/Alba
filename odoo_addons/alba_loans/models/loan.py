@@ -16,8 +16,9 @@ class AlbaLoan(models.Model):
     # ── Identification ────────────────────────────────────────────────────────
     loan_number = fields.Char(
         string="Loan Number",
-        readonly=True,
+        readonly=False,
         copy=False,
+        store=True,
         index=True,
         default="New",
     )
