@@ -245,6 +245,7 @@ class AlbaLoan(models.Model):
         ],
         string="PAR Bucket",
         compute="_compute_par",
+        inverse="_inverse_par_bucket",
         store=True,
     )
 
@@ -769,6 +770,7 @@ class AlbaLoan(models.Model):
     def _inverse_outstanding_charges(self): pass
     def _inverse_prepayment_amount(self): pass
     def _inverse_total_topup_amount(self): pass
+    def _inverse_par_bucket(self): pass
     def _inverse_noop(self):
         pass
 
