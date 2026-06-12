@@ -13,9 +13,6 @@ class AlbaCustomer(models.Model):
     _name = "alba.customer"
     _description = "Alba Capital Customer"
     _inherit = ["mail.thread", "mail.activity.mixin"]
-    # IMPORT-EXPORT FIX: _rec_name set to id_number (unique stored Char) so Odoo import can
-    # resolve customer Many2one references unambiguously. _name_search still covers name lookup.
-    _rec_name = "id_number"
     _order = "create_date desc"
 
     # ── Partner link ─────────────────────────────────────────────────────────
@@ -405,14 +402,10 @@ class AlbaCustomer(models.Model):
                     )
             rec.kyc_progress = progress
 
-    @api.depends("id_number", "partner_id", "partner_id.name")
+    @api.depends("partner_id", "partner_id.name")
     def _compute_display_name(self):
         for rec in self:
-            name = rec.partner_id.name or _("New Customer")
-            if rec.id_number:
-                rec.display_name = "[%s] %s" % (rec.id_number, name)
-            else:
-                rec.display_name = name
+            rec.display_name = rec.partner_id.name or _("New Customer")
 
     @api.model
     def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
