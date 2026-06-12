@@ -32,6 +32,7 @@ class AlbaLoanRefinance(models.Model):
         "alba.customer",
         string="Customer",
         related="original_loan_id.customer_id",
+        readonly=False,
         inverse="_inverse_noop",
         store=True,
     )
