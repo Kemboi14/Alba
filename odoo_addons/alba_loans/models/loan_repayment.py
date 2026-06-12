@@ -85,7 +85,7 @@ class AlbaLoanRepayment(models.Model):
         default=0.0,
     )
     penalty_component = fields.Monetary(
-        string="Penalty / Late Fee Component",
+        string="Penalty/Late Fee Component",
         currency_field="currency_id",
         default=0.0,
     )
