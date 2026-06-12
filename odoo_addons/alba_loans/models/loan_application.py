@@ -17,7 +17,7 @@ class AlbaLoanApplication(models.Model):
     # ── Identification ────────────────────────────────────────────────────────
     application_number = fields.Char(
         string='Application Number',
-        readonly=True,
+        readonly=False,
         copy=False,
         store=True,
         index=True,
