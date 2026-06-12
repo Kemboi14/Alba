@@ -32,6 +32,7 @@ class AlbaLoanRefinance(models.Model):
         "alba.customer",
         string="Customer",
         related="original_loan_id.customer_id",
+        inverse="_inverse_noop",
         store=True,
     )
     partner_id = fields.Many2one(
@@ -174,6 +175,7 @@ class AlbaLoanRefinance(models.Model):
         string="Monthly Savings",
         currency_field="currency_id",
         compute="_compute_settlement",
+        inverse="_inverse_noop",
         store=True,
         help="Old EMI - New EMI (if positive)",
     )
@@ -681,3 +683,6 @@ class AlbaLoanRefinance(models.Model):
             "view_mode": "form",
             "res_id": self.new_loan_id.id,
         }
+
+    def _inverse_noop(self):
+        pass

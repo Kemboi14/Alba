@@ -44,6 +44,7 @@ class AlbaLoanConsolidation(models.Model):
     loan_count = fields.Integer(
         string="Number of Loans",
         compute="_compute_loan_details",
+        inverse="_inverse_noop",
         store=True,
     )
     
@@ -52,6 +53,7 @@ class AlbaLoanConsolidation(models.Model):
         string="Total Outstanding",
         currency_field="currency_id",
         compute="_compute_loan_details",
+        inverse="_inverse_noop",
         store=True,
     )
     total_principal = fields.Monetary(
@@ -140,6 +142,7 @@ class AlbaLoanConsolidation(models.Model):
         string="Monthly Savings",
         currency_field="currency_id",
         compute="_compute_new_terms",
+        inverse="_inverse_noop",
         store=True,
         help="Old combined EMI - New EMI",
     )
@@ -568,3 +571,6 @@ class AlbaLoanConsolidation(models.Model):
             "view_mode": "list,form",
             "domain": [("id", "in", self.loan_ids.ids)],
         }
+
+    def _inverse_noop(self):
+        pass
