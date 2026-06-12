@@ -95,7 +95,7 @@ class AlbaLoanApplication(models.Model):
     )
     tenure_months = fields.Integer(
         string="Tenure (Months)",
-        required=True,
+        default=0,
     )
     repayment_frequency = fields.Selection(
         selection=[
