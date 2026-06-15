@@ -349,10 +349,10 @@
                     <field name="partner_id" string="Name"/>
                     <field name="id_type" optional="hide"/>
                     <field name="id_number"/>
-                    <field name="date_of_birth" optional="hide"/>
-                    <field name="gender" optional="hide"/>
+                    <field name="date_of_birth" optional="show"/>
+                    <field name="gender" optional="show"/>
                     <field name="nationality" optional="hide"/>
-                    <field name="county_id" optional="hide"/>
+                    <field name="county_id" optional="show"/>
                     <field name="sub_county_id" optional="hide"/>
                     <field name="ward_id" optional="hide"/>
                     <field name="employment_status"/>

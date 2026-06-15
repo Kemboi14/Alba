@@ -64,14 +64,14 @@ class AlbaCustomer(models.Model):
         "alba.county",
         string="County",
         index=True,
-        required=True,
+        required=False,
     )
     sub_county_id = fields.Many2one(
         "alba.sub.county",
         string="Sub-County",
         domain="[('county_id', '=', county_id)]",
         index=True,
-        required=True,
+        required=False,
     )
     ward_id = fields.Many2one(
         "alba.ward",
