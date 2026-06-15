@@ -125,12 +125,15 @@ def customer_profile(request):
     if request.method == "POST":
         form = CustomerProfileForm(request.POST, request.FILES, instance=customer)
         if form.is_valid():
-            form.save()
+            customer = form.save(commit=False)
+            if customer.is_kyc_fully_uploaded():
+                if customer.verification_status in ["pending", "rejected"]:
+                    customer.verification_status = "in_progress"
+            customer.save()
             if customer.is_kyc_fully_uploaded() and not customer.kyc_verified:
                 messages.info(
                     request,
-                    "Documents uploaded. Please complete AI Document Verification "
-                    "in Step 4 to verify your identity.",
+                    "Documents uploaded successfully. Awaiting KYC review.",
                 )
             messages.success(request, "Profile updated successfully.")
             create_audit_log(
@@ -480,33 +483,47 @@ def upload_document(request, application_pk):
     )
 
     if request.method == "POST":
-        form = LoanDocumentForm(request.POST, request.FILES)
-        if form.is_valid():
-            doc = form.save(commit=False)
-            doc.application = application
-            doc.uploaded_by = request.user
-            doc.save()
-            messages.success(request, "Document uploaded successfully.")
-            create_audit_log(
-                request.user,
-                "CREATE",
-                "LoanDocument",
-                doc.pk,
-                f"Uploaded document for application {application.application_number}",
-            )
-            # Sync document to Odoo so staff can see it immediately
-            if application.odoo_application_id:
-                try:
-                    from core.services.odoo_sync import OdooSyncService
-                    sync = OdooSyncService()
-                    if sync.is_reachable():
-                        sync.sync_document(application.odoo_application_id, doc)
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning(
-                        "Document sync to Odoo failed (non-fatal): app_id=%s err=%s",
-                        application.pk,
-                        exc,
-                    )
+        files = request.FILES.getlist("document_files") or request.FILES.getlist("document_file")
+        if not files:
+            form = LoanDocumentForm(request.POST, request.FILES)
+            if not form.is_valid():
+                return render(
+                    request,
+                    "loans/customer/upload_document.html",
+                    {"form": form, "application": application},
+                )
+        
+        success = False
+        for file in files:
+            data = request.POST.copy()
+            form = LoanDocumentForm(data, {"document_file": file})
+            if form.is_valid():
+                doc = form.save(commit=False)
+                doc.application = application
+                doc.uploaded_by = request.user
+                doc.save()
+                success = True
+                create_audit_log(
+                    request.user,
+                    "CREATE",
+                    "LoanDocument",
+                    doc.pk,
+                    f"Uploaded document for application {application.application_number}",
+                )
+                if application.odoo_application_id:
+                    try:
+                        from core.services.odoo_sync import OdooSyncService
+                        sync = OdooSyncService()
+                        if sync.is_reachable():
+                            sync.sync_document(application.odoo_application_id, doc)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "Document sync to Odoo failed (non-fatal): app_id=%s err=%s",
+                            application.pk,
+                            exc,
+                        )
+        if success:
+            messages.success(request, "Documents uploaded successfully.")
             return redirect("loans:application_detail", pk=application_pk)
     else:
         form = LoanDocumentForm()

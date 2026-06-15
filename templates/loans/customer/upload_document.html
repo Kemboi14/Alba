@@ -1083,8 +1083,17 @@
                 }
             });
 
+            this.syncInputFiles();
             this.updateSubmitButton();
             this.updateValidationStatus();
+        },
+
+        syncInputFiles() {
+            const dt = new DataTransfer();
+            this.files.forEach(file => {
+                dt.items.add(file);
+            });
+            this.input.files = dt.files;
         },
 
         validateFile(file) {
@@ -1171,6 +1180,7 @@
                     card.remove();
                 }
             }
+            this.syncInputFiles();
             this.updateSubmitButton();
             this.updateValidationStatus();
         },

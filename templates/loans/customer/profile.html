@@ -252,8 +252,7 @@
         box-shadow: 0 2px 8px rgba(255,107,53,0.3);
     }
 
-    /* ── Verification root ────────────────────────── */
-    #verification-root { min-height: 400px; overflow: hidden; }
+    /* ── Verification root (removed) ──────────────── */
 
     /* ── Tip callout ──────────────────────────────── */
     .tip-callout {
@@ -277,6 +276,19 @@
     .fade-up-d2 { animation-delay: 0.12s; }
     .fade-up-d3 { animation-delay: 0.18s; }
     .fade-up-d4 { animation-delay: 0.24s; }
+
+    /* ── Native upload zone styles ────────────────── */
+    .upload-zone {
+        border-color: #d1d5db;
+        transition: all 0.25s ease;
+        position: relative;
+    }
+    .upload-zone.drag-over {
+        border-color: var(--orange) !important;
+        background-color: #fff7f4 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.1);
+    }
 </style>
 {% endblock %} {% block body %}
 <div class="page-wrapper">
@@ -640,14 +652,14 @@
                                 <span class="kyc-section-badge bg-orange-100 text-alba-orange">Required</span>
                                 {% endif %}
                             </div>
-                            <p class="text-xs text-gray-500 mt-0.5 truncate">Upload ID, payslips &amp; face photo for AI verification</p>
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">Upload ID, bank statement &amp; face photo for manual review</p>
                         </div>
                         <svg class="kyc-section-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     </button>
                     <div class="kyc-section-body">
                         <div class="kyc-section-content">
                             <p class="text-sm text-gray-500 mb-4">
-                                Upload your ID, payslips, and face photo. Our AI will extract information and auto-fill form fields.
+                                Upload clear copies of your National ID, a recent bank statement, and a passport-style face photo. Our team will review them and verify your account.
                             </p>
 
                             <!-- ── KYC Verification Status (from Odoo) ── -->
@@ -703,17 +715,9 @@
                                     <div class="flex-1 min-w-0">
                                         <h4 class="text-sm font-semibold text-blue-800">Documents Submitted — Awaiting KYC Review</h4>
                                         <p class="text-xs text-blue-600 mt-1">
-                                            Your documents passed AI validation and have been submitted to our team for KYC review.
+                                            Your documents have been submitted to our team for KYC review.
                                             You will be notified once verification is complete.
                                         </p>
-                                        {% if verification_confidence > 0 %}
-                                        <div class="mt-2 flex items-center gap-2">
-                                            <span class="text-xs text-blue-600">AI Confidence: {{ verification_confidence }}%</span>
-                                            <div class="flex-1 max-w-[120px] h-1.5 bg-blue-200 rounded-full overflow-hidden">
-                                                <div class="h-full rounded-full bg-blue-500" style="width: {{ verification_confidence }}%"></div>
-                                            </div>
-                                        </div>
-                                        {% endif %}
                                         <!-- Per-document upload status -->
                                         <div class="mt-3 space-y-1">
                                             <div class="flex items-center gap-2 text-xs">
@@ -749,23 +753,109 @@
                             </div>
                             {% endif %}
 
-                            <!-- React Verification Wizard -->
-                            <div class="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
-                                <div class="flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-alba-navy to-[#2d5180]">
-                                    <div class="h-9 w-9 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
-                                        <svg class="h-4.5 w-4.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            <!-- Native Document Upload Interface -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <!-- National ID File -->
+                                <div class="border-2 border-dashed border-gray-300 rounded-xl p-5 bg-gray-50/50 hover:border-alba-orange hover:bg-orange-50/10 transition-all text-center flex flex-col items-center justify-between min-h-[260px] upload-zone" id="zone-national-id">
+                                    <input type="file" name="national_id_file" id="id_national_id_file" class="hidden" accept="image/*,.pdf" />
+                                    <div class="flex flex-col items-center gap-2">
+                                        <div class="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-alba-orange mb-1">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                                        </div>
+                                        <h4 class="text-sm font-semibold text-gray-900">National ID Document</h4>
+                                        <p class="text-xs text-gray-400">PDF, JPG, PNG (Max 50MB)</p>
                                     </div>
-                                    <div>
-                                        <h4 class="text-sm font-semibold text-white">AI Document Verification</h4>
-                                        <p class="text-xs text-blue-200">Upload below — data is extracted and auto-filled</p>
+                                    
+                                    <div class="mt-4 w-full">
+                                        <div class="file-preview-area hidden w-full">
+                                            <div class="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-200">
+                                                <div class="file-thumb w-10 h-10 rounded bg-gray-100 flex items-center justify-center overflow-hidden">
+                                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                </div>
+                                                <span class="file-name-label text-xs text-gray-700 truncate flex-1 text-left"></span>
+                                                <button type="button" class="text-gray-400 hover:text-red-500 remove-file-btn">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        {% if customer.national_id_file %}
+                                        <div class="current-file-info flex items-center justify-between p-2 bg-green-50 rounded-lg border border-green-200 text-xs text-green-700 w-full mb-2">
+                                            <span class="truncate max-w-[150px]">Current: {{ customer.national_id_file.name }}</span>
+                                            <a href="{{ customer.national_id_file.url }}" target="_blank" class="text-alba-orange hover:underline font-semibold ml-2">View</a>
+                                        </div>
+                                        {% endif %}
+                                        <button type="button" class="select-file-btn w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50">Choose File</button>
                                     </div>
                                 </div>
-                                <div id="verification-root" class="p-4" style="min-height: 400px; display: flex; align-items: center; justify-content: center;">
-                                    <div style="width: 48px; height: 48px; border: 4px solid #ffe4d6; border-top-color: #ff6b35; border-radius: 50%; animation: spin 1s linear infinite;" role="status">
-                                        <span class="sr-only">Loading verification component...</span>
+
+                                <!-- Bank Statement File -->
+                                <div class="border-2 border-dashed border-gray-300 rounded-xl p-5 bg-gray-50/50 hover:border-alba-orange hover:bg-orange-50/10 transition-all text-center flex flex-col items-center justify-between min-h-[260px] upload-zone" id="zone-bank-statement">
+                                    <input type="file" name="bank_statement_file" id="id_bank_statement_file" class="hidden" accept="image/*,.pdf" />
+                                    <div class="flex flex-col items-center gap-2">
+                                        <div class="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-alba-orange mb-1">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        </div>
+                                        <h4 class="text-sm font-semibold text-gray-900">Bank Statement</h4>
+                                        <p class="text-xs text-gray-400">PDF, JPG, PNG (Max 50MB)</p>
+                                    </div>
+                                    
+                                    <div class="mt-4 w-full">
+                                        <div class="file-preview-area hidden w-full">
+                                            <div class="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-200">
+                                                <div class="file-thumb w-10 h-10 rounded bg-gray-100 flex items-center justify-center overflow-hidden">
+                                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                </div>
+                                                <span class="file-name-label text-xs text-gray-700 truncate flex-1 text-left"></span>
+                                                <button type="button" class="text-gray-400 hover:text-red-500 remove-file-btn">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        {% if customer.bank_statement_file %}
+                                        <div class="current-file-info flex items-center justify-between p-2 bg-green-50 rounded-lg border border-green-200 text-xs text-green-700 w-full mb-2">
+                                            <span class="truncate max-w-[150px]">Current: {{ customer.bank_statement_file.name }}</span>
+                                            <a href="{{ customer.bank_statement_file.url }}" target="_blank" class="text-alba-orange hover:underline font-semibold ml-2">View</a>
+                                        </div>
+                                        {% endif %}
+                                        <button type="button" class="select-file-btn w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50">Choose File</button>
                                     </div>
                                 </div>
-                                <input type="hidden" id="verification-data" name="verification_data" value="" />
+
+                                <!-- Face Photo File -->
+                                <div class="border-2 border-dashed border-gray-300 rounded-xl p-5 bg-gray-50/50 hover:border-alba-orange hover:bg-orange-50/10 transition-all text-center flex flex-col items-center justify-between min-h-[260px] upload-zone" id="zone-face-photo">
+                                    <input type="file" name="face_recognition_photo" id="id_face_recognition_photo" class="hidden" accept="image/*" />
+                                    <div class="flex flex-col items-center gap-2">
+                                        <div class="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-alba-orange mb-1">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                        </div>
+                                        <h4 class="text-sm font-semibold text-gray-900">Face Recognition Photo</h4>
+                                        <p class="text-xs text-gray-400">JPG, PNG (Max 50MB)</p>
+                                    </div>
+                                    
+                                    <div class="mt-4 w-full">
+                                        <div class="file-preview-area hidden w-full">
+                                            <div class="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-200">
+                                                <div class="file-thumb w-10 h-10 rounded bg-gray-100 flex items-center justify-center overflow-hidden">
+                                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                </div>
+                                                <span class="file-name-label text-xs text-gray-700 truncate flex-1 text-left"></span>
+                                                <button type="button" class="text-gray-400 hover:text-red-500 remove-file-btn">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        {% if customer.face_recognition_photo %}
+                                        <div class="current-file-info flex items-center justify-between p-2 bg-green-50 rounded-lg border border-green-200 text-xs text-green-700 w-full mb-2">
+                                            <span class="truncate max-w-[150px]">Current: {{ customer.face_recognition_photo.name }}</span>
+                                            <a href="{{ customer.face_recognition_photo.url }}" target="_blank" class="text-alba-orange hover:underline font-semibold ml-2">View</a>
+                                        </div>
+                                        {% endif %}
+                                        <button type="button" class="select-file-btn w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50">Choose File</button>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Section nav -->
@@ -799,9 +889,6 @@
 </div>
 
 <script>
-    // ── Verification wizard context (injected by Django) ───────────────────
-    window.VERIFICATION_CONTEXT = {{ verification_context_json|safe }};
-
     // ── Wizard section navigation ──────────────────────────────────────────
     let currentStep = 1;
     const totalSteps = 4;
@@ -878,60 +965,76 @@
         // ── Drag and drop for upload zones ─────────────────────────────────
         document.querySelectorAll('.upload-zone').forEach(zone => {
             const input = zone.querySelector('input[type="file"]');
-            zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+            const selectBtn = zone.querySelector('.select-file-btn');
+            const previewArea = zone.querySelector('.file-preview-area');
+            const nameLabel = zone.querySelector('.file-name-label');
+            const removeBtn = zone.querySelector('.remove-file-btn');
+            const currentInfo = zone.querySelector('.current-file-info');
+            const thumbContainer = zone.querySelector('.file-thumb');
+
+            if (selectBtn && input) {
+                selectBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    input.click();
+                });
+            }
+
+            zone.addEventListener('click', (e) => {
+                if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input')) {
+                    return;
+                }
+                if (input) input.click();
+            });
+
+            zone.addEventListener('dragover', e => {
+                e.preventDefault();
+                zone.classList.add('drag-over');
+            });
             zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
             zone.addEventListener('drop', e => {
                 e.preventDefault();
                 zone.classList.remove('drag-over');
                 if (e.dataTransfer.files.length && input) {
                     input.files = e.dataTransfer.files;
-                    zone.classList.add('has-file');
-                    // Update visual
-                    const label = zone.querySelector('.pointer-events-none');
-                    if (label) {
-                        const fname = e.dataTransfer.files[0].name;
-                        label.innerHTML = '<div class="flex flex-col items-center gap-1">' +
-                            '<svg class="w-8 h-8 text-alba-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
-                            '<span class="text-xs font-medium text-gray-700 truncate max-w-full px-2">' + fname.substring(0, 24) + '</span>' +
-                            '<span class="text-xs text-gray-400">Drop to replace</span></div>';
-                    }
+                    handleFileSelection(e.dataTransfer.files[0]);
                 }
             });
-            // Also handle click-selected files
+
             if (input) {
                 input.addEventListener('change', () => {
                     if (input.files.length) {
-                        zone.classList.add('has-file');
-                        const label = zone.querySelector('.pointer-events-none');
-                        if (label) {
-                            const fname = input.files[0].name;
-                            label.innerHTML = '<div class="flex flex-col items-center gap-1">' +
-                                '<svg class="w-8 h-8 text-alba-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
-                                '<span class="text-xs font-medium text-gray-700 truncate max-w-full px-2">' + fname.substring(0, 24) + '</span>' +
-                                '<span class="text-xs text-gray-400">Click to change</span></div>';
-                        }
+                        handleFileSelection(input.files[0]);
                     }
                 });
             }
-        });
 
-        // ── Verification wizard events ─────────────────────────────────────
-        const banner = document.getElementById("verification-banner");
-        const bannerText = document.getElementById("verification-banner-text");
-
-        window.addEventListener('verificationComplete', function(e) {
-            if (banner && bannerText) {
-                banner.className = "alert alert-success mb-4";
-                bannerText.textContent = "Documents verified successfully! Form fields have been auto-filled.";
-                banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (removeBtn) {
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (input) input.value = '';
+                    if (previewArea) previewArea.classList.add('hidden');
+                    if (currentInfo) currentInfo.classList.remove('hidden');
+                    if (selectBtn) selectBtn.classList.remove('hidden');
+                    zone.classList.remove('has-file');
+                });
             }
-        });
 
-        window.addEventListener('verificationError', function(e) {
-            if (banner && bannerText) {
-                banner.className = "alert alert-error mb-4";
-                bannerText.textContent = "Verification failed: " + (e.detail && e.detail.message || "Please try again.");
-                banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            function handleFileSelection(file) {
+                zone.classList.add('has-file');
+                if (selectBtn) selectBtn.classList.add('hidden');
+                if (currentInfo) currentInfo.classList.add('hidden');
+                if (nameLabel) nameLabel.textContent = file.name;
+                if (previewArea) previewArea.classList.remove('hidden');
+
+                if (file.type.startsWith('image/') && thumbContainer) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        thumbContainer.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover" />`;
+                    };
+                    reader.readAsDataURL(file);
+                } else if (thumbContainer) {
+                    thumbContainer.innerHTML = `<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
+                }
             }
         });
 
@@ -949,13 +1052,4 @@
         updateStepTracker();
     });
 </script>
-<!-- CSRF meta tag for verification API calls -->
-<meta name="csrf-token" content="{{ csrf_token }}" />
-{% if debug %}
-<script type="module" src="http://localhost:5173/@vite/client"></script>
-<script type="module" src="http://localhost:5173/src/main.tsx"></script>
-{% else %}
-<link rel="stylesheet" href="{% static 'verification/assets/main.css' %}" />
-<script type="module" src="{% static 'verification/js/main.js' %}"></script>
-{% endif %}
 {% endblock %}
