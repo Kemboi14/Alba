@@ -187,6 +187,16 @@
                             </group>
                         </group>
 
+                        <group string="Next of Kin">
+                            <group>
+                                <field name="next_of_kin_name"/>
+                                <field name="next_of_kin_relationship"/>
+                            </group>
+                            <group>
+                                <field name="next_of_kin_phone"/>
+                            </group>
+                        </group>
+
                         <notebook>
 
                             <!-- ── Employment ─────────────────────────────── -->

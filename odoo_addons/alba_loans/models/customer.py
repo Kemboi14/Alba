@@ -59,6 +59,11 @@ class AlbaCustomer(models.Model):
     )
     nationality = fields.Char(string="Nationality", default="Kenyan", required=True)
 
+    # ── Next of Kin ──────────────────────────────────────────────────────────
+    next_of_kin_name = fields.Char(string="Next of Kin Name")
+    next_of_kin_phone = fields.Char(string="Next of Kin Phone")
+    next_of_kin_relationship = fields.Char(string="Next of Kin Relationship")
+
     # ── Location (Kenya) ──────────────────────────────────────────────────────
     county_id = fields.Many2one(
         "alba.county",

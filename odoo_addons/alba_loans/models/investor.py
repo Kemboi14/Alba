@@ -51,6 +51,11 @@ class AlbaInvestor(models.Model):
     phone = fields.Char(related="partner_id.phone", store=True, readonly=False)
     email = fields.Char(related="partner_id.email", store=True, readonly=False)
     address = fields.Char(related="partner_id.street", string="Physical Address", readonly=False)
+
+    # ── Next of Kin ──────────────────────────────────────────────────────────
+    next_of_kin_name = fields.Char(string="Next of Kin Name")
+    next_of_kin_phone = fields.Char(string="Next of Kin Phone")
+    next_of_kin_relationship = fields.Char(string="Next of Kin Relationship")
     
     bank_account_id = fields.Many2one(
         "res.partner.bank",

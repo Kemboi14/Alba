@@ -201,6 +201,11 @@
                             <field name="gender"/>
                             <field name="nationality"/>
                         </group>
+                        <group string="Next of Kin">
+                            <field name="next_of_kin_name"/>
+                            <field name="next_of_kin_phone"/>
+                            <field name="next_of_kin_relationship"/>
+                        </group>
                         <group string="Portal Integration" groups="base.group_no_one">
                             <field name="django_investor_id" readonly="1"/>
                             <div colspan="2" class="alert alert-info py-1 small">
