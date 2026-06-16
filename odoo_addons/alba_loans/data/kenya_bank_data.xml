@@ -4,197 +4,197 @@
         <record id="bank_kcb" model="res.bank">
             <field name="name">Kenya Commercial Bank (01)</field>
             <field name="bic">01</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_stanchart" model="res.bank">
             <field name="name">Standard Chartered Bank (02)</field>
             <field name="bic">02</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_absa" model="res.bank">
             <field name="name">ABSA Bank Kenya (03)</field>
             <field name="bic">03</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_boi" model="res.bank">
             <field name="name">Bank of India (05)</field>
             <field name="bic">05</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_bob" model="res.bank">
             <field name="name">Bank of Baroda (06)</field>
             <field name="bic">06</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_ncba" model="res.bank">
             <field name="name">NCBA Bank (07)</field>
             <field name="bic">07</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_citibank" model="res.bank">
             <field name="name">Citibank N.A (09)</field>
             <field name="bic">09</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_ecobank" model="res.bank">
             <field name="name">Ecobank Kenya (10)</field>
             <field name="bic">10</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_coop" model="res.bank">
             <field name="name">Co-operative Bank of Kenya (11)</field>
             <field name="bic">11</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_nbk" model="res.bank">
             <field name="name">National Bank of Kenya (12)</field>
             <field name="bic">12</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_boa" model="res.bank">
             <field name="name">Bank of Africa (19)</field>
             <field name="bic">19</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_consolidated" model="res.bank">
             <field name="name">Consolidated Bank of Kenya (23)</field>
             <field name="bic">23</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_stanbic" model="res.bank">
             <field name="name">Stanbic Bank (31)</field>
             <field name="bic">31</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_meb" model="res.bank">
             <field name="name">Middle East Bank (33)</field>
             <field name="bic">33</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_abc" model="res.bank">
             <field name="name">ABC Bank (35)</field>
             <field name="bic">35</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_victoria" model="res.bank">
             <field name="name">Victoria Commercial Bank (41)</field>
             <field name="bic">41</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_paramount" model="res.bank">
             <field name="name">Paramount Bank (42)</field>
             <field name="bic">42</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_access" model="res.bank">
             <field name="name">Access Bank (43)</field>
             <field name="bic">43</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_spire" model="res.bank">
             <field name="name">Spire Bank (49)</field>
             <field name="bic">49</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_prime" model="res.bank">
             <field name="name">Prime Bank (51)</field>
             <field name="bic">51</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_gt" model="res.bank">
             <field name="name">GT Bank (53)</field>
             <field name="bic">53</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_guardian" model="res.bank">
             <field name="name">Guardian Bank (55)</field>
             <field name="bic">55</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_sbm" model="res.bank">
             <field name="name">SBM Bank Kenya (57)</field>
             <field name="bic">57</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_dbk" model="res.bank">
             <field name="name">Development Bank of Kenya (59)</field>
             <field name="bic">59</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_uba" model="res.bank">
             <field name="name">UBA Kenya Bank (60)</field>
             <field name="bic">60</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_im" model="res.bank">
             <field name="name">I&amp;M Bank (61)</field>
             <field name="bic">61</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_dtb" model="res.bank">
             <field name="name">Diamond Trust Bank (DTB) (63)</field>
             <field name="bic">63</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_sidian" model="res.bank">
             <field name="name">Sidian Bank (66)</field>
             <field name="bic">66</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_equity" model="res.bank">
             <field name="name">Equity Bank (68)</field>
             <field name="bic">68</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_family" model="res.bank">
             <field name="name">Family Bank (70)</field>
             <field name="bic">70</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_gulf" model="res.bank">
             <field name="name">Gulf African Bank (72)</field>
             <field name="bic">72</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_credit" model="res.bank">
             <field name="name">Credit Bank (74)</field>
             <field name="bic">74</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_dib" model="res.bank">
             <field name="name">DIB Bank Kenya (75)</field>
             <field name="bic">75</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_kingdom" model="res.bank">
             <field name="name">Kingdom Bank (76)</field>
             <field name="bic">76</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_faulu" model="res.bank">
             <field name="name">Faulu Microfinance Bank (80)</field>
             <field name="bic">80</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_mayfair" model="res.bank">
             <field name="name">Mayfair Bank (81)</field>
             <field name="bic">81</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_kwft" model="res.bank">
             <field name="name">KWFT Microfinance Bank (84)</field>
             <field name="bic">84</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_rafiki" model="res.bank">
             <field name="name">Rafiki Microfinance Bank (86)</field>
             <field name="bic">86</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
         <record id="bank_mpesa" model="res.bank">
             <field name="name">M-Pesa (99)</field>
             <field name="bic">99</field>
-            <field name="country_id" ref="base.ke"/>
+            <field name="country" ref="base.ke"/>
         </record>
     </data>
 </odoo>
