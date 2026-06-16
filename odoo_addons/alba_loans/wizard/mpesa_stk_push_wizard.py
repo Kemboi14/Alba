@@ -299,10 +299,10 @@ class AlbaMpesaStkPushWizard(models.TransientModel):
                 _("The selected M-Pesa configuration '%s' is inactive.")
                 % self.config_id.name
             )
-        if self.loan_id.state not in ("active", "npl"):
+        if self.loan_id.state not in ("normal", "watch", "substandard", "doubtful"):
             raise UserError(
                 _(
-                    "STK Push can only be initiated for active or non-performing loans.  "
+                    "STK Push can only be initiated for performing or overdue loans.  "
                     "Loan %s is currently '%s'."
                 )
                 % (self.loan_id.loan_number, self.loan_id.state)

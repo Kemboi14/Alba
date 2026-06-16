@@ -136,74 +136,73 @@ class AlbaLoan(models.Model):
     # ── State ─────────────────────────────────────────────────────────────────
     state = fields.Selection(
         selection=[
-            ("active", "Active"),
+            ("normal", "Normal"),
+            ("watch", "Watch (1-30 days)"),
+            ("substandard", "Substandard (31-60 days)"),
+            ("doubtful", "Doubtful (61-90 days)"),
+            ("loss", "Loss (>90 days)"),
             ("closed", "Closed / Fully Repaid"),
             ("written_off", "Written Off"),
         ],
         string="Loan Status",
-        default="active",
-        required=True,
-        index=True,
-    )
-    classification = fields.Selection(
-        selection=[
-            ("normal", "Normal"),
-            ("watch", "Watch"),
-            ("substandard", "Substandard"),
-            ("doubtful", "Doubtful"),
-            ("loss", "Loss"),
-        ],
-        string="Classification",
-        compute="_compute_classification",
+        compute="_compute_state",
         store=True,
+        required=True,
         index=True,
         tracking=True,
     )
     provision_rate = fields.Float(
         string="Provision Rate (%)",
-        compute="_compute_classification",
+        compute="_compute_state",
         store=True,
     )
     provision_amount = fields.Monetary(
         string="Provision Amount",
-        compute="_compute_classification",
+        compute="_compute_state",
         store=True,
         currency_field="currency_id",
     )
 
-    @api.depends("days_in_arrears", "state")
-    def _compute_classification(self):
+    @api.depends("days_in_arrears", "outstanding_balance")
+    def _compute_state(self):
         for rec in self:
-            if rec.state == "closed":
-                rec.classification = "normal"
+            # If manually written off or closed, preserve that unless balance changes?
+            # Actually, state should be driven by arrears unless closed.
+            if rec.state in ("closed", "written_off") and rec.outstanding_balance <= 0.01:
+                # Keep current state if closed/written off and no balance
+                if not rec.state: rec.state = "normal"
+                continue
+            
+            if rec.outstanding_balance <= 0.01 and rec.disbursement_move_id:
+                rec.state = "closed"
                 rec.provision_rate = 0.0
                 rec.provision_amount = 0.0
                 continue
-            
+
             d = rec.days_in_arrears
             if d == 0:
-                rec.classification = "normal"
+                rec.state = "normal"
                 rec.provision_rate = 1.0
             elif d <= 30:
-                rec.classification = "watch"
+                rec.state = "watch"
                 rec.provision_rate = 5.0
             elif d <= 60:
-                rec.classification = "substandard"
+                rec.state = "substandard"
                 rec.provision_rate = 25.0
             elif d <= 90:
-                rec.classification = "doubtful"
+                rec.state = "doubtful"
                 rec.provision_rate = 75.0
             else:
-                rec.classification = "loss"
+                rec.state = "loss"
                 rec.provision_rate = 100.0
             
-            # provision is usually on outstanding principal or balance? 
-            # Policy says "credit that becomes uncollectible". Usually provision is on outstanding balance.
             rec.provision_amount = rec.outstanding_balance * (rec.provision_rate / 100.0)
             
             # Write-off Policy: immediate write-off for Loss (over 90 days)
-            if rec.classification == "loss" and rec.state != "written_off":
-                rec.action_write_off()
+            if rec.state == "loss":
+                # We don't call action_write_off here to avoid recursion/side effects in compute
+                # but we set the state. The cron or a separate check will handle formal write-off if needed.
+                rec.state = "written_off"
 
     # ── Onchange Methods ──────────────────────────────────────────────────────
 
@@ -1156,11 +1155,9 @@ class AlbaLoan(models.Model):
     def action_post_provisioning_entry(self):
         """
         Create a provisioning journal entry for potential loan losses.
-        Logic updated to use the loan's current classification rate.
+        Logic updated to use the loan's current state (classification) rate.
         """
         self.ensure_one()
-        # Allow reposting if the amount has changed significantly or move is draft?
-        # For simplicity, we create one move per loan. In a real system, you might adjust it.
         if self.provision_move_id:
             return False
 
@@ -1175,13 +1172,13 @@ class AlbaLoan(models.Model):
         move_vals = {
             "journal_id": self.journal_id.id,
             "date": fields.Date.today(),
-            "ref": f"PROV/{self.loan_number} ({self.classification.upper()})",
+            "ref": f"PROV/{self.loan_number} ({self.state.upper()})",
             "move_type": "entry",
             "line_ids": [
                 # DR Provision Expense
                 (0, 0, {
                     "account_id": product.account_provision_expense_id.id,
-                    "name": _("Loan Loss Provision Expense [%s] — %s") % (self.classification, self.loan_number),
+                    "name": _("Loan Loss Provision Expense [%s] — %s") % (self.state, self.loan_number),
                     "debit": provision_amount,
                     "credit": 0.0,
                     "partner_id": self.customer_id.partner_id.id,
@@ -1189,7 +1186,7 @@ class AlbaLoan(models.Model):
                 # CR Provision Account (Asset Offset)
                 (0, 0, {
                     "account_id": product.account_provision_id.id,
-                    "name": _("Allowance for Credit Losses [%s] — %s") % (self.classification, self.loan_number),
+                    "name": _("Allowance for Credit Losses [%s] — %s") % (self.state, self.loan_number),
                     "debit": 0.0,
                     "credit": provision_amount,
                     "partner_id": self.customer_id.partner_id.id,
@@ -1201,8 +1198,8 @@ class AlbaLoan(models.Model):
         move.action_post()
         self.write({"provision_move_id": move.id})
         self.message_post(
-            body=_("Provisioning journal entry %s posted for KES %s (Classification: %s).")
-            % (move.name, f"{provision_amount:,.2f}", self.classification.upper())
+            body=_("Provisioning journal entry %s posted for KES %s (Status: %s).")
+            % (move.name, f"{provision_amount:,.2f}", self.state.upper())
         )
         return move
 
@@ -1366,9 +1363,10 @@ class AlbaLoan(models.Model):
     @api.model
     def action_update_par_buckets(self):
         """Called by daily cron to refresh PAR data on all active loans."""
-        active_loans = self.search([("state", "=", "active")])
+        # Active states: normal, watch, substandard, doubtful
+        active_loans = self.search([("state", "in", ["normal", "watch", "substandard", "doubtful"])])
         active_loans._compute_par()
-        # Classification and write-off are triggered by _compute_par which triggers _compute_classification
+        # Classification and write-off are triggered by _compute_par which triggers _compute_state
 
     # =========================================================================
     # Scheduled action (cron) — Classification monitor
@@ -1380,11 +1378,11 @@ class AlbaLoan(models.Model):
         Daily cron: monitor loan classification and fire webhooks.
         """
         _logger = __import__("logging").getLogger(__name__)
-        active_loans = self.search([("state", "=", "active")])
+        active_loans = self.search([("state", "in", ["normal", "watch", "substandard", "doubtful"])])
         active_loans._compute_par()
 
-        # Fire webhooks for loans that moved into substandard/doubtful/loss
-        watch_loans = active_loans.filtered(lambda l: l.classification in ('substandard', 'doubtful', 'loss'))
+        # Fire webhooks for loans that moved into substandard/doubtful/written_off
+        watch_loans = active_loans.filtered(lambda l: l.state in ('substandard', 'doubtful', 'written_off'))
         if watch_loans:
             self._fire_loan_status_webhooks(watch_loans, "loan.classification_updated")
 
@@ -1417,7 +1415,7 @@ class AlbaLoan(models.Model):
                 [
                     ("due_date", "=", target_date),
                     ("balance_due", ">", 0),
-                    ("loan_id.state", "=", "active"),
+                    ("loan_id.state", "in", ["normal", "watch", "substandard", "doubtful"]),
                 ]
             )
             for schedule in overdue_schedules:
@@ -1473,7 +1471,7 @@ class AlbaLoan(models.Model):
 
         maturing = self.search(
             [
-                ("state", "=", "active"),
+                ("state", "in", ["normal", "watch", "substandard", "doubtful"]),
                 ("maturity_date", ">=", today),
                 ("maturity_date", "<=", window_end),
                 ("outstanding_balance", ">", 0),
@@ -1511,7 +1509,7 @@ class AlbaLoan(models.Model):
         import logging as _logging
 
         _logger = _logging.getLogger(__name__)
-        candidates = self.search([("state", "=", "active")])
+        candidates = self.search([("state", "in", ["normal", "watch", "substandard", "doubtful"])])
         # Force recompute so we use fresh totals
         candidates._compute_financial_totals()
 
@@ -1567,14 +1565,14 @@ class AlbaLoan(models.Model):
 
         _logger = _logging.getLogger(__name__)
 
-        active = self.search([("state", "=", "active")])
+        active = self.search([("state", "in", ["normal", "watch", "substandard", "doubtful"])])
         if not active:
             return
 
-        npl = active.filtered(lambda l: l.classification in ("substandard", "doubtful", "loss"))
-        par_30 = active.filtered(lambda l: l.classification == "watch")
+        npl = active.filtered(lambda l: l.state in ("substandard", "doubtful"))
+        par_30 = active.filtered(lambda l: l.state == "watch")
         par_90 = active.filtered(
-            lambda l: l.classification in ("doubtful", "loss")
+            lambda l: l.state in ("doubtful")
         )
 
         stats = {
