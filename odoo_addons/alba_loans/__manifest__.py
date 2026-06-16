@@ -68,6 +68,7 @@ Accounting
         "data/approval_limit_data.xml",
         # ── Location and Tagging data ───────────────────────────────────────
         "data/kenya_counties_data.xml",
+        "data/kenya_bank_data.xml",
         "data/customer_tag_data.xml",
         "data/business_sector_data.xml",
         "data/business_subsector_data.xml",

@@ -51,7 +51,7 @@
                         <page string="Bank Accounts" name="bank_accounts">
                             <field name="bank_ids">
                                 <list editable="bottom">
-                                    <field name="bank_id"/>
+                                    <field name="bank_id" domain="[('country_id.code', '=', 'KE')]"/>
                                     <field name="acc_number"/>
                                     <field name="acc_holder_name"/>
                                 </list>
