@@ -144,10 +144,10 @@ class AlbaLoanProduct(models.Model):
         help="Number of days after due date before penalties apply.",
     )
     provision_rate = fields.Float(
-        string="Provisioning Rate (%)",
+        string="Default Provisioning Rate (%)",
         digits=(5, 2),
         default=1.0,
-        help="Percentage of the principal to be provisioned for potential losses upon disbursement.",
+        help="Base provisioning rate for Normal loans. Substandard/Doubtful/Loss rates are fixed by company policy.",
     )
     
     # ─── Automation ───────────────────────────────────────────────────────────

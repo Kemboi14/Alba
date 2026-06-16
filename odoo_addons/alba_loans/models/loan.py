@@ -138,7 +138,6 @@ class AlbaLoan(models.Model):
         selection=[
             ("active", "Active"),
             ("closed", "Closed / Fully Repaid"),
-            ("npl", "Non-Performing"),
             ("written_off", "Written Off"),
         ],
         string="Loan Status",
@@ -146,6 +145,65 @@ class AlbaLoan(models.Model):
         required=True,
         index=True,
     )
+    classification = fields.Selection(
+        selection=[
+            ("normal", "Normal"),
+            ("watch", "Watch"),
+            ("substandard", "Substandard"),
+            ("doubtful", "Doubtful"),
+            ("loss", "Loss"),
+        ],
+        string="Classification",
+        compute="_compute_classification",
+        store=True,
+        index=True,
+        tracking=True,
+    )
+    provision_rate = fields.Float(
+        string="Provision Rate (%)",
+        compute="_compute_classification",
+        store=True,
+    )
+    provision_amount = fields.Monetary(
+        string="Provision Amount",
+        compute="_compute_classification",
+        store=True,
+        currency_field="currency_id",
+    )
+
+    @api.depends("days_in_arrears", "state")
+    def _compute_classification(self):
+        for rec in self:
+            if rec.state == "closed":
+                rec.classification = "normal"
+                rec.provision_rate = 0.0
+                rec.provision_amount = 0.0
+                continue
+            
+            d = rec.days_in_arrears
+            if d == 0:
+                rec.classification = "normal"
+                rec.provision_rate = 1.0
+            elif d <= 30:
+                rec.classification = "watch"
+                rec.provision_rate = 5.0
+            elif d <= 60:
+                rec.classification = "substandard"
+                rec.provision_rate = 25.0
+            elif d <= 90:
+                rec.classification = "doubtful"
+                rec.provision_rate = 75.0
+            else:
+                rec.classification = "loss"
+                rec.provision_rate = 100.0
+            
+            # provision is usually on outstanding principal or balance? 
+            # Policy says "credit that becomes uncollectible". Usually provision is on outstanding balance.
+            rec.provision_amount = rec.outstanding_balance * (rec.provision_rate / 100.0)
+            
+            # Write-off Policy: immediate write-off for Loss (over 90 days)
+            if rec.classification == "loss" and rec.state != "written_off":
+                rec.action_write_off()
 
     # ── Onchange Methods ──────────────────────────────────────────────────────
 
@@ -1097,33 +1155,33 @@ class AlbaLoan(models.Model):
 
     def action_post_provisioning_entry(self):
         """
-        Create a provisioning journal entry for potential loan losses:
-            DR  Provision Expense
-            CR  Loan Loss Provision (Asset Offset)
+        Create a provisioning journal entry for potential loan losses.
+        Logic updated to use the loan's current classification rate.
         """
         self.ensure_one()
+        # Allow reposting if the amount has changed significantly or move is draft?
+        # For simplicity, we create one move per loan. In a real system, you might adjust it.
         if self.provision_move_id:
             return False
 
         product = self.loan_product_id
         if not product.account_provision_id or not product.account_provision_expense_id:
-            # Provisioning is optional; skip if not configured
             return False
 
-        # Calculate provisioning amount based on product rate
-        rate = product.provision_rate / 100.0 if product.provision_rate else 0.01
-        provision_amount = self.principal_amount * rate
+        provision_amount = self.provision_amount
+        if provision_amount <= 0:
+            return False
 
         move_vals = {
             "journal_id": self.journal_id.id,
-            "date": self.disbursement_date,
-            "ref": f"PROV/{self.loan_number}",
+            "date": fields.Date.today(),
+            "ref": f"PROV/{self.loan_number} ({self.classification.upper()})",
             "move_type": "entry",
             "line_ids": [
                 # DR Provision Expense
                 (0, 0, {
                     "account_id": product.account_provision_expense_id.id,
-                    "name": _("Loan Loss Provision Expense — %s") % self.loan_number,
+                    "name": _("Loan Loss Provision Expense [%s] — %s") % (self.classification, self.loan_number),
                     "debit": provision_amount,
                     "credit": 0.0,
                     "partner_id": self.customer_id.partner_id.id,
@@ -1131,7 +1189,7 @@ class AlbaLoan(models.Model):
                 # CR Provision Account (Asset Offset)
                 (0, 0, {
                     "account_id": product.account_provision_id.id,
-                    "name": _("Allowance for Credit Losses — %s") % self.loan_number,
+                    "name": _("Allowance for Credit Losses [%s] — %s") % (self.classification, self.loan_number),
                     "debit": 0.0,
                     "credit": provision_amount,
                     "partner_id": self.customer_id.partner_id.id,
@@ -1143,20 +1201,15 @@ class AlbaLoan(models.Model):
         move.action_post()
         self.write({"provision_move_id": move.id})
         self.message_post(
-            body=_("Automatic provisioning journal entry %s posted for KES %s.")
-            % (move.name, f"{provision_amount:,.2f}")
+            body=_("Provisioning journal entry %s posted for KES %s (Classification: %s).")
+            % (move.name, f"{provision_amount:,.2f}", self.classification.upper())
         )
         return move
-
-    def action_mark_npl(self):
-        self.ensure_one()
-        self.write({"state": "npl"})
-        self.message_post(body=Markup(_("Loan marked as <b>Non-Performing (NPL)</b>.")))
 
     def action_write_off(self):
         self.ensure_one()
         self.write({"state": "written_off"})
-        self.message_post(body=Markup(_("Loan has been <b>Written Off</b>.")))
+        self.message_post(body=Markup(_("Loan has been <b>Written Off</b> as per policy (Loss classification).")))
 
     def action_close(self):
         self.ensure_one()
@@ -1315,67 +1368,27 @@ class AlbaLoan(models.Model):
         """Called by daily cron to refresh PAR data on all active loans."""
         active_loans = self.search([("state", "=", "active")])
         active_loans._compute_par()
-        # Auto-flag NPL for loans > 90 days in arrears
-        for loan in active_loans:
-            if loan.days_in_arrears > 90 and loan.state == "active":
-                loan.action_mark_npl()
+        # Classification and write-off are triggered by _compute_par which triggers _compute_classification
 
     # =========================================================================
-    # Scheduled action (cron) — NPL monitor
+    # Scheduled action (cron) — Classification monitor
     # =========================================================================
 
     @api.model
     def cron_flag_npl_loans(self):
         """
-        Daily cron: move any active loan with days_in_arrears >= 90 to
-        state='npl' and fire a Django webhook so the portal is updated.
-
-        Loans already in 'npl', 'closed', or 'written_off' are skipped.
+        Daily cron: monitor loan classification and fire webhooks.
         """
         _logger = __import__("logging").getLogger(__name__)
         active_loans = self.search([("state", "=", "active")])
         active_loans._compute_par()
 
-        npl_threshold = int(
-            self.env["ir.config_parameter"]
-            .sudo()
-            .get_param("alba.loans.npl_threshold_days", "90")
-        )
+        # Fire webhooks for loans that moved into substandard/doubtful/loss
+        watch_loans = active_loans.filtered(lambda l: l.classification in ('substandard', 'doubtful', 'loss'))
+        if watch_loans:
+            self._fire_loan_status_webhooks(watch_loans, "loan.classification_updated")
 
-        newly_npl = self.browse()
-        for loan in active_loans:
-            if loan.days_in_arrears >= npl_threshold:
-                loan.write({"state": "npl"})
-                loan.message_post(
-                    body=Markup(_(
-                        "Loan automatically flagged as <b>Non-Performing</b> "
-                        "by the daily NPL monitor cron — "
-                        "<b>%d days</b> in arrears (threshold: %d)."
-                    ))
-                    % (loan.days_in_arrears, npl_threshold)
-                )
-                newly_npl |= loan
-
-        _logger.info("cron_flag_npl_loans: flagged %d loan(s) as NPL.", len(newly_npl))
-
-        # ── Send NPL notification email to each newly flagged customer ──────
-        npl_template = self.env.ref(
-            "alba_loans.email_template_loan_npl", raise_if_not_found=False
-        )
-        if npl_template:
-            for loan in newly_npl:
-                if loan.customer_id.email:
-                    try:
-                        npl_template.send_mail(loan.id, force_send=False)
-                    except Exception as exc:
-                        _logger.warning(
-                            "cron_flag_npl_loans: failed to send NPL email for %s: %s",
-                            loan.loan_number, exc,
-                        )
-
-        # Fire webhooks for newly flagged loans
-        if newly_npl:
-            self._fire_loan_status_webhooks(newly_npl, "loan.npl_flagged")
+        _logger.info("cron_flag_npl_loans: updated classifications for %d loan(s).", len(active_loans))
 
     # =========================================================================
     # Scheduled action (cron) — overdue payment alerts
@@ -1404,7 +1417,7 @@ class AlbaLoan(models.Model):
                 [
                     ("due_date", "=", target_date),
                     ("balance_due", ">", 0),
-                    ("loan_id.state", "in", ("active", "npl")),
+                    ("loan_id.state", "=", "active"),
                 ]
             )
             for schedule in overdue_schedules:
@@ -1498,7 +1511,7 @@ class AlbaLoan(models.Model):
         import logging as _logging
 
         _logger = _logging.getLogger(__name__)
-        candidates = self.search([("state", "in", ("active", "npl"))])
+        candidates = self.search([("state", "=", "active")])
         # Force recompute so we use fresh totals
         candidates._compute_financial_totals()
 
@@ -1543,29 +1556,29 @@ class AlbaLoan(models.Model):
 
         Metrics pushed:
           • total_active_loans
-          • total_disbursed (sum of principal_amount on active/npl loans)
+          • total_disbursed (sum of principal_amount on active loans)
           • total_outstanding (sum of outstanding_balance)
           • total_arrears
           • par_30  (outstanding balance of loans 1-30 days in arrears)
-          • par_90  (outstanding balance of loans >90 days in arrears)
-          • npl_count
+          • par_90  (outstanding balance of loans >90 days in arrears - Doubtful/Loss)
+          • npl_count (loans classified as substandard, doubtful or loss)
         """
         import logging as _logging
 
         _logger = _logging.getLogger(__name__)
 
-        active = self.search([("state", "in", ("active", "npl"))])
+        active = self.search([("state", "=", "active")])
         if not active:
             return
 
-        npl = active.filtered(lambda l: l.state == "npl")
-        par_30 = active.filtered(lambda l: l.par_bucket in ("1_30",))
+        npl = active.filtered(lambda l: l.classification in ("substandard", "doubtful", "loss"))
+        par_30 = active.filtered(lambda l: l.classification == "watch")
         par_90 = active.filtered(
-            lambda l: l.par_bucket in ("61_90", "91_180", "over_180")
+            lambda l: l.classification in ("doubtful", "loss")
         )
 
         stats = {
-            "total_active_loans": len(active.filtered(lambda l: l.state == "active")),
+            "total_active_loans": len(active),
             "total_disbursed": float(sum(active.mapped("principal_amount"))),
             "total_outstanding": float(sum(active.mapped("outstanding_balance"))),
             "total_arrears": float(sum(active.mapped("arrears_amount"))),
@@ -1676,7 +1689,7 @@ class AlbaLoan(models.Model):
     def action_create_loan_accounting_move(self):
         """Create accounting move for loan disbursement with currency integration"""
         for loan in self:
-            if loan.state not in ('active', 'npl'):
+            if loan.state != 'active':
                 raise UserError(_("Only active/disbursed loans can create accounting moves"))
             
             if not loan.journal_id:

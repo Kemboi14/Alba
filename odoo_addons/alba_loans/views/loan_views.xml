@@ -15,14 +15,13 @@
                     <button name="action_generate_schedule" string="Generate Schedule" type="object" class="btn-primary" invisible="schedule_generated == True" groups="alba_loans.group_loan_officer"/>
                     <button name="action_post_disbursement_entry" string="Post Disbursement Entry" type="object" class="btn-primary" invisible="disbursement_move_id != False" groups="account.group_account_manager"/>
                     <button name="action_post_interest_accrual_entry" string="Post Interest Accrual" type="object" class="btn-info" groups="account.group_account_manager"/>
-                    <button name="action_mark_npl" string="Mark as NPL" type="object" class="btn-warning" invisible="state != 'active'" groups="alba_loans.group_loan_manager"/>
                     <button name="action_close" string="Close Loan" type="object" class="btn-success" invisible="state != 'active'" groups="alba_loans.group_loan_manager"/>
-                    <button name="action_write_off" string="Write Off" type="object" class="btn-danger" invisible="state not in ('active','npl')" groups="alba_loans.group_loan_manager"/>
+                    <button name="action_write_off" string="Write Off" type="object" class="btn-danger" invisible="state != 'active'" groups="alba_loans.group_loan_manager"/>
                     <button name="action_full_repayment" string="Full Repayment" type="object" class="btn-success" invisible="state != 'active'" groups="alba_loans.group_loan_officer"/>
                     <button name="action_request_topup" string="Refinance / Top-Up" type="object" class="btn-primary" invisible="state != 'active'" groups="alba_loans.group_loan_officer"/>
                     <button name="action_calculate_partial_payoff" string="Calculate Partial Payoff" type="object" class="btn-primary" invisible="state != 'active'" groups="alba_loans.group_loan_officer"/>
                     <button name="action_sync_loan_currency_to_accounting" string="Sync Currency" type="object" class="btn-info" groups="alba_loans.group_loan_manager"/>
-                    <field name="state" widget="statusbar" statusbar_visible="active,npl,closed,written_off"/>
+                    <field name="state" widget="statusbar" statusbar_visible="active,closed,written_off"/>
                 </header>
 
                 <sheet>
@@ -54,7 +53,7 @@
                     </div>
 
                     <widget name="web_ribbon" title="Paid" bg_color="bg-success" invisible="state != 'closed'"/>
-                    <widget name="web_ribbon" title="NPL" bg_color="bg-danger" invisible="state != 'npl'"/>
+                    <widget name="web_ribbon" title="Written Off" bg_color="bg-danger" invisible="state != 'written_off'"/>
 
                     <div class="oe_title">
                         <label for="loan_number" string="Loan Account"/>
@@ -62,11 +61,12 @@
                             <field name="loan_number" readonly="1"/>
                         </h1>
                         <div class="o_row">
-                            <field name="par_bucket" invisible="1"/>
-                            <span class="badge text-bg-success" invisible="par_bucket != 'current'">
-                                <i class="fa fa-check-circle"/> Account Current
-                            </span>
-                            <span class="badge text-bg-danger" invisible="par_bucket == 'current'">
+                            <field name="classification" widget="badge" 
+                                   decoration-success="classification == 'normal'"
+                                   decoration-info="classification == 'watch'"
+                                   decoration-warning="classification == 'substandard'"
+                                   decoration-danger="classification in ('doubtful', 'loss')"/>
+                            <span class="badge text-bg-danger" invisible="days_in_arrears == 0">
                                 <i class="fa fa-warning" title="Warning"/> <field name="days_in_arrears"/> Days Overdue
                             </span>
                         </div>
@@ -74,24 +74,28 @@
 
                     <!-- ── Repayment Dashboard ────────────────────────── -->
                     <div class="row mt-4 mb-4 border rounded p-3 bg-light mx-0 shadow-sm">
-                        <div class="col-md-3 border-end text-center">
-                            <div class="text-muted small text-uppercase">Principal Amount</div>
+                        <div class="col-md-2 border-end text-center">
+                            <div class="text-muted small text-uppercase">Principal</div>
                             <div class="h4 mb-0 fw-bold"><field name="principal_amount" widget="monetary"/></div>
                         </div>
-                        <div class="col-md-3 border-end text-center text-info">
+                        <div class="col-md-2 border-end text-center text-info">
                             <div class="text-muted small text-uppercase">Net Disbursed</div>
                             <div class="h4 mb-0 fw-bold"><field name="net_disbursement_amount" widget="monetary"/></div>
                         </div>
-                        <div class="col-md-3 border-end text-center text-success">
+                        <div class="col-md-2 border-end text-center text-success">
                             <div class="text-muted small text-uppercase">Total Paid</div>
                             <div class="h4 mb-0 fw-bold"><field name="total_paid" widget="monetary"/></div>
                         </div>
-                        <div class="col-md-3 text-center text-primary">
+                        <div class="col-md-2 border-end text-center text-primary">
                             <div class="text-muted small text-uppercase">Outstanding</div>
                             <div class="h4 mb-0 fw-bold"><field name="outstanding_balance" widget="monetary"/></div>
                         </div>
-                        <div class="col-md-3 text-center">
-                            <div class="text-muted small text-uppercase">Collection Progress</div>
+                        <div class="col-md-2 border-end text-center text-danger">
+                            <div class="text-muted small text-uppercase">Provision (<field name="provision_rate"/>%)</div>
+                            <div class="h4 mb-0 fw-bold"><field name="provision_amount" widget="monetary"/></div>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <div class="text-muted small text-uppercase">Collection %</div>
                             <div class="mt-1">
                                 <field name="repayment_progress" widget="progressbar"/>
                             </div>
