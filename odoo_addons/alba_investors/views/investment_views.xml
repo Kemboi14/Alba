@@ -42,6 +42,12 @@
                             class="btn-warning"
                             invisible="not can_withdraw_now"
                             groups="alba_investors.group_investor_manager"/>
+                    <button name="action_pay_interest"
+                            string="Pay Accrued Interest"
+                            type="object"
+                            class="btn-success"
+                            invisible="state != 'active' or total_interest_accrued &lt;= 0"
+                            groups="alba_investors.group_investor_manager"/>
                     <button name="action_move_to_long_term"
                             string="Move to Long-term"
                             type="object"
@@ -82,6 +88,15 @@
                                 invisible="not accrual_count">
                             <div class="o_stat_info">
                                 <field name="accrual_count" widget="statinfo" string="Accruals"/>
+                            </div>
+                        </button>
+                        <button type="object"
+                                name="action_view_payouts"
+                                class="oe_stat_button"
+                                icon="fa-money"
+                                invisible="not payout_count">
+                            <div class="o_stat_info">
+                                <field name="payout_count" widget="statinfo" string="Payouts"/>
                             </div>
                         </button>
                     </div>

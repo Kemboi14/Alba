@@ -10,7 +10,11 @@
         <field name="model">alba.interest.accrual</field>
         <field name="type">list</field>
         <field name="arch" type="xml">
-            <list string="Interest Accruals" decoration-success="state == 'posted'" decoration-danger="state == 'reversed'" decoration-info="state == 'draft'">
+            <list string="Interest Accruals"
+                  decoration-success="state == 'posted'"
+                  decoration-danger="state == 'reversed'"
+                  decoration-info="state == 'draft'"
+                  decoration-muted="state == 'paid'">
                 <field name="accrual_date"/>
                 <field name="investment_id"/>
                 <field name="investment_product_id"/>
@@ -22,6 +26,7 @@
                 <field name="interest_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                 <field name="closing_balance" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                 <field name="state"/>
+                <field name="interest_payout_id" optional="show" string="Payout Ref"/>
                 <button name="action_post" string="Post" type="object" icon="fa-check" invisible="state != 'draft'" groups="alba_investors.group_investor_manager"/>
                 <button name="action_reverse" string="Reverse" type="object" icon="fa-undo" invisible="state != 'posted'" groups="alba_investors.group_investor_manager"/>
                 <button name="action_reset_to_draft" string="Reset to Draft" type="object" icon="fa-refresh" invisible="state != 'reversed'" groups="alba_investors.group_investor_manager"/>
@@ -42,7 +47,7 @@
                     <button name="action_post" string="Post" type="object" class="btn-primary" invisible="state != 'draft'" groups="alba_investors.group_investor_manager"/>
                     <button name="action_reverse" string="Reverse" type="object" class="btn-warning" invisible="state != 'posted'" groups="alba_investors.group_investor_manager"/>
                     <button name="action_reset_to_draft" string="Reset to Draft" type="object" class="btn-secondary" invisible="state != 'reversed'" groups="alba_investors.group_investor_manager"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,posted,reversed"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,posted,paid,reversed"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -94,6 +99,9 @@
                     <group string="Notes">
                         <field name="notes"/>
                         <field name="reversal_reason" invisible="state not in ('posted', 'reversed')"/>
+                        <field name="interest_payout_id" readonly="1"
+                               invisible="state != 'paid'"
+                               string="Payout Reference"/>
                     </group>
                 </sheet>
                 <div class="oe_chatter">
@@ -119,6 +127,7 @@
                 <field name="state"/>
                 <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
                 <filter name="posted" string="Posted" domain="[('state', '=', 'posted')]"/>
+                <filter name="paid" string="Paid Out" domain="[('state', '=', 'paid')]"/>
                 <filter name="reversed" string="Reversed" domain="[('state', '=', 'reversed')]"/>
                 <separator/>
                 <filter name="this_month" string="This Month" domain="[('accrual_date', '&gt;=', (context_today() - relativedelta(days=1)).replace(day=1)), ('accrual_date', '&lt;=', (context_today() + relativedelta(months=1, day=1)) - relativedelta(days=1))]"/>

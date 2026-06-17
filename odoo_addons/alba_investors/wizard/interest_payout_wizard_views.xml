@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_alba_interest_payout_wizard_form" model="ir.ui.view">
+        <field name="name">alba.interest.payout.wizard.form</field>
+        <field name="model">alba.interest.payout.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Pay Accrued Interest">
+                <sheet>
+
+                    <!-- Info banner -->
+                    <div class="alert alert-success d-flex align-items-center gap-3 mb-3"
+                         role="alert"
+                         style="border-left: 4px solid #28a745; border-radius: 6px; padding: 14px 18px;">
+                        <i class="fa fa-money fa-2x text-success me-3"/>
+                        <div class="flex-grow-1">
+                            <strong class="d-block" style="font-size: 1.1em;">
+                                Interest-Only Payout
+                            </strong>
+                            <span class="text-muted small">
+                                The principal remains intact and the investment stays <b>active</b>.
+                                Only the accrued interest is paid out to the investor.
+                            </span>
+                        </div>
+                    </div>
+
+                    <group>
+                        <group string="Investment">
+                            <field name="investment_id" readonly="1"/>
+                            <field name="investor_id" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="wht_rate" readonly="1" string="WHT Rate (%)"/>
+                        </group>
+                        <group string="Payment Parameters">
+                            <field name="journal_id" options="{'no_create': True}"/>
+                            <field name="payout_date"/>
+                        </group>
+                    </group>
+
+                    <!-- Accrual Selection -->
+                    <group string="Accrual Selection">
+                        <field name="pay_all" widget="boolean_toggle"/>
+                        <field name="selected_accrual_ids"
+                               widget="many2many_tags"
+                               invisible="pay_all"
+                               options="{'no_create': True}"
+                               domain="[('investment_id', '=', investment_id), ('state', '=', 'posted')]"/>
+                    </group>
+
+                    <!-- Accrual detail table (shown when not pay_all) -->
+                    <field name="selected_accrual_ids"
+                           mode="list"
+                           invisible="pay_all"
+                           nolabel="1"
+                           string="Selected Accruals">
+                        <list string="Accruals to Pay" editable="bottom">
+                            <field name="accrual_date"/>
+                            <field name="period_start"/>
+                            <field name="period_end"/>
+                            <field name="opening_balance" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}"/>
+                            <field name="interest_amount" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}"
+                                   sum="Total"/>
+                            <field name="state" widget="badge"
+                                   decoration-success="state == 'posted'"/>
+                            <field name="currency_id" invisible="1"/>
+                        </list>
+                    </field>
+
+                    <!-- Payout Summary -->
+                    <group string="Payout Summary">
+                        <group>
+                            <field name="gross_interest" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}" readonly="1"/>
+                            <field name="wht_amount" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}"
+                                   readonly="1" class="text-danger"/>
+                        </group>
+                        <group>
+                            <field name="net_interest_payable" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}"
+                                   readonly="1" class="h4 fw-bold text-success"/>
+                        </group>
+                    </group>
+
+                    <!-- Journal Entries Preview -->
+                    <div class="alert alert-info mt-3" role="alert"
+                         style="font-size:0.88em; border-radius:6px; padding: 10px 14px;">
+                        <strong>Journal Entries that will be posted:</strong><br/>
+                        <code>
+                            DR Interest Payable &#160;&#160;&#160;&#160; [net interest] &#160;&#160; -- cleared via payment<br/>
+                            CR Bank / Cash &#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; [net interest] &#160;&#160; -- paid to investor<br/>
+                            DR Interest Payable &#160;&#160;&#160;&#160; [WHT amount] &#160;&#160;&#160; -- cleared WHT portion<br/>
+                            CR WHT Payable &#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; [WHT amount] &#160;&#160;&#160; -- KRA liability
+                        </code>
+                    </div>
+
+                    <group string="Notes">
+                        <field name="notes" nolabel="1" placeholder="Optional notes for this payout…"/>
+                    </group>
+
+                </sheet>
+                <footer>
+                    <button name="action_confirm_payout"
+                            string="Confirm Payout"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

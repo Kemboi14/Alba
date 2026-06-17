@@ -54,6 +54,13 @@
               sequence="20"
               groups="alba_investors.group_investor_officer"/>
 
+    <menuitem id="menu_alba_investors_interest_payouts"
+              name="Interest Payouts"
+              parent="menu_alba_investors_investments_root"
+              action="action_alba_interest_payout"
+              sequence="30"
+              groups="alba_investors.group_investor_officer"/>
+
     <!-- ================================================================
          4. Statements
          ================================================================ -->

@@ -149,6 +149,10 @@ class AlbaInvestment(models.Model):
         string="Accruals",
         compute="_compute_accrual_count",
     )
+    payout_count = fields.Integer(
+        string="Interest Payouts",
+        compute="_compute_payout_count",
+    )
     statement_count = fields.Integer(
         string="Number of Statements",
         compute="_compute_statement_count",
@@ -365,9 +369,11 @@ class AlbaInvestment(models.Model):
     def _compute_financials(self):
         for rec in self:
             posted_accruals = rec.accrual_ids.filtered(lambda a: a.state == "posted")
+            paid_accruals = rec.accrual_ids.filtered(lambda a: a.state == "paid")
             total_accrued = sum(posted_accruals.mapped("interest_amount"))
+            total_paid = sum(paid_accruals.mapped("interest_amount"))
             rec.total_interest_accrued = total_accrued
-            rec.total_interest_paid = 0.0
+            rec.total_interest_paid = total_paid
             rec.current_value = rec.principal_amount + total_accrued
 
     # IMPORT-EXPORT FIX: no-op inverses — import can write these fields; compute resets them on trigger
@@ -390,6 +396,12 @@ class AlbaInvestment(models.Model):
     def _compute_accrual_count(self):
         for rec in self:
             rec.accrual_count = len(rec.accrual_ids)
+
+    def _compute_payout_count(self):
+        for rec in self:
+            rec.payout_count = self.env["alba.interest.payout"].search_count(
+                [("investment_id", "=", rec.id)]
+            )
 
     def _compute_statement_count(self):
         for rec in self:
@@ -649,6 +661,39 @@ class AlbaInvestment(models.Model):
             "view_mode": "list,form",
             "domain": [("investment_id", "=", self.id)],
             "context": {"default_investment_id": self.id},
+        }
+
+    def action_view_payouts(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Interest Payouts - %s") % self.investment_number,
+            "res_model": "alba.interest.payout",
+            "view_mode": "list,form",
+            "domain": [("investment_id", "=", self.id)],
+            "context": {"default_investment_id": self.id},
+        }
+
+    def action_pay_interest(self):
+        """Open the interest-only payout wizard."""
+        self.ensure_one()
+        if self.state != "active":
+            raise UserError(_("Only active investments can pay out interest."))
+        posted_accruals = self.accrual_ids.filtered(lambda a: a.state == "posted")
+        if not posted_accruals:
+            raise UserError(_(
+                "There is no posted (unpaid) accrued interest on this investment. "
+                "Please run the monthly accrual first."
+            ))
+        return {
+            "name": _("Pay Accrued Interest"),
+            "type": "ir.actions.act_window",
+            "res_model": "alba.interest.payout.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_investment_id": self.id,
+            },
         }
 
     def action_withdraw(self):

@@ -108,6 +108,7 @@ class AlbaInterestAccrual(models.Model):
         selection=[
             ("draft", "Draft"),
             ("posted", "Posted"),
+            ("paid", "Paid Out"),
             ("reversed", "Reversed"),
         ],
         string="Status",
@@ -116,6 +117,15 @@ class AlbaInterestAccrual(models.Model):
         tracking=True,
         copy=False,
         index=True,
+    )
+
+    # ── Payout Link ───────────────────────────────────────────────────────────
+    interest_payout_id = fields.Many2one(
+        "alba.interest.payout",
+        string="Interest Payout",
+        readonly=True,
+        copy=False,
+        help="The interest payout that cleared this accrual.",
     )
 
     # ── Accounting ────────────────────────────────────────────────────────────
@@ -439,7 +449,7 @@ class AlbaInterestAccrual(models.Model):
     def action_reverse(self):
         """Reverse a posted accrual and its journal entry."""
         self.ensure_one()
-        if self.state != "posted":
+        if self.state not in ("posted",):
             raise UserError(_("Only posted accruals can be reversed."))
         if not self.reversal_reason:
             return {

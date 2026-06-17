@@ -45,5 +45,18 @@
             <field name="company_id" ref="base.main_company"/>
         </record>
 
+        <!-- Interest Payout Reference: IPAY/2025/0001 -->
+        <record id="seq_alba_interest_payout" model="ir.sequence">
+            <field name="name">Alba Interest Payout Reference</field>
+            <field name="code">alba.interest.payout.seq</field>
+            <field name="prefix">IPAY/%(year)s/</field>
+            <field name="suffix"></field>
+            <field name="padding">4</field>
+            <field name="number_increment">1</field>
+            <field name="number_next">1</field>
+            <field name="use_date_range">False</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
     </data>
 </odoo>
