@@ -254,7 +254,36 @@ class AlbaGenerateStatementWizard(models.TransientModel):
                 )
                 total_interest = sum(accruals.mapped("interest_amount"))
 
-                # ── Opening balance ───────────────────────────────────────────
+                # Top-ups in this period
+                topups = self.env["alba.investment.topup"].search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("date", ">=", self.period_start),
+                        ("date", "<=", self.period_end),
+                    ]
+                )
+                total_deposits = sum(topups.mapped("amount"))
+
+                # Payouts (withdrawals) in this period
+                payouts = self.env["alba.interest.payout"].search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("payout_date", ">=", self.period_start),
+                        ("payout_date", "<=", self.period_end),
+                    ]
+                )
+                total_withdrawals = sum(payouts.mapped("gross_interest"))
+
+                # Prior elements for opening balance
+                prior_topups = self.env["alba.investment.topup"].search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("date", "<", self.period_start),
+                    ]
+                )
                 prior_accruals = Accrual.search(
                     [
                         ("investment_id", "=", inv.id),
@@ -262,8 +291,19 @@ class AlbaGenerateStatementWizard(models.TransientModel):
                         ("accrual_date", "<", self.period_start),
                     ]
                 )
-                opening_balance = inv.principal_amount + sum(
-                    prior_accruals.mapped("interest_amount")
+                prior_payouts = self.env["alba.interest.payout"].search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("payout_date", "<", self.period_start),
+                    ]
+                )
+
+                opening_balance = (
+                    inv.principal_amount
+                    + sum(prior_topups.mapped("amount"))
+                    + sum(prior_accruals.mapped("interest_amount"))
+                    - sum(prior_payouts.mapped("gross_interest"))
                 )
 
                 # ── Create statement ──────────────────────────────────────────
@@ -273,11 +313,14 @@ class AlbaGenerateStatementWizard(models.TransientModel):
                     "period_start": self.period_start,
                     "period_end": self.period_end,
                     "opening_balance": opening_balance,
+                    "deposits": total_deposits,
+                    "withdrawals": total_withdrawals,
                     "interest_accrued": total_interest,
                     "accrual_ids": [(6, 0, accruals.ids)],
                 }
                 stmt = Statement.create(stmt_vals)
                 created_statements |= stmt
+
 
                 # ── Auto-confirm ──────────────────────────────────────────────
                 if self.auto_confirm:

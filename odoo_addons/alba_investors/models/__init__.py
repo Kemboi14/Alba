@@ -5,6 +5,7 @@ from . import (
     interest_payout,
     investment_product,
     investment,
+    investment_topup,
     investment_statement,
     investor,
     investor_dashboard,

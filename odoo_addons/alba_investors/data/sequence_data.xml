@@ -58,5 +58,18 @@
             <field name="company_id" ref="base.main_company"/>
         </record>
 
+        <!-- Investment Top-Up Reference: TUP/2025/0001 -->
+        <record id="seq_alba_investment_topup" model="ir.sequence">
+            <field name="name">Alba Investment Top-Up Reference</field>
+            <field name="code">alba.investment.topup.seq</field>
+            <field name="prefix">TUP/%(year)s/</field>
+            <field name="suffix"></field>
+            <field name="padding">4</field>
+            <field name="number_increment">1</field>
+            <field name="number_next">1</field>
+            <field name="use_date_range">False</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
     </data>
 </odoo>

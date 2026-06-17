@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- ================================================================
+         Interest Payout Wizard — Updated with Partial Payout Mode
+         ================================================================ -->
     <record id="view_alba_interest_payout_wizard_form" model="ir.ui.view">
         <field name="name">alba.interest.payout.wizard.form</field>
         <field name="model">alba.interest.payout.wizard</field>
@@ -17,8 +20,9 @@
                                 Interest-Only Payout
                             </strong>
                             <span class="text-muted small">
-                                The principal remains intact and the investment stays <b>active</b>.
-                                Only the accrued interest is paid out to the investor.
+                                The <b>principal remains intact</b> and the investment stays <b>active</b>.
+                                Journal: <code>DR Interest Payable / CR Bank</code> (net) +
+                                <code>DR Interest Payable / CR WHT Payable</code> (tax).
                             </span>
                         </div>
                     </div>
@@ -29,6 +33,9 @@
                             <field name="investor_id" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                             <field name="wht_rate" readonly="1" string="WHT Rate (%)"/>
+                            <field name="total_outstanding" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}"
+                                   readonly="1" string="Total Outstanding Interest"/>
                         </group>
                         <group string="Payment Parameters">
                             <field name="journal_id" options="{'no_create': True}"/>
@@ -36,23 +43,28 @@
                         </group>
                     </group>
 
-                    <!-- Accrual Selection -->
-                    <group string="Accrual Selection">
-                        <field name="pay_all" widget="boolean_toggle"/>
+                    <!-- Payout Mode Selector -->
+                    <group string="Payout Mode">
+                        <field name="payout_mode" widget="radio"/>
+                    </group>
+
+                    <!-- Select Months: accrual picker (only for 'select' mode) -->
+                    <group string="Select Accrual Periods"
+                           invisible="payout_mode != 'select'">
                         <field name="selected_accrual_ids"
                                widget="many2many_tags"
-                               invisible="pay_all"
+                               nolabel="1"
                                options="{'no_create': True}"
                                domain="[('investment_id', '=', investment_id), ('state', '=', 'posted')]"/>
                     </group>
 
-                    <!-- Accrual detail table (shown when not pay_all) -->
+                    <!-- Selected accrual detail table -->
                     <field name="selected_accrual_ids"
                            mode="list"
-                           invisible="pay_all"
+                           invisible="payout_mode != 'select'"
                            nolabel="1"
-                           string="Selected Accruals">
-                        <list string="Accruals to Pay" editable="bottom">
+                           string="Accruals to Pay in Full">
+                        <list string="Accruals to Pay">
                             <field name="accrual_date"/>
                             <field name="period_start"/>
                             <field name="period_end"/>
@@ -67,6 +79,24 @@
                         </list>
                     </field>
 
+                    <!-- Partial amount entry -->
+                    <group string="Custom Payout Amount"
+                           invisible="payout_mode != 'partial'">
+                        <field name="custom_gross_amount" widget="monetary"
+                               options="{'currency_field': 'currency_id'}"
+                               string="Gross Amount to Pay"/>
+                        <div class="text-muted small" colspan="2"
+                             invisible="payout_mode != 'partial'">
+                            Maximum payable: <field name="total_outstanding"
+                                                    widget="monetary"
+                                                    options="{'currency_field': 'currency_id'}"
+                                                    readonly="1" nolabel="1"
+                                                    class="d-inline"/>
+                            -- Accrual records will remain in <b>Posted</b> state;
+                            only the payout amount is recorded.
+                        </div>
+                    </group>
+
                     <!-- Payout Summary -->
                     <group string="Payout Summary">
                         <group>
@@ -79,24 +109,14 @@
                         <group>
                             <field name="net_interest_payable" widget="monetary"
                                    options="{'currency_field': 'currency_id'}"
-                                   readonly="1" class="h4 fw-bold text-success"/>
+                                   readonly="1" class="h4 fw-bold text-success"
+                                   string="Net Amount Paid to Investor"/>
                         </group>
                     </group>
 
-                    <!-- Journal Entries Preview -->
-                    <div class="alert alert-info mt-3" role="alert"
-                         style="font-size:0.88em; border-radius:6px; padding: 10px 14px;">
-                        <strong>Journal Entries that will be posted:</strong><br/>
-                        <code>
-                            DR Interest Payable &#160;&#160;&#160;&#160; [net interest] &#160;&#160; -- cleared via payment<br/>
-                            CR Bank / Cash &#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; [net interest] &#160;&#160; -- paid to investor<br/>
-                            DR Interest Payable &#160;&#160;&#160;&#160; [WHT amount] &#160;&#160;&#160; -- cleared WHT portion<br/>
-                            CR WHT Payable &#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; [WHT amount] &#160;&#160;&#160; -- KRA liability
-                        </code>
-                    </div>
-
                     <group string="Notes">
-                        <field name="notes" nolabel="1" placeholder="Optional notes for this payout…"/>
+                        <field name="notes" nolabel="1"
+                               placeholder="Optional notes for this payout…"/>
                     </group>
 
                 </sheet>

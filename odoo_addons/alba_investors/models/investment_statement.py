@@ -323,16 +323,57 @@ class AlbaInvestmentStatement(models.Model):
                 ]
             )
             total_interest = sum(accruals.mapped("interest_amount"))
-            opening_balance = inv.principal_amount + sum(
-                self.env["alba.interest.accrual"]
-                .search(
-                    [
-                        ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
-                        ("accrual_date", "<", period_start),
-                    ]
-                )
-                .mapped("interest_amount")
+
+            # Top-ups in this period
+            topups = self.env["alba.investment.topup"].search(
+                [
+                    ("investment_id", "=", inv.id),
+                    ("state", "=", "posted"),
+                    ("date", ">=", period_start),
+                    ("date", "<=", period_end),
+                ]
+            )
+            total_deposits = sum(topups.mapped("amount"))
+
+            # Payouts (withdrawals) in this period
+            payouts = self.env["alba.interest.payout"].search(
+                [
+                    ("investment_id", "=", inv.id),
+                    ("state", "=", "posted"),
+                    ("payout_date", ">=", period_start),
+                    ("payout_date", "<=", period_end),
+                ]
+            )
+            total_withdrawals = sum(payouts.mapped("gross_interest"))
+
+            # Prior elements for opening balance
+            prior_topups = self.env["alba.investment.topup"].search(
+                [
+                    ("investment_id", "=", inv.id),
+                    ("state", "=", "posted"),
+                    ("date", "<", period_start),
+                ]
+            )
+            prior_accruals = self.env["alba.interest.accrual"].search(
+                [
+                    ("investment_id", "=", inv.id),
+                    ("state", "=", "posted"),
+                    ("accrual_date", "<", period_start),
+                ]
+            )
+            prior_payouts = self.env["alba.interest.payout"].search(
+                [
+                    ("investment_id", "=", inv.id),
+                    ("state", "=", "posted"),
+                    ("payout_date", "<", period_start),
+                ]
+            )
+
+            opening_balance = (
+                inv.principal_amount
+                + sum(prior_topups.mapped("amount"))
+                + sum(prior_accruals.mapped("interest_amount"))
+                - sum(prior_payouts.mapped("gross_interest"))
             )
 
             stmt_vals = {
@@ -341,6 +382,8 @@ class AlbaInvestmentStatement(models.Model):
                 "period_start": period_start,
                 "period_end": period_end,
                 "opening_balance": opening_balance,
+                "deposits": total_deposits,
+                "withdrawals": total_withdrawals,
                 "interest_accrued": total_interest,
                 "accrual_ids": [(6, 0, accruals.ids)],
             }
@@ -416,16 +459,57 @@ class AlbaInvestmentStatement(models.Model):
                     ]
                 )
                 total_interest = sum(accruals.mapped("interest_amount"))
-                opening_balance = inv.principal_amount + sum(
-                    self.env["alba.interest.accrual"]
-                    .search(
-                        [
-                            ("investment_id", "=", inv.id),
-                            ("state", "=", "posted"),
-                            ("accrual_date", "<", period_start),
-                        ]
-                    )
-                    .mapped("interest_amount")
+
+                # Top-ups in this period
+                topups = self.env["alba.investment.topup"].search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("date", ">=", period_start),
+                        ("date", "<=", period_end),
+                    ]
+                )
+                total_deposits = sum(topups.mapped("amount"))
+
+                # Payouts (withdrawals) in this period
+                payouts = self.env["alba.interest.payout"].search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("payout_date", ">=", period_start),
+                        ("payout_date", "<=", period_end),
+                    ]
+                )
+                total_withdrawals = sum(payouts.mapped("gross_interest"))
+
+                # Prior elements for opening balance
+                prior_topups = self.env["alba.investment.topup"].search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("date", "<", period_start),
+                    ]
+                )
+                prior_accruals = self.env["alba.interest.accrual"].search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("accrual_date", "<", period_start),
+                    ]
+                )
+                prior_payouts = self.env["alba.interest.payout"].search(
+                    [
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("payout_date", "<", period_start),
+                    ]
+                )
+
+                opening_balance = (
+                    inv.principal_amount
+                    + sum(prior_topups.mapped("amount"))
+                    + sum(prior_accruals.mapped("interest_amount"))
+                    - sum(prior_payouts.mapped("gross_interest"))
                 )
 
                 stmt_vals = {
@@ -434,6 +518,8 @@ class AlbaInvestmentStatement(models.Model):
                     "period_start": period_start,
                     "period_end": period_end,
                     "opening_balance": opening_balance,
+                    "deposits": total_deposits,
+                    "withdrawals": total_withdrawals,
                     "interest_accrued": total_interest,
                     "accrual_ids": [(6, 0, accruals.ids)],
                 }

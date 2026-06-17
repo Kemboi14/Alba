@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+    <!-- ================================================================
+         alba.investment.topup — List View
+         ================================================================ -->
+    <record id="view_alba_investment_topup_list" model="ir.ui.view">
+        <field name="name">alba.investment.topup.list</field>
+        <field name="model">alba.investment.topup</field>
+        <field name="type">list</field>
+        <field name="arch" type="xml">
+            <list string="Investment Top-Ups"
+                  decoration-success="state == 'posted'"
+                  decoration-muted="state == 'draft'">
+                <field name="name"/>
+                <field name="investment_id"/>
+                <field name="investor_id"/>
+                <field name="date"/>
+                <field name="currency_id" optional="hide"/>
+                <field name="amount" widget="monetary"
+                       options="{'currency_field': 'currency_id'}"
+                       sum="Total Top-Ups"/>
+                <field name="journal_id" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'posted'"
+                       decoration-info="state == 'draft'"/>
+                <button name="action_post" string="Post" type="object"
+                        icon="fa-check" invisible="state != 'draft'"
+                        groups="alba_investors.group_investor_manager"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         alba.investment.topup — Form View
+         ================================================================ -->
+    <record id="view_alba_investment_topup_form" model="ir.ui.view">
+        <field name="name">alba.investment.topup.form</field>
+        <field name="model">alba.investment.topup</field>
+        <field name="type">form</field>
+        <field name="arch" type="xml">
+            <form string="Investment Top-Up">
+                <header>
+                    <button name="action_post"
+                            string="Post"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'draft'"
+                            groups="alba_investors.group_investor_manager"/>
+                    <button name="action_reset_to_draft"
+                            string="Reset to Draft"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state != 'posted'"
+                            groups="alba_investors.group_investor_manager"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,posted"/>
+                </header>
+                <sheet>
+
+                    <!-- Smart buttons -->
+                    <div class="oe_button_box" name="button_box">
+                        <button type="object"
+                                name="action_view_payment"
+                                class="oe_stat_button"
+                                icon="fa-credit-card"
+                                invisible="not payment_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Receipt</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="oe_title">
+                        <label for="name" string="Top-Up Reference"/>
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group string="Investment Details">
+                            <field name="investment_id" readonly="1"
+                                   options="{'no_create': True}"/>
+                            <field name="investor_id" readonly="1"/>
+                            <field name="currency_id" readonly="1"/>
+                            <field name="company_id" readonly="1" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="Top-Up Details">
+                            <field name="date" readonly="state == 'posted'"/>
+                            <field name="amount" widget="monetary" readonly="state == 'posted'"/>
+                            <field name="journal_id" readonly="state == 'posted'"
+                                   options="{'no_create': True}"/>
+                        </group>
+                    </group>
+
+                    <group string="Journal Entry" groups="account.group_account_user"
+                           invisible="state == 'draft'">
+                        <field name="payment_id" readonly="1"/>
+                    </group>
+
+                    <group string="Notes">
+                        <field name="notes" nolabel="1"
+                               placeholder="Internal notes…"/>
+                    </group>
+
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         alba.investment.topup — Search View
+         ================================================================ -->
+    <record id="view_alba_investment_topup_search" model="ir.ui.view">
+        <field name="name">alba.investment.topup.search</field>
+        <field name="model">alba.investment.topup</field>
+        <field name="type">search</field>
+        <field name="arch" type="xml">
+            <search string="Investment Top-Ups">
+                <field name="name"/>
+                <field name="investment_id"/>
+                <field name="investor_id"/>
+                <field name="date"/>
+                <separator/>
+                <filter name="posted" string="Posted" domain="[('state', '=', 'posted')]"/>
+                <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <separator/>
+                <filter name="this_month" string="This Month"
+                        domain="[('date', '&gt;=', (context_today()).replace(day=1))]"/>
+                <group>
+                    <filter name="group_investor" string="Investor"
+                            context="{'group_by': 'investor_id'}"/>
+                    <filter name="group_investment" string="Investment"
+                            context="{'group_by': 'investment_id'}"/>
+                    <filter name="group_month" string="Month"
+                            context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         alba.investment.topup — Action Window
+         ================================================================ -->
+    <record id="action_alba_investment_topup" model="ir.actions.act_window">
+        <field name="name">Investment Top-Ups</field>
+        <field name="res_model">alba.investment.topup</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No top-ups recorded yet
+            </p>
+            <p>
+                Click <b>Top Up</b> on an active investment to record an
+                incremental deposit. The funds are added to the investment
+                balance and earn interest from the next cycle.
+            </p>
+        </field>
+    </record>
+
+</data>
+</odoo>

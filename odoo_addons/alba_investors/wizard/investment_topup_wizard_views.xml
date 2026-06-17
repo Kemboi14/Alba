@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================
+         Investment Top-Up Wizard
+         ================================================================ -->
+    <record id="view_alba_investment_topup_wizard_form" model="ir.ui.view">
+        <field name="name">alba.investment.topup.wizard.form</field>
+        <field name="model">alba.investment.topup.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Top-Up Investment">
+                <sheet>
+
+                    <!-- Info banner -->
+                    <div class="alert alert-primary d-flex align-items-center gap-3 mb-3"
+                         role="alert"
+                         style="border-left: 4px solid #0d6efd; border-radius: 6px; padding: 14px 18px;">
+                        <i class="fa fa-arrow-up fa-2x text-primary me-3"/>
+                        <div class="flex-grow-1">
+                            <strong class="d-block" style="font-size: 1.1em;">
+                                Incremental Deposit (Top-Up)
+                            </strong>
+                            <span class="text-muted small">
+                                The new funds will be added to the investment balance and
+                                <b>earn interest from the next accrual cycle.</b>
+                                Journal entry: <code>DR Bank / CR Investment Liability</code>
+                            </span>
+                        </div>
+                    </div>
+
+                    <group>
+                        <group string="Investment">
+                            <field name="investment_id" readonly="1"/>
+                            <field name="investor_id" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="current_principal" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}" readonly="1"/>
+                            <field name="total_topup_amount" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}" readonly="1"
+                                   string="Previous Top-Ups"/>
+                            <field name="effective_principal" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}" readonly="1"
+                                   class="fw-bold"/>
+                        </group>
+                        <group string="Top-Up Details">
+                            <field name="amount" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}"/>
+                            <field name="date"/>
+                            <field name="journal_id" options="{'no_create': True}"/>
+                            <field name="new_effective_principal" widget="monetary"
+                                   options="{'currency_field': 'currency_id'}" readonly="1"
+                                   class="h5 fw-bold text-primary"
+                                   string="New Effective Principal (After Top-Up)"/>
+                        </group>
+                    </group>
+
+                    <group string="Notes">
+                        <field name="notes" nolabel="1"
+                               placeholder="Optional notes for this top-up…"/>
+                    </group>
+
+                </sheet>
+                <footer>
+                    <button name="action_confirm"
+                            string="Confirm Top-Up"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

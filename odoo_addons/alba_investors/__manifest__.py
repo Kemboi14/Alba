@@ -49,6 +49,7 @@ Manages the full investor lifecycle:
         "wizard/investment_withdraw_wizard_views.xml",
         "wizard/accrual_reverse_wizard_views.xml",
         "wizard/interest_payout_wizard_views.xml",
+        "wizard/investment_topup_wizard_views.xml",
         # Views
         "views/investor_views.xml",
         "views/investment_statement_views.xml",
@@ -56,6 +57,7 @@ Manages the full investor lifecycle:
         "views/investment_views.xml",
         "views/interest_accrual_views.xml",
         "views/interest_payout_views.xml",
+        "views/investment_topup_views.xml",
         "views/currency_sync_views.xml",
         "views/investor_dashboard_views.xml",
         # Menus last

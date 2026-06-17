@@ -48,6 +48,12 @@
                             class="btn-success"
                             invisible="state != 'active' or total_interest_accrued &lt;= 0"
                             groups="alba_investors.group_investor_manager"/>
+                    <button name="action_topup"
+                            string="Top Up"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'active'"
+                            groups="alba_investors.group_investor_manager"/>
                     <button name="action_move_to_long_term"
                             string="Move to Long-term"
                             type="object"
@@ -99,6 +105,15 @@
                                 <field name="payout_count" widget="statinfo" string="Payouts"/>
                             </div>
                         </button>
+                        <button type="object"
+                                name="action_view_topups"
+                                class="oe_stat_button"
+                                icon="fa-arrow-up"
+                                invisible="not topup_count">
+                            <div class="o_stat_info">
+                                <field name="topup_count" widget="statinfo" string="Top-Ups"/>
+                            </div>
+                        </button>
                     </div>
 
                     <widget name="web_ribbon" title="Draft" bg_color="bg-secondary" invisible="state != 'draft'"/>
@@ -121,15 +136,19 @@
 
                     <!-- ── Investment Snapshot Dashboard ────────────────── -->
                     <div class="row mt-4 mb-4 border rounded p-3 bg-light mx-0 shadow-sm">
-                        <div class="col-md-4 border-end text-center">
+                        <div class="col-md-3 border-end text-center">
                             <div class="text-muted small text-uppercase">Initial Investment</div>
                             <div class="h4 mb-0 fw-bold"><field name="principal_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/></div>
                         </div>
-                        <div class="col-md-4 border-end text-center text-success">
+                        <div class="col-md-3 border-end text-center text-info">
+                            <div class="text-muted small text-uppercase">Total Top-Ups</div>
+                            <div class="h4 mb-0 fw-bold">+ <field name="total_topup_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/></div>
+                        </div>
+                        <div class="col-md-3 border-end text-center text-success">
                             <div class="text-muted small text-uppercase">Total Accrued</div>
                             <div class="h4 mb-0 fw-bold">+ <field name="total_interest_accrued" widget="monetary" options="{'currency_field': 'currency_id'}"/></div>
                         </div>
-                        <div class="col-md-4 text-center text-primary">
+                        <div class="col-md-3 text-center text-primary">
                             <div class="text-muted small text-uppercase">Current Portfolio</div>
                             <div class="h4 mb-0 fw-bold"><field name="current_value" widget="monetary" options="{'currency_field': 'currency_id'}"/></div>
                         </div>
@@ -171,6 +190,17 @@
                                     <field name="interest_amount" sum="Total Accrued"/>
                                     <field name="closing_balance"/>
                                     <field name="state" widget="badge" decoration-success="state == 'posted'"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Top-Ups" name="topups">
+                            <field name="topup_ids" mode="list">
+                                <list string="Top-Ups" decoration-success="state == 'posted'" decoration-muted="state == 'draft'">
+                                    <field name="name"/>
+                                    <field name="date"/>
+                                    <field name="amount" widget="monetary" sum="Total Top-Ups"/>
+                                    <field name="journal_id"/>
+                                    <field name="state" widget="badge" decoration-success="state == 'posted'" decoration-info="state == 'draft'"/>
                                 </list>
                             </field>
                         </page>
