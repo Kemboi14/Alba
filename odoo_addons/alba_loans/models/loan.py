@@ -46,6 +46,7 @@ class AlbaLoan(models.Model):
         store=True,
         index=True,
         readonly=False,
+        inverse="_inverse_noop",
     )
     loan_product_id = fields.Many2one(
         "alba.loan.product",
@@ -131,6 +132,7 @@ class AlbaLoan(models.Model):
         string="Maturity Date",
         compute="_compute_maturity_date",
         store=True,
+        inverse="_inverse_noop",
     )
 
     # ── State ─────────────────────────────────────────────────────────────────
@@ -146,6 +148,7 @@ class AlbaLoan(models.Model):
         ],
         string="Loan Status",
         compute="_compute_state",
+        inverse="_inverse_noop",
         store=True,
         required=True,
         index=True,
@@ -154,11 +157,13 @@ class AlbaLoan(models.Model):
     provision_rate = fields.Float(
         string="Provision Rate (%)",
         compute="_compute_state",
+        inverse="_inverse_noop",
         store=True,
     )
     provision_amount = fields.Monetary(
         string="Provision Amount",
         compute="_compute_state",
+        inverse="_inverse_noop",
         store=True,
         currency_field="currency_id",
     )

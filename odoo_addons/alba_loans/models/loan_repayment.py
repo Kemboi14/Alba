@@ -40,6 +40,7 @@ class AlbaLoanRepayment(models.Model):
         store=True,
         readonly=False,
         index=True,
+        inverse="_inverse_noop",
     )
     partner_id = fields.Many2one(
         "res.partner",
@@ -47,6 +48,7 @@ class AlbaLoanRepayment(models.Model):
         related="loan_id.customer_id.partner_id",
         store=True,
         readonly=False,
+        inverse="_inverse_noop",
     )
     loan_product_id = fields.Many2one(
         "alba.loan.product",
@@ -54,6 +56,7 @@ class AlbaLoanRepayment(models.Model):
         related="loan_id.loan_product_id",
         store=True,
         readonly=False,
+        inverse="_inverse_noop",
     )
 
     # ── Payment Details ───────────────────────────────────────────────────────
@@ -94,6 +97,7 @@ class AlbaLoanRepayment(models.Model):
         currency_field="currency_id",
         compute="_compute_total_allocated",
         store=True,
+        inverse="_inverse_noop",
     )
     unallocated_amount = fields.Monetary(
         string="Unallocated Amount",
@@ -101,7 +105,12 @@ class AlbaLoanRepayment(models.Model):
         compute="_compute_total_allocated",
         store=True,
         help="Difference between amount paid and total allocation across components.",
+        inverse="_inverse_noop",
     )
+
+    def _inverse_noop(self):
+        """No-op inverse for import-export compatibility of computed fields."""
+        pass
 
     # ── Payment Method ────────────────────────────────────────────────────────
     payment_method = fields.Selection(
