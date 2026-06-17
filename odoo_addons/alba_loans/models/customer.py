@@ -13,6 +13,7 @@ class AlbaCustomer(models.Model):
     _name = "alba.customer"
     _description = "Alba Capital Customer"
     _inherit = ["mail.thread", "mail.activity.mixin"]
+    _rec_name = "id_number"   # Export writes id_number; import resolves by id_number
     _order = "create_date desc"
 
     # ── Partner link ─────────────────────────────────────────────────────────
@@ -421,25 +422,6 @@ class AlbaCustomer(models.Model):
                      limit=None, order=None):
         domain = domain or []
         if name:
-            # Try exact id_number match first — most reliable
-            exact_id = self._search(
-                [("id_number", "=", name)] + domain,
-                limit=1,
-                order="id asc",
-            )
-            if exact_id:
-                return exact_id
-
-            # Try exact partner name match
-            exact_name = self._search(
-                [("partner_id.name", "=", name)] + domain,
-                limit=1,
-                order="id asc",
-            )
-            if exact_name:
-                return exact_name
-
-            # Fall back to ilike search on both fields
             return self._search(
                 ["|",
                  ("id_number", operator, name),
@@ -632,10 +614,9 @@ class AlbaCustomer(models.Model):
             self.company_id = company_id
     
     def name_get(self):
+        # _rec_name = 'id_number' handles export/import resolution.
+        # name_get() returns the partner name so the UI stays readable.
         return [
-            (rec.id,
-             rec.id_number
-             or rec.partner_id.name
-             or _("New Customer"))
+            (rec.id, rec.partner_id.name or _("New Customer"))
             for rec in self
         ]
