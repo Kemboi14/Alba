@@ -15,7 +15,7 @@ class AlbaInterestPayout(models.Model):
         string="Reference",
         required=True,
         copy=False,
-        readonly=True,
+        readonly=False,  # IMPORT-FIX: make writable for import matching
         default=lambda self: _("New"),
         index=True,
         tracking=True,
@@ -35,7 +35,8 @@ class AlbaInterestPayout(models.Model):
         string="Investor",
         related="investment_id.investor_id",
         store=True,
-        readonly=True,
+        readonly=False,  # IMPORT-FIX: make writable for import mapping
+        inverse="_inverse_readonly_import",
         index=True,
     )
     partner_id = fields.Many2one(
@@ -143,6 +144,10 @@ class AlbaInterestPayout(models.Model):
                 ) or _("New")
         return super().create(vals_list)
 
+    def _inverse_readonly_import(self):
+        """No-op inverse for read-only fields to allow import mapping without modifying related records."""
+        pass
+
     # =========================================================================
     # Export / Import helpers
     # =========================================================================
@@ -153,6 +158,7 @@ class AlbaInterestPayout(models.Model):
         return [
             "name",
             "investment_id/investment_number",
+            "investor_id/investor_number",
             "payout_date",
             "gross_interest",
             "wht_amount",
