@@ -407,44 +407,53 @@ class AlbaCustomer(models.Model):
                     )
             rec.kyc_progress = progress
 
-    @api.depends("partner_id", "partner_id.name")
+    @api.depends("id_number", "partner_id", "partner_id.name")
     def _compute_display_name(self):
         for rec in self:
-            rec.display_name = rec.partner_id.name or _("New Customer")
+            name = rec.partner_id.name or _("New Customer")
+            if rec.id_number:
+                rec.display_name = "[%s] %s" % (rec.id_number, name)
+            else:
+                rec.display_name = name
 
     @api.model
     def _name_search(self, name, domain=None, operator="ilike",
                      limit=None, order=None):
         domain = domain or []
         if name:
-            # Try exact name match first - returns earliest record
-            exact_ids = self._search(
-                [("partner_id.name", "=", name)] + domain,
-                limit=1,
-                order="id asc",
-            )
-            if exact_ids:
-                return exact_ids
-            # Try exact ID number match
-            id_ids = self._search(
+            # Try exact id_number match first — most reliable
+            exact_id = self._search(
                 [("id_number", "=", name)] + domain,
                 limit=1,
                 order="id asc",
             )
-            if id_ids:
-                return id_ids
-            # Fall back to ilike search
+            if exact_id:
+                return exact_id
+
+            # Try exact partner name match
+            exact_name = self._search(
+                [("partner_id.name", "=", name)] + domain,
+                limit=1,
+                order="id asc",
+            )
+            if exact_name:
+                return exact_name
+
+            # Fall back to ilike search on both fields
             return self._search(
                 ["|",
-                 ("partner_id.name", operator, name),
                  ("id_number", operator, name),
+                 ("partner_id.name", operator, name),
                 ] + domain,
                 limit=limit,
                 order="id asc",
             )
         return super()._name_search(
-            name, domain=domain, operator=operator,
-            limit=limit, order=order,
+            name,
+            domain=domain,
+            operator=operator,
+            limit=limit,
+            order=order,
         )
 
     @api.depends("county_id", "sub_county_id", "ward_id")
@@ -623,4 +632,10 @@ class AlbaCustomer(models.Model):
             self.company_id = company_id
     
     def name_get(self):
-        return [(rec.id, rec.partner_id.name or _("New Customer")) for rec in self]
+        return [
+            (rec.id,
+             rec.id_number
+             or rec.partner_id.name
+             or _("New Customer"))
+            for rec in self
+        ]
