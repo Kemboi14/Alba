@@ -210,6 +210,7 @@ class AlbaInvestorPro(models.Model):
     total_interest_earned = fields.Monetary(
         string="Total Interest Accrued",
         compute="_compute_portfolio",
+        inverse="_inverse_noop",
         store=True,
         currency_field="currency_id",
     )
@@ -224,6 +225,7 @@ class AlbaInvestorPro(models.Model):
     total_interest_paid_out = fields.Monetary(
         string="Total Interest Paid Out",
         compute="_compute_portfolio",
+        inverse="_inverse_noop",
         store=True,
         currency_field="currency_id",
     )
