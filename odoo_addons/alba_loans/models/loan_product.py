@@ -447,6 +447,30 @@ class AlbaLoanProduct(models.Model):
             result.append((rec.id, f"[{rec.code}] {rec.name}"))
         return result
 
+    @api.model
+    def _name_search(self, name="", domain=None, operator="ilike", limit=None, order=None):
+        domain = list(domain or [])
+        if name:
+            import re
+            # Support exact match from import (which includes the [code] prefix)
+            match = re.match(r"^\[(.*?)\]", name)
+            if match:
+                code = match.group(1).strip()
+                records = self._search(
+                    [("code", "=", code)] + domain,
+                    limit=limit,
+                    order=order or "id asc",
+                )
+                if records:
+                    return records
+
+            # Fallback to searching code or name
+            domain = ["|", ("code", operator, name), ("name", operator, name)] + domain
+            return self._search(domain, limit=limit, order=order)
+        return super()._name_search(
+            name, domain=domain, operator=operator, limit=limit, order=order
+        )
+
     def action_view_applications(self):
         self.ensure_one()
         return {
