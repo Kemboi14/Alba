@@ -629,9 +629,9 @@ class AlbaCustomer(models.Model):
             self.company_id = company_id
     
     def name_get(self):
-        # _rec_name = 'id_number' handles export/import resolution.
-        # name_get() returns the partner name so the UI stays readable.
+        # name_get() returns id_number for unambiguous export/import resolution.
+        # _name_search still supports searching by name in the UI dropdown.
         return [
-            (rec.id, rec.partner_id.name or _("New Customer"))
+            (rec.id, rec.id_number or rec.partner_id.name or _("New Customer"))
             for rec in self
         ]
