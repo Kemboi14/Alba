@@ -422,6 +422,21 @@ class AlbaCustomer(models.Model):
                      limit=None, order=None):
         domain = domain or []
         if name:
+            import re
+            # Extract id_number from standard display name format: "[id_number] partner_name"
+            match = re.match(r"^\[(.*?)\]", name)
+            if match:
+                id_num = match.group(1).strip()
+                # Find matching customers by exact ID number
+                records = self._search(
+                    [("id_number", "=", id_num)] + domain,
+                    limit=limit,
+                    order="id asc",
+                )
+                if records:
+                    return records
+
+            # Fallback to searching id_number or partner name
             return self._search(
                 ["|",
                  ("id_number", operator, name),
