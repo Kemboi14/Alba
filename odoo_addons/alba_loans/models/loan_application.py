@@ -508,8 +508,8 @@ class AlbaLoanApplication(models.Model):
             approved = rec.approved_amount or requested
             months = rec.tenure_months or 0
 
-            # Determine base amount: approved amount if approved/active, else requested amount
-            if rec.state in ('approved', 'disbursed', 'active', 'closed'):
+            # Determine base amount: approved amount if approved/disbursed, else requested amount
+            if rec.state in ('approved', 'disbursed'):
                 base_amount = approved
             else:
                 base_amount = requested

@@ -26,7 +26,7 @@ class AlbaLoanPaymentHoliday(models.Model):
         string="Loan",
         required=True,
         ondelete="restrict",
-        domain="[('state', '=', 'active')]",
+        domain="[('state', 'not in', ['closed', 'written_off'])]",
     )
     customer_id = fields.Many2one(
         "alba.customer",
@@ -243,8 +243,8 @@ class AlbaLoanPaymentHoliday(models.Model):
             loan = rec.loan_id
             
             # Check loan state
-            if loan.state != "active":
-                warnings.append("❌ Loan must be active")
+            if loan.state in ("closed", "written_off"):
+                warnings.append("❌ Loan must be in an active status")
             
             # Check arrears
             if loan.days_in_arrears > 90:

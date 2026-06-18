@@ -869,7 +869,7 @@ class AlbaMpesaTransaction(models.Model):
                     "repayment_frequency": app.repayment_frequency,
                     "disbursement_date": fields.Date.today(),
                     "journal_id": journal.id if journal else False,
-                    "state": "active",
+                    "state": "normal",
                     "notes": f"Auto-disbursed via M-Pesa B2C (Txn: {mpesa_code})",
                 })
                 

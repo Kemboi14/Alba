@@ -39,7 +39,7 @@ class AlbaLoanConsolidation(models.Model):
         "alba.loan",
         string="Loans to Consolidate",
         required=True,
-        domain="[('customer_id', '=', customer_id), ('state', 'in', ['active', 'overdue'])]",
+        domain="[('customer_id', '=', customer_id), ('state', 'not in', ['closed', 'written_off'])]",
     )
     loan_count = fields.Integer(
         string="Number of Loans",
@@ -370,9 +370,9 @@ class AlbaLoanConsolidation(models.Model):
                 warnings.append("❌ All loans must belong to the selected customer")
             
             # Check loan states
-            invalid_state = rec.loan_ids.filtered(lambda l: l.state not in ["active", "overdue"])
+            invalid_state = rec.loan_ids.filtered(lambda l: l.state in ["closed", "written_off"])
             if invalid_state:
-                warnings.append("❌ All loans must be active or overdue (not closed/NPL)")
+                warnings.append("❌ All loans must be in an active status (not closed or written off)")
             
             # Check arrears
             if rec.max_days_in_arrears > 90:
@@ -513,7 +513,7 @@ class AlbaLoanConsolidation(models.Model):
                 "disbursement_date": fields.Date.today(),
                 "installment_amount": rec.new_emi,
                 "outstanding_balance": rec.consolidated_amount,
-                "state": "active",
+                "state": "normal",
                 "journal_id": rec.journal_id.id,
             })
             

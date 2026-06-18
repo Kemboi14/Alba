@@ -119,13 +119,13 @@ class AlbaLoanDashboard(models.TransientModel):
             rec.outstanding_amount = sum(loans.mapped("outstanding_balance"))
             rec.arrears_amount = sum(loans.mapped("arrears_amount"))
             rec.collected_amount = sum(repayments.mapped("amount_paid"))
-            npl = loans.filtered(lambda loan: loan.state == "npl")
+            npl = loans.filtered(lambda loan: loan.state in ("substandard", "doubtful", "loss"))
             rec.npl_count = len(npl)
             rec.par_30_amount = sum(
                 loans.filtered(lambda loan: loan.par_bucket in ("1_30", "31_60", "61_90")).mapped("outstanding_balance")
             )
             rec.par_90_amount = sum(
-                loans.filtered(lambda loan: loan.par_bucket in ("91_180", "over_180") or loan.state == "npl").mapped("outstanding_balance")
+                loans.filtered(lambda loan: loan.par_bucket in ("91_180", "over_180") or loan.state in ("substandard", "doubtful", "loss")).mapped("outstanding_balance")
             )
 
     def _group_context(self):

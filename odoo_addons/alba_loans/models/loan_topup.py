@@ -27,7 +27,7 @@ class AlbaLoanTopup(models.Model):
         required=True,
         ondelete="restrict",
         index=True,
-        domain="[('state', '=', 'active')]",
+        domain="[('state', 'not in', ['closed', 'written_off'])]",
     )
     customer_id = fields.Many2one(
         "alba.customer",
@@ -273,9 +273,9 @@ class AlbaLoanTopup(models.Model):
             loan = rec.loan_id
             
             # Check loan state
-            if loan.state != "active":
+            if loan.state in ("closed", "written_off"):
                 eligible = False
-                warnings.append("Loan must be active (not %s)" % loan.state)
+                warnings.append("Loan must be in an active status (not %s)" % loan.state)
             
             # Check days in arrears
             if loan.days_in_arrears > 90:

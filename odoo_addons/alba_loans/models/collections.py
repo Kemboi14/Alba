@@ -205,7 +205,7 @@ class AlbaLoan(models.Model):
         self.write({
             "escalated_to_legal": True,
             "legal_escalation_date": fields.Date.today(),
-            "state": "npl",
+            "state": "loss",
         })
         
         # Create activity for legal team
@@ -240,7 +240,7 @@ class AlbaLoanCollectionCron(models.Model):
 
         # Fix: correct field is days_in_arrears (days_overdue does not exist)
         overdue_loans = self.env["alba.loan"].search([
-            ("state", "in", ["active", "npl"]),
+            ("state", "not in", ["closed", "written_off"]),
             ("days_in_arrears", ">", 0),
         ])
 

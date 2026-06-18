@@ -219,6 +219,7 @@ class AlbaLoan(models.Model):
             val = rec.state.lower().strip()
             mapping = {
                 "normal": "normal",
+                "active": "normal",
                 "watch": "watch",
                 "substandard": "substandard",
                 "doubtful": "doubtful",
@@ -246,9 +247,9 @@ class AlbaLoan(models.Model):
         old_label = state_labels.get(old_state, old_state)
         new_label = state_labels.get(new_state, new_state)
         
-        icon = "📈" if new_state == "active" else "ℹ️"
+        icon = "📈" if new_state == "normal" else "ℹ️"
         if new_state == "closed": icon = "✅"
-        if new_state == "npl": icon = "🔴"
+        if new_state == "loss": icon = "🔴"
         if new_state == "written_off": icon = "🗑️"
         
         body = (
@@ -750,7 +751,7 @@ class AlbaLoan(models.Model):
             
             # Check if eligible for topup
             rec.can_request_topup = (
-                rec.state == "active"
+                rec.state in ("normal", "watch", "substandard", "doubtful")
                 and rec.days_in_arrears <= 90
                 and not rec.topup_ids.filtered(lambda t: t.state in ["draft", "pending"])
             )
@@ -1315,7 +1316,7 @@ class AlbaLoan(models.Model):
     def action_quick_payment(self):
         """Open quick payment wizard for manual partial payments."""
         self.ensure_one()
-        if self.state != "active":
+        if self.state in ("closed", "written_off"):
             raise UserError(_("Payments are only allowed on active loans."))
         return {
             "type": "ir.actions.act_window",
@@ -1329,7 +1330,7 @@ class AlbaLoan(models.Model):
     def action_full_repayment(self):
         """Open payment wizard prefilled to settle outstanding balance."""
         self.ensure_one()
-        if self.state != "active":
+        if self.state in ("closed", "written_off"):
             raise UserError(_("Full repayment is only allowed for active loans."))
         if self.outstanding_balance <= 0.0:
             raise UserError(_("Loan has no outstanding balance to repay."))
@@ -1345,7 +1346,7 @@ class AlbaLoan(models.Model):
     def action_calculate_partial_payoff(self):
         """Open wizard to calculate partial payoff"""
         self.ensure_one()
-        if self.state != "active":
+        if self.state in ("closed", "written_off"):
             raise UserError(_("Partial payoff is only available for active loans."))
         
         return {
@@ -1598,10 +1599,10 @@ class AlbaLoan(models.Model):
         if not active:
             return
 
-        npl = active.filtered(lambda l: l.state in ("substandard", "doubtful"))
+        npl = active.filtered(lambda l: l.state in ("substandard", "doubtful", "loss"))
         par_30 = active.filtered(lambda l: l.state == "watch")
         par_90 = active.filtered(
-            lambda l: l.state in ("doubtful")
+            lambda l: l.state in ("substandard", "doubtful", "loss")
         )
 
         stats = {
@@ -1716,8 +1717,8 @@ class AlbaLoan(models.Model):
     def action_create_loan_accounting_move(self):
         """Create accounting move for loan disbursement with currency integration"""
         for loan in self:
-            if loan.state != 'active':
-                raise UserError(_("Only active/disbursed loans can create accounting moves"))
+            if loan.state in ('closed', 'written_off'):
+                raise UserError(_("Only open/disbursed loans can create accounting moves"))
             
             if not loan.journal_id:
                 raise UserError(_("Loan must have a journal configured"))

@@ -27,7 +27,7 @@ class AlbaLoanPartialPayoff(models.Model):
         string="Loan",
         required=True,
         ondelete="restrict",
-        domain="[('state', '=', 'active')]",
+        domain="[('state', 'not in', ['closed', 'written_off'])]",
     )
     customer_id = fields.Many2one(
         "alba.customer",

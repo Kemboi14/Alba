@@ -495,7 +495,7 @@ class AlbaLoanInterestCron(models.Model):
         """Daily cron to continue accruing interest for defaulted loans"""
         
         defaulted_loans = self.env["alba.loan"].search([
-            ("state", "in", ["overdue", "npl"]),
+            ("state", "in", ["substandard", "doubtful", "loss"]),
             ("default_interest_continue", "=", True),
         ])
         

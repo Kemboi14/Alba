@@ -484,7 +484,7 @@ class AlbaLoanDisburseWizard(models.TransientModel):
             "disbursement_date": self.disbursement_date,
             "journal_id": self.journal_id.id,
             "payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
-            "state": "active",
+            "state": "normal",
             "notes": self.notes or "",
         }
         loan = self.env["alba.loan"].create(loan_vals)

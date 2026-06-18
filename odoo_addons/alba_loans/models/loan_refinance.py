@@ -26,7 +26,7 @@ class AlbaLoanRefinance(models.Model):
         string="Original Loan",
         required=True,
         ondelete="restrict",
-        domain="[('state', 'in', ['active', 'overdue'])]",
+        domain="[('state', 'not in', ['closed', 'written_off'])]",
     )
     customer_id = fields.Many2one(
         "alba.customer",
@@ -621,7 +621,7 @@ class AlbaLoanRefinance(models.Model):
                 "disbursement_date": fields.Date.today(),
                 "installment_amount": rec.new_emi,
                 "outstanding_balance": rec.new_principal,
-                "state": "active",
+                "state": "normal",
                 "journal_id": rec.journal_id.id,
             })
             

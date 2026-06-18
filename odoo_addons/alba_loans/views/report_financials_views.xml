@@ -13,7 +13,7 @@
         <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
             <list string="Portfolio at Risk"
-                  decoration-danger="par_bucket in ('91_180','over_180') or state == 'npl'"
+                decoration-danger="par_bucket in ('91_180','over_180') or state in ('substandard', 'doubtful', 'loss')"
                   decoration-warning="par_bucket in ('31_60','61_90')"
                   decoration-muted="state == 'closed'">
                 <field name="loan_number"/>
@@ -86,7 +86,7 @@
                 <filter string="PAR >180" name="par_over_180"
                         domain="[('par_bucket', '=', 'over_180')]"/>
                 <filter string="NPL" name="npl"
-                        domain="[('state', '=', 'npl')]"/>
+                    domain="[('state', 'in', ('substandard', 'doubtful', 'loss', 'written_off'))]"/>
                 <group>
                     <field name="par_bucket"/>
                     <field name="loan_product_id"/>
@@ -111,7 +111,7 @@
         <!-- FIX: removed deprecated <field name="type">list</field> -->
         <field name="arch" type="xml">
             <list string="Non-Performing Loans"
-                  decoration-danger="state == 'npl'"
+                decoration-danger="state in ('substandard', 'doubtful', 'loss')"
                   decoration-muted="state == 'written_off'">
                 <field name="loan_number"/>
                 <field name="customer_id"/>
@@ -124,7 +124,7 @@
                 <field name="days_in_arrears"/>
                 <field name="par_bucket" widget="badge"/>
                 <field name="state" widget="badge"
-                       decoration-danger="state == 'npl'"
+                      decoration-danger="state in ('substandard', 'doubtful', 'loss')"
                        decoration-muted="state == 'written_off'"/>
             </list>
         </field>

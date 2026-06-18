@@ -50,8 +50,8 @@ class AlbaReportPAR(models.TransientModel):
             ("company_id", "=", self.company_id.id),
         ])
         total_portfolio = sum(loans.mapped("outstanding_balance")) or 0.0
-        # NPL is now defined as substandard or doubtful
-        npl_loans = loans.filtered(lambda l: l.state in ("substandard", "doubtful"))
+        # NPL is now defined as substandard, doubtful, or loss
+        npl_loans = loans.filtered(lambda l: l.state in ("substandard", "doubtful", "loss"))
         npl_balance = sum(npl_loans.mapped("outstanding_balance"))
 
         bucket_defs = [
@@ -128,8 +128,8 @@ class AlbaReportNPL(models.TransientModel):
     def get_npl_data(self):
         self.ensure_one()
         Loan = self.env["alba.loan"]
-        # NPL defined as substandard or doubtful
-        states = ["substandard", "doubtful"]
+        # NPL defined as substandard, doubtful, or loss
+        states = ["substandard", "doubtful", "loss"]
         if self.include_written_off:
             states.append("written_off")
 
@@ -144,7 +144,7 @@ class AlbaReportNPL(models.TransientModel):
         ])
         total_portfolio = sum(all_active.mapped("outstanding_balance")) or 0.0
 
-        npl_only     = npl_loans.filtered(lambda l: l.state in ("substandard", "doubtful"))
+        npl_only     = npl_loans.filtered(lambda l: l.state in ("substandard", "doubtful", "loss"))
         npl_balance  = sum(npl_only.mapped("outstanding_balance"))
         written_off  = npl_loans.filtered(lambda l: l.state == "written_off")
 
@@ -220,7 +220,7 @@ class AlbaReportPL(models.TransientModel):
 
         # Provision for credit losses — 100 % of NPL outstanding at period end
         npl_loans          = Loan.search([
-            ("state", "=", "npl"),
+            ("state", "in", ("substandard", "doubtful", "loss")),
             ("company_id", "=", self.company_id.id),
         ])
         provision_for_losses = sum(npl_loans.mapped("outstanding_balance"))
@@ -381,9 +381,9 @@ class AlbaReportBalanceSheet(models.TransientModel):
             ("state", "in", ("normal", "watch")),
             ("company_id", "=", self.company_id.id),
         ])
-        # NPL loans: substandard, doubtful
+        # NPL loans: substandard, doubtful, loss
         npl_loans = Loan.search([
-            ("state", "in", ("substandard", "doubtful")),
+            ("state", "in", ("substandard", "doubtful", "loss")),
             ("company_id", "=", self.company_id.id),
         ])
 

@@ -103,7 +103,7 @@
                     </div>
 
                     <!-- ── Next Repayment Info ────────────────────────── -->
-                    <div class="row mb-4 px-3" invisible="state != 'active'">
+                    <div class="row mb-4 px-3" invisible="state in ('closed', 'written_off')">
                         <div class="col-12 border border-primary rounded p-2 bg-white d-flex align-items-center justify-content-between">
                             <div>
                                 <i class="fa fa-clock-o text-primary me-2"/>
@@ -295,6 +295,7 @@
                 <field name="loan_date"/>
                 <field name="disbursement_date"/>
                 <field name="next_payment_due_date"/>
+                <filter string="Active Loans" name="active" domain="[('state','not in',('closed','written_off'))]"/>
                 <separator/>
                 <filter string="Normal" name="normal" domain="[('state','=','normal')]"/>
                 <filter string="Watch" name="watch" domain="[('state','=','watch')]"/>

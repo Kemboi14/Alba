@@ -97,7 +97,7 @@
                                         <t t-esc="loan.days_in_arrears"/>
                                     </td>
                                     <td>
-                                        <span t-attf-class="badge #{loan.state == 'npl' and 'bg-danger' or 'bg-secondary'}">
+                                        <span t-attf-class="badge #{loan.state in ('substandard', 'doubtful', 'loss') and 'bg-danger' or 'bg-secondary'}">
                                             <t t-esc="loan.state.upper()"/>
                                         </span>
                                     </td>

@@ -814,7 +814,7 @@ class AlbaLoanRepayment(models.Model):
         
         # 3. If loan was automatically closed but now has outstanding balance, move back to active
         if self.loan_id.state == "closed" and self.loan_id.outstanding_balance > 0.01:
-            self.loan_id.write({"state": "active"})
+            self.loan_id.write({"state": "normal"})
             self.loan_id.message_post(
                 body=Markup(_("Loan <b>reopened</b> to Active state due to payment reversal."))
             )
