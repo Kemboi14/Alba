@@ -13,7 +13,7 @@ class AlbaCustomer(models.Model):
     _name = "alba.customer"
     _description = "Alba Capital Customer"
     _inherit = ["mail.thread", "mail.activity.mixin"]
-    _rec_name = "id_number"   # Export writes id_number; import resolves by id_number
+    _rec_name = "display_name"   # Use display_name for more flexible import resolution
     _order = "create_date desc"
 
     # ── Partner link ─────────────────────────────────────────────────────────
@@ -629,9 +629,8 @@ class AlbaCustomer(models.Model):
             self.company_id = company_id
     
     def name_get(self):
-        # name_get() returns id_number for unambiguous export/import resolution.
-        # _name_search still supports searching by name in the UI dropdown.
+        # Return display_name ([ID] Name) for consistency and better UX in lookups/exports.
         return [
-            (rec.id, rec.id_number or rec.partner_id.name or _("New Customer"))
+            (rec.id, rec.display_name)
             for rec in self
         ]

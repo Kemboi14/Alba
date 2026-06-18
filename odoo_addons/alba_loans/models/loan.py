@@ -148,7 +148,7 @@ class AlbaLoan(models.Model):
         ],
         string="Loan Status",
         compute="_compute_state",
-        inverse="_inverse_noop",
+        inverse="_inverse_state",
         store=True,
         required=True,
         index=True,
@@ -208,6 +208,30 @@ class AlbaLoan(models.Model):
                 # We don't call action_write_off here to avoid recursion/side effects in compute
                 # but we set the state. The cron or a separate check will handle formal write-off if needed.
                 rec.state = "written_off"
+
+    def _inverse_state(self):
+        """Allow writing to state during import with label normalization."""
+        for rec in self:
+            if not rec.state:
+                continue
+            
+            # Normalize common labels to technical keys
+            val = rec.state.lower().strip()
+            mapping = {
+                "normal": "normal",
+                "watch": "watch",
+                "substandard": "substandard",
+                "doubtful": "doubtful",
+                "loss": "loss",
+                "closed": "closed",
+                "written off": "written_off",
+                "written-off": "written_off",
+            }
+            
+            for key, target in mapping.items():
+                if key in val:
+                    rec.state = target
+                    break
 
     # ── Onchange Methods ──────────────────────────────────────────────────────
 
