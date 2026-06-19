@@ -1703,7 +1703,7 @@ class AlbaLoan(models.Model):
                 continue
             
             # Create currency difference journal entry if needed
-            if loan.state == 'disbursed' and loan.disbursement_date:
+            if loan.disbursement_date and loan.state in ('normal', 'watch', 'substandard', 'doubtful', 'loss'):
                 # Calculate currency difference at current rate
                 company_currency = loan.company_id.currency_id
                 loan_currency = loan.currency_id
