@@ -86,9 +86,6 @@ class AlbaCurrencyRateSync(models.TransientModel):
             "errors": "\n".join(errors) if errors else _("No errors."),
         }
         
-        # notify_success is not standard Odoo 19, using message_post or notification
-        self.env.user.message_post(body=message)
-        
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
