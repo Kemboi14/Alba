@@ -954,7 +954,14 @@ class AlbaLoan(models.Model):
             # Build due dates
             schedule_vals = []
             for row in schedule_data:
-                n = row["installment_number"]
+                installment_number = row.get("installment_number", row.get("installment"))
+                if installment_number is None:
+                    raise UserError(
+                        _(
+                            "Schedule row is missing an installment number for loan %s."
+                        ) % rec.loan_number
+                    )
+                n = installment_number
                 base = rec.disbursement_date
                 import calendar
 
@@ -966,7 +973,7 @@ class AlbaLoan(models.Model):
                 schedule_vals.append(
                     {
                         "loan_id": rec.id,
-                        "installment_number": row["installment_number"],
+                        "installment_number": installment_number,
                         "due_date": due,
                         "opening_balance": row["opening_balance"],
                         "principal_due": row["principal_due"],
