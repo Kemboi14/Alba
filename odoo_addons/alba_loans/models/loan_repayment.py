@@ -582,7 +582,13 @@ class AlbaLoanRepayment(models.Model):
                 raise UserError(
                     _("Please select a Payment Journal (Bank or Cash) before posting.")
                 )
-            
+            if rec.journal_id.type not in ("bank", "cash"):
+                raise UserError(
+                    _(
+                        "Payment journal '%s' must be a Bank or Cash journal."
+                    ) % rec.journal_id.display_name
+                )
+
             rec._ensure_payment_method_line()
 
             outstanding_account = (
@@ -592,9 +598,9 @@ class AlbaLoanRepayment(models.Model):
             if not outstanding_account:
                 raise UserError(
                     _(
-                        'Journal "%s" has no Outstanding Receipts account configured. '
-                        'Please set it under Accounting > Configuration > Journals > '
-                        'Incoming Payments tab before posting repayments.'
+                        'Journal "%s" has no bank/cash account configured for receipts. '
+                        'Please set the journal default account or the inbound payment method account '
+                        'before posting repayments.'
                     ) % rec.journal_id.name
                 )
 
@@ -604,12 +610,6 @@ class AlbaLoanRepayment(models.Model):
                     _("Please configure the Loan Receivable account on product '%s'.")
                     % product.name
                 )
-
-            # Get accounts from product
-            if not product.account_outstanding_receipts_id:
-                raise UserError(_("Please configure Outstanding Receipts account on product '%s'.") % product.name)
-            if not product.account_loan_receivable_id:
-                raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
             if not product.account_interest_receivable_id:
                 raise UserError(_("Please configure Interest Receivable account on product '%s'.") % product.name)
             if rec.fees_component > 0 and not product.account_fees_income_id:
@@ -624,9 +624,9 @@ class AlbaLoanRepayment(models.Model):
                 % (rec.loan_id.loan_number, rec.customer_id.display_name),
                 "preferred_payment_method_line_id": rec.payment_method_line_id.id if rec.payment_method_line_id else False,
                 "line_ids": [
-                    # DR Outstanding Receipts transit account
+                    # DR Actual bank/cash account used for the receipt
                     (0, 0, {
-                        "account_id": product.account_outstanding_receipts_id.id,
+                        "account_id": outstanding_account.id,
                         "name": _("Repayment — %s") % (rec.payment_reference or rec.loan_id.loan_number),
                         "debit": rec.amount_paid if rec.currency_id == rec.company_id.currency_id else 0.0,
                         "credit": 0.0,

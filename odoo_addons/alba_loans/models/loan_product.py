@@ -551,6 +551,39 @@ class AlbaLoanProduct(models.Model):
             )
             changes["account_loan_receivable_id"] = acc.id
 
+        if not self.account_clearing_id:
+            acc = _get_or_create(
+                ["asset_current", "liability_current", "asset_non_current"],
+                "clearing",
+                ["clearing", "transit", "interim"],
+                "Loan Clearing",
+                "110200",
+                "asset_current",
+            )
+            changes["account_clearing_id"] = acc.id
+
+        if not self.account_outstanding_payments_id:
+            acc = _get_or_create(
+                ["asset_current"],
+                "outstanding payment",
+                ["outstanding", "payment", "transit"],
+                "Outstanding Payments",
+                "110250",
+                "asset_current",
+            )
+            changes["account_outstanding_payments_id"] = acc.id
+
+        if not self.account_outstanding_receipts_id:
+            acc = _get_or_create(
+                ["asset_current"],
+                "outstanding receipt",
+                ["outstanding", "receipt", "transit"],
+                "Outstanding Receipts",
+                "110260",
+                "asset_current",
+            )
+            changes["account_outstanding_receipts_id"] = acc.id
+
         if not self.account_interest_income_id:
             acc = _get_or_create(
                 ["income", "income_other"],

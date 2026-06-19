@@ -1019,6 +1019,12 @@ class AlbaLoan(models.Model):
         self.ensure_one()
         if not self.journal_id:
             raise UserError(_("Please select a Disbursement Journal before posting the entry."))
+        if self.journal_id.type not in ("bank", "cash"):
+            raise UserError(
+                _(
+                    "Disbursement journal '%s' must be a Bank or Cash journal."
+                ) % self.journal_id.display_name
+            )
 
         # 1. Post ENTRY 1 (if not already posted)
         self.application_id.action_post_approval_entry(journal=self.journal_id)
@@ -1034,8 +1040,19 @@ class AlbaLoan(models.Model):
             raise UserError(_("Please configure a Loan Product before posting disbursement entry."))
         if not product.account_clearing_id:
             raise UserError(_("Please configure Loan Clearing account on product '%s'.") % product.name)
-        if not product.account_outstanding_payments_id:
-            raise UserError(_("Please configure Outstanding Payments account on product '%s'.") % product.name)
+
+        outstanding_account = (
+            self.payment_method_line_id.payment_account_id
+            or self.journal_id.default_account_id
+        )
+        if not outstanding_account:
+            raise UserError(
+                _(
+                    'Journal "%s" has no bank/cash account configured for disbursement. '
+                    'Please set the journal default account or the outbound payment method account '
+                    'before posting the loan disbursement.'
+                ) % self.journal_id.name
+            )
 
         application = self.application_id
         total_fees = sum(application.fee_line_ids.mapped("calculated_amount"))
@@ -1056,9 +1073,9 @@ class AlbaLoan(models.Model):
                     "credit": 0.0,
                     "partner_id": self.customer_id.partner_id.id,
                 }),
-                # CR Outstanding Payments Bank
+                # CR Actual Bank/Cash account used for the disbursement
                 (0, 0, {
-                    "account_id": product.account_outstanding_payments_id.id,
+                    "account_id": outstanding_account.id,
                     "name": _("Net Disbursement — %s") % self.loan_number,
                     "debit": 0.0,
                     "credit": net_amount,

@@ -212,6 +212,12 @@ class AlbaLoanDisbursementSplit(models.Model):
         """Mark this split as disbursed"""
         if self.state != "approved":
             raise UserError(_("Only approved splits can be disbursed."))
+        if self.journal_id.type not in ("bank", "cash"):
+            raise UserError(
+                _(
+                    "Disbursement journal '%s' must be a Bank or Cash journal."
+                ) % self.journal_id.display_name
+            )
         self._ensure_payment_method_line()
 
         outstanding_account = (
@@ -221,9 +227,9 @@ class AlbaLoanDisbursementSplit(models.Model):
         if not outstanding_account:
             raise UserError(
                 _(
-                    'Journal "%s" has no Outstanding Payments account configured. '
-                    'Please set it under Accounting > Configuration > Journals > '
-                    'Outgoing Payments tab before posting disbursements.'
+                    'Journal "%s" has no bank/cash account configured for disbursement. '
+                    'Please set the journal default account or the outbound payment method account '
+                    'before posting disbursements.'
                 ) % self.journal_id.name
             )
 

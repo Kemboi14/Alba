@@ -412,11 +412,17 @@ class AlbaLoanTopup(models.Model):
 
         if not self.journal_id:
             self.journal_id = self.env["account.journal"].search([
-                ("type", "=", "bank"),
+                ("type", "in", ("bank", "cash")),
             ], limit=1)
 
         if not self.journal_id:
-            raise UserError(_("No bank journal available for disbursement."))
+            raise UserError(_("No Bank or Cash journal is available for disbursement."))
+        if self.journal_id.type not in ("bank", "cash"):
+            raise UserError(
+                _(
+                    "Disbursement journal '%s' must be a Bank or Cash journal."
+                ) % self.journal_id.display_name
+            )
         self._ensure_payment_method_line()
 
         outstanding_account = (
@@ -426,9 +432,9 @@ class AlbaLoanTopup(models.Model):
         if not outstanding_account:
             raise UserError(
                 _(
-                    'Journal "%s" has no Outstanding Payments account configured. '
-                    'Please set it under Accounting > Configuration > Journals > '
-                    'Outgoing Payments tab before posting top-up disbursements.'
+                    'Journal "%s" has no bank/cash account configured for disbursement. '
+                    'Please set the journal default account or the outbound payment method account '
+                    'before posting top-up disbursements.'
                 ) % self.journal_id.name
             )
 

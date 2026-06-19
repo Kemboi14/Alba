@@ -490,11 +490,11 @@ class AlbaLoanRefinance(models.Model):
             if not outstanding_account:
                 raise UserError(
                     _(
-                        'Journal "%s" has no Outstanding Receipts account configured. '
-                        'Please set it under Accounting > Configuration > Journals > '
-                        'Incoming Payments tab before settling the loan.'
+                        'Journal "%s" has no bank/cash account configured for receipts. '
+                        'Please set the journal default account or the inbound payment method account '
+                        'before settling the loan.'
                     ) % rec.journal_id.name
-                ) 
+                )
 
             # ── 1. Create final repayment for the original loan ───────────────
             repayment = self.env["alba.loan.repayment"].create({

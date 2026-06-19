@@ -450,9 +450,9 @@ class AlbaLoanPartialPayoff(models.Model):
             if not outstanding_account:
                 raise UserError(
                     _(
-                        'Journal "%s" has no Outstanding Receipts account configured. '
-                        'Please set it under Accounting > Configuration > Journals > '
-                        'Incoming Payments tab before applying partial payoff.'
+                        'Journal "%s" has no bank/cash account configured for receipts. '
+                        'Please set the journal default account or the inbound payment method account '
+                        'before applying partial payoff.'
                     ) % rec.journal_id.name
                 )
             

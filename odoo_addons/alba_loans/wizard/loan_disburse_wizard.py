@@ -473,6 +473,35 @@ class AlbaLoanDisburseWizard(models.TransientModel):
         if application.loan_id:
             raise UserError(_("Application %s has already been disbursed.") % application.application_number)
 
+        if self.journal_id.type not in ("bank", "cash"):
+            raise UserError(
+                _(
+                    "Disbursement journal '%s' must be a Bank or Cash journal."
+                ) % self.journal_id.display_name
+            )
+
+        product = application.loan_product_id
+        if not product:
+            raise UserError(_("Please configure a Loan Product before disbursing this application."))
+        if not product.account_loan_receivable_id:
+            raise UserError(_("Please configure Loan Receivable account on product '%s'.") % product.name)
+        if not product.account_clearing_id:
+            raise UserError(_("Please configure Loan Clearing account on product '%s'.") % product.name)
+
+        self._ensure_payment_method_line()
+        outstanding_account = (
+            self.payment_method_line_id.payment_account_id
+            or self.journal_id.default_account_id
+        )
+        if not outstanding_account:
+            raise UserError(
+                _(
+                    'Disbursement journal "%s" has no bank/cash account configured. '
+                    'Please set the journal default account or the outbound payment method account '
+                    'before disbursing.'
+                ) % self.journal_id.display_name
+            )
+
         # ── 1. Create alba.loan ───────────────────────────────────────────────
         loan_vals = {
             "application_id": application.id,
