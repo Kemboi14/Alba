@@ -1062,7 +1062,16 @@ class AlbaInvestment(models.Model):
 
     @api.model
     def action_backfill_missing_accruals(self, as_of_date=None):
-        """Generate any missing monthly accruals for active investments."""
+        """Generate any missing monthly accruals for active investments.
+
+        Each investment is processed inside its own database savepoint so that
+        a failure on one investment does not roll back accruals already posted
+        for others.  All errors are collected and surfaced to the user at the
+        end via UserError so nothing is swallowed silently.
+        """
+        import logging
+        _logger = logging.getLogger(__name__)
+
         as_of_date = fields.Date.to_date(as_of_date) if as_of_date else fields.Date.today()
         errors = []
 
@@ -1072,8 +1081,13 @@ class AlbaInvestment(models.Model):
                 continue
 
             target_day = product.auto_accrual_day or 28
-
             start_date = inv.start_date or as_of_date
+
+            _logger.info(
+                "Backfill: processing %s (start=%s)",
+                inv.investment_number, inv.start_date,
+            )
+
             try:
                 for accrual_date, period_start, period_end in iter_missing_accrual_periods(
                     start_date, as_of_date, target_day,
@@ -1115,20 +1129,29 @@ class AlbaInvestment(models.Model):
                         topup_domain.append(("date", ">", last_accrual.period_end))
                     topups = self.env["alba.investment.topup"].search(topup_domain)
                     opening_balance = base_balance + sum(topups.mapped("amount"))
-                    inv.action_accrue_monthly_interest(
-                        accrual_date=accrual_date,
-                        opening_balance=opening_balance,
-                        period_start=period_start,
-                        period_end=period_end,
-                    )
+
+                    # Each period gets its own savepoint so a mid-investment
+                    # failure doesn't roll back periods already posted.
+                    with self.env.cr.savepoint():
+                        inv.action_accrue_monthly_interest(
+                            accrual_date=accrual_date,
+                            opening_balance=opening_balance,
+                            period_start=period_start,
+                            period_end=period_end,
+                        )
+
             except Exception as exc:
-                errors.append("Investment %s: %s" % (inv.investment_number, str(exc)))
+                _logger.error(
+                    "Backfill: failed for investment %s — %s",
+                    inv.investment_number, exc,
+                    exc_info=True,
+                )
+                errors.append("%s: %s" % (inv.investment_number, exc))
 
         if errors:
-            _logger = __import__("logging").getLogger(__name__)
-            _logger.warning(
-                "alba.investment: Backfill missing accruals completed with errors:\n%s",
-                "\n".join(errors),
+            raise UserError(
+                _("Interest accrual backfill failed for %d investment(s):\n\n%s")
+                % (len(errors), "\n".join("• %s" % e for e in errors))
             )
         return True
 
