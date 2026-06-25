@@ -640,11 +640,20 @@ class AlbaInvestment(models.Model):
         period_interest = current * ((1 + r / n) - 1)
         return round(period_interest, 2)
 
-    def action_accrue_monthly_interest(self, accrual_date=None, opening_balance=None):
+    def action_accrue_monthly_interest(self, accrual_date=None, opening_balance=None,
+                                       period_start=None, period_end=None):
         """
         Accrue one month's compound interest on this investment.
         Creates an alba.interest.accrual record and posts its journal entry.
         Returns the new accrual record.
+
+        Args:
+            accrual_date:    Date to stamp on the accrual record (defaults to today).
+            opening_balance: Balance at period start (defaults to current_value).
+            period_start:    Explicit period start (optional; overrides auto-derivation).
+                             Pass this from the backfill loop when a pro-rata first
+                             period has been clamped to the investment start date.
+            period_end:      Explicit period end (optional; overrides auto-derivation).
         """
         self.ensure_one()
         if self.state != "active":
@@ -654,24 +663,17 @@ class AlbaInvestment(models.Model):
             )
 
         today = fields.Date.to_date(accrual_date) if accrual_date else fields.Date.today()
-        period_interest = self.compute_compound_interest_for_period(opening_balance=opening_balance)
 
-        if period_interest <= 0:
-            raise UserError(
-                _("Computed interest for investment %s is zero or negative.")
-                % self.investment_number
-            )
-
-        # Determine period start/end (previous month start → today)
-        import calendar
-
-        month = today.month - 1 or 12
-        year = today.year if today.month > 1 else today.year - 1
-        last_day = calendar.monthrange(year, month)[1]
-        from datetime import date
-
-        period_start = date(year, month, 1)
-        period_end = date(year, month, last_day)
+        # Determine period start/end: prefer explicit args (backfill passes these so
+        # that pro-rata first-month clamping is preserved), otherwise derive from today.
+        if period_start is None or period_end is None:
+            import calendar
+            month = today.month - 1 or 12
+            year = today.year if today.month > 1 else today.year - 1
+            last_day = calendar.monthrange(year, month)[1]
+            from datetime import date as _date
+            period_start = _date(year, month, 1)
+            period_end = _date(year, month, last_day)
 
         existing = self.env["alba.interest.accrual"].search(
             [
@@ -685,7 +687,28 @@ class AlbaInvestment(models.Model):
         if existing:
             return False
 
+        # ── Pro-rata interest calculation (Bug 3) ─────────────────────────────
+        # If period_start is not the 1st of the month (partial first month),
+        # scale the full-month interest by actual_days / total_days_in_month.
+        from calendar import monthrange as _monthrange
         accrual_opening_balance = opening_balance if opening_balance is not None else self.current_value
+        full_month_interest = self.compute_compound_interest_for_period(
+            opening_balance=accrual_opening_balance
+        )
+
+        total_days = _monthrange(period_start.year, period_start.month)[1]
+        actual_days = (period_end - period_start).days + 1
+        if actual_days < total_days:
+            period_interest = round(full_month_interest * actual_days / total_days, 2)
+        else:
+            period_interest = full_month_interest
+
+        if period_interest <= 0:
+            raise UserError(
+                _("Computed interest for investment %s is zero or negative.")
+                % self.investment_number
+            )
+
         accrual_vals = {
             "investment_id": self.id,
             "accrual_date": today,
@@ -709,6 +732,7 @@ class AlbaInvestment(models.Model):
             )
         )
         return accrual
+
 
     def action_mature(self):
         """Mark the investment as matured."""
@@ -1051,8 +1075,9 @@ class AlbaInvestment(models.Model):
 
             start_date = inv.start_date or as_of_date
             try:
-                for run_date, period_start, period_end in iter_missing_accrual_periods(
-                    start_date, as_of_date, target_day
+                for accrual_date, period_start, period_end in iter_missing_accrual_periods(
+                    start_date, as_of_date, target_day,
+                    investment_start=inv.start_date,
                 ):
                     existing = self.env["alba.interest.accrual"].search(
                         [
@@ -1090,7 +1115,12 @@ class AlbaInvestment(models.Model):
                         topup_domain.append(("date", ">", last_accrual.period_end))
                     topups = self.env["alba.investment.topup"].search(topup_domain)
                     opening_balance = base_balance + sum(topups.mapped("amount"))
-                    inv.action_accrue_monthly_interest(accrual_date=run_date, opening_balance=opening_balance)
+                    inv.action_accrue_monthly_interest(
+                        accrual_date=accrual_date,
+                        opening_balance=opening_balance,
+                        period_start=period_start,
+                        period_end=period_end,
+                    )
             except Exception as exc:
                 errors.append("Investment %s: %s" % (inv.investment_number, str(exc)))
 

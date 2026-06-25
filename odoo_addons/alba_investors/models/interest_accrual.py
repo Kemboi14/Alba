@@ -227,8 +227,20 @@ class AlbaInterestAccrual(models.Model):
             self.opening_balance = inv.principal_amount
 
         if inv.interest_rate:
+            import calendar as _cal
             monthly_rate = inv.interest_rate / 100.0 / 12.0
-            self.interest_amount = round(self.opening_balance * monthly_rate, 2)
+            # Bug 3 fix (_onchange_investment_id): pro-rata preview for partial first month
+            if self.period_start and self.period_end:
+                total_days = _cal.monthrange(self.period_start.year, self.period_start.month)[1]
+                actual_days = (self.period_end - self.period_start).days + 1
+                if actual_days < total_days:
+                    self.interest_amount = round(
+                        self.opening_balance * monthly_rate * actual_days / total_days, 2
+                    )
+                else:
+                    self.interest_amount = round(self.opening_balance * monthly_rate, 2)
+            else:
+                self.interest_amount = round(self.opening_balance * monthly_rate, 2)
             self.closing_balance = self.opening_balance + self.interest_amount
 
     @api.onchange('opening_balance')
@@ -395,13 +407,31 @@ class AlbaInterestAccrual(models.Model):
                     "partner_id": rec.partner_id.id,
                 }))
 
+            # Bug 2 fix: investment_number may be False before sequence is assigned
+            inv_num = investment.investment_number or investment.id
+            ref = "ACCR/%s/%s" % (
+                inv_num,
+                rec.accrual_date.strftime("%Y%m") if rec.accrual_date else "",
+            )
+
+            # Bug 3 fix (action_post): pro-rata for partial first month
+            from calendar import monthrange as _mr
+            if rec.period_start and rec.period_end:
+                total_days = _mr(rec.period_start.year, rec.period_start.month)[1]
+                actual_days = (rec.period_end - rec.period_start).days + 1
+                if actual_days < total_days:
+                    # Recompute interest proportionally; opening_balance is already stored
+                    monthly_rate = investment.interest_rate / 100.0 / 12.0
+                    pro_rata_interest = round(
+                        rec.opening_balance * monthly_rate * actual_days / total_days, 2
+                    )
+                    if pro_rata_interest != rec.interest_amount:
+                        rec.write({"interest_amount": pro_rata_interest})
+
             move_vals = {
                 "journal_id": journal.id,
                 "date": rec.accrual_date,
-                "ref": "ACCR/%s/%s" % (
-                    investment.investment_number,
-                    rec.accrual_date.strftime("%Y%m") if rec.accrual_date else "",
-                ),
+                "ref": ref,
                 "narration": _(
                     "Monthly compound interest accrual — %(investment)s — %(period)s",
                     investment=investment.investment_number,

@@ -3,7 +3,13 @@ from datetime import date
 
 
 def accrual_run_date(year, month, target_day):
-    """Return the accrual execution date for a given calendar month."""
+    """Return the accrual execution/recording date for a given calendar month.
+
+    Used for two purposes:
+      1. Scheduling: when the cron should run (e.g. the 28th of the current month).
+      2. Period-month dating: the accrual_date stamped on a record should fall
+         in the SAME month as the period it covers, not the following month.
+    """
     last_day = monthrange(year, month)[1]
     return date(year, month, min(target_day, last_day))
 
@@ -16,12 +22,25 @@ def previous_month_bounds(run_date):
     return date(prev_year, prev_month, 1), date(prev_year, prev_month, last_day)
 
 
-def iter_missing_accrual_periods(start_date, as_of_date, target_day):
+def iter_missing_accrual_periods(start_date, as_of_date, target_day,
+                                  investment_start=None):
     """
-    Yield (run_date, period_start, period_end) for every month
+    Yield (accrual_date, period_start, period_end) for every month
     from start_date up to as_of_date, in ASCENDING order (oldest first).
     This ensures journal entries are posted chronologically and
     compound interest accumulates correctly.
+
+    The accrual_date is the 28th (or target_day) of the SAME month as the
+    period it covers — not the following run month — so that the journal
+    entry date matches the period month.
+
+    Args:
+        start_date:        First date from which to look for missing periods.
+        as_of_date:        Upper bound (inclusive); no periods beyond this date.
+        target_day:        Preferred day-of-month for the accrual_date (e.g. 28).
+        investment_start:  Optional date; if provided, the first period's
+                           period_start is clamped to this date for pro-rata
+                           first-month interest.
     """
     periods = []
     current_year = as_of_date.year
@@ -34,12 +53,20 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day):
         if run_date <= as_of_date:
             period_start, period_end = previous_month_bounds(run_date)
             if period_end >= start_date:
-                periods.append((run_date, period_start, period_end))
+                # Bug 1 fix: accrual_date is in the PERIOD month, not the run month
+                accrual_date = accrual_run_date(
+                    period_start.year, period_start.month, target_day
+                )
+                periods.append((accrual_date, period_start, period_end))
         current_month -= 1
         if current_month == 0:
             current_month = 12
             current_year -= 1
 
     # Yield oldest first so journal entries post chronologically
-    for period in reversed(periods):
-        yield period
+    for i, (accrual_date, period_start, period_end) in enumerate(reversed(periods)):
+        # Bug 3 fix: pro-rata first month — clamp period_start to investment_start
+        if i == 0 and investment_start is not None:
+            if period_start < investment_start <= period_end:
+                period_start = investment_start
+        yield (accrual_date, period_start, period_end)
