@@ -1105,30 +1105,10 @@ class AlbaInvestment(models.Model):
                     if existing:
                         continue
 
-                    last_accrual = self.env["alba.interest.accrual"].search(
-                        [
-                            ("investment_id", "=", inv.id),
-                            ("state", "=", "posted"),
-                            ("period_end", "<", period_start),
-                        ],
-                        order="period_end desc",
-                        limit=1,
-                    )
-                    base_balance = (
-                        last_accrual.closing_balance
-                        if last_accrual
-                        else inv.principal_amount
-                    )
-                    # Sum of top-ups posted in the current accrual period
-                    topup_domain = [
-                        ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
-                        ("date", "<=", period_end),
-                    ]
-                    if last_accrual:
-                        topup_domain.append(("date", ">", last_accrual.period_end))
-                    topups = self.env["alba.investment.topup"].search(topup_domain)
-                    opening_balance = base_balance + sum(topups.mapped("amount"))
+                    # Use current_value which correctly accounts for:
+                    # principal + top-ups + (total accrued - total paid out)
+                    # This ensures payouts reduce the next period's opening balance
+                    opening_balance = inv.current_value
 
                     # Each period gets its own savepoint so a mid-investment
                     # failure doesn't roll back periods already posted.
