@@ -463,7 +463,7 @@ class AlbaLoanTopup(models.Model):
             "date": self.disbursement_date,
             "ref": _("Top-Up: %s - %s") % (self.name, self.loan_id.loan_number),
             "preferred_payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
-            "loan_id": self.loan_id.id,
+            "alba_loan_id": self.loan_id.id,
             "line_ids": [
                 (0, 0, {
                     "account_id": loan_product.account_loan_receivable_id.id,
@@ -496,7 +496,7 @@ class AlbaLoanTopup(models.Model):
                 "date": self.disbursement_date,
                 "ref": _("Top-Up Fee: %s - %s") % (self.name, self.loan_id.loan_number),
                 "preferred_payment_method_line_id": inbound_method_line.id if inbound_method_line else False,
-                "loan_id": self.loan_id.id,
+                "alba_loan_id": self.loan_id.id,
                 "line_ids": [
                     (0, 0, {
                         "account_id": fee_transit_account.id,  # FIX: use Outstanding Receipts transit, not direct bank

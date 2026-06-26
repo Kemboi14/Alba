@@ -417,7 +417,7 @@ class AlbaLoanFee(models.Model):
                 "journal_id": self.env["account.journal"].search([("type", "=", "general")], limit=1).id,
                 "date": rec.date_applied,
                 "ref": _("Fee: %s - %s") % (rec.fee_type, rec.loan_id.loan_number),
-                "loan_id": rec.loan_id.id,
+                "alba_loan_id": rec.loan_id.id,
                 "line_ids": [
                     (0, 0, {
                         "account_id": product.account_loan_receivable_id.id,

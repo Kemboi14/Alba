@@ -620,7 +620,7 @@ class AlbaLoanRepayment(models.Model):
                 "date": rec.payment_date,
                 "ref": f"RPMT/{rec.loan_id.loan_number}/{rec.payment_reference or rec.id}",
                 "currency_id": rec.currency_id.id,
-                "loan_id": rec.loan_id.id,
+                "alba_loan_id": rec.loan_id.id,
                 "narration": _("Loan repayment — %s — %s")
                 % (rec.loan_id.loan_number, rec.customer_id.display_name),
                 "preferred_payment_method_line_id": rec.payment_method_line_id.id if rec.payment_method_line_id else False,

@@ -259,7 +259,7 @@ class AccountMove(models.Model):
     
     _inherit = "account.move"
     
-    loan_id = fields.Many2one("alba.loan", string="Loan", index=True)
+    alba_loan_id = fields.Many2one("alba.loan", string="Loan", index=True)
     prepared_by_user_id = fields.Many2one("res.users", string="Prepared By", readonly=True, copy=False)
     approved_by_user_id = fields.Many2one("res.users", string="Approved By", readonly=True, copy=False)
     

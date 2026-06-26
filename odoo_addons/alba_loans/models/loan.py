@@ -1078,7 +1078,7 @@ class AlbaLoan(models.Model):
             "date": self.disbursement_date,
             "ref": f"DISB/{self.loan_number}",
             "move_type": "entry",
-            "loan_id": self.id,
+            "alba_loan_id": self.id,
             "preferred_payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
             "line_ids": [
                 # DR Loan Clearing Account
@@ -1157,7 +1157,7 @@ class AlbaLoan(models.Model):
             "date": fields.Date.context_today(self),
             "ref": f"INT/{self.loan_number}",
             "move_type": "entry",
-            "loan_id": self.id,
+            "alba_loan_id": self.id,
             "line_ids": [
                 # DR Loan Interest Receivable
                 (0, 0, {
@@ -1314,7 +1314,7 @@ class AlbaLoan(models.Model):
             "date": fields.Date.today(),
             "ref": f"PROV/{self.loan_number} ({self.state.upper()})",
             "move_type": "entry",
-            "loan_id": self.id,
+            "alba_loan_id": self.id,
             "line_ids": line_ids,
         }
 
@@ -1338,7 +1338,7 @@ class AlbaLoan(models.Model):
         """
         self.ensure_one()
         write_off_move = self.env["account.move"].search([
-            ("loan_id", "=", self.id),
+            ("alba_loan_id", "=", self.id),
             ("ref", "like", "WRT/%"),
             ("state", "=", "posted")
         ], limit=1)
@@ -1406,7 +1406,7 @@ class AlbaLoan(models.Model):
             "date": fields.Date.today(),
             "ref": f"WRT/{self.loan_number}",
             "move_type": "entry",
-            "loan_id": self.id,
+            "alba_loan_id": self.id,
             "line_ids": line_ids,
         }
 

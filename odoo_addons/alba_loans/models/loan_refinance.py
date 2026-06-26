@@ -528,7 +528,7 @@ class AlbaLoanRefinance(models.Model):
                     "date": fields.Date.today(),
                     "ref": _("Refinance Fee — %s") % rec.name,
                     "preferred_payment_method_line_id": rec.payment_method_line_id.id if rec.payment_method_line_id else False,
-                    "loan_id": rec.original_loan_id.id,
+                    "alba_loan_id": rec.original_loan_id.id,
                     "narration": _(
                         "Refinance fee @ %.2f%% on new principal %s %s"
                     ) % (
