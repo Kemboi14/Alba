@@ -313,4 +313,5 @@ class AlbaCreditLifeInsurance(models.Model):
             "line_ids": lines,
             "ref": self.insurance_number,
             "company_id": self.company_id.id,
+            "loan_id": self.loan_id.id,
         }

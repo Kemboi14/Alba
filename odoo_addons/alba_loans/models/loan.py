@@ -167,15 +167,12 @@ class AlbaLoan(models.Model):
         store=True,
         currency_field="currency_id",
     )
-
     @api.depends("days_in_arrears", "outstanding_balance")
     def _compute_state(self):
         for rec in self:
-            # If manually written off or closed, preserve that unless balance changes?
-            # Actually, state should be driven by arrears unless closed.
-            if rec.state in ("closed", "written_off") and rec.outstanding_balance <= 0.01:
-                # Keep current state if closed/written off and no balance
-                if not rec.state: rec.state = "normal"
+            if rec.state in ("closed", "written_off"):
+                rec.provision_rate = 0.0
+                rec.provision_amount = 0.0
                 continue
             
             if rec.outstanding_balance <= 0.01 and rec.disbursement_move_id:
@@ -202,12 +199,6 @@ class AlbaLoan(models.Model):
                 rec.provision_rate = 100.0
             
             rec.provision_amount = rec.outstanding_balance * (rec.provision_rate / 100.0)
-            
-            # Write-off Policy: immediate write-off for Loss (over 90 days)
-            if rec.state == "loss":
-                # We don't call action_write_off here to avoid recursion/side effects in compute
-                # but we set the state. The cron or a separate check will handle formal write-off if needed.
-                rec.state = "written_off"
 
     def _inverse_state(self):
         """Allow writing to state during import with label normalization."""
@@ -654,6 +645,7 @@ class AlbaLoan(models.Model):
                 rec.maturity_date = False
 
     @api.depends(
+        "state",
         "principal_amount",
         "repayment_schedule_ids.total_due",
         "repayment_ids.state",
@@ -661,6 +653,11 @@ class AlbaLoan(models.Model):
     )
     def _compute_financial_totals(self):
         for rec in self:
+            if rec.state == "written_off":
+                rec.total_repayable = 0.0
+                rec.total_paid = 0.0
+                rec.outstanding_balance = 0.0
+                continue
             schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
             repayments = rec.repayment_ids.filtered(lambda r: r.state == "posted")
             rec.total_repayable = (
@@ -778,6 +775,7 @@ class AlbaLoan(models.Model):
                 rec.installment_amount = 0
 
     @api.depends(
+        "state",
         "principal_amount",
         "repayment_schedule_ids.due_date",
         "repayment_schedule_ids.principal_due",
@@ -797,6 +795,16 @@ class AlbaLoan(models.Model):
             schedule = (rec.current_repayment_schedule_ids or rec.repayment_schedule_ids).sorted("due_date")
             rec.first_installment_date = schedule[:1].due_date if schedule else False
             rec.last_installment_date = schedule[-1:].due_date if schedule else False
+
+            if rec.state == "written_off":
+                rec.outstanding_principal = 0.0
+                rec.outstanding_interest = 0.0
+                rec.outstanding_charges = 0.0
+                rec.total_interest = sum(schedule.mapped("interest_due"))
+                rec.interest_amount = rec.total_interest
+                rec.prepayment_amount = 0.0
+                rec.total_topup_amount = 0.0
+                continue
 
             rec.outstanding_principal = sum(
                 max(line.principal_due - line.principal_paid, 0.0)
@@ -1070,6 +1078,7 @@ class AlbaLoan(models.Model):
             "date": self.disbursement_date,
             "ref": f"DISB/{self.loan_number}",
             "move_type": "entry",
+            "loan_id": self.id,
             "preferred_payment_method_line_id": self.payment_method_line_id.id if self.payment_method_line_id else False,
             "line_ids": [
                 # DR Loan Clearing Account
@@ -1148,6 +1157,7 @@ class AlbaLoan(models.Model):
             "date": fields.Date.context_today(self),
             "ref": f"INT/{self.loan_number}",
             "move_type": "entry",
+            "loan_id": self.id,
             "line_ids": [
                 # DR Loan Interest Receivable
                 (0, 0, {
@@ -1208,58 +1218,207 @@ class AlbaLoan(models.Model):
 
     def action_post_provisioning_entry(self):
         """
-        Create a provisioning journal entry for potential loan losses.
-        Logic updated to use the loan's current state (classification) rate.
+        Post or adjust the provisioning journal entry for potential loan losses.
+        Calculates the required provision based on the loan's current state and outstanding balance,
+        compares it with the already posted provisions (sum of all entries linked to this loan hitting the allowance account),
+        and posts an adjusting journal entry for the difference.
         """
         self.ensure_one()
-        if self.provision_move_id:
-            return False
-
         product = self.loan_product_id
         if not product.account_provision_id or not product.account_provision_expense_id:
             return False
 
-        provision_amount = self.provision_amount
-        if provision_amount <= 0:
+        # Resolve a General journal for pure accrual/non-cash entries
+        accrual_journal = (
+            self.journal_id
+            if self.journal_id and self.journal_id.type == "general"
+            else False
+        )
+        if not accrual_journal:
+            accrual_journal = self.env["account.journal"].search(
+                [("type", "=", "general"), ("company_id", "=", self.company_id.id)],
+                limit=1,
+            )
+        if not accrual_journal:
+            raise UserError(_(
+                "No General journal found for company '%s'. "
+                "Please create one under Accounting > Configuration > Journals."
+            ) % self.company_id.name)
+
+        required_provision = self.provision_amount or 0.0
+
+        # Query all posted moves linked to this loan
+        posted_provision = 0.0
+        moves = self.env["account.move"].search([
+            ("loan_id", "=", self.id),
+            ("state", "=", "posted")
+        ])
+        for move in moves:
+            for line in move.line_ids:
+                if line.account_id == product.account_provision_id:
+                    # Credit is positive for Allowance/Contra-Asset account, Debit is negative
+                    posted_provision += (line.credit - line.debit)
+
+        adjustment = required_provision - posted_provision
+
+        # If adjustment is tiny/zero, nothing to do
+        if abs(adjustment) < 0.01:
             return False
 
-        move_vals = {
-            "journal_id": self.journal_id.id,
-            "date": fields.Date.today(),
-            "ref": f"PROV/{self.loan_number} ({self.state.upper()})",
-            "move_type": "entry",
-            "line_ids": [
+        if adjustment > 0:
+            # We need to increase provision: DR Expense, CR Contra-Asset
+            line_ids = [
                 # DR Provision Expense
                 (0, 0, {
                     "account_id": product.account_provision_expense_id.id,
-                    "name": _("Loan Loss Provision Expense [%s] — %s") % (self.state, self.loan_number),
-                    "debit": provision_amount,
+                    "name": _("Adjust Loan Loss Provision Expense [%s] — %s") % (self.state, self.loan_number),
+                    "debit": adjustment,
                     "credit": 0.0,
                     "partner_id": self.customer_id.partner_id.id,
                 }),
                 # CR Provision Account (Asset Offset)
                 (0, 0, {
                     "account_id": product.account_provision_id.id,
-                    "name": _("Allowance for Credit Losses [%s] — %s") % (self.state, self.loan_number),
+                    "name": _("Adjust Allowance for Credit Losses [%s] — %s") % (self.state, self.loan_number),
                     "debit": 0.0,
-                    "credit": provision_amount,
+                    "credit": adjustment,
                     "partner_id": self.customer_id.partner_id.id,
                 }),
-            ],
+            ]
+            msg_type = _("increased")
+        else:
+            # We need to decrease provision (release): DR Contra-Asset, CR Expense
+            release_amount = abs(adjustment)
+            line_ids = [
+                # DR Provision Account (Asset Offset)
+                (0, 0, {
+                    "account_id": product.account_provision_id.id,
+                    "name": _("Release Allowance for Credit Losses [%s] — %s") % (self.state, self.loan_number),
+                    "debit": release_amount,
+                    "credit": 0.0,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
+                # CR Provision Expense
+                (0, 0, {
+                    "account_id": product.account_provision_expense_id.id,
+                    "name": _("Release Loan Loss Provision Expense [%s] — %s") % (self.state, self.loan_number),
+                    "debit": 0.0,
+                    "credit": release_amount,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
+            ]
+            msg_type = _("released/decreased")
+
+        move_vals = {
+            "journal_id": accrual_journal.id,
+            "date": fields.Date.today(),
+            "ref": f"PROV/{self.loan_number} ({self.state.upper()})",
+            "move_type": "entry",
+            "loan_id": self.id,
+            "line_ids": line_ids,
         }
 
         move = self.env["account.move"].create(move_vals)
         move.action_post()
-        self.write({"provision_move_id": move.id})
+
+        # Update provision_move_id if it's the first move
+        if not self.provision_move_id:
+            self.write({"provision_move_id": move.id})
+
         self.message_post(
-            body=_("Provisioning journal entry %s posted for KES %s (Status: %s).")
-            % (move.name, f"{provision_amount:,.2f}", self.state.upper())
+            body=_("Provisioning journal entry %s posted: KES %s was %s (New Provision Balance: KES %s, Status: %s).")
+            % (move.name, f"{abs(adjustment):,.2f}", msg_type, f"{required_provision:,.2f}", self.state.upper())
         )
+        return move
+
+    def action_post_write_off_entry(self):
+        """
+        Create a journal entry to write off the loan's outstanding principal and interest
+        by debiting the Provision/Allowance account and crediting the Loan and Interest Receivable accounts.
+        """
+        self.ensure_one()
+        write_off_move = self.env["account.move"].search([
+            ("loan_id", "=", self.id),
+            ("ref", "like", "WRT/%"),
+            ("state", "=", "posted")
+        ], limit=1)
+        if write_off_move:
+            return write_off_move
+
+        product = self.loan_product_id
+        if not product.account_loan_receivable_id or not product.account_interest_receivable_id or not product.account_provision_id:
+            raise UserError(_("Please configure Loan Receivable, Interest Receivable, and Provision accounts on the product '%s' before writing off.") % product.name)
+
+        # Calculate actual outstanding principal and interest from the schedule
+        schedule = (self.current_repayment_schedule_ids or self.repayment_schedule_ids)
+        outstanding_principal = sum(max(line.principal_due - line.principal_paid, 0.0) for line in schedule)
+        outstanding_interest = sum(max(line.interest_due - line.interest_paid, 0.0) for line in schedule)
+        total_write_off = outstanding_principal + outstanding_interest
+
+        if total_write_off <= 0:
+            return False
+
+        # Resolve a General journal
+        accrual_journal = (
+            self.journal_id
+            if self.journal_id and self.journal_id.type == "general"
+            else False
+        )
+        if not accrual_journal:
+            accrual_journal = self.env["account.journal"].search(
+                [("type", "=", "general"), ("company_id", "=", self.company_id.id)],
+                limit=1,
+            )
+        if not accrual_journal:
+            raise UserError(_("No General journal found for company '%s'.") % self.company_id.name)
+
+        line_ids = [
+            # DR Provision Account (Allowance for Credit Losses)
+            (0, 0, {
+                "account_id": product.account_provision_id.id,
+                "name": _("Write-Off Allowance Utilization — %s") % self.loan_number,
+                "debit": total_write_off,
+                "credit": 0.0,
+                "partner_id": self.customer_id.partner_id.id,
+            })
+        ]
+
+        if outstanding_principal > 0:
+            line_ids.append((0, 0, {
+                "account_id": product.account_loan_receivable_id.id,
+                "name": _("Write-Off Principal — %s") % self.loan_number,
+                "debit": 0.0,
+                "credit": outstanding_principal,
+                "partner_id": self.customer_id.partner_id.id,
+            }))
+
+        if outstanding_interest > 0:
+            line_ids.append((0, 0, {
+                "account_id": product.account_interest_receivable_id.id,
+                "name": _("Write-Off Interest — %s") % self.loan_number,
+                "debit": 0.0,
+                "credit": outstanding_interest,
+                "partner_id": self.customer_id.partner_id.id,
+            }))
+
+        move_vals = {
+            "journal_id": accrual_journal.id,
+            "date": fields.Date.today(),
+            "ref": f"WRT/{self.loan_number}",
+            "move_type": "entry",
+            "loan_id": self.id,
+            "line_ids": line_ids,
+        }
+
+        move = self.env["account.move"].create(move_vals)
+        move.action_post()
         return move
 
     def action_write_off(self):
         self.ensure_one()
+        self.action_post_write_off_entry()
         self.write({"state": "written_off"})
+        self.action_post_provisioning_entry()
         self.message_post(body=Markup(_("Loan has been <b>Written Off</b> as per policy (Loss classification).")))
 
     def action_close(self):
@@ -1417,10 +1576,11 @@ class AlbaLoan(models.Model):
     @api.model
     def action_update_par_buckets(self):
         """Called by daily cron to refresh PAR data on all active loans."""
-        # Active states: normal, watch, substandard, doubtful
-        active_loans = self.search([("state", "in", ["normal", "watch", "substandard", "doubtful"])])
+        # Active states: normal, watch, substandard, doubtful, loss
+        active_loans = self.search([("state", "in", ["normal", "watch", "substandard", "doubtful", "loss"])])
         active_loans._compute_par()
-        # Classification and write-off are triggered by _compute_par which triggers _compute_state
+        for loan in active_loans:
+            loan.action_post_provisioning_entry()
 
     # =========================================================================
     # Scheduled action (cron) — Classification monitor
@@ -1432,11 +1592,11 @@ class AlbaLoan(models.Model):
         Daily cron: monitor loan classification and fire webhooks.
         """
         _logger = __import__("logging").getLogger(__name__)
-        active_loans = self.search([("state", "in", ["normal", "watch", "substandard", "doubtful"])])
+        active_loans = self.search([("state", "in", ["normal", "watch", "substandard", "doubtful", "loss"])])
         active_loans._compute_par()
 
-        # Fire webhooks for loans that moved into substandard/doubtful/written_off
-        watch_loans = active_loans.filtered(lambda l: l.state in ('substandard', 'doubtful', 'written_off'))
+        # Fire webhooks for loans that moved into substandard/doubtful/loss/written_off
+        watch_loans = active_loans.filtered(lambda l: l.state in ('substandard', 'doubtful', 'loss', 'written_off'))
         if watch_loans:
             self._fire_loan_status_webhooks(watch_loans, "loan.classification_updated")
 
