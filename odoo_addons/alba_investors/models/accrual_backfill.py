@@ -42,22 +42,24 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
                            period_start is clamped to this date for pro-rata
                            first-month interest.
     """
+    from calendar import monthrange
     periods = []
     current_year = as_of_date.year
     current_month = as_of_date.month
 
-    while (current_year, current_month) >= (
-        start_date.year, start_date.month
-    ):
-        run_date = accrual_run_date(current_year, current_month, target_day)
-        if run_date <= as_of_date:
-            period_start, period_end = previous_month_bounds(run_date)
-            if period_end >= start_date:
-                # Bug 1 fix: accrual_date is in the PERIOD month, not the run month
-                accrual_date = accrual_run_date(
-                    period_start.year, period_start.month, target_day
-                )
-                periods.append((accrual_date, period_start, period_end))
+    while (current_year, current_month) >= (start_date.year, start_date.month):
+        # Compute period bounds for THIS month
+        last_day = monthrange(current_year, current_month)[1]
+        period_start = date(current_year, current_month, 1)
+        period_end = date(current_year, current_month, last_day)
+
+        # Accrual date is target_day of THIS period month
+        accrual_date = accrual_run_date(current_year, current_month, target_day)
+
+        # Only include if accrual_date has already passed
+        if accrual_date <= as_of_date and period_end >= start_date:
+            periods.append((accrual_date, period_start, period_end))
+
         current_month -= 1
         if current_month == 0:
             current_month = 12
@@ -65,7 +67,7 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
 
     # Yield oldest first so journal entries post chronologically
     for i, (accrual_date, period_start, period_end) in enumerate(reversed(periods)):
-        # Bug 3 fix: pro-rata first month — clamp period_start to investment_start
+        # Pro-rata first month: clamp period_start to investment_start
         if i == 0 and investment_start is not None:
             if period_start < investment_start <= period_end:
                 period_start = investment_start
