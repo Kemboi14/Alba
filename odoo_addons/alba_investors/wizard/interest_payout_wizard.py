@@ -267,7 +267,25 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                 "interest_payout_id": payout.id,
             })
 
-        # ── 6. Chatter ─────────────────────────────────────────────────────────
+        # ── 6. Invalidate subsequent posted accruals ───────────────────────────
+        # After a payout, the opening balance for all future accruals changes
+        # (paid interest is no longer compounding). Delete any posted accruals
+        # that come AFTER the last paid accrual so the backfill recreates them
+        # with the correct opening balance derived from current_value.
+        if accruals_to_mark_paid:
+            last_paid_period_end = max(accruals_to_mark_paid.mapped("period_end"))
+            subsequent_posted = investment.accrual_ids.filtered(
+                lambda a: a.state == "posted" and a.period_start > last_paid_period_end
+            )
+            if subsequent_posted:
+                # Reverse and delete the journal entries first
+                for accrual in subsequent_posted:
+                    if accrual.move_id and accrual.move_id.state == "posted":
+                        accrual.move_id.button_cancel()
+                        accrual.move_id.unlink()
+                subsequent_posted.unlink()
+
+        # ── 7. Chatter ─────────────────────────────────────────────────────────
         mode_label = dict(self._fields["payout_mode"].selection).get(self.payout_mode, "")
         investment.message_post(
             body=_(
