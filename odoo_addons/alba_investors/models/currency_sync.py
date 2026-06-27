@@ -133,7 +133,7 @@ class AlbaCurrencyRateSync(models.TransientModel):
             'partner_id': investment.partner_id.id,
             'journal_id': journal.id,
             'currency_id': inv_currency.id,
-            'memo': f"INV/{investment.investment_number}",
+            'memo': f"INV/{safe_investment_reference(investment)}",
             'destination_account_id': investment.account_investment_liability_id.id,
         }
 

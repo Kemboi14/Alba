@@ -13,7 +13,7 @@
         <field name="model_id" ref="alba_loans.model_alba_loan" />
         <field name="state">code</field>
         <field name="code">
-model.search([('state', 'not in', ['closed', 'written_off'])], limit=None)._compute_par()
+env['alba.loan'].action_update_par_buckets()
         </field>
         <field name="user_id" ref="base.user_root" />
         <field name="interval_number">1</field>

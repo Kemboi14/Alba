@@ -2,6 +2,8 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
+from ..models.reference_utils import safe_investment_reference
+
 
 class AlbaInterestPayoutWizard(models.TransientModel):
     _name = "alba.interest.payout.wizard"
@@ -180,7 +182,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             "partner_id": investment.investor_id.partner_id.id,
             "journal_id": self.journal_id.id,
             "currency_id": inv_currency.id,
-            "memo": "Interest Payout — %s" % investment.investment_number,
+            "memo": "Interest Payout — %s" % safe_investment_reference(investment),
             "destination_account_id": investment.account_interest_payable_id.id,
         }
         payment = self.env["account.payment"].create(payment_vals)
@@ -204,14 +206,14 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                 "date": self.payout_date,
                 "journal_id": investment.journal_id.id,
                 "ref": "IPAY-WHT/%s/%s" % (
-                    investment.investment_number,
+                    safe_investment_reference(investment),
                     self.payout_date.strftime("%Y%m"),
                 ),
                 "move_type": "entry",
                 "currency_id": inv_currency.id,
                 "line_ids": [
                     (0, 0, {
-                        "name": "WHT on interest — %s" % investment.investment_number,
+                        "name": "WHT on interest — %s" % safe_investment_reference(investment),
                         "account_id": investment.account_interest_payable_id.id,
                         "debit": wht_co,
                         "credit": 0.0,
@@ -220,7 +222,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                         "partner_id": investment.investor_id.partner_id.id,
                     }),
                     (0, 0, {
-                        "name": "WHT Payable — %s" % investment.investment_number,
+                        "name": "WHT Payable — %s" % safe_investment_reference(investment),
                         "account_id": investment.account_wht_payable_id.id,
                         "debit": 0.0,
                         "credit": wht_co,

@@ -1,6 +1,8 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
+from ..models.reference_utils import safe_investment_reference
+
 class InvestmentWithdrawWizard(models.TransientModel):
     _name = "alba.investment.withdraw.wizard"
     _description = "Investment Withdrawal Wizard"
@@ -53,7 +55,7 @@ class InvestmentWithdrawWizard(models.TransientModel):
             'partner_id': investment.investor_id.partner_id.id,
             'journal_id': self.journal_id.id,
             'currency_id': self.currency_id.id,
-            'memo': f"Withdrawal - {investment.investment_number}",
+            'memo': f"Withdrawal - {safe_investment_reference(investment)}",
             'destination_account_id': investment.account_investment_liability_id.id,
         }
         
@@ -109,7 +111,7 @@ class InvestmentWithdrawWizard(models.TransientModel):
             # 1. DR Interest Payable Account
             if interest_payable_to_clear > 0:
                 line_ids.append((0, 0, {
-                    'name': f"Clear Interest Payable - {investment.investment_number}",
+                    'name': f"Clear Interest Payable - {safe_investment_reference(investment)}",
                     'account_id': investment.account_interest_payable_id.id,
                     'debit': interest_payable_company,
                     'credit': 0.0,
@@ -121,7 +123,7 @@ class InvestmentWithdrawWizard(models.TransientModel):
             # 2. CR Investment Liability Account
             if net_interest_to_offset > 0:
                 line_ids.append((0, 0, {
-                    'name': f"Investment Liability Interest Offset - {investment.investment_number}",
+                    'name': f"Investment Liability Interest Offset - {safe_investment_reference(investment)}",
                     'account_id': investment.account_investment_liability_id.id,
                     'debit': 0.0,
                     'credit': net_interest_company,
@@ -133,7 +135,7 @@ class InvestmentWithdrawWizard(models.TransientModel):
             # 3. CR WHT Payable Account
             if wht_to_post > 0:
                 line_ids.append((0, 0, {
-                    'name': f"Withholding Tax Payable - {investment.investment_number}",
+                    'name': f"Withholding Tax Payable - {safe_investment_reference(investment)}",
                     'account_id': investment.account_wht_payable_id.id,
                     'debit': 0.0,
                     'credit': wht_company,
@@ -146,7 +148,7 @@ class InvestmentWithdrawWizard(models.TransientModel):
                 move_vals = {
                     'date': self.payment_date,
                     'journal_id': investment.journal_id.id,
-                    'ref': f"WHT/ADJ/{investment.investment_number}",
+                    'ref': f"WHT/ADJ/{safe_investment_reference(investment)}",
                     'move_type': 'entry',
                     'currency_id': inv_currency.id,
                     'line_ids': line_ids

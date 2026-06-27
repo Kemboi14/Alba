@@ -2,6 +2,8 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
+from .reference_utils import safe_investment_reference
+
 
 class AlbaInvestmentTopup(models.Model):
     """
@@ -209,7 +211,7 @@ class AlbaInvestmentTopup(models.Model):
                 "partner_id": investment.partner_id.id,
                 "journal_id": journal.id,
                 "currency_id": inv_currency.id,
-                "memo": "Top-Up %s — %s" % (rec.name, investment.investment_number),
+                "memo": "Top-Up %s — %s" % (rec.name, safe_investment_reference(investment)),
                 "destination_account_id": investment.account_investment_liability_id.id,
             }
             payment = self.env["account.payment"].create(payment_vals)
