@@ -3,6 +3,7 @@ from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 from datetime import datetime, timedelta
 import logging
+from .reference_utils import safe_investment_reference
 
 _logger = logging.getLogger(__name__)
 
