@@ -46,51 +46,91 @@ class ReportInvestorStatement(models.AbstractModel):
 
         investments = self.env["alba.investment"].search([
             ("investor_id", "=", investor.id),
-            ("state", "in", ["active", "matured", "withdrawn"]),
+            ("state", "!=", "draft"),
         ])
-        if not investments:
-            investments = self.env["alba.investment"].search([
-                ("investor_id", "=", investor.id),
-            ], limit=10)
-
+        
+        transactions = []
+        
+        # A) Initial Deposits
+        for inv in investments:
+            dt = inv.start_date
+            transactions.append({
+                "date": dt,
+                "type": "deposit",
+                "description": f"Initial Deposit - {inv.investment_number}",
+                "amount": inv.principal_amount,
+                "record": inv,
+            })
+            
+        # B) Top-Ups
+        topups = self.env["alba.investment.topup"].search([
+            ("investor_id", "=", investor.id),
+            ("state", "=", "posted")
+        ])
+        for t in topups:
+            transactions.append({
+                "date": t.date,
+                "type": "topup",
+                "description": f"Top-Up - {t.name}",
+                "amount": t.amount,
+                "record": t,
+            })
+            
+        # C) Interest Accruals
         accruals = self.env["alba.interest.accrual"].search([
             ("investor_id", "=", investor.id),
-            ("accrual_date", ">=", date_from),
-            ("accrual_date", "<=", date_to),
-            ("state", "=", "posted"),
-        ], order="accrual_date asc")
-
-        prior_accruals = self.env["alba.interest.accrual"].search([
-            ("investor_id", "=", investor.id),
-            ("accrual_date", "<", date_from),
-            ("state", "=", "posted"),
+            ("state", "=", "posted")
         ])
-        principal = sum(investments.mapped("principal_amount"))
-        prior_interest = sum(prior_accruals.mapped("interest_amount"))
-
-        # Include prior-period transactions (deposits/withdrawals) in opening balance
-        Transaction = self.env["alba.investor.transaction"]
-        prior_txs = Transaction.browse()
-        if Transaction._name in self.env:
-            prior_txs = Transaction.search([
-                ("investor_id", "=", investor.id),
-                ("date", "<", date_from),
-            ])
-        prior_deposits = sum(
-            tx.amount for tx in prior_txs
-            if tx.transaction_type != "withdrawal" and tx.amount > 0
-        )
-        prior_withdrawals = sum(
-            abs(tx.amount) for tx in prior_txs
-            if tx.transaction_type == "withdrawal" or tx.amount < 0
-        )
-        opening_balance = principal + prior_interest + prior_deposits - prior_withdrawals
-
+        for a in accruals:
+            inv_num = a.investment_id.investment_number or ""
+            transactions.append({
+                "date": a.accrual_date,
+                "type": "accrual",
+                "description": self._accrual_description(a, inv_num),
+                "amount": a.interest_amount,
+                "record": a,
+            })
+            
+        # D) Interest Payouts
+        payouts = self.env["alba.interest.payout"].search([
+            ("investor_id", "=", investor.id),
+            ("state", "=", "posted")
+        ])
+        for p in payouts:
+            transactions.append({
+                "date": p.payout_date,
+                "type": "payout",
+                "description": f"Interest Payout - {p.name}",
+                "amount": -p.gross_interest,
+                "record": p,
+            })
+            
+        # E) Withdrawals / Payoffs
+        for inv in investments.filtered(lambda i: i.state == "withdrawn" and i.withdrawal_payment_id):
+            dt = inv.withdrawal_payment_id.date
+            gross_withdrawal = inv.principal_amount + inv.total_topup_amount + inv.total_interest_outstanding
+            transactions.append({
+                "date": dt,
+                "type": "withdrawal",
+                "description": f"Investment Payoff/Withdrawal - {inv.investment_number}",
+                "amount": -gross_withdrawal,
+                "record": inv,
+            })
+            
+        # Sort all transactions chronologically
+        transactions.sort(key=lambda x: x["date"])
+        
+        prior_txs = [t for t in transactions if t["date"] < date_from]
+        period_txs = [t for t in transactions if date_from <= t["date"] <= date_to]
+        
+        opening_balance = sum(t["amount"] for t in prior_txs)
+        
         currency = investor.currency_id or self.env.company.currency_id
         account_number = investor.investor_number or ""
         company = investor.company_id or self.env.company
         _logger.debug("Investor %s company=%s logo=%s logo_web=%s", investor.investor_name, bool(company.logo), bool(company.logo_web))
         partner = investor.partner_id
+        
         lines = []
         balance = opening_balance
 
@@ -105,69 +145,41 @@ class ReportInvestorStatement(models.AbstractModel):
             "balance_fmt": self._format_amount(balance, currency),
         })
 
-        Transaction = self.env["alba.investor.transaction"]
-        tx_list = []
-        if Transaction._name in self.env:
-            tx_list = Transaction.search([
-                ("investor_id", "=", investor.id),
-                ("date", ">=", date_from),
-                ("date", "<=", date_to),
-            ], order="date asc, id asc")
-            for tx in tx_list:
-                amount = abs(tx.amount)
-                if tx.transaction_type in ("withdrawal",) or tx.amount < 0:
-                    balance -= amount
-                    lines.append({
-                        "date": self._format_stmt_date(tx.date),
-                        "description": self._clean_string((tx.description or tx.reference or "REFUND Investment Refund").upper()),
-                        "debit": amount,
-                        "credit": 0.0,
-                        "balance": balance,
-                        "debit_fmt": self._format_amount(amount, currency),
-                        "credit_fmt": "",
-                        "balance_fmt": self._format_amount(balance, currency),
-                    })
-                else:
-                    balance += amount
-                    lines.append({
-                        "date": self._format_stmt_date(tx.date),
-                        "description": self._clean_string((tx.description or tx.reference or "DEPOSIT").upper()),
-                        "debit": 0.0,
-                        "credit": amount,
-                        "balance": balance,
-                        "debit_fmt": "",
-                        "credit_fmt": self._format_amount(amount, currency),
-                        "balance_fmt": self._format_amount(balance, currency),
-                    })
+        deposits = 0.0
+        withdrawals = 0.0
+        interest_accrued = 0.0
+        
+        for tx in period_txs:
+            balance += tx["amount"]
+            
+            is_debit = tx["amount"] < 0
+            debit_amt = abs(tx["amount"]) if is_debit else 0.0
+            credit_amt = tx["amount"] if not is_debit else 0.0
+            
+            if tx["type"] in ("deposit", "topup"):
+                deposits += tx["amount"]
+            elif tx["type"] in ("withdrawal", "payout"):
+                withdrawals += abs(tx["amount"])
+            elif tx["type"] == "accrual":
+                interest_accrued += tx["amount"]
 
-        # Accrual lines — use additive running balance, not accrual.closing_balance
-        # (closing_balance may be stale or predate transactions within the period)
-        for accrual in accruals:
-            credit = accrual.interest_amount
-            balance += credit
-            inv_num = accrual.investment_id.investment_number or account_number
             lines.append({
-                "date": self._format_stmt_date(accrual.accrual_date),
-                "description": self._clean_string(self._accrual_description(accrual, inv_num)),
-                "debit": 0.0,
-                "credit": credit,
+                "date": self._format_stmt_date(tx["date"]),
+                "description": self._clean_string(tx["description"].upper()),
+                "debit": debit_amt,
+                "credit": credit_amt,
                 "balance": balance,
-                "debit_fmt": "",
-                "credit_fmt": self._format_amount(credit, currency),
+                "debit_fmt": self._format_amount(debit_amt, currency) if is_debit else "",
+                "credit_fmt": self._format_amount(credit_amt, currency) if not is_debit else "",
                 "balance_fmt": self._format_amount(balance, currency),
             })
-
+            
         total_debit = sum(line["debit"] for line in lines)
         total_credit = sum(line["credit"] for line in lines)
 
-        # Calculate Financial Summary Values Consolidated
         wht_rate = investments[0].wht_rate if investments else 15.0
-        interest_accrued = sum(accruals.mapped("interest_amount"))
         wht_amount = interest_accrued * (wht_rate / 100.0)
         net_interest = interest_accrued - wht_amount
-        
-        deposits = sum(tx.amount for tx in tx_list if tx.transaction_type != 'withdrawal' and tx.amount > 0)
-        withdrawals = sum(abs(tx.amount) for tx in tx_list if tx.transaction_type == 'withdrawal' or tx.amount < 0)
 
         return {
             "doc": investor,
