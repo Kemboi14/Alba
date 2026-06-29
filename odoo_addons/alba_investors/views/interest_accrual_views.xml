@@ -15,6 +15,7 @@
                   decoration-danger="state == 'reversed'"
                   decoration-info="state == 'draft'"
                   decoration-muted="state == 'paid'">
+                <field name="currency_id" column_invisible="1"/>
                 <field name="accrual_date"/>
                 <field name="investment_id"/>
                 <field name="investment_product_id"/>

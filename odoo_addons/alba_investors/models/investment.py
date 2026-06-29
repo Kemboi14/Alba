@@ -1089,6 +1089,20 @@ class AlbaInvestment(models.Model):
             )
 
             try:
+                # ── Initialise running balance from principal ──────────────────
+                running_balance = inv.principal_amount
+
+                # Add any top-ups posted on or before the investment start date
+                bootstrap_topups = self.env["alba.investment.topup"].search([
+                    ("investment_id", "=", inv.id),
+                    ("state", "=", "posted"),
+                    ("date", "<=", inv.start_date),
+                ])
+                running_balance += sum(bootstrap_topups.mapped("amount"))
+
+                # Track the end of the last processed period for top-up windowing
+                last_period_end = inv.start_date
+
                 for accrual_date, period_start, period_end in iter_missing_accrual_periods(
                     start_date, as_of_date, target_day,
                     investment_start=inv.start_date,
@@ -1102,23 +1116,42 @@ class AlbaInvestment(models.Model):
                         ],
                         limit=1,
                     )
+
+                    # Add top-ups that fall between last_period_end and
+                    # this period's start (inclusive of period_start)
+                    topups_this_period = self.env["alba.investment.topup"].search([
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("date", ">", last_period_end),
+                        ("date", "<=", period_start),
+                    ])
+                    running_balance += sum(topups_this_period.mapped("amount"))
+
                     if existing:
+                        # Period already exists — advance running balance using
+                        # the stored closing balance so the chain stays correct
+                        running_balance = existing.closing_balance
+                        last_period_end = period_end
                         continue
 
-                    # Use current_value which correctly accounts for:
-                    # principal + top-ups + (total accrued - total paid out)
-                    # This ensures payouts reduce the next period's opening balance
-                    opening_balance = inv.current_value
+                    opening_balance = running_balance
 
                     # Each period gets its own savepoint so a mid-investment
                     # failure doesn't roll back periods already posted.
                     with self.env.cr.savepoint():
-                        inv.action_accrue_monthly_interest(
+                        accrual = inv.action_accrue_monthly_interest(
                             accrual_date=accrual_date,
                             opening_balance=opening_balance,
                             period_start=period_start,
                             period_end=period_end,
                         )
+                        if accrual:
+                            # Advance running balance to this period's closing balance
+                            running_balance = accrual.closing_balance
+                        # else: action_accrue_monthly_interest returned False
+                        # (duplicate found inside); keep running_balance as is
+
+                    last_period_end = period_end
 
             except Exception as exc:
                 _logger.error(
