@@ -79,7 +79,7 @@ class ReportInvestorStatement(models.AbstractModel):
         # C) Interest Accruals
         accruals = self.env["alba.interest.accrual"].search([
             ("investor_id", "=", investor.id),
-            ("state", "in", ("posted", "paid"))
+            ("state", "=", "posted")
         ])
         for a in accruals:
             inv_num = a.investment_id.investment_number or ""

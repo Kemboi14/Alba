@@ -223,10 +223,6 @@ class AlbaInvestmentTopup(models.Model):
                 "journal_id": journal.id,
             })
 
-            # Invalidate subsequent posted/draft accruals and run backfill
-            investment._invalidate_subsequent_accruals(rec.date)
-            investment.action_backfill_missing_accruals()
-
             investment.message_post(
                 body=_(
                     "Top-up <b>%(ref)s</b> posted: "
@@ -250,11 +246,6 @@ class AlbaInvestmentTopup(models.Model):
             if rec.payment_id and rec.payment_id.state == "posted":
                 rec.payment_id.action_cancel()
             rec.write({"state": "draft", "payment_id": False})
-
-            # Invalidate subsequent posted/draft accruals and run backfill
-            investment = rec.investment_id
-            investment._invalidate_subsequent_accruals(rec.date)
-            investment.action_backfill_missing_accruals()
 
     def action_view_payment(self):
         """Open the linked receipt."""

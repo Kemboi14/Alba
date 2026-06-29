@@ -215,19 +215,16 @@ class AlbaInterestAccrual(models.Model):
         last_day = calendar.monthrange(today.year, today.month)[1]
         self.period_end = today.replace(day=last_day)
 
-        # Opening balance = historical balance as of period start if defined, fallback to last posted accrual/principal
-        if self.period_start:
-            self.opening_balance = inv.get_historical_balance(self.period_start)
-        else:
-            last_accrual = self.env['alba.interest.accrual'].search([
-                ('investment_id', '=', inv.id),
-                ('state', '=', 'posted'),
-            ], order='period_end desc', limit=1)
+        # Opening balance = closing balance of last posted accrual, or principal if none
+        last_accrual = self.env['alba.interest.accrual'].search([
+            ('investment_id', '=', inv.id),
+            ('state', '=', 'posted'),
+        ], order='period_end desc', limit=1)
 
-            if last_accrual:
-                self.opening_balance = last_accrual.closing_balance
-            else:
-                self.opening_balance = inv.principal_amount
+        if last_accrual:
+            self.opening_balance = last_accrual.closing_balance
+        else:
+            self.opening_balance = inv.principal_amount
 
         if inv.interest_rate:
             import calendar as _cal
