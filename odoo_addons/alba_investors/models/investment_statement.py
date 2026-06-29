@@ -151,7 +151,7 @@ class AlbaInvestmentStatement(models.Model):
         "statement_id",
         "accrual_id",
         string="Interest Accruals",
-        domain="[('investment_id', '=', investment_id), ('state', '=', 'posted')]",
+        domain="[('investment_id', '=', investment_id), ('state', 'in', ('posted', 'paid'))]",
     )
 
     # ── Company ───────────────────────────────────────────────────────────────
@@ -317,7 +317,7 @@ class AlbaInvestmentStatement(models.Model):
             accruals = self.env["alba.interest.accrual"].search(
                 [
                     ("investment_id", "=", inv.id),
-                    ("state", "=", "posted"),
+                    ("state", "in", ("posted", "paid")),
                     ("accrual_date", ">=", period_start),
                     ("accrual_date", "<=", period_end),
                 ]
@@ -357,7 +357,7 @@ class AlbaInvestmentStatement(models.Model):
             prior_accruals = self.env["alba.interest.accrual"].search(
                 [
                     ("investment_id", "=", inv.id),
-                    ("state", "=", "posted"),
+                    ("state", "in", ("posted", "paid")),
                     ("accrual_date", "<", period_start),
                 ]
             )
@@ -453,7 +453,7 @@ class AlbaInvestmentStatement(models.Model):
                 accruals = self.env["alba.interest.accrual"].search(
                     [
                         ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
+                        ("state", "in", ("posted", "paid")),
                         ("accrual_date", ">=", period_start),
                         ("accrual_date", "<=", period_end),
                     ]
@@ -493,7 +493,7 @@ class AlbaInvestmentStatement(models.Model):
                 prior_accruals = self.env["alba.interest.accrual"].search(
                     [
                         ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
+                        ("state", "in", ("posted", "paid")),
                         ("accrual_date", "<", period_start),
                     ]
                 )

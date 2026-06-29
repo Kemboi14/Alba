@@ -286,6 +286,9 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                         accrual.move_id.button_cancel()
                         accrual.move_id.unlink()
                 subsequent_posted.unlink()
+            
+            # Immediately trigger backfill to recreate them with correct compounding base
+            investment.action_backfill_missing_accruals()
 
         # ── 7. Chatter ─────────────────────────────────────────────────────────
         mode_label = dict(self._fields["payout_mode"].selection).get(self.payout_mode, "")

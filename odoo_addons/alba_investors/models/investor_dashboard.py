@@ -300,7 +300,7 @@ class AlbaInvestorDashboard(models.TransientModel):
             ('investment_id.company_id', '=', self.company_id.id),
             ('accrual_date', '>=', start_date),
             ('accrual_date', '<=', end_date),
-            ('state', '=', 'posted')
+            ('state', 'in', ('posted', 'paid'))
         ])
         
         # Group by month

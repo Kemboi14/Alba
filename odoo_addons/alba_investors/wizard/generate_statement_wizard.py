@@ -247,7 +247,7 @@ class AlbaGenerateStatementWizard(models.TransientModel):
                 accruals = Accrual.search(
                     [
                         ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
+                        ("state", "in", ("posted", "paid")),
                         ("accrual_date", ">=", self.period_start),
                         ("accrual_date", "<=", self.period_end),
                     ]
@@ -287,7 +287,7 @@ class AlbaGenerateStatementWizard(models.TransientModel):
                 prior_accruals = Accrual.search(
                     [
                         ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
+                        ("state", "in", ("posted", "paid")),
                         ("accrual_date", "<", self.period_start),
                     ]
                 )

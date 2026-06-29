@@ -621,6 +621,55 @@ class AlbaInvestment(models.Model):
             "annually": 1,
         }.get(self.compounding_frequency, 12)
 
+    def get_historical_balance(self, target_date):
+        """
+        Calculate the historical balance of the investment as of target_date.
+        Includes principal, top-ups <= target_date, and accruals/payouts before target_date.
+        """
+        self.ensure_one()
+        # Top-ups posted on or before target_date
+        topups = self.topup_ids.filtered(
+            lambda t: t.state == "posted" and t.date <= target_date
+        )
+
+        # Accruals with period_end before target_date
+        accruals = self.accrual_ids.filtered(
+            lambda a: a.state in ("posted", "paid") and a.period_end < target_date
+        )
+
+        # Payouts compounding effective date before target_date
+        payouts = self.payout_ids.filtered(lambda p: p.state == "posted")
+        valid_payouts_amount = 0.0
+        for p in payouts:
+            eff_date = max(p.accrual_ids.mapped("period_end")) if p.accrual_ids else p.payout_date
+            if eff_date < target_date:
+                valid_payouts_amount += p.gross_interest
+
+        balance = (
+            self.principal_amount
+            + sum(topups.mapped("amount"))
+            + sum(accruals.mapped("interest_amount"))
+            - valid_payouts_amount
+        )
+        return balance
+
+    def _invalidate_subsequent_accruals(self, start_date):
+        """
+        Delete draft/posted accruals that fall after or on start_date,
+        reversing and unlinking their journal entries.
+        """
+        self.ensure_one()
+        to_invalidate = self.accrual_ids.filtered(
+            lambda a: a.state in ("draft", "posted") and a.period_end >= start_date
+        )
+        if to_invalidate:
+            for accrual in to_invalidate:
+                if accrual.move_id:
+                    if accrual.move_id.state == "posted":
+                        accrual.move_id.button_cancel()
+                    accrual.move_id.unlink()
+            to_invalidate.unlink()
+
     def compute_compound_interest_for_period(self, opening_balance=None):
         """
         Calculate compound interest for one compounding period.
@@ -691,7 +740,7 @@ class AlbaInvestment(models.Model):
         # If period_start is not the 1st of the month (partial first month),
         # scale the full-month interest by actual_days / total_days_in_month.
         from calendar import monthrange as _monthrange
-        accrual_opening_balance = opening_balance if opening_balance is not None else self.current_value
+        accrual_opening_balance = opening_balance if opening_balance is not None else self.get_historical_balance(period_start)
         full_month_interest = self.compute_compound_interest_for_period(
             opening_balance=accrual_opening_balance
         )
@@ -1105,10 +1154,10 @@ class AlbaInvestment(models.Model):
                     if existing:
                         continue
 
-                    # Use current_value which correctly accounts for:
+                    # Use get_historical_balance which correctly accounts for:
                     # principal + top-ups + (total accrued - total paid out)
-                    # This ensures payouts reduce the next period's opening balance
-                    opening_balance = inv.current_value
+                    # up to the start of the period being backfilled.
+                    opening_balance = inv.get_historical_balance(period_start)
 
                     # Each period gets its own savepoint so a mid-investment
                     # failure doesn't roll back periods already posted.
