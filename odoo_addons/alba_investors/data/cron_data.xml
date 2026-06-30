@@ -13,7 +13,7 @@
             <field name="name">Alba: Automated Interest Accrual Check (Daily)</field>
             <field name="model_id" ref="alba_investors.model_alba_investment"/>
             <field name="state">code</field>
-            <field name="code">model.action_backfill_missing_accruals()</field>
+            <field name="code">model.action_run_automated_interest_accrual()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
             <field name="active" eval="True"/>
