@@ -265,16 +265,12 @@ class AlbaGenerateStatementWizard(models.TransientModel):
                 )
                 total_deposits = sum(topups.mapped("amount"))
 
-                # Payouts (withdrawals) in this period
-                payouts = self.env["alba.interest.payout"].search(
-                    [
-                        ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
-                        ("payout_date", ">=", self.period_start),
-                        ("payout_date", "<=", self.period_end),
-                    ]
-                )
-                total_withdrawals = sum(payouts.mapped("gross_interest"))
+                # Principal withdrawals (investment payoff) in this period
+                total_withdrawals = 0.0
+                if inv.state == "withdrawn" and inv.withdrawal_payment_id:
+                    pay_date = inv.withdrawal_payment_id.date
+                    if pay_date and self.period_start <= pay_date <= self.period_end:
+                        total_withdrawals = inv.principal_amount + inv.total_topup_amount
 
                 # Prior elements for opening balance
                 prior_topups = self.env["alba.investment.topup"].search(
@@ -287,7 +283,7 @@ class AlbaGenerateStatementWizard(models.TransientModel):
                 prior_accruals = Accrual.search(
                     [
                         ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
+                        ("state", "in", ["posted", "paid"]),
                         ("accrual_date", "<", self.period_start),
                     ]
                 )
@@ -298,12 +294,18 @@ class AlbaGenerateStatementWizard(models.TransientModel):
                         ("payout_date", "<", self.period_start),
                     ]
                 )
+                prior_withdrawals = 0.0
+                if inv.state == "withdrawn" and inv.withdrawal_payment_id:
+                    pay_date = inv.withdrawal_payment_id.date
+                    if pay_date and pay_date < self.period_start:
+                        prior_withdrawals = inv.principal_amount + inv.total_topup_amount
 
                 opening_balance = (
                     inv.principal_amount
                     + sum(prior_topups.mapped("amount"))
                     + sum(prior_accruals.mapped("interest_amount"))
                     - sum(prior_payouts.mapped("gross_interest"))
+                    - prior_withdrawals
                 )
 
                 # ── Create statement ──────────────────────────────────────────

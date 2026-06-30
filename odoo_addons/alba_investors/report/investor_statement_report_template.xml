@@ -129,24 +129,45 @@
                         <table width="100%" style="margin-bottom: 20px; border-collapse: collapse; border: 1.5px solid #2e6bbf;">
                             <thead>
                                 <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Opening Balance</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Deposits</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Withdrawals</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Interest Accrued</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">WHT Deducted (<t t-esc="wht_rate"/>%)</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Net Interest</th>
-                                    <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;">Closing Balance</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Opening Balance</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Deposits</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Withdrawals</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Total Interest Accrued (Gross)</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center;">Closing Balance</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr style="background-color: #ffffff;">
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center;"><t t-esc="opening_balance_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center;"><t t-esc="deposits_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center;"><t t-esc="withdrawals_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center;"><t t-esc="interest_accrued_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 700; color: #0d2d5e; text-align: center;"><t t-esc="wht_amount_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 700; color: #0d2d5e; text-align: center;"><t t-esc="net_interest_fmt"/></td>
+                                <tr style="background-color: #ffffff; border-bottom: 1px solid #2e6bbf;">
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="opening_balance_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="deposits_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="withdrawals_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="interest_accrued_fmt"/></td>
                                     <td style="padding: 12px 12px; font-size: 13px; font-weight: 700; color: #0d2d5e; text-align: center;"><t t-esc="closing_balance_fmt"/></td>
+                                </tr>
+                                <tr style="background-color: #f3f7fc;">
+                                    <td colspan="5" style="padding: 4px 10px; font-size: 10px; font-weight: 700; color: #0d2d5e; text-transform: uppercase; border-bottom: 1px solid #2e6bbf;">Interest Settlement Summary</td>
+                                </tr>
+                                <tr style="background-color: #ffffff;">
+                                    <td colspan="5" style="padding: 0;">
+                                        <table width="100%" style="border-collapse: collapse; margin: 0; border: none;">
+                                            <thead>
+                                                <tr style="border-bottom: 1px solid #c8d9f0; background-color: #fafafa;">
+                                                    <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0; width: 25%;">Total Interest Paid Out (Gross)</th>
+                                                    <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0; width: 25%;">Total WHT Deducted (<t t-esc="wht_rate"/>%)</th>
+                                                    <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0; width: 25%;">Total Net Interest Paid</th>
+                                                    <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; width: 25%;">Interest Outstanding</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td style="padding: 10px; font-size: 12px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="total_gross_paid_fmt"/></td>
+                                                    <td style="padding: 10px; font-size: 12px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="total_wht_deducted_fmt"/></td>
+                                                    <td style="padding: 10px; font-size: 12px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="total_net_paid_fmt"/></td>
+                                                    <td style="padding: 10px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;"><t t-esc="interest_outstanding_fmt"/></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -182,6 +203,99 @@
                             </tr>
                         </tfoot>
                     </table>
+
+                    <!-- Section: Top-Ups / Deposits Detail -->
+                    <t t-if="topup_lines">
+                        <div style="margin-top: 30px; margin-bottom: 10px; font-size: 14px; font-weight: 700; color: #0d2d5e; border-bottom: 2px solid #0d2d5e; padding-bottom: 4px; text-transform: uppercase; page-break-inside: avoid;">
+                            Deposits &amp; Top-Ups Detail
+                        </div>
+                        <table class="stmt-table" style="margin-top: 10px; margin-bottom: 20px; page-break-inside: avoid;">
+                            <thead>
+                                <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Date</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Reference</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Amount</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: center; width: 100px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="topup_lines" t-as="t_line">
+                                    <tr style="border-bottom: 1px solid #c8d9f0;">
+                                        <td class="date" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px;"><t t-esc="t_line['date']"/></td>
+                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="t_line['reference']"/></td>
+                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="t_line['amount_fmt']"/></td>
+                                        <td style="color: #0d2d5e; padding: 8px 10px; font-size: 12px; text-align: center;"><t t-esc="t_line['status']"/></td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </t>
+
+                    <!-- Section: Accrual Details -->
+                    <t t-if="accrual_lines">
+                        <div style="margin-top: 30px; margin-bottom: 10px; font-size: 14px; font-weight: 700; color: #0d2d5e; border-bottom: 2px solid #0d2d5e; padding-bottom: 4px; text-transform: uppercase; page-break-inside: avoid;">
+                            Interest Accrual History
+                        </div>
+                        <table class="stmt-table" style="margin-top: 10px; margin-bottom: 20px; page-break-inside: avoid;">
+                            <thead>
+                                <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Accrual Date</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Period Start</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Period End</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Opening Balance</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Interest Amount</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Closing Balance</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: center; width: 100px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="accrual_lines" t-as="a_line">
+                                    <tr style="border-bottom: 1px solid #c8d9f0;">
+                                        <td class="date" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px;"><t t-esc="a_line['accrual_date']"/></td>
+                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="a_line['period_start']"/></td>
+                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="a_line['period_end']"/></td>
+                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="a_line['opening_balance_fmt']"/></td>
+                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="a_line['interest_amount_fmt']"/></td>
+                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="a_line['closing_balance_fmt']"/></td>
+                                        <td style="color: #0d2d5e; padding: 8px 10px; font-size: 12px; text-align: center;"><t t-esc="a_line['status']"/></td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </t>
+
+                    <!-- Section: Payout Details -->
+                    <t t-if="payout_lines">
+                        <div style="margin-top: 30px; margin-bottom: 10px; font-size: 14px; font-weight: 700; color: #0d2d5e; border-bottom: 2px solid #0d2d5e; padding-bottom: 4px; text-transform: uppercase; page-break-inside: avoid;">
+                            Interest Payout Records
+                        </div>
+                        <table class="stmt-table" style="margin-top: 10px; margin-bottom: 20px; page-break-inside: avoid;">
+                            <thead>
+                                <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Payout Date</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Reference</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Accruals Covered</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Gross Interest</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">WHT Deducted</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Net Paid</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Payment Reference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="payout_lines" t-as="p_line">
+                                    <tr style="border-bottom: 1px solid #c8d9f0;">
+                                        <td class="date" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['payout_date']"/></td>
+                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['reference']"/></td>
+                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['accrual_range']"/></td>
+                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="p_line['gross_interest_fmt']"/></td>
+                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="p_line['wht_deducted_fmt']"/></td>
+                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="p_line['net_paid_fmt']"/></td>
+                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['payment_ref']"/></td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </t>
                 </div>
             </div>
 
@@ -229,10 +343,15 @@
                     <t t-set="deposits_fmt" t-value="stmt_data.get('deposits_fmt')"/>
                     <t t-set="withdrawals_fmt" t-value="stmt_data.get('withdrawals_fmt')"/>
                     <t t-set="interest_accrued_fmt" t-value="stmt_data.get('interest_accrued_fmt')"/>
-                    <t t-set="wht_amount_fmt" t-value="stmt_data.get('wht_amount_fmt')"/>
-                    <t t-set="net_interest_fmt" t-value="stmt_data.get('net_interest_fmt')"/>
                     <t t-set="closing_balance_fmt" t-value="stmt_data.get('closing_balance_fmt')"/>
                     <t t-set="wht_rate" t-value="stmt_data.get('wht_rate')"/>
+                    <t t-set="total_gross_paid_fmt" t-value="stmt_data.get('total_gross_paid_fmt')"/>
+                    <t t-set="total_wht_deducted_fmt" t-value="stmt_data.get('total_wht_deducted_fmt')"/>
+                    <t t-set="total_net_paid_fmt" t-value="stmt_data.get('total_net_paid_fmt')"/>
+                    <t t-set="interest_outstanding_fmt" t-value="stmt_data.get('interest_outstanding_fmt')"/>
+                    <t t-set="accrual_lines" t-value="stmt_data.get('accrual_lines')"/>
+                    <t t-set="payout_lines" t-value="stmt_data.get('payout_lines')"/>
+                    <t t-set="topup_lines" t-value="stmt_data.get('topup_lines')"/>
                 </t>
             </t>
         </t>
@@ -260,10 +379,15 @@
                     <t t-set="deposits_fmt" t-value="stmt_data.get('deposits_fmt')"/>
                     <t t-set="withdrawals_fmt" t-value="stmt_data.get('withdrawals_fmt')"/>
                     <t t-set="interest_accrued_fmt" t-value="stmt_data.get('interest_accrued_fmt')"/>
-                    <t t-set="wht_amount_fmt" t-value="stmt_data.get('wht_amount_fmt')"/>
-                    <t t-set="net_interest_fmt" t-value="stmt_data.get('net_interest_fmt')"/>
                     <t t-set="closing_balance_fmt" t-value="stmt_data.get('closing_balance_fmt')"/>
                     <t t-set="wht_rate" t-value="stmt_data.get('wht_rate')"/>
+                    <t t-set="total_gross_paid_fmt" t-value="stmt_data.get('total_gross_paid_fmt')"/>
+                    <t t-set="total_wht_deducted_fmt" t-value="stmt_data.get('total_wht_deducted_fmt')"/>
+                    <t t-set="total_net_paid_fmt" t-value="stmt_data.get('total_net_paid_fmt')"/>
+                    <t t-set="interest_outstanding_fmt" t-value="stmt_data.get('interest_outstanding_fmt')"/>
+                    <t t-set="accrual_lines" t-value="stmt_data.get('accrual_lines')"/>
+                    <t t-set="payout_lines" t-value="stmt_data.get('payout_lines')"/>
+                    <t t-set="topup_lines" t-value="stmt_data.get('topup_lines')"/>
                 </t>
             </t>
         </t>

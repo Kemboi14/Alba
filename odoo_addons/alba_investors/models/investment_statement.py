@@ -175,26 +175,46 @@ class AlbaInvestmentStatement(models.Model):
     # Computed methods
     # =========================================================================
 
-    @api.depends("opening_balance", "deposits", "withdrawals", "interest_accrued")
+    @api.depends("opening_balance", "deposits", "withdrawals", "interest_accrued", "investment_id", "period_start", "period_end")
     def _compute_closing_balance(self):
         for rec in self:
+            payout_amount = 0.0
+            if rec.investment_id and rec.period_start and rec.period_end:
+                payouts = self.env["alba.interest.payout"].search([
+                    ("investment_id", "=", rec.investment_id.id),
+                    ("state", "=", "posted"),
+                    ("payout_date", ">=", rec.period_start),
+                    ("payout_date", "<=", rec.period_end),
+                ])
+                payout_amount = sum(payouts.mapped("gross_interest"))
             rec.closing_balance = (
                 rec.opening_balance
                 + rec.deposits
                 - rec.withdrawals
                 + rec.interest_accrued
+                - payout_amount
             )
 
     def _inverse_closing_balance(self):
         # IMPORT-EXPORT FIX: no-op — allows import to write closing_balance;
-        # compute re-derives it from opening_balance + deposits - withdrawals + interest_accrued.
+        # compute re-derives it.
         pass
 
-    @api.depends("interest_accrued", "wht_rate")
+    @api.depends("interest_accrued", "wht_rate", "investment_id", "period_start", "period_end")
     def _compute_wht_amount(self):
         for rec in self:
-            rec.wht_amount = rec.interest_accrued * (rec.wht_rate / 100.0)
-            rec.net_interest = rec.interest_accrued - rec.wht_amount
+            if rec.investment_id and rec.period_start and rec.period_end:
+                payouts = self.env["alba.interest.payout"].search([
+                    ("investment_id", "=", rec.investment_id.id),
+                    ("state", "=", "posted"),
+                    ("payout_date", ">=", rec.period_start),
+                    ("payout_date", "<=", rec.period_end),
+                ])
+                rec.wht_amount = sum(payouts.mapped("wht_amount"))
+                rec.net_interest = sum(payouts.mapped("net_amount"))
+            else:
+                rec.wht_amount = 0.0
+                rec.net_interest = 0.0
 
     def _inverse_wht_amount(self): pass  # IMPORT-EXPORT FIX
     def _inverse_net_interest(self): pass  # IMPORT-EXPORT FIX
@@ -335,16 +355,12 @@ class AlbaInvestmentStatement(models.Model):
             )
             total_deposits = sum(topups.mapped("amount"))
 
-            # Payouts (withdrawals) in this period
-            payouts = self.env["alba.interest.payout"].search(
-                [
-                    ("investment_id", "=", inv.id),
-                    ("state", "=", "posted"),
-                    ("payout_date", ">=", period_start),
-                    ("payout_date", "<=", period_end),
-                ]
-            )
-            total_withdrawals = sum(payouts.mapped("gross_interest"))
+            # Principal withdrawals (investment payoff) in this period
+            total_withdrawals = 0.0
+            if inv.state == "withdrawn" and inv.withdrawal_payment_id:
+                pay_date = inv.withdrawal_payment_id.date
+                if pay_date and period_start <= pay_date <= period_end:
+                    total_withdrawals = inv.principal_amount + inv.total_topup_amount
 
             # Prior elements for opening balance
             prior_topups = self.env["alba.investment.topup"].search(
@@ -357,7 +373,7 @@ class AlbaInvestmentStatement(models.Model):
             prior_accruals = self.env["alba.interest.accrual"].search(
                 [
                     ("investment_id", "=", inv.id),
-                    ("state", "=", "posted"),
+                    ("state", "in", ["posted", "paid"]),
                     ("accrual_date", "<", period_start),
                 ]
             )
@@ -368,12 +384,18 @@ class AlbaInvestmentStatement(models.Model):
                     ("payout_date", "<", period_start),
                 ]
             )
+            prior_withdrawals = 0.0
+            if inv.state == "withdrawn" and inv.withdrawal_payment_id:
+                pay_date = inv.withdrawal_payment_id.date
+                if pay_date and pay_date < period_start:
+                    prior_withdrawals = inv.principal_amount + inv.total_topup_amount
 
             opening_balance = (
                 inv.principal_amount
                 + sum(prior_topups.mapped("amount"))
                 + sum(prior_accruals.mapped("interest_amount"))
                 - sum(prior_payouts.mapped("gross_interest"))
+                - prior_withdrawals
             )
 
             stmt_vals = {
@@ -471,16 +493,12 @@ class AlbaInvestmentStatement(models.Model):
                 )
                 total_deposits = sum(topups.mapped("amount"))
 
-                # Payouts (withdrawals) in this period
-                payouts = self.env["alba.interest.payout"].search(
-                    [
-                        ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
-                        ("payout_date", ">=", period_start),
-                        ("payout_date", "<=", period_end),
-                    ]
-                )
-                total_withdrawals = sum(payouts.mapped("gross_interest"))
+                # Principal withdrawals (investment payoff) in this period
+                total_withdrawals = 0.0
+                if inv.state == "withdrawn" and inv.withdrawal_payment_id:
+                    pay_date = inv.withdrawal_payment_id.date
+                    if pay_date and period_start <= pay_date <= period_end:
+                        total_withdrawals = inv.principal_amount + inv.total_topup_amount
 
                 # Prior elements for opening balance
                 prior_topups = self.env["alba.investment.topup"].search(
@@ -493,7 +511,7 @@ class AlbaInvestmentStatement(models.Model):
                 prior_accruals = self.env["alba.interest.accrual"].search(
                     [
                         ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
+                        ("state", "in", ["posted", "paid"]),
                         ("accrual_date", "<", period_start),
                     ]
                 )
@@ -504,12 +522,18 @@ class AlbaInvestmentStatement(models.Model):
                         ("payout_date", "<", period_start),
                     ]
                 )
+                prior_withdrawals = 0.0
+                if inv.state == "withdrawn" and inv.withdrawal_payment_id:
+                    pay_date = inv.withdrawal_payment_id.date
+                    if pay_date and pay_date < period_start:
+                        prior_withdrawals = inv.principal_amount + inv.total_topup_amount
 
                 opening_balance = (
                     inv.principal_amount
                     + sum(prior_topups.mapped("amount"))
                     + sum(prior_accruals.mapped("interest_amount"))
                     - sum(prior_payouts.mapped("gross_interest"))
+                    - prior_withdrawals
                 )
 
                 stmt_vals = {

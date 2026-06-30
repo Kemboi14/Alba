@@ -1060,6 +1060,177 @@ class AlbaInvestment(models.Model):
         """
         return self.action_backfill_missing_accruals()
 
+    def action_recalculate_stale_accruals(self):
+        """Delete and regenerate posted accruals that were computed with a
+        stale opening balance (i.e. a top-up was posted after those accruals
+        were already created and the top-up amount was never folded into their
+        compounding base).
+
+        SAFE GUARDS:
+          - Only 'posted' accruals are ever touched.
+          - If any 'paid' accrual exists in the stale range, the method raises
+            UserError so a human can decide how to handle it.
+          - 'reversed' accruals are left untouched.
+
+        After running this method, call action_backfill_missing_accruals() on
+        the same investments to regenerate the deleted periods with the correct
+        running balance.
+
+        Usage from Odoo shell (e.g. for IM-0072):
+            inv = env['alba.investment'].search(
+                [('investment_number', '=', 'IM-0072')], limit=1)
+            result = inv.action_recalculate_stale_accruals()
+            # inspect result['log'] for what was removed
+            inv.action_backfill_missing_accruals()
+        """
+        import logging
+        _logger = logging.getLogger(__name__)
+
+        result_log = []
+
+        for inv in self:
+            _logger.info("action_recalculate_stale_accruals: checking %s", inv.investment_number)
+
+            # ── Gather posted top-ups in chronological order ──────────────────
+            posted_topups = self.env["alba.investment.topup"].search([
+                ("investment_id", "=", inv.id),
+                ("state", "=", "posted"),
+            ], order="date asc")
+
+            if not posted_topups:
+                result_log.append("%s: no posted top-ups found — skipped." % inv.investment_number)
+                continue
+
+            # ── Walk each top-up and find the first stale accrual after it ───
+            first_stale_period_start = None
+
+            for topup in posted_topups:
+                # All posted accruals whose period begins after this top-up date
+                candidate_accruals = inv.accrual_ids.filtered(
+                    lambda a, d=topup.date: a.state in ("posted", "paid") and a.period_start > d
+                ).sorted(key=lambda a: a.period_start)
+
+                if not candidate_accruals:
+                    continue
+
+                first_after_topup = candidate_accruals[0]
+
+                # Compute what the opening balance SHOULD have been:
+                # principal + all posted top-ups up to and including this one
+                # + sum of interest from paid accruals BEFORE first_after_topup
+                # - sum of gross_interest from payouts BEFORE first_after_topup
+                topups_up_to_now = self.env["alba.investment.topup"].search([
+                    ("investment_id", "=", inv.id),
+                    ("state", "=", "posted"),
+                    ("date", "<=", topup.date),
+                ])
+                prior_paid_accruals = inv.accrual_ids.filtered(
+                    lambda a, ps=first_after_topup.period_start: (
+                        a.state == "paid" and a.period_end < ps
+                    )
+                )
+                prior_payouts = self.env["alba.interest.payout"].search([
+                    ("investment_id", "=", inv.id),
+                    ("state", "=", "posted"),
+                    ("payout_date", "<", first_after_topup.period_start),
+                ])
+
+                expected_opening = (
+                    inv.principal_amount
+                    + sum(topups_up_to_now.mapped("amount"))
+                    + sum(prior_paid_accruals.mapped("interest_amount"))
+                    - sum(prior_payouts.mapped("gross_interest"))
+                )
+
+                # Round to 2dp for float comparison
+                actual_opening = round(first_after_topup.opening_balance, 2)
+                expected_rounded = round(expected_opening, 2)
+
+                if abs(actual_opening - expected_rounded) < 0.02:
+                    # Opening balance is already correct — this top-up was
+                    # accounted for (e.g. accruals were created after the fix)
+                    result_log.append(
+                        "%s: top-up %s (%.2f on %s) — first subsequent accrual "
+                        "opening balance %.2f matches expected %.2f — OK, skipped."
+                        % (inv.investment_number, topup.name, topup.amount,
+                           topup.date, actual_opening, expected_rounded)
+                    )
+                    continue
+
+                # Discrepancy found — determine the range of stale accruals
+                # (all posted accruals from first_stale_period_start onward)
+                stale_cutoff = first_after_topup.period_start
+                if first_stale_period_start is None or stale_cutoff < first_stale_period_start:
+                    first_stale_period_start = stale_cutoff
+
+                result_log.append(
+                    "%s: top-up %s (%.2f on %s) introduced discrepancy — "
+                    "first stale accrual period_start=%s "
+                    "(actual opening=%.2f, expected=%.2f, diff=%.2f)"
+                    % (inv.investment_number, topup.name, topup.amount, topup.date,
+                       stale_cutoff, actual_opening, expected_rounded,
+                       expected_rounded - actual_opening)
+                )
+
+            if first_stale_period_start is None:
+                result_log.append("%s: all accrual opening balances are correct — nothing to do." % inv.investment_number)
+                continue
+
+            # ── Identify ALL stale accruals from the cutoff onward ────────────
+            stale_accruals = inv.accrual_ids.filtered(
+                lambda a, cs=first_stale_period_start: a.period_start >= cs
+            ).sorted(key=lambda a: a.period_start)
+
+            # Safety: abort if ANY paid accrual is in the stale range —
+            # deleting paid accruals could leave the accounting in an
+            # inconsistent state; a human must resolve this manually.
+            stale_paid = stale_accruals.filtered(lambda a: a.state == "paid")
+            if stale_paid:
+                paid_refs = ", ".join(
+                    "%s (%s)" % (a.display_name, a.period_start)
+                    for a in stale_paid
+                )
+                raise UserError(_(
+                    "Cannot recalculate stale accruals for %(inv)s:\n"
+                    "The following accruals in the stale range are in 'paid' state "
+                    "and cannot be safely deleted:\n%(refs)s\n\n"
+                    "Please reverse these payouts and their accruals manually before "
+                    "running this method.",
+                    inv=inv.investment_number,
+                    refs=paid_refs,
+                ))
+
+            # Only delete 'posted' accruals (reversed are left alone)
+            stale_posted = stale_accruals.filtered(lambda a: a.state == "posted")
+
+            result_log.append(
+                "%s: deleting %d stale posted accrual(s) from %s onward."
+                % (inv.investment_number, len(stale_posted), first_stale_period_start)
+            )
+
+            for accrual in stale_posted:
+                result_log.append(
+                    "  → removing %s (period %s–%s, opening=%.2f, interest=%.2f)"
+                    % (accrual.display_name, accrual.period_start, accrual.period_end,
+                       accrual.opening_balance, accrual.interest_amount)
+                )
+                if accrual.move_id:
+                    if accrual.move_id.state == "posted":
+                        accrual.move_id.button_cancel()
+                    accrual.move_id.unlink()
+
+            stale_posted.unlink()
+
+            result_log.append(
+                "%s: done. Run action_backfill_missing_accruals() to regenerate "
+                "the deleted periods with correct opening balances." % inv.investment_number
+            )
+
+        log_str = "\n".join(result_log)
+        _logger.info("action_recalculate_stale_accruals result:\n%s", log_str)
+        return {"log": log_str, "result_lines": result_log}
+
+
     @api.model
     def action_backfill_missing_accruals(self, as_of_date=None):
         """Generate any missing monthly accruals for active investments.
@@ -1069,6 +1240,7 @@ class AlbaInvestment(models.Model):
         for others.  All errors are collected and surfaced to the user at the
         end via UserError so nothing is swallowed silently.
         """
+
         import logging
         _logger = logging.getLogger(__name__)
 
