@@ -1260,19 +1260,10 @@ class AlbaInvestment(models.Model):
             )
 
             try:
-                # ── Initialise running balance from principal ──────────────────
-                running_balance = inv.principal_amount
-
-                # Add any top-ups posted on or before the investment start date
-                bootstrap_topups = self.env["alba.investment.topup"].search([
-                    ("investment_id", "=", inv.id),
-                    ("state", "=", "posted"),
-                    ("date", "<=", inv.start_date),
-                ])
-                running_balance += sum(bootstrap_topups.mapped("amount"))
-
-                # Track the end of the last processed period for top-up windowing
-                last_period_end = inv.start_date
+                # Re-derive the true opening balance for each period from first principles.
+                # This uses: principal + all posted top-ups up to period_start +
+                # sum(interest_amount of prior accruals that are still 'posted').
+                # Paid accruals are excluded so their interest does not compound.
 
                 for accrual_date, period_start, period_end in iter_missing_accrual_periods(
                     start_date, as_of_date, target_day,
@@ -1288,21 +1279,24 @@ class AlbaInvestment(models.Model):
                         limit=1,
                     )
 
-                    # Add top-ups that fall between last_period_end and
-                    # this period's start (inclusive of period_start)
-                    topups_this_period = self.env["alba.investment.topup"].search([
+                    # Compute principal + all posted top-ups up to and including period_start
+                    topups_to_date = self.env["alba.investment.topup"].search([
                         ("investment_id", "=", inv.id),
                         ("state", "=", "posted"),
-                        ("date", ">", last_period_end),
                         ("date", "<=", period_start),
                     ])
-                    running_balance += sum(topups_this_period.mapped("amount"))
+                    base_with_topups = inv.principal_amount + sum(topups_to_date.mapped("amount"))
+
+                    # Add interest from prior accruals that are still unpaid ('posted')
+                    prior_unpaid_accruals = self.env["alba.interest.accrual"].search([
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("period_end", "<", period_start),
+                    ])
+                    running_balance = base_with_topups + sum(prior_unpaid_accruals.mapped("interest_amount"))
 
                     if existing:
-                        # Period already exists — advance running balance using
-                        # the stored closing balance so the chain stays correct
-                        running_balance = existing.closing_balance
-                        last_period_end = period_end
+                        # Period already exists — nothing to recreate. Skip.
                         continue
 
                     opening_balance = running_balance
@@ -1323,13 +1317,9 @@ class AlbaInvestment(models.Model):
                             period_start=period_start,
                             period_end=period_end,
                         )
-                        if accrual:
-                            # Advance running balance to this period's closing balance
-                            running_balance = accrual.closing_balance
-                        # else: action_accrue_monthly_interest returned False
-                        # (duplicate found inside); keep running_balance as is
-
-                    last_period_end = period_end
+                        # We do not rely on chained closing_balance values from
+                        # existing accruals; running_balance is re-derived each
+                        # iteration above when needed.
 
             except Exception as exc:
                 _logger.error(
