@@ -1340,13 +1340,59 @@ class AlbaInvestment(models.Model):
     def action_run_automated_interest_accrual(self):
         """
         Called by a daily cron job to accrue interest on all active investments.
+        Step 1: run a lightweight self-repair across all active investments to
+        detect and correct stale posted accrual chains (top-ups not folded in).
+        Any investment that requires manual review (e.g. a 'paid' accrual sits
+        inside the stale range) is logged and skipped without aborting the
+        cron so other investments continue to be processed.
 
-        Delegates entirely to action_backfill_missing_accruals, which iterates
+        Step 2: delegates to action_backfill_missing_accruals, which iterates
         every active investment month-by-month from its start_date through today,
-        posting any missing accruals (including January catch-ups) and skipping
+        posting any missing accruals (including catch-ups) and skipping
         periods that already have a posted record.
         """
+        import logging
+        _logger = logging.getLogger(__name__)
+
         today = fields.Date.context_today(self)
+
+        repair_errors = []
+        repaired = []
+
+        active_investments = self.search([("state", "=", "active")])
+        for inv in active_investments:
+            try:
+                with self.env.cr.savepoint():
+                    result = inv.action_recalculate_stale_accruals()
+
+                log = (result or {}).get("log", "")
+                if log and "nothing to do" not in log and "no posted top-ups" not in log:
+                    repaired.append(log)
+                    _logger.info(
+                        "Automated accrual repair: %s\n%s",
+                        inv.investment_number, log,
+                    )
+            except UserError as e:
+                # Expected manual-review case: a paid accrual sits inside the stale range.
+                repair_errors.append("%s: %s" % (inv.investment_number, str(e)))
+                _logger.warning(
+                    "Automated accrual repair skipped for %s — manual review needed: %s",
+                    inv.investment_number, str(e),
+                )
+            except Exception as exc:
+                repair_errors.append("%s: unexpected error — %s" % (inv.investment_number, exc))
+                _logger.error(
+                    "Automated accrual repair failed unexpectedly for %s — %s",
+                    inv.investment_number, exc, exc_info=True,
+                )
+
+        if repair_errors:
+            _logger.warning(
+                "Automated accrual repair: %d investment(s) need manual review:\n%s",
+                len(repair_errors), "\n".join(repair_errors),
+            )
+
+        # Step 2: existing backfill behavior, unchanged.
         return self.action_backfill_missing_accruals(as_of_date=today)
 
     @api.model
