@@ -1105,9 +1105,8 @@ class AlbaInvestment(models.Model):
             first_stale_period_start = None
 
             for topup in posted_topups:
-                # All posted accruals whose period begins after this top-up date
                 candidate_accruals = inv.accrual_ids.filtered(
-                    lambda a, d=topup.date: a.state in ("posted", "paid") and a.period_start > d
+                    lambda a, d=topup.date: a.state in ("posted", "paid") and a.period_start >= d
                 ).sorted(key=lambda a: a.period_start)
 
                 if not candidate_accruals:
