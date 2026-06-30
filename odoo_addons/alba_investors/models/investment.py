@@ -1307,6 +1307,13 @@ class AlbaInvestment(models.Model):
 
                     opening_balance = running_balance
 
+                    _logger.info(
+                        "Backfill %s period %s-%s: current_value=%.2f (principal=%.2f topup=%.2f outstanding=%.2f)",
+                        inv.investment_number, period_start, period_end,
+                        inv.current_value, inv.principal_amount, inv.total_topup_amount,
+                        inv.total_interest_outstanding,
+                    )
+
                     # Each period gets its own savepoint so a mid-investment
                     # failure doesn't roll back periods already posted.
                     with self.env.cr.savepoint():
