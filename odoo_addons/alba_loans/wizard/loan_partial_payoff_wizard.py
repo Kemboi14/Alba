@@ -158,18 +158,47 @@ class AlbaLoanPartialPayoffWizard(models.TransientModel):
                 rec.interest_saved = avg_reduction * rate_per_month * loan.remaining_tenure
             
             # Calculate based on mode
+            rate = loan.interest_rate / 100  # monthly rate
+            n = loan.remaining_tenure
+
             if rec.reduction_mode == "reduce_emi":
-                rec.new_tenure = loan.remaining_tenure
-                if loan.remaining_tenure > 0:
-                    rec.new_emi = rec.new_outstanding / loan.remaining_tenure
+                # Keep same tenure, recalculate EMI on reduced outstanding
+                rec.new_tenure = n
+                if n > 0:
+                    if loan.interest_method == "reducing_balance" and rate > 0:
+                        # Annuity formula on new outstanding
+                        rec.new_emi = round(
+                            rec.new_outstanding * rate * (1 + rate) ** n
+                            / ((1 + rate) ** n - 1),
+                            2,
+                        )
+                    elif loan.interest_method == "reducing_balance" and rate == 0:
+                        rec.new_emi = round(rec.new_outstanding / n, 2)
+                    else:
+                        # Flat-rate: (P_new + P_new*r*n) / n
+                        rec.new_emi = round(
+                            (rec.new_outstanding + rec.new_outstanding * rate * n) / n,
+                            2,
+                        )
                 else:
                     rec.new_emi = 0
-                rec.emi_reduction = loan.installment_amount - rec.new_emi
+                rec.emi_reduction = max(loan.installment_amount - rec.new_emi, 0.0)
                 rec.tenure_reduction = 0
             else:
                 rec.new_emi = loan.installment_amount
                 if loan.installment_amount > 0:
-                    rec.new_tenure = int(rec.new_outstanding / loan.installment_amount)
+                    if loan.interest_method == "reducing_balance" and rate > 0:
+                        import math
+                        emi = loan.installment_amount
+                        p = rec.new_outstanding
+                        if emi > p * rate:
+                            rec.new_tenure = int(
+                                math.ceil(-math.log(1 - p * rate / emi) / math.log(1 + rate))
+                            )
+                        else:
+                            rec.new_tenure = n
+                    else:
+                        rec.new_tenure = int(rec.new_outstanding / loan.installment_amount)
                 else:
                     rec.new_tenure = 0
                 rec.emi_reduction = 0
@@ -178,9 +207,10 @@ class AlbaLoanPartialPayoffWizard(models.TransientModel):
     @api.depends("loan_id", "payoff_amount", "current_outstanding")
     def _compute_validation(self):
         for rec in self:
-            if not rec.loan_id:
+            # Check loan state — valid active states are: normal, watch, substandard, doubtful
+            if rec.loan_id.state not in ("normal", "watch", "substandard", "doubtful"):
                 rec.is_valid = False
-                rec.validation_message = "No loan selected"
+                rec.validation_message = "❌ Loan must be active (currently: %s)" % rec.loan_id.state
                 return
             
             if rec.payoff_amount <= 0:

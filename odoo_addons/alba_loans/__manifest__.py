@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Loans",
-    "version": "19.0.1.8.3",
+    "version": "19.0.1.8.4",
     "category": "Finance",
     "summary": "Core loan management: products, applications, disbursements, repayments, M-Pesa integration and accounting automation",
     "description": """

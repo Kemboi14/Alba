@@ -362,12 +362,13 @@ class AlbaLoanTopup(models.Model):
             
             # Update loan principal
             new_principal = loan.principal_amount + rec.topup_amount
-            new_outstanding = loan.outstanding_balance + rec.topup_amount
-            
+
             loan.write({
                 "principal_amount": new_principal,
-                "outstanding_balance": new_outstanding,
             })
+            # NOTE: outstanding_balance is a computed field (driven by the
+            # repayment schedule).  Do NOT write it directly — the schedule
+            # regeneration below will produce the correct value automatically.
             
             # Archive existing active schedule batch instead of deleting schedule lines
             Batch = self.env["alba.repayment.schedule.batch"]

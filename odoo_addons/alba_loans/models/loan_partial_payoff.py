@@ -311,20 +311,50 @@ class AlbaLoanPartialPayoff(models.Model):
                 rec.interest_saved = avg_reduction * rate_per_month * loan.remaining_tenure
             
             # Calculate new terms based on mode
+            rate = loan.interest_rate / 100  # monthly rate
+            n = loan.remaining_tenure
+
             if rec.reduction_mode == "reduce_emi":
-                # Keep same tenure, reduce EMI
-                rec.new_tenure = loan.remaining_tenure
-                if loan.remaining_tenure > 0:
-                    rec.new_emi = rec.new_outstanding / loan.remaining_tenure
+                # Keep same tenure, recalculate EMI on reduced outstanding
+                rec.new_tenure = n
+                if n > 0:
+                    if loan.interest_method == "reducing_balance" and rate > 0:
+                        # Annuity formula on new outstanding
+                        rec.new_emi = round(
+                            rec.new_outstanding * rate * (1 + rate) ** n
+                            / ((1 + rate) ** n - 1),
+                            2,
+                        )
+                    elif loan.interest_method == "reducing_balance" and rate == 0:
+                        rec.new_emi = round(rec.new_outstanding / n, 2)
+                    else:
+                        # Flat-rate: (P_new + P_new*r*n) / n
+                        rec.new_emi = round(
+                            (rec.new_outstanding + rec.new_outstanding * rate * n) / n,
+                            2,
+                        )
                 else:
                     rec.new_emi = 0
-                rec.emi_reduction = loan.installment_amount - rec.new_emi
+                rec.emi_reduction = max(loan.installment_amount - rec.new_emi, 0.0)
                 rec.tenure_reduction = 0
             else:  # reduce_tenure
                 # Keep same EMI, reduce tenure
                 rec.new_emi = loan.installment_amount
                 if loan.installment_amount > 0:
-                    rec.new_tenure = int(rec.new_outstanding / loan.installment_amount)
+                    if loan.interest_method == "reducing_balance" and rate > 0:
+                        # Solve for n: new_outstanding = EMI * (1 - (1+r)^-n) / r
+                        import math
+                        emi = loan.installment_amount
+                        p = rec.new_outstanding
+                        if emi > p * rate:  # Ensure EMI > interest on balance
+                            rec.new_tenure = int(
+                                math.ceil(-math.log(1 - p * rate / emi) / math.log(1 + rate))
+                            )
+                        else:
+                            rec.new_tenure = n  # fallback: EMI too low to amortise
+                    else:
+                        # Flat-rate or zero-interest approximation
+                        rec.new_tenure = int(rec.new_outstanding / loan.installment_amount)
                 else:
                     rec.new_tenure = 0
                 rec.emi_reduction = 0

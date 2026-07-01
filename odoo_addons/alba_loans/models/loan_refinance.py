@@ -270,15 +270,40 @@ class AlbaLoanRefinance(models.Model):
                 rec.new_emi = 0
                 rec.new_total_repayable = 0
                 continue
-            
+
             principal = rec.new_principal
-            rate = rec.new_interest_rate / 100
+            rate = rec.new_interest_rate / 100  # monthly rate
             months = rec.new_tenure_months
-            
-            # Simple flat rate calculation for estimate
-            interest = principal * rate * months
-            rec.new_total_repayable = principal + interest
-            rec.new_emi = rec.new_total_repayable / months if months > 0 else 0
+
+            # Determine method from new product (fall back to flat_rate)
+            method = (
+                rec.new_product_id.interest_method
+                if rec.new_product_id
+                else "flat_rate"
+            )
+
+            if method == "reducing_balance" and rate > 0:
+                # Annuity (reducing-balance) formula — same as disburse wizard
+                emi = round(
+                    principal * rate * (1 + rate) ** months
+                    / ((1 + rate) ** months - 1),
+                    2,
+                )
+                total_interest = round(emi * months - principal, 2)
+                total_repayable = principal + total_interest
+            elif method == "reducing_balance" and rate == 0:
+                # Zero-interest reducing balance
+                emi = round(principal / months, 2)
+                total_interest = 0.0
+                total_repayable = principal
+            else:
+                # Flat-rate formula: I = P × r × n
+                total_interest = round(principal * rate * months, 2)
+                total_repayable = principal + total_interest
+                emi = round(total_repayable / months, 2) if months > 0 else 0
+
+            rec.new_total_repayable = total_repayable
+            rec.new_emi = emi
     
     @api.depends("original_loan_id", "new_principal", "refinance_fee_rate", "original_loan_id.outstanding_balance")
     def _compute_settlement(self):
