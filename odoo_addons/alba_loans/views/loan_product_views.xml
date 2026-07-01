@@ -82,9 +82,7 @@
                             </group>
                             <group>
                                 <field name="interest_method"/>
-                                <field name="interest_rate"
-                                       widget="percentage"
-                                       options="{'type': 'number', 'step': 0.01}"/>
+                                <field name="interest_rate"/>
                             </group>
                         </group>
 
