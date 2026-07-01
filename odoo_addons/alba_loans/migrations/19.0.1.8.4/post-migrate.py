@@ -12,7 +12,6 @@ Affected tables
 - alba_loan_refinance     — refinance records (new_interest_rate)
 - alba_loan_consolidation — consolidation records (new_interest_rate)
 - alba_loan_restructure   — restructure records (new_interest_rate)
-- alba_investor           — investor records (interest_rate)
 
 The WHERE clause `column > 0 AND column < 1` is conservative:
 it only touches values that are unambiguously wrong (strictly between 0 and 1).
@@ -31,7 +30,6 @@ _TABLES = [
     ("alba_loan_refinance",     "new_interest_rate"),
     ("alba_loan_consolidation", "new_interest_rate"),
     ("alba_loan_restructure",   "new_interest_rate"),
-    ("alba_investor",           "interest_rate"),
 ]
 
 
