@@ -418,6 +418,31 @@ def submit_application(request, pk):
             application.odoo_application_id = result.get("odoo_application_id")
             application.save(update_fields=["odoo_application_id"])
             messages.info(request, "Application synced to Odoo.")
+
+            # Sync customer profile KYC documents to Odoo
+            if application.odoo_application_id:
+                customer = getattr(application, "customer", None)
+                if customer:
+                    kyc_docs = [
+                        (customer.national_id_file, "national_id", "National ID Document"),
+                        (customer.bank_statement_file, "bank_statement", "Bank Statement"),
+                        (customer.face_recognition_photo, "other", "Face Recognition Photo"),
+                    ]
+                    for file_field, doc_type, doc_name in kyc_docs:
+                        if file_field:
+                            try:
+                                odoo_service.sync_kyc_file(
+                                    odoo_application_id=application.odoo_application_id,
+                                    file_field=file_field,
+                                    document_type=doc_type,
+                                    name=doc_name
+                                )
+                            except Exception as doc_exc:
+                                logger.warning(
+                                    "KYC document sync to Odoo failed: type=%s error=%s",
+                                    doc_type,
+                                    doc_exc
+                                )
         else:
             messages.warning(
                 request,

@@ -414,6 +414,65 @@ class OdooSyncService:
         )
         return result
 
+    def sync_kyc_file(
+        self,
+        odoo_application_id: int,
+        file_field,
+        document_type: str,
+        name: str,
+    ) -> dict:
+        """
+        Sync a raw Django FileField/FieldFile (e.g. customer's national_id_file)
+        to Odoo under a loan application.
+
+        Args:
+            odoo_application_id: Odoo ID of the ``alba.loan.application``.
+            file_field: Django FileField/FieldFile instance.
+            document_type: The document type string (e.g., "national_id", "bank_statement", "other").
+            name: The document display name.
+
+        Returns:
+            dict: Response body from Odoo.
+        """
+        import base64 as _b64
+
+        if not file_field:
+            return {}
+
+        file_field.open("rb")
+        try:
+            file_bytes = file_field.read()
+        finally:
+            file_field.close()
+
+        file_content_b64 = _b64.b64encode(file_bytes).decode("utf-8")
+        file_name = file_field.name.split("/")[-1]
+
+        payload: dict = {
+            "name": name,
+            "document_type": document_type,
+            "file_content": file_content_b64,
+            "file_name": file_name,
+            "description": f"Customer KYC - {name}",
+        }
+
+        logger.info(
+            "Syncing KYC file to Odoo: app_id=%d type=%s file=%s",
+            odoo_application_id,
+            document_type,
+            file_name,
+        )
+        result = self._post(
+            f"/alba/api/v1/applications/{odoo_application_id}/documents",
+            payload,
+        )
+        logger.info(
+            "KYC file synced to Odoo: odoo_doc_id=%s",
+            result.get("odoo_document_id"),
+        )
+        return result
+
+
     def update_application_status(
         self,
         odoo_application_id: int,
