@@ -82,6 +82,118 @@ class AccountStatementReportMixin(models.AbstractModel):
         )
 
     @api.model
+    def collect_investment_statement_events(
+        self,
+        investment,
+        period_start=None,
+        period_end=None,
+        include_initial_deposit=False,
+        env=None,
+    ):
+        """Collect all posted transaction events for an investment within a period."""
+        if not investment:
+            return []
+
+        env = env or self.env
+        if not period_start or not period_end:
+            return []
+
+        events = []
+        if include_initial_deposit and investment.start_date:
+            if period_start <= investment.start_date <= period_end:
+                events.append({
+                    "sort_date": investment.start_date,
+                    "date": investment.start_date,
+                    "type": "deposit",
+                    "description": "Initial Deposit - %s" % (getattr(investment, "investment_number", "") or ""),
+                    "amount": investment.principal_amount or 0.0,
+                    "record": investment,
+                    "debit": 0.0,
+                    "credit": investment.principal_amount or 0.0,
+                    "sort_id": getattr(investment, "id", 0),
+                })
+
+        topups = env["alba.investment.topup"].search([
+            ("investment_id", "=", investment.id),
+            ("state", "=", "posted"),
+            ("date", ">=", period_start),
+            ("date", "<=", period_end),
+        ], order="date asc, id asc")
+        for topup in topups:
+            events.append({
+                "sort_date": topup.date,
+                "date": topup.date,
+                "type": "topup",
+                "description": "Top-Up - %s" % (topup.name or ""),
+                "amount": topup.amount,
+                "record": topup,
+                "debit": 0.0,
+                "credit": topup.amount,
+                "sort_id": getattr(topup, "id", 0),
+            })
+
+        payouts = env["alba.interest.payout"].search([
+            ("investment_id", "=", investment.id),
+            ("state", "=", "posted"),
+            ("payout_date", ">=", period_start),
+            ("payout_date", "<=", period_end),
+        ], order="payout_date asc, id asc")
+        for payout in payouts:
+            events.append({
+                "sort_date": payout.payout_date,
+                "date": payout.payout_date,
+                "type": "payout",
+                "description": "Interest Payout - %s" % (payout.name or ""),
+                "amount": -payout.gross_interest,
+                "record": payout,
+                "debit": payout.gross_interest,
+                "credit": 0.0,
+                "sort_id": getattr(payout, "id", 0),
+            })
+
+        accruals = env["alba.interest.accrual"].search([
+            ("investment_id", "=", investment.id),
+            ("state", "in", ["posted", "paid"]),
+            ("accrual_date", ">=", period_start),
+            ("accrual_date", "<=", period_end),
+        ], order="accrual_date asc, id asc")
+        for accrual in accruals:
+            events.append({
+                "sort_date": accrual.accrual_date,
+                "date": accrual.accrual_date,
+                "type": "accrual",
+                "description": self._accrual_description(accrual, getattr(investment, "investment_number", "") or ""),
+                "amount": accrual.interest_amount,
+                "record": accrual,
+                "debit": 0.0,
+                "credit": accrual.interest_amount,
+                "sort_id": getattr(accrual, "id", 0),
+            })
+
+        if investment.state == "withdrawn" and investment.withdrawal_payment_id:
+            withdrawal_date = investment.withdrawal_payment_id.date
+            if withdrawal_date and period_start <= withdrawal_date <= period_end:
+                gross_withdrawal = (
+                    investment.principal_amount
+                    + investment.total_topup_amount
+                    + investment.total_interest_outstanding
+                )
+                events.append({
+                    "sort_date": withdrawal_date,
+                    "date": withdrawal_date,
+                    "type": "withdrawal",
+                    "description": "Investment Payoff/Withdrawal - %s" % (getattr(investment, "investment_number", "") or ""),
+                    "amount": -gross_withdrawal,
+                    "record": investment,
+                    "debit": gross_withdrawal,
+                    "credit": 0.0,
+                    "sort_id": getattr(investment, "id", 0),
+                })
+
+        events.sort(key=lambda item: (item["sort_date"], item["sort_id"]))
+        return events
+
+    @api.model
     def _lines_from_statement(self, stmt):
         """Build debit/credit/balance lines for an investment statement record.
 
@@ -106,131 +218,43 @@ class AccountStatementReportMixin(models.AbstractModel):
             "balance_fmt": self._format_amount(balance, currency),
         })
 
-        # ── Legacy transaction lines (if the model exists & has records) ───────
-        tx_lines_exist = False
-        Transaction = self.env["alba.investor.transaction"]
-        if Transaction._name in self.env:
-            transactions = Transaction.search([
-                ("investor_id", "=", stmt.investor_id.id),
-                ("date", ">=", stmt.period_start),
-                ("date", "<=", stmt.period_end),
-            ], order="date asc, id asc")
-            for tx in transactions:
-                tx_lines_exist = True
-                amount = abs(tx.amount)
-                if tx.transaction_type in ("withdrawal",) or tx.amount < 0:
-                    balance -= amount
-                    lines.append({
-                        "date": self._format_stmt_date(tx.date),
-                        "description": self._clean_string(
-                            (tx.description or tx.reference or "WITHDRAWAL").upper()
-                        ),
-                        "debit": amount,
-                        "credit": 0.0,
-                        "balance": balance,
-                        "debit_fmt": self._format_amount(amount, currency),
-                        "credit_fmt": "",
-                        "balance_fmt": self._format_amount(balance, currency),
-                    })
-                else:
-                    balance += amount
-                    lines.append({
-                        "date": self._format_stmt_date(tx.date),
-                        "description": self._clean_string(
-                            (tx.description or tx.reference or "DEPOSIT").upper()
-                        ),
-                        "debit": 0.0,
-                        "credit": amount,
-                        "balance": balance,
-                        "debit_fmt": "",
-                        "credit_fmt": self._format_amount(amount, currency),
-                        "balance_fmt": self._format_amount(balance, currency),
-                    })
+        # ── Individual top-up, payout, accrual and withdrawal lines ─────────
+        events = self.collect_investment_statement_events(
+            inv,
+            period_start=stmt.period_start,
+            period_end=stmt.period_end,
+            include_initial_deposit=False,
+        )
 
-        # ── Individual top-up, payout & accrual lines ─────────────────────────
-        # Used when no legacy transaction records exist (the normal case).
-        if not tx_lines_exist:
-            events = []
+        for ev in events:
+            if ev["credit"]:
+                balance += ev["credit"]
+            else:
+                balance -= ev["debit"]
+            lines.append({
+                "date": self._format_stmt_date(ev["date"]),
+                "description": self._clean_string(ev["description"].upper()),
+                "debit": ev["debit"],
+                "credit": ev["credit"],
+                "balance": balance,
+                "debit_fmt": self._format_amount(ev["debit"], currency) if ev["debit"] else "",
+                "credit_fmt": self._format_amount(ev["credit"], currency) if ev["credit"] else "",
+                "balance_fmt": self._format_amount(balance, currency),
+            })
 
-            # 1. Top-ups: credit line (DR Bank / CR Investment Liability)
-            topups = self.env["alba.investment.topup"].search([
-                ("investment_id", "=", inv.id),
-                ("state", "=", "posted"),
-                ("date", ">=", stmt.period_start),
-                ("date", "<=", stmt.period_end),
-            ], order="date asc, id asc")
-            for tu in topups:
-                events.append({
-                    "sort_date": tu.date,
-                    "date": self._format_stmt_date(tu.date),
-                    "description": self._clean_string(
-                        "TOP-UP %s" % (tu.name or "")
-                    ),
-                    "debit": 0.0,
-                    "credit": tu.amount,
-                })
-
-            # 2. Interest payouts: debit line (DR Interest Payable / CR Bank)
-            payouts = self.env["alba.interest.payout"].search([
-                ("investment_id", "=", inv.id),
-                ("state", "=", "posted"),
-                ("payout_date", ">=", stmt.period_start),
-                ("payout_date", "<=", stmt.period_end),
-            ], order="payout_date asc, id asc")
-            for po in payouts:
-                events.append({
-                    "sort_date": po.payout_date,
-                    "date": self._format_stmt_date(po.payout_date),
-                    "description": self._clean_string(
-                        "INTEREST PAYOUT %s" % (po.name or "")
-                    ),
-                    "debit": po.gross_interest,
-                    "credit": 0.0,
-                })
-
-            # 3. Accruals: credit line (DR Interest Expense / CR Interest Payable)
-            for accrual in stmt.accrual_ids.sorted("accrual_date"):
-                events.append({
-                    "sort_date": accrual.accrual_date,
-                    "date": self._format_stmt_date(accrual.accrual_date),
-                    "description": self._clean_string(
-                        self._accrual_description(accrual, account_number)
-                    ),
-                    "debit": 0.0,
-                    "credit": accrual.interest_amount,
-                })
-
-            # Sort all events chronologically and build running balance
-            events.sort(key=lambda e: e["sort_date"])
-            for ev in events:
-                if ev["credit"]:
-                    balance += ev["credit"]
-                else:
-                    balance -= ev["debit"]
-                lines.append({
-                    "date": ev["date"],
-                    "description": ev["description"],
-                    "debit": ev["debit"],
-                    "credit": ev["credit"],
-                    "balance": balance,
-                    "debit_fmt": self._format_amount(ev["debit"], currency) if ev["debit"] else "",
-                    "credit_fmt": self._format_amount(ev["credit"], currency) if ev["credit"] else "",
-                    "balance_fmt": self._format_amount(balance, currency),
-                })
-
-            # Fallback: no linked accrual records but interest_accrued total is set
-            if not stmt.accrual_ids and stmt.interest_accrued:
-                balance = stmt.closing_balance
-                lines.append({
-                    "date": self._format_stmt_date(stmt.period_end),
-                    "description": self._clean_string("ADJUSTMENT Period Interest Earned"),
-                    "debit": 0.0,
-                    "credit": stmt.interest_accrued,
-                    "balance": balance,
-                    "debit_fmt": "",
-                    "credit_fmt": self._format_amount(stmt.interest_accrued, currency),
-                    "balance_fmt": self._format_amount(balance, currency),
-                })
+        # Fallback: no events but statement has interest accrued total set
+        if not events and stmt.interest_accrued:
+            balance = stmt.closing_balance
+            lines.append({
+                "date": self._format_stmt_date(stmt.period_end),
+                "description": self._clean_string("ADJUSTMENT Period Interest Earned"),
+                "debit": 0.0,
+                "credit": stmt.interest_accrued,
+                "balance": balance,
+                "debit_fmt": "",
+                "credit_fmt": self._format_amount(stmt.interest_accrued, currency),
+                "balance_fmt": self._format_amount(balance, currency),
+            })
 
         total_debit = sum(line["debit"] for line in lines)
         total_credit = sum(line["credit"] for line in lines)

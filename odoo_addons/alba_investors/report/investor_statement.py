@@ -51,80 +51,20 @@ class ReportInvestorStatement(models.AbstractModel):
 
         transactions = []
 
-        # A) Initial Deposits
         for inv in investments:
-            dt = inv.start_date
-            transactions.append({
-                "date": dt,
-                "type": "deposit",
-                "description": f"Initial Deposit - {inv.investment_number}",
-                "amount": inv.principal_amount,
-                "record": inv,
-            })
-
-        # B) Top-Ups
-        topups = self.env["alba.investment.topup"].search([
-            ("investor_id", "=", investor.id),
-            ("state", "=", "posted")
-        ])
-        for t in topups:
-            transactions.append({
-                "date": t.date,
-                "type": "topup",
-                "description": f"Top-Up - {t.name}",
-                "amount": t.amount,
-                "record": t,
-            })
-
-        # C) Interest Accruals (include 'paid' so paid-out periods still appear)
-        accruals = self.env["alba.interest.accrual"].search([
-            ("investor_id", "=", investor.id),
-            ("state", "in", ["posted", "paid"])
-        ])
-        for a in accruals:
-            inv_num = a.investment_id.investment_number or ""
-            transactions.append({
-                "date": a.accrual_date,
-                "type": "accrual",
-                "description": self._accrual_description(a, inv_num),
-                "amount": a.interest_amount,
-                "record": a,
-            })
-
-        # D) Interest Payouts — shown as DEBITS in the ledger only.
-        #    These are NOT counted as "Withdrawals" in the summary box.
-        #    "Withdrawals" is reserved strictly for principal payoffs.
-        payouts = self.env["alba.interest.payout"].search([
-            ("investor_id", "=", investor.id),
-            ("state", "=", "posted")
-        ])
-        for p in payouts:
-            transactions.append({
-                "date": p.payout_date,
-                "type": "payout",
-                "description": f"Interest Payout - {p.name}",
-                "amount": -p.gross_interest,
-                "record": p,
-            })
-
-        # E) Principal Withdrawals / Payoffs (investments in 'withdrawn' state).
-        #    These are the ONLY items that count as "Withdrawals" in the summary.
-        for inv in investments.filtered(
-            lambda i: i.state == "withdrawn" and i.withdrawal_payment_id
-        ):
-            dt = inv.withdrawal_payment_id.date
-            gross_withdrawal = (
-                inv.principal_amount
-                + inv.total_topup_amount
-                + inv.total_interest_outstanding
-            )
-            transactions.append({
-                "date": dt,
-                "type": "withdrawal",
-                "description": f"Investment Payoff/Withdrawal - {inv.investment_number}",
-                "amount": -gross_withdrawal,
-                "record": inv,
-            })
+            for event in self.collect_investment_statement_events(
+                inv,
+                period_start=date_from,
+                period_end=date_to,
+                include_initial_deposit=True,
+            ):
+                transactions.append({
+                    "date": event["date"],
+                    "type": event["type"],
+                    "description": event["description"],
+                    "amount": event["amount"],
+                    "record": event["record"],
+                })
 
         # Sort all transactions chronologically
         transactions.sort(key=lambda x: x["date"])
