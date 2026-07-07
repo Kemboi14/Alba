@@ -425,6 +425,7 @@
             <t t-foreach="statements" t-as="stmt_data">
                 <t t-set="res_company" t-value="stmt_data['res_company']"/>
                 <t t-set="company" t-value="stmt_data['res_company']"/>
+                <t t-set="o" t-value="stmt_data['doc']"/>
                 <t t-call="alba_investors.account_statement_document">
                     <t t-set="statement_title" t-value="'INVESTMENT STATEMENT'"/>
                     <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
@@ -462,6 +463,7 @@
             <t t-foreach="statements" t-as="stmt_data">
                 <t t-set="res_company" t-value="stmt_data['res_company']"/>
                 <t t-set="company" t-value="stmt_data['res_company']"/>
+                <t t-set="o" t-value="stmt_data['doc']"/>
                 <t t-call="alba_investors.account_statement_document">
                     <t t-set="statement_title" t-value="'INVESTOR ACCOUNT STATEMENT'"/>
                     <t t-set="branch_name" t-value="stmt_data['branch_name']"/>
