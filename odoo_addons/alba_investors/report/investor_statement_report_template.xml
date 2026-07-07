@@ -35,6 +35,7 @@
                 <div class="alba-acct-page" style="font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; background: #ffffff; padding-top: 5px;">
 
                     <style>
+                        /* ── Base table ────────────────────────────────── */
                         .alba-acct-page .stmt-table {
                             width: 100%;
                             border-collapse: collapse;
@@ -64,7 +65,7 @@
                         }
                         .alba-acct-page .stmt-table td.num { text-align: right; }
                         .alba-acct-page .stmt-table td.date { white-space: nowrap; min-width: 90px; }
-                        .alba-acct-page .stmt-table td.desc { color: #4b5563; }
+                        .alba-acct-page .stmt-table td.desc { color: #374151; }
                         .alba-acct-page .stmt-table tfoot tr {
                             border-top: 2px solid #0d2d5e;
                             border-bottom: 2px solid #0d2d5e;
@@ -76,8 +77,52 @@
                             font-size: 13px;
                         }
                         .alba-acct-page .stmt-table tfoot td.num { text-align: right; }
+
+                        /* ── Transaction type badges ───────────────────── */
+                        .alba-acct-page .tx-badge {
+                            display: inline-block;
+                            padding: 2px 7px;
+                            border-radius: 4px;
+                            font-size: 9.5px;
+                            font-weight: 700;
+                            text-transform: uppercase;
+                            letter-spacing: 0.4px;
+                            white-space: nowrap;
+                        }
+                        .alba-acct-page .tx-badge.deposit  { background: #d1fae5; color: #065f46; }
+                        .alba-acct-page .tx-badge.topup    { background: #d1fae5; color: #065f46; }
+                        .alba-acct-page .tx-badge.accrual  { background: #dbeafe; color: #1e40af; }
+                        .alba-acct-page .tx-badge.payout   { background: #fce7f3; color: #9d174d; }
+                        .alba-acct-page .tx-badge.withdrawal { background: #fee2e2; color: #991b1b; }
+                        .alba-acct-page .tx-badge.opening  { background: #f3f4f6; color: #374151; }
+
+                        /* ── Accrual status badges ─────────────────────── */
+                        .alba-acct-page .accrual-status {
+                            display: inline-block;
+                            padding: 2px 7px;
+                            border-radius: 10px;
+                            font-size: 9.5px;
+                            font-weight: 700;
+                            text-transform: uppercase;
+                        }
+                        .alba-acct-page .accrual-status.outstanding { background: #fff7ed; color: #c2410c; }
+                        .alba-acct-page .accrual-status.paid        { background: #d1fae5; color: #065f46; }
+
+                        /* ── Section headers ───────────────────────────── */
+                        .alba-acct-page .section-header {
+                            margin-top: 28px;
+                            margin-bottom: 10px;
+                            font-size: 13px;
+                            font-weight: 700;
+                            color: #0d2d5e;
+                            border-bottom: 2px solid #0d2d5e;
+                            padding-bottom: 4px;
+                            text-transform: uppercase;
+                            page-break-inside: avoid;
+                        }
                     </style>
 
+                    <!-- Customer Info -->
                     <table width="100%" style="margin-bottom: 20px; border-collapse: collapse;">
                         <tr>
                             <td width="48%" style="border: 1.5px solid #2e6bbf; padding: 12px 14px; vertical-align: top; background-color: #ffffff;">
@@ -124,26 +169,27 @@
                         </tr>
                     </table>
 
-                    <!-- Financial Summary Box with Withholding Tax (WHT) -->
+                    <!-- Financial Summary Box -->
                     <t t-if="opening_balance_fmt">
                         <table width="100%" style="margin-bottom: 20px; border-collapse: collapse; border: 1.5px solid #2e6bbf;">
                             <thead>
                                 <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
                                     <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Opening Balance</th>
-                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Deposits</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Deposits / Top-Ups</th>
                                     <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Withdrawals</th>
-                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Total Interest Accrued (Gross)</th>
+                                    <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;">Total Interest Accrued</th>
                                     <th style="padding: 10px 12px; font-size: 11px; font-weight: 700; color: #0d2d5e; text-align: center;">Closing Balance</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr style="background-color: #ffffff; border-bottom: 1px solid #2e6bbf;">
                                     <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="opening_balance_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="deposits_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="withdrawals_fmt"/></td>
-                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="interest_accrued_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #065f46; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="deposits_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #991b1b; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="withdrawals_fmt"/></td>
+                                    <td style="padding: 12px 12px; font-size: 13px; font-weight: 600; color: #1e40af; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="interest_accrued_fmt"/></td>
                                     <td style="padding: 12px 12px; font-size: 13px; font-weight: 700; color: #0d2d5e; text-align: center;"><t t-esc="closing_balance_fmt"/></td>
                                 </tr>
+                                <!-- Interest Settlement Sub-table -->
                                 <tr style="background-color: #f3f7fc;">
                                     <td colspan="5" style="padding: 4px 10px; font-size: 10px; font-weight: 700; color: #0d2d5e; text-transform: uppercase; border-bottom: 1px solid #2e6bbf;">Interest Settlement Summary</td>
                                 </tr>
@@ -163,7 +209,7 @@
                                                     <td style="padding: 10px; font-size: 12px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="total_gross_paid_fmt"/></td>
                                                     <td style="padding: 10px; font-size: 12px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="total_wht_deducted_fmt"/></td>
                                                     <td style="padding: 10px; font-size: 12px; font-weight: 600; color: #0d2d5e; text-align: center; border-right: 1px solid #c8d9f0;"><t t-esc="total_net_paid_fmt"/></td>
-                                                    <td style="padding: 10px; font-size: 12px; font-weight: 700; color: #0d2d5e; text-align: center;"><t t-esc="interest_outstanding_fmt"/></td>
+                                                    <td style="padding: 10px; font-size: 12px; font-weight: 700; color: #c2410c; text-align: center;"><t t-esc="interest_outstanding_fmt"/></td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -173,10 +219,12 @@
                         </table>
                     </t>
 
+                    <!-- ── Main Transaction Ledger ─────────────────────────────── -->
                     <table class="stmt-table" style="margin-top: 20px;">
                         <thead>
                             <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
-                                <th style="color: #0d2d5e; font-weight: 700; padding: 10px 12px; font-size: 12px; text-align: left;">Date</th>
+                                <th style="color: #0d2d5e; font-weight: 700; padding: 10px 12px; font-size: 12px; text-align: left; width: 90px;">Date</th>
+                                <th style="color: #0d2d5e; font-weight: 700; padding: 10px 12px; font-size: 12px; text-align: left; width: 80px;">Type</th>
                                 <th style="color: #0d2d5e; font-weight: 700; padding: 10px 12px; font-size: 12px; text-align: left;">Description</th>
                                 <th style="color: #0d2d5e; font-weight: 700; padding: 10px 12px; font-size: 12px; text-align: right;">Debits</th>
                                 <th style="color: #0d2d5e; font-weight: 700; padding: 10px 12px; font-size: 12px; text-align: right;">Credits</th>
@@ -186,44 +234,62 @@
                         <tbody>
                             <t t-foreach="lines" t-as="line">
                                 <tr style="border-bottom: 1px solid #c8d9f0;">
-                                    <td class="date" style="color: #0d2d5e; font-weight: 600; padding: 9px 12px; font-size: 12px; white-space: nowrap; min-width: 90px;"><t t-esc="line['date']"/></td>
-                                    <td class="desc" style="color: #4b5563; padding: 9px 12px; font-size: 12px;"><t t-esc="line['description']"/></td>
-                                    <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 9px 12px; font-size: 12px; text-align: right;"><t t-esc="line['debit_fmt']"/></td>
-                                    <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 9px 12px; font-size: 12px; text-align: right;"><t t-esc="line['credit_fmt']"/></td>
-                                    <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 9px 12px; font-size: 12px; text-align: right;"><t t-esc="line['balance_fmt']"/></td>
+                                    <td class="date" style="color: #0d2d5e; font-weight: 600; padding: 9px 12px; font-size: 12px; white-space: nowrap;"><t t-esc="line['date']"/></td>
+                                    <td style="padding: 9px 12px; font-size: 11px; vertical-align: middle;">
+                                        <t t-if="line.get('type') == 'deposit'">
+                                            <span class="tx-badge deposit"><t t-esc="line.get('type_label') or 'Deposit'"/></span>
+                                        </t>
+                                        <t t-elif="line.get('type') == 'topup'">
+                                            <span class="tx-badge topup"><t t-esc="line.get('type_label') or 'Top-Up'"/></span>
+                                        </t>
+                                        <t t-elif="line.get('type') == 'accrual'">
+                                            <span class="tx-badge accrual"><t t-esc="line.get('type_label') or 'Accrual'"/></span>
+                                        </t>
+                                        <t t-elif="line.get('type') == 'payout'">
+                                            <span class="tx-badge payout"><t t-esc="line.get('type_label') or 'Payout'"/></span>
+                                        </t>
+                                        <t t-elif="line.get('type') == 'withdrawal'">
+                                            <span class="tx-badge withdrawal"><t t-esc="line.get('type_label') or 'Withdrawal'"/></span>
+                                        </t>
+                                        <t t-else="">
+                                            <span class="tx-badge opening"><t t-esc="line.get('type_label') or ''"/></span>
+                                        </t>
+                                    </td>
+                                    <td class="desc" style="color: #374151; padding: 9px 12px; font-size: 12px;"><t t-esc="line['description']"/></td>
+                                    <td class="num" style="color: #991b1b; font-weight: 600; padding: 9px 12px; font-size: 12px; text-align: right;"><t t-esc="line['debit_fmt']"/></td>
+                                    <td class="num" style="color: #065f46; font-weight: 600; padding: 9px 12px; font-size: 12px; text-align: right;"><t t-esc="line['credit_fmt']"/></td>
+                                    <td class="num" style="color: #0d2d5e; font-weight: 700; padding: 9px 12px; font-size: 12px; text-align: right;"><t t-esc="line['balance_fmt']"/></td>
                                 </tr>
                             </t>
                         </tbody>
                         <tfoot>
                             <tr style="border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e; background-color: #ffffff;">
-                                <td colspan="2" style="text-align: center; font-weight: 700; color: #0d2d5e; padding: 10px 12px; font-size: 12px;">Totals</td>
-                                <td class="num" style="font-weight: 700; color: #0d2d5e; padding: 10px 12px; font-size: 12px; text-align: right;"><t t-esc="total_debit_fmt"/></td>
-                                <td class="num" style="font-weight: 700; color: #0d2d5e; padding: 10px 12px; font-size: 12px; text-align: right;"><t t-esc="total_credit_fmt"/></td>
+                                <td colspan="3" style="text-align: center; font-weight: 700; color: #0d2d5e; padding: 10px 12px; font-size: 12px;">Totals</td>
+                                <td class="num" style="font-weight: 700; color: #991b1b; padding: 10px 12px; font-size: 12px; text-align: right;"><t t-esc="total_debit_fmt"/></td>
+                                <td class="num" style="font-weight: 700; color: #065f46; padding: 10px 12px; font-size: 12px; text-align: right;"><t t-esc="total_credit_fmt"/></td>
                                 <td class="num"/>
                             </tr>
                         </tfoot>
                     </table>
 
-                    <!-- Section: Top-Ups / Deposits Detail -->
+                    <!-- ── Section: Deposits &amp; Top-Ups Detail ──────────────── -->
                     <t t-if="topup_lines">
-                        <div style="margin-top: 30px; margin-bottom: 10px; font-size: 14px; font-weight: 700; color: #0d2d5e; border-bottom: 2px solid #0d2d5e; padding-bottom: 4px; text-transform: uppercase; page-break-inside: avoid;">
-                            Deposits &amp; Top-Ups Detail
-                        </div>
+                        <div class="section-header">Deposits &amp; Top-Ups Detail</div>
                         <table class="stmt-table" style="margin-top: 10px; margin-bottom: 20px; page-break-inside: avoid;">
                             <thead>
                                 <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
                                     <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Date</th>
                                     <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Reference</th>
                                     <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Amount</th>
-                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: center; width: 100px;">Status</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: center; width: 90px;">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <t t-foreach="topup_lines" t-as="t_line">
                                     <tr style="border-bottom: 1px solid #c8d9f0;">
                                         <td class="date" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px;"><t t-esc="t_line['date']"/></td>
-                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="t_line['reference']"/></td>
-                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="t_line['amount_fmt']"/></td>
+                                        <td style="color: #374151; padding: 8px 10px; font-size: 12px;"><t t-esc="t_line['reference']"/></td>
+                                        <td class="num" style="color: #065f46; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="t_line['amount_fmt']"/></td>
                                         <td style="color: #0d2d5e; padding: 8px 10px; font-size: 12px; text-align: center;"><t t-esc="t_line['status']"/></td>
                                     </tr>
                                 </t>
@@ -231,11 +297,9 @@
                         </table>
                     </t>
 
-                    <!-- Section: Accrual Details -->
+                    <!-- ── Section: Interest Accrual History ──────────────────── -->
                     <t t-if="accrual_lines">
-                        <div style="margin-top: 30px; margin-bottom: 10px; font-size: 14px; font-weight: 700; color: #0d2d5e; border-bottom: 2px solid #0d2d5e; padding-bottom: 4px; text-transform: uppercase; page-break-inside: avoid;">
-                            Interest Accrual History
-                        </div>
+                        <div class="section-header">Interest Accrual History</div>
                         <table class="stmt-table" style="margin-top: 10px; margin-bottom: 20px; page-break-inside: avoid;">
                             <thead>
                                 <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
@@ -252,23 +316,28 @@
                                 <t t-foreach="accrual_lines" t-as="a_line">
                                     <tr style="border-bottom: 1px solid #c8d9f0;">
                                         <td class="date" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px;"><t t-esc="a_line['accrual_date']"/></td>
-                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="a_line['period_start']"/></td>
-                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="a_line['period_end']"/></td>
+                                        <td style="color: #374151; padding: 8px 10px; font-size: 12px;"><t t-esc="a_line['period_start']"/></td>
+                                        <td style="color: #374151; padding: 8px 10px; font-size: 12px;"><t t-esc="a_line['period_end']"/></td>
                                         <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="a_line['opening_balance_fmt']"/></td>
-                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="a_line['interest_amount_fmt']"/></td>
+                                        <td class="num" style="color: #1e40af; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="a_line['interest_amount_fmt']"/></td>
                                         <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="a_line['closing_balance_fmt']"/></td>
-                                        <td style="color: #0d2d5e; padding: 8px 10px; font-size: 12px; text-align: center;"><t t-esc="a_line['status']"/></td>
+                                        <td style="padding: 8px 10px; font-size: 11px; text-align: center;">
+                                            <t t-if="a_line.get('status_class') == 'paid'">
+                                                <span class="accrual-status paid"><t t-esc="a_line['status']"/></span>
+                                            </t>
+                                            <t t-else="">
+                                                <span class="accrual-status outstanding"><t t-esc="a_line['status']"/></span>
+                                            </t>
+                                        </td>
                                     </tr>
                                 </t>
                             </tbody>
                         </table>
                     </t>
 
-                    <!-- Section: Payout Details -->
+                    <!-- ── Section: Interest Payout Records ───────────────────── -->
                     <t t-if="payout_lines">
-                        <div style="margin-top: 30px; margin-bottom: 10px; font-size: 14px; font-weight: 700; color: #0d2d5e; border-bottom: 2px solid #0d2d5e; padding-bottom: 4px; text-transform: uppercase; page-break-inside: avoid;">
-                            Interest Payout Records
-                        </div>
+                        <div class="section-header">Interest Payout Records</div>
                         <table class="stmt-table" style="margin-top: 10px; margin-bottom: 20px; page-break-inside: avoid;">
                             <thead>
                                 <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
@@ -285,17 +354,47 @@
                                 <t t-foreach="payout_lines" t-as="p_line">
                                     <tr style="border-bottom: 1px solid #c8d9f0;">
                                         <td class="date" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['payout_date']"/></td>
-                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['reference']"/></td>
-                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['accrual_range']"/></td>
+                                        <td style="color: #374151; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['reference']"/></td>
+                                        <td style="color: #374151; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['accrual_range']"/></td>
                                         <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="p_line['gross_interest_fmt']"/></td>
-                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="p_line['wht_deducted_fmt']"/></td>
-                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="p_line['net_paid_fmt']"/></td>
-                                        <td style="color: #4b5563; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['payment_ref']"/></td>
+                                        <td class="num" style="color: #991b1b; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="p_line['wht_deducted_fmt']"/></td>
+                                        <td class="num" style="color: #065f46; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="p_line['net_paid_fmt']"/></td>
+                                        <td style="color: #374151; padding: 8px 10px; font-size: 12px;"><t t-esc="p_line['payment_ref']"/></td>
                                     </tr>
                                 </t>
                             </tbody>
                         </table>
                     </t>
+
+                    <!-- ── Section: Withdrawal Records ────────────────────────── -->
+                    <t t-if="withdrawal_lines">
+                        <div class="section-header">Investment Withdrawal Records</div>
+                        <table class="stmt-table" style="margin-top: 10px; margin-bottom: 20px; page-break-inside: avoid;">
+                            <thead>
+                                <tr style="background-color: #ffffff; border-top: 2px solid #0d2d5e; border-bottom: 2px solid #0d2d5e;">
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Withdrawal Date</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: left;">Payment Reference</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Principal</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Top-Ups</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Accrued Interest</th>
+                                    <th style="color: #0d2d5e; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;">Total Paid Out</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="withdrawal_lines" t-as="w_line">
+                                    <tr style="border-bottom: 1px solid #c8d9f0;">
+                                        <td class="date" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px;"><t t-esc="w_line['date']"/></td>
+                                        <td style="color: #374151; padding: 8px 10px; font-size: 12px;"><t t-esc="w_line['reference']"/></td>
+                                        <td class="num" style="color: #0d2d5e; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="w_line['principal_fmt']"/></td>
+                                        <td class="num" style="color: #065f46; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="w_line['topups_fmt']"/></td>
+                                        <td class="num" style="color: #1e40af; font-weight: 600; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="w_line['interest_fmt']"/></td>
+                                        <td class="num" style="color: #991b1b; font-weight: 700; padding: 8px 10px; font-size: 12px; text-align: right;"><t t-esc="w_line['gross_fmt']"/></td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </t>
+
                 </div>
             </div>
 
@@ -352,6 +451,7 @@
                     <t t-set="accrual_lines" t-value="stmt_data.get('accrual_lines')"/>
                     <t t-set="payout_lines" t-value="stmt_data.get('payout_lines')"/>
                     <t t-set="topup_lines" t-value="stmt_data.get('topup_lines')"/>
+                    <t t-set="withdrawal_lines" t-value="stmt_data.get('withdrawal_lines')"/>
                 </t>
             </t>
         </t>
@@ -388,6 +488,7 @@
                     <t t-set="accrual_lines" t-value="stmt_data.get('accrual_lines')"/>
                     <t t-set="payout_lines" t-value="stmt_data.get('payout_lines')"/>
                     <t t-set="topup_lines" t-value="stmt_data.get('topup_lines')"/>
+                    <t t-set="withdrawal_lines" t-value="stmt_data.get('withdrawal_lines')"/>
                 </t>
             </t>
         </t>
@@ -403,5 +504,6 @@
         <field name="binding_type">report</field>
         <field name="paperformat_id" ref="alba_loans.paperformat_a4"/>
     </record>
+
 
 </odoo>

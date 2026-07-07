@@ -38,7 +38,19 @@ class ReportInvestorStatement(models.AbstractModel):
 
     @api.model
     def _report_payload_from_investor(self, investor, date_from, date_to):
-        """Aggregate statement lines across the investor's active investments."""
+        """
+        Build the full statement payload for an investor across all their investments.
+
+        Opening balance:
+            For each investment that started ON or BEFORE date_from, we compute
+            the balance at date_from using _compute_investment_opening_balance().
+            This correctly includes principal, prior top-ups, prior accruals and
+            deducts prior payouts — even for investments that started years ago.
+
+        Ledger lines:
+            All events (top-ups, accruals, payouts, withdrawals) within the period
+            are collected chronologically and displayed as a running ledger.
+        """
         if isinstance(date_from, str):
             date_from = date.fromisoformat(date_from)
         if isinstance(date_to, str):
@@ -49,31 +61,49 @@ class ReportInvestorStatement(models.AbstractModel):
             ("state", "!=", "draft"),
         ])
 
-        transactions = []
-
+        # ── Compute opening balance (correct for ALL investments) ─────────────
+        # For every investment active on or before date_from, compute its balance.
+        # For investments that started WITHIN the period, they contribute 0 to
+        # opening balance (their initial deposit appears in the period events).
+        opening_balance = 0.0
         for inv in investments:
+            if inv.start_date and inv.start_date < date_from:
+                # Investment started before the period — compute its balance
+                opening_balance += self._compute_investment_opening_balance(
+                    inv, date_from
+                )
+            # If start_date >= date_from, opening balance contribution is 0
+            # (the initial deposit will appear as a credit line in the period)
+
+        # ── Collect all period events across all investments ──────────────────
+        period_events = []
+        for inv in investments:
+            # Include initial deposit only if it falls within the period
+            include_initial = bool(
+                inv.start_date and date_from <= inv.start_date <= date_to
+            )
             for event in self.collect_investment_statement_events(
                 inv,
                 period_start=date_from,
                 period_end=date_to,
-                include_initial_deposit=True,
+                include_initial_deposit=include_initial,
             ):
-                transactions.append({
+                period_events.append({
                     "date": event["date"],
                     "type": event["type"],
+                    "type_label": event["type_label"],
                     "description": event["description"],
                     "amount": event["amount"],
+                    "debit": event["debit"],
+                    "credit": event["credit"],
                     "record": event["record"],
+                    "accrual_state": event.get("accrual_state"),
                 })
 
         # Sort all transactions chronologically
-        transactions.sort(key=lambda x: x["date"])
+        period_events.sort(key=lambda x: (x["date"], x.get("type", "")))
 
-        prior_txs = [t for t in transactions if t["date"] < date_from]
-        period_txs = [t for t in transactions if date_from <= t["date"] <= date_to]
-
-        opening_balance = sum(t["amount"] for t in prior_txs)
-
+        # ── Build ledger lines ────────────────────────────────────────────────
         currency = investor.currency_id or self.env.company.currency_id
         account_number = investor.investor_number or ""
         company = investor.company_id or self.env.company
@@ -88,22 +118,24 @@ class ReportInvestorStatement(models.AbstractModel):
 
         lines.append({
             "date": self._format_stmt_date(date_from),
-            "description": self._clean_string("OB Opening Balance Period Opening Balance"),
+            "description": "Opening Balance",
+            "type": "opening",
+            "type_label": "Opening Balance",
             "debit": 0.0,
             "credit": 0.0,
             "balance": balance,
             "debit_fmt": "",
             "credit_fmt": "",
             "balance_fmt": self._format_amount(balance, currency),
+            "accrual_state": None,
         })
 
         # ── Summary accumulators ──────────────────────────────────────────────
         deposits = 0.0
-        # "withdrawals" = ONLY real principal payoffs, NEVER interest payouts
         principal_withdrawals = 0.0
         interest_accrued = 0.0
 
-        for tx in period_txs:
+        for tx in period_events:
             balance += tx["amount"]
 
             is_debit = tx["amount"] < 0
@@ -113,30 +145,29 @@ class ReportInvestorStatement(models.AbstractModel):
             if tx["type"] in ("deposit", "topup"):
                 deposits += tx["amount"]
             elif tx["type"] == "withdrawal":
-                # Only PRINCIPAL withdrawals (investment payoff) count here.
-                # Interest payouts (type=="payout") are tracked separately below.
                 principal_withdrawals += abs(tx["amount"])
             elif tx["type"] == "accrual":
                 interest_accrued += tx["amount"]
-            # "payout" deliberately excluded from both deposits and withdrawals
+            # "payout" debits the balance but is NOT a withdrawal — it's interest paid
 
             lines.append({
                 "date": self._format_stmt_date(tx["date"]),
-                "description": self._clean_string(tx["description"].upper()),
+                "description": tx["description"],
+                "type": tx["type"],
+                "type_label": tx["type_label"],
                 "debit": debit_amt,
                 "credit": credit_amt,
                 "balance": balance,
                 "debit_fmt": self._format_amount(debit_amt, currency) if is_debit else "",
                 "credit_fmt": self._format_amount(credit_amt, currency) if not is_debit else "",
                 "balance_fmt": self._format_amount(balance, currency),
+                "accrual_state": tx.get("accrual_state"),
             })
 
         total_debit = sum(line["debit"] for line in lines)
         total_credit = sum(line["credit"] for line in lines)
 
         # ── WHT / Net Interest — sourced ONLY from real payout records ─────────
-        # WHT is deducted only when a payout actually happens.  We NEVER apply
-        # a flat rate to unpaid accrued interest — that would be a phantom figure.
         period_payouts = self.env["alba.interest.payout"].search([
             ("investor_id", "=", investor.id),
             ("state", "=", "posted"),
@@ -159,7 +190,6 @@ class ReportInvestorStatement(models.AbstractModel):
             if a.state == "posted"
         )
 
-        # WHT rate kept for the column label only — no longer used for computation
         wht_rate = investments[0].wht_rate if investments else 0.0
 
         # ── Accrual detail table ───────────────────────────────────────────────
@@ -167,10 +197,13 @@ class ReportInvestorStatement(models.AbstractModel):
         for a in period_accruals_in_range.sorted(key=lambda x: x.accrual_date):
             if a.state == "paid":
                 status_label = "Paid Out"
+                status_class = "paid"
             elif a.state == "posted":
                 status_label = "Outstanding"
+                status_class = "outstanding"
             else:
                 status_label = a.state.capitalize()
+                status_class = ""
             accrual_lines.append({
                 "accrual_date": self._format_stmt_date(a.accrual_date),
                 "period_start": self._format_stmt_date(a.period_start),
@@ -179,15 +212,15 @@ class ReportInvestorStatement(models.AbstractModel):
                 "interest_amount_fmt": self._format_amount(a.interest_amount, currency),
                 "closing_balance_fmt": self._format_amount(a.closing_balance, currency),
                 "status": status_label,
+                "status_class": status_class,
             })
 
         # ── Payout detail table ────────────────────────────────────────────────
         payout_lines = []
         for p in period_payouts.sorted(key=lambda x: x.payout_date):
-            # Derive covered period range from linked accruals
             linked_accruals = p.accrual_ids.sorted(key=lambda a: a.period_start)
             if linked_accruals:
-                accrual_range = "%s \u2013 %s" % (
+                accrual_range = "%s to %s" % (
                     self._format_stmt_date(linked_accruals[0].period_start),
                     self._format_stmt_date(linked_accruals[-1].period_end),
                 )
@@ -220,6 +253,28 @@ class ReportInvestorStatement(models.AbstractModel):
                 "status": t.state.capitalize(),
             })
 
+        # ── Withdrawal detail table ────────────────────────────────────────────
+        withdrawal_lines = []
+        for inv in investments:
+            if getattr(inv, "withdrawal_payment_id", None):
+                wd = inv.withdrawal_payment_id
+                wd_date = wd.date
+                if wd_date and date_from <= wd_date <= date_to:
+                    gross_wd = (
+                        inv.principal_amount
+                        + inv.total_topup_amount
+                        + inv.total_interest_outstanding
+                    )
+                    withdrawal_lines.append({
+                        "date": self._format_stmt_date(wd_date),
+                        "reference": wd.name or "\u2014",
+                        "investment_number": inv.investment_number or "\u2014",
+                        "principal_fmt": self._format_amount(inv.principal_amount, currency),
+                        "topups_fmt": self._format_amount(inv.total_topup_amount, currency),
+                        "interest_fmt": self._format_amount(inv.total_interest_outstanding, currency),
+                        "gross_fmt": self._format_amount(gross_wd, currency),
+                    })
+
         return {
             "doc": investor,
             "partner": partner,
@@ -242,7 +297,6 @@ class ReportInvestorStatement(models.AbstractModel):
             # ── Summary box keys ─────────────────────────────────────────────
             "opening_balance_fmt": self._format_amount(opening_balance, currency),
             "deposits_fmt": self._format_amount(deposits, currency),
-            # Withdrawals = ONLY real principal payoffs, never interest payouts
             "withdrawals_fmt": self._format_amount(principal_withdrawals, currency),
             "interest_accrued_fmt": self._format_amount(interest_accrued, currency),
             # From actual payout records — no flat-rate estimates
@@ -256,4 +310,5 @@ class ReportInvestorStatement(models.AbstractModel):
             "accrual_lines": accrual_lines,
             "payout_lines": payout_lines,
             "topup_lines": topup_lines,
+            "withdrawal_lines": withdrawal_lines,
         }

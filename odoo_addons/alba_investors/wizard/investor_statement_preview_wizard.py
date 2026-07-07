@@ -218,20 +218,30 @@ class InvestorStatementPreviewWizard(models.TransientModel):
                 created |= existing
                 continue
 
-            # Compute financials
+            # ── Accruals in the period ────────────────────────────────────────
             accruals = Accrual.search([
                 ("investment_id", "=", inv.id),
                 ("state", "=", "posted"),
                 ("accrual_date", ">=", self.period_start),
                 ("accrual_date", "<=", self.period_end),
             ])
-            prior_accruals = Accrual.search([
+            total_interest = sum(accruals.mapped("interest_amount"))
+
+            # ── Top-ups in the period ─────────────────────────────────────────
+            topups = self.env["alba.investment.topup"].search([
                 ("investment_id", "=", inv.id),
                 ("state", "=", "posted"),
-                ("accrual_date", "<", self.period_start),
+                ("date", ">=", self.period_start),
+                ("date", "<=", self.period_end),
             ])
-            opening_balance = inv.principal_amount + sum(prior_accruals.mapped("interest_amount"))
-            total_interest = sum(accruals.mapped("interest_amount"))
+            total_deposits = sum(topups.mapped("amount"))
+
+            # ── Opening balance: principal + all prior activity ───────────────
+            # Use the shared helper from the mixin so the logic stays in sync.
+            report_model = self.env["alba.account.statement.report.mixin"]
+            opening_balance = report_model._compute_investment_opening_balance(
+                inv, self.period_start
+            )
 
             stmt = Statement.create({
                 "investment_id": inv.id,
@@ -239,6 +249,7 @@ class InvestorStatementPreviewWizard(models.TransientModel):
                 "period_start": self.period_start,
                 "period_end": self.period_end,
                 "opening_balance": opening_balance,
+                "deposits": total_deposits,
                 "interest_accrued": total_interest,
                 "accrual_ids": [(6, 0, accruals.ids)],
             })
