@@ -62,10 +62,10 @@
                 <sheet>
                     <!-- Sent banner -->
                     <div
-                            class="alert alert-success"
-                            role="alert"
-                            invisible="state != 'sent'"
-                        >
+                        class="alert alert-success"
+                        role="alert"
+                        invisible="state != 'sent'"
+                    >
                         <i class="fa fa-check-circle me-1" title="Sent"/>
                         <strong>Statement sent to investor.</strong>
                     </div>
@@ -77,94 +77,84 @@
                         </h1>
                     </div>
 
-                    <group>
-                        <group string="Statement Details">
+                    <group class="o_panel o_panel_secondary o_mb_4" col="2">
+                        <group string="Statement Details" class="o_panel o_panel_border" col="1">
                             <field
-                                    name="investment_id"
-                                    options="{'no_create': True}"
-                                    readonly="state != 'draft'"
-                                />
+                                name="investment_id"
+                                options="{'no_create': True}"
+                                readonly="state != 'draft'"
+                            />
                             <field name="investor_id" readonly="1" />
                             <field name="partner_id" readonly="1" />
+                            <field
+                                name="statement_date"
+                                readonly="state != 'draft'"
+                            />
                             <field name="currency_id" invisible="1" />
-                            <field
-                                    name="statement_date"
-                                    readonly="state != 'draft'"
-                                />
                         </group>
-                        <group string="Statement Period">
+                        <group string="Statement Period" class="o_panel o_panel_border" col="1">
                             <field
-                                    name="period_start"
-                                    readonly="state != 'draft'"
-                                />
+                                name="period_start"
+                                readonly="state != 'draft'"
+                            />
                             <field
-                                    name="period_end"
-                                    readonly="state != 'draft'"
-                                />
+                                name="period_end"
+                                readonly="state != 'draft'"
+                            />
                         </group>
                     </group>
 
-                    <group string="Financial Summary" col="4">
-                        <field
+                    <group string="Financial Summary" class="o_panel o_panel_secondary o_mb_4" col="2">
+                        <group>
+                            <field
                                 name="opening_balance"
                                 readonly="state != 'draft'"
                             />
-                        <field name="deposits" readonly="state != 'draft'" />
-                        <field name="withdrawals" readonly="state != 'draft'" />
-                        <field
+                            <field name="withdrawals" readonly="state != 'draft'" />
+                            <field name="wht_rate" />
+                            <field name="net_interest" />
+                        </group>
+                        <group>
+                            <field name="deposits" readonly="state != 'draft'" />
+                            <field
                                 name="interest_accrued"
                                 readonly="state != 'draft'"
                             />
-                        <field name="wht_rate" />
-                        <field name="wht_amount" />
-                        <field name="net_interest" />
-                        <field name="closing_balance" readonly="state != 'draft'" />
+                            <field name="wht_amount" />
+                            <field
+                                name="closing_balance"
+                                readonly="state != 'draft'"
+                                class="o_field_number o_text_success o_font_weight_bold"
+                            />
+                        </group>
                     </group>
 
-                    <notebook>
-
-                        <!-- ── Accruals Included ──────────────────────────── -->
-                        <page
-                                string="Interest Accruals Included"
-                                name="accruals"
-                            >
-                            <field
-                                    name="accrual_ids"
-                                    mode="list"
-                                    readonly="state != 'draft'"
-                                    domain="[('investment_id','=',investment_id),('state','=','posted')]"
-                                >
-                                <list string="Accruals">
-                                    <field name="accrual_date" />
-                                    <field name="period_start" />
-                                    <field name="period_end" />
-                                    <field name="opening_balance" />
-                                    <field name="interest_amount" />
-                                    <field name="closing_balance" />
-                                    <field
-                                            name="state"
-                                            widget="badge"
-                                            decoration-success="state == 'posted'"
-                                        />
-                                    <field
-                                            name="currency_id"
-                                            column_invisible="1"
-                                        />
-                                </list>
-                            </field>
-                        </page>
-
-                        <!-- ── Notes ─────────────────────────────────────── -->
-                        <page string="Notes" name="notes">
-                            <field
-                                    name="notes"
-                                    nolabel="1"
-                                    readonly="state == 'sent'"
-                                    placeholder="Optional remarks for this statement period…"
+                    <group string="Interest Accruals Ledger" class="o_panel o_panel_secondary o_mb_4">
+                        <field name="accrual_ids" mode="tree" readonly="1" create="false">
+                            <tree string="Interest Accruals" class="table table-bordered table-striped" decoration-success="state == 'posted'">
+                                <field name="accrual_date" />
+                                <field name="period_start" />
+                                <field name="period_end" />
+                                <field name="opening_balance" />
+                                <field name="interest_amount" />
+                                <field name="closing_balance" />
+                                <field
+                                    name="state"
+                                    widget="badge"
+                                    decoration-success="state == 'posted'"
                                 />
-                        </page>
+                            </tree>
+                        </field>
+                    </group>
 
-                    </notebook>
+                    <group string="Notes" class="o_panel o_panel_secondary o_mb_4">
+                        <field
+                            name="notes"
+                            nolabel="1"
+                            readonly="state == 'sent'"
+                            placeholder="Optional remarks for this statement period…"
+                        />
+                    </group>
                 </sheet>
 
                 <chatter />

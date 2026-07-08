@@ -100,8 +100,21 @@ class ReportInvestorStatement(models.AbstractModel):
                     "accrual_state": event.get("accrual_state"),
                 })
 
-        # Sort all transactions chronologically
-        period_events.sort(key=lambda x: (x["date"], x.get("type", "")))
+        # Sort all transactions chronologically. When dates are identical,
+        # use logical transaction priority so top-ups come before accruals,
+        # and accruals come before payouts/withdrawals.
+        type_priority = {
+            "deposit": 0,
+            "topup": 0,
+            "top_up": 0,
+            "accrual": 1,
+            "interest": 1,
+            "payout": 2,
+            "withdrawal": 2,
+        }
+        period_events.sort(
+            key=lambda x: (x["date"], type_priority.get(x.get("type"), 99))
+        )
 
         # ── Build ledger lines ────────────────────────────────────────────────
         currency = investor.currency_id or self.env.company.currency_id

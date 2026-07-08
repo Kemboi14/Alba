@@ -292,7 +292,26 @@ class AccountStatementReportMixin(models.AbstractModel):
                     "accrual_state": None,
                 })
 
-        events.sort(key=lambda item: (item["sort_date"], item["sort_id"]))
+        # Same-date events must be ordered by logical transaction priority:
+        # - A top-up adds to the principal first; it is the basis for accrual.
+        # - Accrual/interest is computed on the available principal, so it comes second.
+        # - Payout/withdrawal is disbursed from accrued interest, so it comes last.
+        type_priority = {
+            "deposit": 0,
+            "topup": 0,
+            "top_up": 0,
+            "accrual": 1,
+            "interest": 1,
+            "payout": 2,
+            "withdrawal": 2,
+        }
+        events.sort(
+            key=lambda item: (
+                item["sort_date"],
+                type_priority.get(item.get("type"), 99),
+                item["sort_id"],
+            )
+        )
         return events
 
     # =========================================================================
