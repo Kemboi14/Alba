@@ -130,17 +130,7 @@
                     </group>
 
                     <group string="Interest Accruals Ledger" class="o_panel o_panel_secondary o_mb_4">
-                        <field name="accrual_ids" readonly="1">
-                            <tree string="Interest Accruals" decoration-success="state == 'posted'">
-                                <field name="accrual_date" string="Accrual Date"/>
-                                <field name="period_start" string="Period Start"/>
-                                <field name="period_end" string="Closing Date"/>
-                                <field name="opening_balance" string="Opening Balance"/>
-                                <field name="interest_amount" string="Interest Amount"/>
-                                <field name="closing_balance" string="Closing Balance"/>
-                                <field name="state" string="Status"/>
-                            </tree>
-                        </field>
+                        <field name="accrual_ids" readonly="1" nolabel="1"/>
                     </group>
 
                     <group string="Notes" class="o_panel o_panel_secondary o_mb_4">
