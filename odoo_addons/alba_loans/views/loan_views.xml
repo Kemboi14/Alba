@@ -161,6 +161,8 @@
                                 <list string="Repayments" decoration-success="state == 'posted'" decoration-danger="state == 'reversed'">
                                     <field name="payment_date"/>
                                     <field name="payment_reference"/>
+                                    <field name="journal_id"/>
+                                    <field name="move_id" optional="hide" groups="account.group_account_user"/>
                                     <field name="amount_paid" sum="Total"/>
                                     <field name="payment_method" widget="badge"/>
                                     <field name="state" widget="badge" decoration-success="state == 'posted'"/>

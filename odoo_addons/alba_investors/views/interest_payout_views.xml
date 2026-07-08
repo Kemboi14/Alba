@@ -97,12 +97,10 @@
 
                     <group string="Journal Entries" groups="account.group_account_user">
                         <group>
-                            <field name="payment_id" readonly="1"
-                                   invisible="not payment_id"/>
+                            <field name="payment_id" readonly="1"/>
                         </group>
                         <group>
-                            <field name="wht_move_id" readonly="1"
-                                   invisible="not wht_move_id"/>
+                            <field name="wht_move_id" readonly="1"/>
                         </group>
                     </group>
 

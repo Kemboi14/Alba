@@ -20,6 +20,8 @@
                 <field name="loan_id"/>
                 <field name="customer_id"/>
                 <field name="payoff_amount"/>
+                <field name="payment_reference"/>
+                <field name="journal_id"/>
                 <field name="reduction_mode"/>
                 <field name="principal_reduction"/>
                 <field name="interest_saved"/>

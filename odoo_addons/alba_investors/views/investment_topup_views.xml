@@ -21,7 +21,7 @@
                 <field name="amount" widget="monetary"
                        options="{'currency_field': 'currency_id'}"
                        sum="Total Top-Ups"/>
-                <field name="journal_id" optional="show"/>
+                <field name="journal_id"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'posted'"
                        decoration-info="state == 'draft'"/>
@@ -95,8 +95,7 @@
                         </group>
                     </group>
 
-                    <group string="Journal Entry" groups="account.group_account_user"
-                           invisible="state == 'draft'">
+                    <group string="Journal Entry" groups="account.group_account_user">
                         <field name="payment_id" readonly="1"/>
                     </group>
 

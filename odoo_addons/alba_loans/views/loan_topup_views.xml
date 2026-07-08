@@ -15,6 +15,7 @@
                 <field name="customer_id"/>
                 <field name="topup_amount"/>
                 <field name="new_principal"/>
+                <field name="journal_id"/>
                 <field name="purpose"/>
                 <field name="state"/>
                 <field name="disbursement_date"/>

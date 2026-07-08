@@ -44,7 +44,7 @@
                         <div class="oe_title">
                             <label for="payment_reference" string="Payment Reference"/>
                             <h1>
-                                <field name="payment_reference" readonly="1"/>
+                                <field name="payment_reference" readonly="state != 'draft'"/>
                             </h1>
                         </div>
 
@@ -185,7 +185,7 @@
                            decoration-info="payment_method == 'bank_transfer'"
                            decoration-warning="payment_method == 'cash'"/>
                     <field name="mpesa_transaction_id" optional="hide"/>
-                    <field name="journal_id"           optional="hide"/>
+                    <field name="journal_id"/>
                     <field name="state"
                            widget="badge"
                            decoration-success="state == 'posted'"

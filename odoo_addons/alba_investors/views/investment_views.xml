@@ -215,8 +215,8 @@
                                 <group string="Configuration">
                                     <field name="payment_journal_id" options="{'no_create': True}"/>
                                     <field name="journal_id" options="{'no_create': True}"/>
-                                    <field name="payment_id" invisible="not payment_id"/>
-                                    <field name="withdrawal_payment_id" invisible="not withdrawal_payment_id"/>
+                                    <field name="payment_id" readonly="1"/>
+                                    <field name="withdrawal_payment_id" readonly="1"/>
                                 </group>
                                 <group string="Withholding Tax">
                                     <field name="wht_rate" readonly="state != 'draft'"/>
