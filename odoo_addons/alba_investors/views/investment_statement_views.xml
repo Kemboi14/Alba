@@ -130,7 +130,7 @@
                     </group>
 
                     <group string="Interest Accruals Ledger" class="o_panel o_panel_secondary o_mb_4">
-                        <field name="accrual_ids" widget="many2many" readonly="1">
+                        <field name="accrual_ids" readonly="1">
                             <tree string="Interest Accruals" decoration-success="state == 'posted'">
                                 <field name="accrual_date" string="Accrual Date"/>
                                 <field name="period_start" string="Period Start"/>
