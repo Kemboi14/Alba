@@ -130,7 +130,7 @@
                     </group>
 
                     <group string="Interest Accruals Ledger" class="o_panel o_panel_secondary o_mb_4">
-                        <field name="accrual_ids" mode="tree" readonly="1" create="false">
+                        <field name="accrual_ids">
                             <tree string="Interest Accruals" class="table table-bordered table-striped" decoration-success="state == 'posted'">
                                 <field name="accrual_date" />
                                 <field name="period_start" />
