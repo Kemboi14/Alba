@@ -94,6 +94,7 @@
                                    class="text-danger"/>
                             <field name="net_amount" widget="monetary" readonly="1"
                                    class="h4 fw-bold text-success"/>
+                            <field name="payment_memo" readonly="1"/>
                         </group>
                     </group>
 

@@ -87,10 +87,24 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         default=fields.Date.context_today,
     )
     notes = fields.Text(string="Notes")
+    memo = fields.Char(
+        string="Payment Memo",
+        compute="_compute_memo",
+        store=True,
+        readonly=False,
+    )
 
     # =========================================================================
     # Compute
     # =========================================================================
+
+    @api.depends("investment_id")
+    def _compute_memo(self):
+        for wiz in self:
+            if wiz.investment_id:
+                wiz.memo = "Interest Payout — %s" % safe_investment_reference(wiz.investment_id)
+            else:
+                wiz.memo = False
 
     @api.depends(
         "payout_mode",
@@ -182,7 +196,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             "partner_id": investment.investor_id.partner_id.id,
             "journal_id": self.journal_id.id,
             "currency_id": inv_currency.id,
-            "memo": "Interest Payout — %s" % safe_investment_reference(investment),
+            "memo": self.memo or ("Interest Payout — %s" % safe_investment_reference(investment)),
             "destination_account_id": investment.account_interest_payable_id.id,
         }
         payment = self.env["account.payment"].create(payment_vals)

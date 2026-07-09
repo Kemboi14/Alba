@@ -95,6 +95,11 @@ class AlbaInterestPayout(models.Model):
         copy=False,
         help="Outbound payment: DR Interest Payable / CR Bank.",
     )
+    payment_memo = fields.Char(
+        related="payment_id.memo",
+        string="Payment Memo",
+        readonly=True,
+    )
     wht_move_id = fields.Many2one(
         "account.move",
         string="WHT Clearing Entry",
