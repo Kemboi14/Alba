@@ -91,7 +91,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         string="Payment Memo",
         compute="_compute_memo",
         store=True,
-        readonly=False,
+        readonly=True,
     )
 
     # =========================================================================
