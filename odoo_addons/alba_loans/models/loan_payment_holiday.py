@@ -344,7 +344,7 @@ class AlbaLoanPaymentHoliday(models.Model):
                 ("loan_id", "=", rec.loan_id.id),
                 ("due_date", ">=", rec.start_date),
                 ("due_date", "<=", rec.end_date),
-                ("is_paid", "=", False),
+                ("status", "!=", "paid"),
             ])
             
             if not affected:
