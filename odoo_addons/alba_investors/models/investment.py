@@ -789,6 +789,32 @@ class AlbaInvestment(models.Model):
             "context": {"default_investment_id": self.id},
         }
 
+    def action_view_payment(self):
+        """Open the linked initial payment receipt."""
+        self.ensure_one()
+        if not self.payment_id:
+            raise UserError(_("No payment receipt has been linked yet."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Initial Payment Receipt"),
+            "res_model": "account.payment",
+            "view_mode": "form",
+            "res_id": self.payment_id.id,
+        }
+
+    def action_view_withdrawal_payment(self):
+        """Open the linked withdrawal payment."""
+        self.ensure_one()
+        if not self.withdrawal_payment_id:
+            raise UserError(_("No withdrawal payment has been linked yet."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Withdrawal Payment"),
+            "res_model": "account.payment",
+            "view_mode": "form",
+            "res_id": self.withdrawal_payment_id.id,
+        }
+
     def action_pay_interest(self):
         """Open the interest-only payout wizard."""
         self.ensure_one()

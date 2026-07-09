@@ -557,3 +557,16 @@ class AlbaLoanTopup(models.Model):
             "view_mode": "form",
             "res_id": self.loan_id.id,
         }
+
+    def action_view_disbursement_entry(self):
+        """Open the disbursement journal entry (memo) for this top-up."""
+        self.ensure_one()
+        if not self.disbursement_move_id:
+            raise UserError(_("No disbursement journal entry has been posted for this top-up yet."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Disbursement Entry — %s") % self.name,
+            "res_model": "account.move",
+            "view_mode": "form",
+            "res_id": self.disbursement_move_id.id,
+        }

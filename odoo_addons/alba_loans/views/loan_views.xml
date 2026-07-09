@@ -50,6 +50,28 @@
                                 <span class="o_stat_text">Outstanding</span>
                             </div>
                         </button>
+                        <!-- Memo: Disbursement Journal Entry -->
+                        <button type="object" name="action_view_disbursement_entry"
+                                class="oe_stat_button" icon="fa-book"
+                                invisible="not disbursement_move_id"
+                                groups="account.group_account_user">
+                            <div class="o_stat_info">
+                                <field name="disbursement_move_id" options="{'no_open': True}"
+                                       string="" nolabel="1" readonly="1"/>
+                                <span class="o_stat_text">Disbursement JE</span>
+                            </div>
+                        </button>
+                        <!-- Memo: Provision Journal Entry -->
+                        <button type="object" name="action_view_provision_entry"
+                                class="oe_stat_button" icon="fa-shield"
+                                invisible="not provision_move_id"
+                                groups="account.group_account_user">
+                            <div class="o_stat_info">
+                                <field name="provision_move_id" options="{'no_open': True}"
+                                       string="" nolabel="1" readonly="1"/>
+                                <span class="o_stat_text">Provision JE</span>
+                            </div>
+                        </button>
                     </div>
 
                     <widget name="web_ribbon" title="Paid" bg_color="bg-success" invisible="state != 'closed'"/>

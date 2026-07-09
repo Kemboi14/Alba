@@ -174,6 +174,20 @@ class AlbaLoanRepayment(models.Model):
         
         self.message_post(body=body, subtype_xmlid="mail.mt_comment")
 
+    def action_view_journal_entry(self):
+        """Open the journal entry (memo) posted for this repayment."""
+        self.ensure_one()
+        if not self.move_id:
+            raise UserError(_("No journal entry has been posted for this repayment yet."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Journal Entry — %s") % self.payment_reference,
+            "res_model": "account.move",
+            "view_mode": "form",
+            "res_id": self.move_id.id,
+        }
+
+
     def _fire_repayment_webhook(self, event_type):
         """Fire a webhook to Django when a repayment is posted or reversed."""
         api_key = self.env["alba.api.key"].sudo().search([("is_active", "=", True)], limit=1)

@@ -1107,6 +1107,19 @@ class AlbaLoanApplication(models.Model):
             "res_id": self.loan_id.id,
         }
 
+    def action_view_approval_entry(self):
+        """Open the approval journal entry (memo) posted when application was approved."""
+        self.ensure_one()
+        if not self.approval_move_id:
+            raise UserError(_("No approval journal entry has been posted for this application."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Approval Entry — %s") % self.application_number,
+            "res_model": "account.move",
+            "view_mode": "form",
+            "res_id": self.approval_move_id.id,
+        }
+
     def action_view_guarantors(self):
         """View guarantors for this application"""
         self.ensure_one()

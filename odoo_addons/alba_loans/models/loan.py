@@ -1476,6 +1476,32 @@ class AlbaLoan(models.Model):
             "context": {"default_loan_id": self.id},
         }
 
+    def action_view_disbursement_entry(self):
+        """Open the disbursement journal entry (memo)."""
+        self.ensure_one()
+        if not self.disbursement_move_id:
+            raise UserError(_("No disbursement journal entry has been posted yet."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Disbursement Entry — %s") % self.loan_number,
+            "res_model": "account.move",
+            "view_mode": "form",
+            "res_id": self.disbursement_move_id.id,
+        }
+
+    def action_view_provision_entry(self):
+        """Open the provision journal entry (memo)."""
+        self.ensure_one()
+        if not self.provision_move_id:
+            raise UserError(_("No provision journal entry found."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Provision Entry — %s") % self.loan_number,
+            "res_model": "account.move",
+            "view_mode": "form",
+            "res_id": self.provision_move_id.id,
+        }
+
     def action_request_topup(self):
         """Open wizard to request top-up"""
         self.ensure_one()

@@ -51,6 +51,29 @@
                     <field name="state" widget="statusbar" statusbar_visible="draft,posted,paid,reversed"/>
                 </header>
                 <sheet>
+                    <!-- Memo: Accrual & Reversal Journal Entry smart buttons -->
+                    <div class="oe_button_box" name="button_box" invisible="not id">
+                        <button type="object" name="action_view_journal_entry"
+                                class="oe_stat_button" icon="fa-book"
+                                invisible="not move_id"
+                                groups="account.group_account_user">
+                            <div class="o_stat_info">
+                                <field name="move_id" options="{'no_open': True}"
+                                       string="" nolabel="1" readonly="1"/>
+                                <span class="o_stat_text">Accrual JE</span>
+                            </div>
+                        </button>
+                        <button type="object" name="action_view_reversal_entry"
+                                class="oe_stat_button" icon="fa-undo"
+                                invisible="not reversal_move_id"
+                                groups="account.group_account_user">
+                            <div class="o_stat_info">
+                                <field name="reversal_move_id" options="{'no_open': True}"
+                                       string="" nolabel="1" readonly="1"/>
+                                <span class="o_stat_text">Reversal JE</span>
+                            </div>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <label for="investment_id" string="Investment"/>
                         <h2>

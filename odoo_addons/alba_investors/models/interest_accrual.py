@@ -554,3 +554,29 @@ class AlbaInterestAccrual(models.Model):
             "closing_balance",
             "state",
         ]
+
+    def action_view_journal_entry(self):
+        """Open the posted journal entry (memo) for this interest accrual."""
+        self.ensure_one()
+        if not self.move_id:
+            raise UserError(_("No journal entry has been posted for this accrual yet."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Accrual Entry — %s") % self.investment_id.investment_number,
+            "res_model": "account.move",
+            "view_mode": "form",
+            "res_id": self.move_id.id,
+        }
+
+    def action_view_reversal_entry(self):
+        """Open the reversal journal entry (memo) for this interest accrual."""
+        self.ensure_one()
+        if not self.reversal_move_id:
+            raise UserError(_("No reversal journal entry found for this accrual."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Reversal Entry — %s") % self.investment_id.investment_number,
+            "res_model": "account.move",
+            "view_mode": "form",
+            "res_id": self.reversal_move_id.id,
+        }

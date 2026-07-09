@@ -114,6 +114,26 @@
                                 <field name="topup_count" widget="statinfo" string="Top-Ups"/>
                             </div>
                         </button>
+                        <!-- Memo: Initial Payment Receipt -->
+                        <button type="object" name="action_view_payment"
+                                class="oe_stat_button" icon="fa-credit-card"
+                                invisible="not payment_id"
+                                groups="account.group_account_user">
+                            <div class="o_stat_info">
+                                <field name="payment_id" options="{'no_open': True}" readonly="1"/>
+                                <span class="o_stat_text">Initial Payment</span>
+                            </div>
+                        </button>
+                        <!-- Memo: Withdrawal Payment -->
+                        <button type="object" name="action_view_withdrawal_payment"
+                                class="oe_stat_button" icon="fa-credit-card"
+                                invisible="not withdrawal_payment_id"
+                                groups="account.group_account_user">
+                            <div class="o_stat_info">
+                                <field name="withdrawal_payment_id" options="{'no_open': True}" readonly="1"/>
+                                <span class="o_stat_text">Withdrawal Pay</span>
+                            </div>
+                        </button>
                     </div>
 
                     <widget name="web_ribbon" title="Draft" bg_color="bg-secondary" invisible="state != 'draft'"/>

@@ -315,3 +315,16 @@ class AlbaCreditLifeInsurance(models.Model):
             "company_id": self.company_id.id,
             "alba_loan_id": self.loan_id.id,
         }
+
+    def action_view_journal_entry(self):
+        """Open the compensation journal entry (memo) for this insurance claim."""
+        self.ensure_one()
+        if not self.move_id:
+            raise UserError(_("No journal entry has been posted for this insurance claim yet."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Insurance Entry — %s") % self.insurance_number,
+            "res_model": "account.move",
+            "view_mode": "form",
+            "res_id": self.move_id.id,
+        }

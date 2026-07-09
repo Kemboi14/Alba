@@ -57,6 +57,7 @@
                                 icon="fa-credit-card"
                                 invisible="not payment_id">
                             <div class="o_stat_info">
+                                <field name="payment_id" options="{'no_open': True}" readonly="1"/>
                                 <span class="o_stat_text">Payment</span>
                             </div>
                         </button>
@@ -66,6 +67,7 @@
                                 icon="fa-book"
                                 invisible="not wht_move_id">
                             <div class="o_stat_info">
+                                <field name="wht_move_id" options="{'no_open': True}" readonly="1"/>
                                 <span class="o_stat_text">WHT Entry</span>
                             </div>
                         </button>

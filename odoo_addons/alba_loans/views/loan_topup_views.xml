@@ -47,6 +47,17 @@
                     </div>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_loan" string="View Loan" type="object" class="oe_stat_button" icon="fa-arrow-right"/>
+                        <!-- Memo: Disbursement Journal Entry -->
+                        <button type="object" name="action_view_disbursement_entry"
+                                class="oe_stat_button" icon="fa-book"
+                                invisible="not disbursement_move_id"
+                                groups="account.group_account_user">
+                            <div class="o_stat_info">
+                                <field name="disbursement_move_id" options="{'no_open': True}"
+                                       string="" nolabel="1" readonly="1"/>
+                                <span class="o_stat_text">Disbursement JE</span>
+                            </div>
+                        </button>
                     </div>
                     <widget name="web_ribbon" text="Draft" bg_color="bg-warning" invisible="state != 'draft'"/>
                     <widget name="web_ribbon" text="Pending" bg_color="bg-info" invisible="state != 'pending'"/>

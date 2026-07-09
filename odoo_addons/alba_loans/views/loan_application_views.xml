@@ -32,6 +32,17 @@
                         <button name="action_view_loan" type="object" class="oe_stat_button" icon="fa-money" invisible="loan_count == 0">
                             <field name="loan_count" widget="statinfo" string="Active Loan"/>
                         </button>
+                        <!-- Memo: Approval Journal Entry -->
+                        <button type="object" name="action_view_approval_entry"
+                                class="oe_stat_button" icon="fa-book"
+                                invisible="not approval_move_id"
+                                groups="account.group_account_user">
+                            <div class="o_stat_info">
+                                <field name="approval_move_id" options="{'no_open': True}"
+                                       string="" nolabel="1" readonly="1"/>
+                                <span class="o_stat_text">Approval JE</span>
+                            </div>
+                        </button>
                     </div>
 
                     <widget name="web_ribbon" title="Disbursed" bg_color="bg-success" invisible="state != 'disbursed'"/>
