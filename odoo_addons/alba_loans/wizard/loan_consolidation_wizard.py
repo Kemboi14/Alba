@@ -18,7 +18,7 @@ class AlbaLoanConsolidationWizard(models.TransientModel):
     loan_ids = fields.Many2many(
         "alba.loan",
         string="Loans to Consolidate",
-        domain="[('customer_id', '=', customer_id), ('state', 'not in', ['closed', 'written_off'])]",
+        domain="[('customer_id', '=', customer_id), ('state', 'in', ['normal', 'watch', 'substandard', 'doubtful', 'loss'])]",
         required=True,
     )
     

@@ -65,8 +65,15 @@ class AlbaLoanPaymentHolidayWizard(models.TransientModel):
             loan = rec.loan_id
             warnings = []
             
-            if loan.state != "active":
-                warnings.append("❌ Loan not active")
+            # Check loan state — valid active states: Normal, Watch, Substandard, Doubtful
+            _ELIGIBLE_STATES = ("normal", "watch", "substandard", "doubtful")
+            if loan.state not in _ELIGIBLE_STATES:
+                state_label = dict(loan._fields["state"].selection).get(loan.state, loan.state)
+                warnings.append(
+                    "❌ Loan must be Normal, Watch, Substandard, or Doubtful for a payment holiday "
+                    "(currently: %s)" % state_label
+                )
+
             if loan.days_in_arrears > 90:
                 warnings.append("❌ 90+ days overdue")
             

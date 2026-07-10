@@ -91,9 +91,15 @@ class AlbaLoanRestructure(models.Model):
     def action_submit(self):
         """Submit restructure request"""
         for rec in self:
-            # Validate loan can be restructured
-            if rec.loan_id.state not in ["active", "overdue"]:
-                raise UserError(_("Only active or overdue loans can be restructured."))
+            # Validate loan can be restructured — allow Normal, Watch, Substandard, Doubtful
+            # Loss (>90 days) loans must go through Collections / Legal, not restructure
+            _RESTRUCTURABLE_STATES = ["normal", "watch", "substandard", "doubtful"]
+            if rec.loan_id.state not in _RESTRUCTURABLE_STATES:
+                state_label = dict(rec.loan_id._fields["state"].selection).get(rec.loan_id.state, rec.loan_id.state)
+                raise UserError(_(
+                    "Cannot restructure loan in '%s' state. "
+                    "Only Normal, Watch, Substandard, or Doubtful loans can be restructured."
+                ) % state_label)
             
             # Check if already has pending restructure
             existing = self.search([

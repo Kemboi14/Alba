@@ -126,9 +126,14 @@ class AlbaLoanTopupWizard(models.TransientModel):
             warnings = []
             loan = rec.loan_id
             
-            # Check loan state
-            if loan.state != "active":
-                warnings.append("❌ Loan must be active (currently: %s)" % loan.state)
+            # Check loan state — valid active states: Normal, Watch, Substandard, Doubtful
+            _ELIGIBLE_STATES = ("normal", "watch", "substandard", "doubtful")
+            if loan.state not in _ELIGIBLE_STATES:
+                state_label = dict(loan._fields["state"].selection).get(loan.state, loan.state)
+                warnings.append(
+                    "❌ Loan must be Normal, Watch, Substandard, or Doubtful for a top-up "
+                    "(currently: %s)" % state_label
+                )
             
             # Check arrears
             if loan.days_in_arrears > 90:

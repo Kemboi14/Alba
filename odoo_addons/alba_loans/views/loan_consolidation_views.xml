@@ -104,7 +104,7 @@
                                    readonly="state != 'draft'"/>
                             <field name="loan_ids"
                                    widget="many2many_tags"
-                                   domain="[('customer_id', '=', customer_id), ('state', 'not in', ['closed', 'written_off'])]"
+                                   domain="[('customer_id', '=', customer_id), ('state', 'in', ['normal', 'watch', 'substandard', 'doubtful', 'loss'])]"
                                    readonly="state != 'draft'"/>
                             <field name="loan_count"   readonly="1"/>
                             <field name="currency_id"  invisible="1"/>
@@ -282,8 +282,8 @@
                 Create your first loan consolidation quote
             </p>
             <p>
-                Consolidating loans combines multiple active/overdue loans
-                for a customer into a single new loan with new terms.
+                Consolidating loans combines 2–5 active loans (Normal, Watch, Substandard, or Doubtful classification)
+                for a customer into a single new loan with unified terms.
             </p>
         </field>
     </record>

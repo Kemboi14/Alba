@@ -39,7 +39,7 @@ class AlbaLoanConsolidation(models.Model):
         "alba.loan",
         string="Loans to Consolidate",
         required=True,
-        domain="[('customer_id', '=', customer_id), ('state', 'not in', ['closed', 'written_off'])]",
+        domain="[('customer_id', '=', customer_id), ('state', 'in', ['normal', 'watch', 'substandard', 'doubtful', 'loss'])]",
     )
     loan_count = fields.Integer(
         string="Number of Loans",
@@ -369,10 +369,19 @@ class AlbaLoanConsolidation(models.Model):
             if different_customers:
                 warnings.append("❌ All loans must belong to the selected customer")
             
-            # Check loan states
-            invalid_state = rec.loan_ids.filtered(lambda l: l.state in ["closed", "written_off"])
-            if invalid_state:
-                warnings.append("❌ All loans must be in an active status (not closed or written off)")
+            # Check loan states — explicitly block terminal and loss-classified loans
+            inactive_state = rec.loan_ids.filtered(lambda l: l.state in ["closed", "written_off"])
+            if inactive_state:
+                loan_refs = ", ".join(l.loan_number or str(l.id) for l in inactive_state)
+                warnings.append("❌ Cannot consolidate Closed or Written-Off loans: %s" % loan_refs)
+
+            loss_loans = rec.loan_ids.filtered(lambda l: l.state == "loss")
+            if loss_loans:
+                loan_refs = ", ".join(l.loan_number or str(l.id) for l in loss_loans)
+                warnings.append(
+                    "❌ Cannot consolidate Loss (>90 days overdue) loans: %s. "
+                    "Escalate to Collections / Legal for recovery action." % loan_refs
+                )
             
             # Check arrears
             if rec.max_days_in_arrears > 90:

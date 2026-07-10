@@ -17,7 +17,7 @@
                         </group>
                     </group>
                     <group string="Select Loans to Consolidate">
-                        <field name="loan_ids" widget="many2many_checkboxes" domain="[('customer_id', '=', customer_id), ('state', 'not in', ['closed', 'written_off'])]" options="{'no_create': True}"/>
+                        <field name="loan_ids" widget="many2many_checkboxes" domain="[('customer_id', '=', customer_id), ('state', 'in', ['normal', 'watch', 'substandard', 'doubtful', 'loss'])]" options="{'no_create': True}"/>
                     </group>
                 </sheet>
                 <footer>
