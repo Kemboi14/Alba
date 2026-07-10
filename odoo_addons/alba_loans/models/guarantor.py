@@ -204,6 +204,27 @@ class AlbaGuarantor(models.Model):
         "A guarantor with this ID number already exists."
     )
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get("partner_id"):
+                name = vals.get("name") or _("New Guarantor")
+                partner_vals = {
+                    "name": name,
+                    "phone": vals.get("phone"),
+                    "email": vals.get("email"),
+                    "street": vals.get("address"),
+                    "id_number": vals.get("id_number"),
+                    "id_type": vals.get("id_type") or "national_id",
+                    "employer_id": vals.get("employer_id"),
+                    "job_title": vals.get("job_title"),
+                    "monthly_income": vals.get("monthly_income"),
+                }
+                partner_vals = {k: v for k, v in partner_vals.items() if v is not None}
+                partner = self.env["res.partner"].create(partner_vals)
+                vals["partner_id"] = partner.id
+        return super().create(vals_list)
+
 
 class AlbaLoanGuarantor(models.Model):
     """Junction table: Links Guarantors to Loan Applications"""

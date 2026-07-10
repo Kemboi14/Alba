@@ -46,18 +46,15 @@
                         </button>
                     </div>
                     <div class="oe_title">
+                        <label for="partner_id" string="Guarantor Contact"/>
                         <h1>
-                            <field name="name"/>
+                            <field name="partner_id"
+                                   options="{'no_create': False}"
+                                   placeholder="Select or create a contact…"/>
                         </h1>
                     </div>
                     <group>
                         <group>
-                            <!-- FIX: partner_id is required=True in the model but was never shown
-                                 in the form — all related fields (name, phone…) silently did nothing
-                                 without a parent partner, causing the ValidationError on save. -->
-                            <field name="partner_id"
-                                   options="{'no_create_edit': False}"
-                                   placeholder="Search or create a contact…"/>
                             <field name="id_number"/>
                             <field name="id_type"/>
                             <field name="kyc_status"/>
