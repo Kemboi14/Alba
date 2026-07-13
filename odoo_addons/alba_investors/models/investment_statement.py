@@ -305,15 +305,16 @@ class AlbaInvestmentStatement(models.Model):
         For every active investment, creates a statement covering the
         previous calendar month if one does not already exist.
         """
-        import calendar
         from datetime import date
 
         today = fields.Date.today()
-        # Previous month
-        month = today.month - 1 or 12
-        year = today.year if today.month > 1 else today.year - 1
-        period_start = date(year, month, 1)
-        period_end = date(year, month, calendar.monthrange(year, month)[1])
+        month = today.month
+        year = today.year
+        period_start = date(year, month, 28)
+        if month == 12:
+            period_end = date(year + 1, 1, 27)
+        else:
+            period_end = date(year, month + 1, 27)
 
         active_investments = self.env["alba.investment"].search(
             [("state", "=", "active")]
@@ -435,7 +436,6 @@ class AlbaInvestmentStatement(models.Model):
         (1 day after the accrual day).
         """
         today = fields.Date.context_today(self)
-        import calendar
         from datetime import date, timedelta
         
         created_count = 0
@@ -450,15 +450,16 @@ class AlbaInvestmentStatement(models.Model):
                 continue
             
             target_day = product.auto_accrual_day or 28
-            yesterday_last_day = calendar.monthrange(yesterday.year, yesterday.month)[1]
-            yesterday_target_run_day = min(target_day, yesterday_last_day)
+            yesterday_target_run_day = min(target_day, 28)
             
             if yesterday.day == yesterday_target_run_day:
-                # Yesterday was the accrual day, so today we generate the statement for the previous calendar month
-                month = today.month - 1 or 12
-                year = today.year if today.month > 1 else today.year - 1
-                period_start = date(year, month, 1)
-                period_end = date(year, month, calendar.monthrange(year, month)[1])
+                month = today.month
+                year = today.year
+                period_start = date(year, month, 28)
+                if month == 12:
+                    period_end = date(year + 1, 1, 27)
+                else:
+                    period_end = date(year, month + 1, 27)
                 
                 existing = self.search(
                     [

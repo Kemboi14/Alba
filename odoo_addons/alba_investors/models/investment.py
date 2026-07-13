@@ -667,13 +667,14 @@ class AlbaInvestment(models.Model):
         # Determine period start/end: prefer explicit args (backfill passes these so
         # that pro-rata first-month clamping is preserved), otherwise derive from today.
         if period_start is None or period_end is None:
-            import calendar
-            month = today.month - 1 or 12
-            year = today.year if today.month > 1 else today.year - 1
-            last_day = calendar.monthrange(year, month)[1]
             from datetime import date as _date
-            period_start = _date(year, month, 1)
-            period_end = _date(year, month, last_day)
+            month = today.month
+            year = today.year
+            period_start = _date(year, month, 28)
+            if month == 12:
+                period_end = _date(year + 1, 1, 27)
+            else:
+                period_end = _date(year, month + 1, 27)
 
         existing = self.env["alba.interest.accrual"].search(
             [
@@ -690,13 +691,12 @@ class AlbaInvestment(models.Model):
         # ── Pro-rata interest calculation (Bug 3) ─────────────────────────────
         # If period_start is not the 1st of the month (partial first month),
         # scale the full-month interest by actual_days / total_days_in_month.
-        from calendar import monthrange as _monthrange
         accrual_opening_balance = opening_balance if opening_balance is not None else self.current_value
         full_month_interest = self.compute_compound_interest_for_period(
             opening_balance=accrual_opening_balance
         )
 
-        total_days = _monthrange(period_start.year, period_start.month)[1]
+        total_days = 30
         actual_days = (period_end - period_start).days + 1
         if actual_days < total_days:
             period_interest = round(full_month_interest * actual_days / total_days, 2)

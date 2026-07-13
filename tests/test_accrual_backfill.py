@@ -18,8 +18,8 @@ class AccrualBackfillTests(unittest.TestCase):
         run_date = date(2026, 5, 28)
         period_start, period_end = previous_month_bounds(run_date)
 
-        self.assertEqual(period_start, date(2026, 4, 1))
-        self.assertEqual(period_end, date(2026, 4, 30))
+        self.assertEqual(period_start, date(2026, 4, 28))
+        self.assertEqual(period_end, date(2026, 5, 27))
 
     def test_iter_missing_accrual_periods_skips_before_start_date(self):
         start_date = date(2026, 3, 15)
@@ -27,8 +27,8 @@ class AccrualBackfillTests(unittest.TestCase):
 
         periods = list(iter_missing_accrual_periods(start_date, as_of_date, 28))
 
-        self.assertEqual(periods[0], (date(2026, 4, 28), date(2026, 3, 1), date(2026, 3, 31)))
-        self.assertEqual(periods[1], (date(2026, 5, 28), date(2026, 4, 1), date(2026, 4, 30)))
-        self.assertEqual(periods[2], (date(2026, 6, 28), date(2026, 5, 1), date(2026, 5, 31)))
+        self.assertEqual(periods[0], (date(2026, 3, 28), date(2026, 3, 28), date(2026, 4, 27)))
+        self.assertEqual(periods[1], (date(2026, 4, 28), date(2026, 4, 28), date(2026, 5, 27)))
+        self.assertEqual(periods[2], (date(2026, 5, 28), date(2026, 5, 28), date(2026, 6, 27)))
 
         self.assertTrue(all(period_end >= start_date for _, _, period_end in periods))

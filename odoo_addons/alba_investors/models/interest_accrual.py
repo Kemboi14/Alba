@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from datetime import date
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
@@ -211,9 +213,11 @@ class AlbaInterestAccrual(models.Model):
         today = fields.Date.context_today(self)
 
         self.accrual_date = today
-        self.period_start = today.replace(day=1)
-        last_day = calendar.monthrange(today.year, today.month)[1]
-        self.period_end = today.replace(day=last_day)
+        self.period_start = date(today.year, today.month, 28)
+        if today.month == 12:
+            self.period_end = date(today.year + 1, 1, 27)
+        else:
+            self.period_end = date(today.year, today.month + 1, 27)
 
         # Opening balance = closing balance of last posted accrual, or principal if none
         last_accrual = self.env['alba.interest.accrual'].search([
@@ -231,7 +235,7 @@ class AlbaInterestAccrual(models.Model):
             monthly_rate = inv.interest_rate / 100.0 / 12.0
             # Bug 3 fix (_onchange_investment_id): pro-rata preview for partial first month
             if self.period_start and self.period_end:
-                total_days = _cal.monthrange(self.period_start.year, self.period_start.month)[1]
+                total_days = 30
                 actual_days = (self.period_end - self.period_start).days + 1
                 if actual_days < total_days:
                     self.interest_amount = round(
@@ -415,9 +419,8 @@ class AlbaInterestAccrual(models.Model):
             )
 
             # Bug 3 fix (action_post): pro-rata for partial first month
-            from calendar import monthrange as _mr
             if rec.period_start and rec.period_end:
-                total_days = _mr(rec.period_start.year, rec.period_start.month)[1]
+                total_days = 30
                 actual_days = (rec.period_end - rec.period_start).days + 1
                 if actual_days < total_days:
                     # Recompute interest proportionally; opening_balance is already stored

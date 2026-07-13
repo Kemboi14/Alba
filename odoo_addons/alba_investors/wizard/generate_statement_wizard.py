@@ -87,17 +87,18 @@ class AlbaGenerateStatementWizard(models.TransientModel):
 
     @api.model
     def default_get(self, fields_list):
-        """Pre-fill period_start / period_end to the previous calendar month."""
-        import calendar
+        """Pre-fill period_start / period_end to the previous 28th-to-27th accrual cycle."""
         from datetime import date
 
         res = super().default_get(fields_list)
         today = fields.Date.today()
-        month = today.month - 1 or 12
-        year = today.year if today.month > 1 else today.year - 1
-        last_day = calendar.monthrange(year, month)[1]
-        res["period_start"] = date(year, month, 1)
-        res["period_end"] = date(year, month, last_day)
+        month = today.month
+        year = today.year
+        res["period_start"] = date(year, month, 28)
+        if month == 12:
+            res["period_end"] = date(year + 1, 1, 27)
+        else:
+            res["period_end"] = date(year, month + 1, 27)
         return res
 
     # =========================================================================
