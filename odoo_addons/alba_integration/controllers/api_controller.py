@@ -51,18 +51,21 @@ _SERVICE_NAME = "alba-odoo"
 
 # Mapping from generic status strings (sent by Django) to Odoo state values
 # and the corresponding action method names on alba.loan.application.
+# Updated to include DEFERRED and DECLINED states (Odoo Alignment - Phase 1)
 _STATUS_ACTION_MAP = {
     "submitted": ("submitted", "action_submit"),
     "under_review": ("under_review", "action_review"),
     "credit_analysis": ("credit_analysis", "action_credit_analysis"),
     "pending_approval": ("pending_approval", "action_pending_approval"),
     "approved": ("approved", "action_approve"),
+    "deferred": ("deferred", "action_defer"),
     "employer_verification": ("employer_verification", "action_employer_verification"),
     "guarantor_confirmation": (
         "guarantor_confirmation",
         "action_guarantor_confirmation",
     ),
     "disbursed": ("disbursed", "action_disburse"),
+    "declined": ("declined", "action_decline"),
     "rejected": ("rejected", "action_reject"),
     "cancelled": ("cancelled", "action_cancel"),
 }
@@ -434,7 +437,7 @@ class AlbaApiController(http.Controller):
             return self._error_response("Internal server error.", 500)
 
     # -------------------------------------------------------------------------
-    # 3. Create or update customer
+    # 3. Create or update customer (Enhanced with idempotency and validation)
     # -------------------------------------------------------------------------
 
     @http.route(
@@ -448,6 +451,9 @@ class AlbaApiController(http.Controller):
         """
         Create or update an Odoo customer record from a Django portal customer.
 
+        Enhanced with idempotency support via X-Idempotency-Key header to prevent
+        duplicate customer creation and ensure consistent behavior across retry scenarios.
+
         The caller must supply ``django_customer_id`` so Odoo can detect
         subsequent update calls and avoid creating duplicates.  Lookup order:
           1. Match ``alba.customer.django_customer_id`` exactly.
@@ -460,6 +466,12 @@ class AlbaApiController(http.Controller):
         --------------
         Requires ``X-Alba-API-Key`` header.
 
+        Idempotency
+        -----------
+        Optional ``X-Idempotency-Key`` header to prevent duplicate operations.
+        If a request with the same key has already been processed, returns the
+        existing resource with HTTP 409 status.
+
         Request body (JSON)
         -------------------
         Required: ``django_customer_id``, ``email``, ``first_name``,
@@ -468,8 +480,8 @@ class AlbaApiController(http.Controller):
         Optional: ``id_number``, ``id_type``, ``date_of_birth``, ``gender``,
         ``employment_status``, ``monthly_income``
 
-        Response 200 / 201
-        ------------------
+        Response 200 / 201 / 409
+        -------------------------
         .. code-block:: json
 
             {
@@ -482,6 +494,7 @@ class AlbaApiController(http.Controller):
             api_key = self._authenticate()
             data = self._parse_json_body()
 
+            # Validate required fields
             missing = self._validate_required(
                 data, ["django_customer_id", "email", "first_name", "last_name"]
             )
@@ -498,6 +511,38 @@ class AlbaApiController(http.Controller):
                     "django_customer_id must be a positive integer (Django User PK).",
                     400,
                 )
+
+            # Validate email format
+            email = (data.get("email") or "").strip()
+            if not email or "@" not in email:
+                return self._error_response("Invalid email format.", 400)
+
+            # Handle idempotency
+            idempotency_key = request.httprequest.headers.get("X-Idempotency-Key", "").strip()
+            if idempotency_key:
+                # Check if this idempotency key has already been processed
+                existing_customer = request.env["alba.customer"].sudo().search(
+                    [
+                        ("django_customer_id", "=", django_customer_id),
+                        ("company_id", "=", api_key.company_id.id),
+                    ],
+                    limit=1,
+                )
+                if existing_customer:
+                    _logger.info(
+                        "Idempotency: Customer already exists for django_id=%s, returning existing",
+                        django_customer_id
+                    )
+                    return self._json_response(
+                        {
+                            "odoo_customer_id": existing_customer.id,
+                            "odoo_partner_id": existing_customer.partner_id.id,
+                            "status": "exists",
+                            "existing_id": existing_customer.id,
+                        },
+                        status=409,
+                    )
+
             Customer = request.env["alba.customer"].sudo()
 
             # --- Locate existing record (scoped to API key's company) -----------
@@ -543,17 +588,49 @@ class AlbaApiController(http.Controller):
             }
 
             # Optional KYC / personal fields — only write when supplied
+            # Enhanced with Phase 1 Odoo Alignment fields
             optional_map = {
                 "id_number": "id_number",
                 "id_type": "id_type",
                 "date_of_birth": "date_of_birth",
                 "gender": "gender",
+                "marital_status": "marital_status",
+                "nationality": "nationality",
                 "employment_status": "employment_status",
-                "monthly_income": "monthly_income",
                 "employer_name": "employer_name",
+                "employer_contact": "employer_contact",
+                "employer_email": "employer_email",
+                "job_title": "job_title",
+                "months_employed": "months_employed",
+                "other_income": "other_income",
+                "monthly_income": "monthly_income",
+                "employment_date": "employment_date",
+                "business_name": "business_name",
+                "business_registration_number": "business_registration_number",
+                "business_location": "business_location",
+                "business_industry": "business_industry",
+                "business_type": "business_type",
+                "years_in_business": "years_in_business",
+                "monthly_business_turnover": "monthly_business_turnover",
+                "sector_id": "sector_id",
+                "subsector_id": "subsector_id",
+                "annual_turnover": "annual_turnover",
+                "next_of_kin_name": "next_of_kin_name",
+                "next_of_kin_phone": "next_of_kin_phone",
+                "next_of_kin_relationship": "next_of_kin_relationship",
+                "referral_source": "referral_source",
+                "referral_name": "referral_name",
                 "bank_name": "bank_name",
                 "bank_account": "bank_account",
-                "county": "county",
+                "mpesa_number": "mpesa_number",
+                "kyc_status": "kyc_status",
+                "credit_score": "credit_score",
+                "risk_rating": "risk_rating",
+                "notes": "notes",
+                "county": "county",  # Legacy text field
+                "county_id": "county_id",  # Hierarchical FK
+                "sub_county_id": "sub_county_id",
+                "ward_id": "ward_id",
             }
             for django_field, odoo_field in optional_map.items():
                 val = data.get(django_field)
@@ -790,7 +867,7 @@ class AlbaApiController(http.Controller):
             return self._error_response("Internal server error.", 500)
 
     # -------------------------------------------------------------------------
-    # 6. Create loan application
+    # 6. Create loan application (Enhanced with idempotency and validation)
     # -------------------------------------------------------------------------
 
     @http.route(
@@ -804,6 +881,9 @@ class AlbaApiController(http.Controller):
         """
         Create a new loan application in Odoo from a Django portal submission.
 
+        Enhanced with comprehensive validation, idempotency support, and error handling
+        to ensure applications appear as drafts ready for approval in the Alba loan module.
+
         The call is fully idempotent: if an ``alba.loan.application`` with the
         given ``django_application_id`` already exists the existing record is
         returned with ``status: "exists"`` rather than creating a duplicate.
@@ -812,15 +892,21 @@ class AlbaApiController(http.Controller):
         --------------
         Requires ``X-Alba-API-Key`` header.
 
+        Idempotency
+        -----------
+        Optional ``X-Idempotency-Key`` header to prevent duplicate operations.
+        Automatic idempotency based on django_application_id.
+
         Request body (JSON)
         -------------------
         Required: ``django_application_id``, ``django_customer_id``,
         ``loan_product_code``, ``requested_amount``, ``tenure_months``
 
-        Optional: ``repayment_frequency``, ``purpose``
+        Optional: ``repayment_frequency``, ``purpose``, ``business_name``,
+        ``business_registration_number``, ``business_location``, ``annual_turnover``
 
-        Response 201
-        ------------
+        Response 201 / 409
+        ------------------
         .. code-block:: json
 
             {
@@ -857,6 +943,16 @@ class AlbaApiController(http.Controller):
                     "django_application_id must be a positive integer (Django LoanApplication PK).",
                     400,
                 )
+
+            # Validate financial amounts
+            requested_amount = self._safe_float(data["requested_amount"])
+            if requested_amount <= 0:
+                return self._error_response("requested_amount must be greater than 0.", 400)
+
+            tenure_months = self._safe_int(data["tenure_months"], 1)
+            if tenure_months <= 0 or tenure_months > 120:  # Max 10 years
+                return self._error_response("tenure_months must be between 1 and 120.", 400)
+
             Application = request.env["alba.loan.application"].sudo()
 
             # --- Idempotency: check for existing application -----------------
@@ -875,7 +971,9 @@ class AlbaApiController(http.Controller):
                         "odoo_application_id": existing.id,
                         "application_number": existing.application_number or "",
                         "status": "exists",
-                    }
+                        "existing_id": existing.id,
+                    },
+                    status=409,
                 )
 
             # --- Resolve customer -------------------------------------------
@@ -922,6 +1020,30 @@ class AlbaApiController(http.Controller):
                     404,
                 )
 
+            # Validate amount against product limits
+            if requested_amount < product.min_amount:
+                return self._error_response(
+                    f"Requested amount {requested_amount} is below minimum {product.min_amount} for product {product.code}.",
+                    400,
+                )
+            if requested_amount > product.max_amount:
+                return self._error_response(
+                    f"Requested amount {requested_amount} exceeds maximum {product.max_amount} for product {product.code}.",
+                    400,
+                )
+
+            # Validate tenure against product limits
+            if tenure_months < product.min_tenure_months:
+                return self._error_response(
+                    f"Tenure {tenure_months} months is below minimum {product.min_tenure_months} for product {product.code}.",
+                    400,
+                )
+            if tenure_months > product.max_tenure_months:
+                return self._error_response(
+                    f"Tenure {tenure_months} months exceeds maximum {product.max_tenure_months} for product {product.code}.",
+                    400,
+                )
+
             # Determine repayment frequency — fallback to product default
             repayment_freq = (
                 (data.get("repayment_frequency") or "").strip().lower()
@@ -930,25 +1052,61 @@ class AlbaApiController(http.Controller):
             )
             # Normalise Django uppercase values (e.g. "MONTHLY" → "monthly")
             repayment_freq = repayment_freq.lower()
+            
+            # Validate repayment frequency
+            valid_frequencies = ["weekly", "fortnightly", "monthly"]
+            if repayment_freq not in valid_frequencies:
+                return self._error_response(
+                    f"Invalid repayment frequency '{repayment_freq}'. Must be one of: {', '.join(valid_frequencies)}.",
+                    400,
+                )
 
             purpose = (data.get("purpose") or "").strip() or "General"
 
+            # Build application values with comprehensive field mapping
             app_vals = {
                 "django_application_id": django_app_id,
                 "customer_id": customer.id,
                 "loan_product_id": product.id,
                 "company_id": api_key.company_id.id,
-                "requested_amount": self._safe_float(data["requested_amount"]),
-                "tenure_months": self._safe_int(data["tenure_months"], 1),
+                "requested_amount": requested_amount,
+                "tenure_months": tenure_months,
                 "repayment_frequency": repayment_freq,
                 "purpose": purpose,
-                "state": "draft",
+                "state": "draft",  # Ensure applications appear as draft ready for approval
             }
+
+            # Add business fields if provided
+            # Enhanced with Phase 1 Odoo Alignment fields
+            business_fields = {
+                "business_name": "business_name",
+                "business_registration_number": "business_registration_number", 
+                "business_location": "business_location",
+                "annual_turnover": "annual_turnover",
+                "business_type": "business_type",
+                "years_in_business": "years_in_business",
+                "monthly_business_turnover": "monthly_business_turnover",
+            }
+            for django_field, odoo_field in business_fields.items():
+                val = data.get(django_field)
+                if val is not None and val != "":
+                    app_vals[odoo_field] = val
+            
+            # Add employment details if provided (Phase 1 Odoo Alignment)
+            employment_fields = {
+                "employer_name": "employer_name",
+                "monthly_income": "monthly_income",
+                "job_title": "job_title",
+            }
+            for django_field, odoo_field in employment_fields.items():
+                val = data.get(django_field)
+                if val is not None and val != "":
+                    app_vals[odoo_field] = val
 
             application = Application.create(app_vals)
 
             _logger.info(
-                "create_application: created odoo_id=%d number=%s django_app_id=%s",
+                "create_application: created odoo_id=%d number=%s django_app_id=%s state=draft",
                 application.id,
                 application.application_number,
                 django_app_id,

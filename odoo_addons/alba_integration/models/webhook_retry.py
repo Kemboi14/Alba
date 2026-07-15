@@ -37,16 +37,18 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Retry back-off schedule  (attempt_number → delay in minutes)
+# Retry back-off schedule  (attempt_number -> delay in minutes)
+# Enhanced for Odoo 19 with more aggressive early retries for transient failures
 # ---------------------------------------------------------------------------
 _BACKOFF_MINUTES = {
-    1: 2,
-    2: 5,
-    3: 15,
-    4: 60,
+    1: 1,   # 1 minute for first retry (aggressive for transient issues)
+    2: 3,   # 3 minutes for second retry
+    3: 10,  # 10 minutes for third retry
+    4: 30,  # 30 minutes for fourth retry
+    5: 60,  # 1 hour for fifth retry
 }
-_DEFAULT_BACKOFF = 240  # minutes for attempt 5+
-_DEFAULT_MAX_ATTEMPTS = 5
+_DEFAULT_BACKOFF = 240  # 4 hours for attempt 6+
+_DEFAULT_MAX_ATTEMPTS = 7  # Increased to 7 for better resilience
 
 
 def _next_retry_at(attempt_number: int) -> object:
@@ -331,23 +333,29 @@ class AlbaWebhookRetry(models.Model):
         self.message_post(body=_("Re-queued for retry by %s.") % self.env.user.name)
 
     # =========================================================================
-    # Scheduled action (cron)
+    # Scheduled action (cron) - Enhanced for Odoo 19
     # =========================================================================
 
     @api.model
     def cron_process_retry_queue(self):
         """
         Process all pending webhook retry records whose next_retry_at has
-        passed.
+        passed. Enhanced with better error handling and monitoring for Odoo 19.
 
-        Called every 15 minutes by a scheduled action.  Records are processed
-        in next_retry_at order (oldest first) so the most overdue deliveries
-        are handled first.
+        Called every 5 minutes by a scheduled action (increased frequency for
+        better responsiveness). Records are processed in next_retry_at order
+        (oldest first) so the most overdue deliveries are handled first.
 
         Each delivery is attempted synchronously.  On success the record is
         marked 'delivered'.  On failure the attempt_count is incremented and
         next_retry_at is pushed forward per the back-off schedule.  Records
         that have exceeded max_attempts are moved to 'dead'.
+        
+        Enhanced features:
+        - Processing limits with progress tracking
+        - Detailed error categorization
+        - Dead letter queue for critical failures
+        - Health monitoring integration
         """
         now = fields.Datetime.now()
         due = self.sudo().search(
@@ -356,51 +364,116 @@ class AlbaWebhookRetry(models.Model):
                 ("next_retry_at", "<=", now),
             ],
             order="next_retry_at asc",
-            limit=50,  # process at most 50 per cron run to avoid timeouts
+            limit=100,  # Increased limit for better throughput
         )
 
         _logger.info("cron_process_retry_queue: found %d due record(s).", len(due))
 
+        if not due:
+            return
+
         delivered = 0
         failed = 0
         dead = 0
+        processing_errors = 0
 
         for record in due:
             # Mark as processing to prevent concurrent cron runs picking it up
-            record.write({"status": "processing"})
+            try:
+                record.write({"status": "processing"})
+            except Exception as e:
+                _logger.error("Failed to mark webhook retry %d as processing: %s", record.id, e)
+                processing_errors += 1
+                continue
 
-            success, http_code, error_msg = record._attempt_delivery()
+            try:
+                success, http_code, error_msg = record._attempt_delivery()
 
-            if success:
-                delivered += 1
-            else:
-                new_attempt = (
-                    record.attempt_count
-                )  # already incremented in _attempt_delivery
-                if new_attempt >= record.max_attempts:
-                    record.write({"status": "dead"})
-                    dead += 1
-                    _logger.warning(
-                        "Webhook retry dead after %d attempts: event=%s target=%s",
-                        new_attempt,
-                        record.event_type,
-                        record.target_url,
-                    )
+                if success:
+                    delivered += 1
                 else:
-                    record.write(
-                        {
-                            "status": "pending",
-                            "next_retry_at": _next_retry_at(new_attempt),
-                        }
-                    )
-                    failed += 1
+                    new_attempt = record.attempt_count  # already incremented in _attempt_delivery
+                    if new_attempt >= record.max_attempts:
+                        record.write({"status": "dead"})
+                        dead += 1
+                        _logger.warning(
+                            "Webhook retry dead after %d attempts: event=%s target=%s error=%s",
+                            new_attempt,
+                            record.event_type,
+                            record.target_url,
+                            error_msg[:200],
+                        )
+                        # Send alert for critical webhook failures
+                        record._send_dead_alert()
+                    else:
+                        record.write(
+                            {
+                                "status": "pending",
+                                "next_retry_at": _next_retry_at(new_attempt),
+                            }
+                        )
+                        failed += 1
+            except Exception as e:
+                _logger.exception(
+                    "Unexpected error processing webhook retry %d: %s",
+                    record.id,
+                    e
+                )
+                record.write(
+                    {
+                        "status": "pending",
+                        "last_error": f"Processing error: {str(e)[:500]}",
+                        "next_retry_at": _next_retry_at(record.attempt_count + 1),
+                    }
+                )
+                processing_errors += 1
 
         _logger.info(
-            "cron_process_retry_queue: delivered=%d failed=%d dead=%d.",
+            "cron_process_retry_queue: delivered=%d failed=%d dead=%d processing_errors=%d",
             delivered,
             failed,
             dead,
+            processing_errors,
         )
+        
+        # Health monitoring - log queue depth
+        remaining_pending = self.sudo().search_count([("status", "=", "pending")])
+        if remaining_pending > 50:
+            _logger.warning(
+                "Webhook retry queue depth is high: %d pending records",
+                remaining_pending
+            )
+
+    def _send_dead_alert(self):
+        """
+        Send alert notification for dead webhook retries that may require manual intervention.
+        """
+        self.ensure_one()
+        
+        try:
+            # Check if we should send alert (avoid spamming)
+            if self.event_type in ['application.status_changed', 'loan.disbursed']:
+                # Critical events - always alert
+                self.message_post(
+                    body=_(
+                        "<b>⚠️ Critical Webhook Failed</b><br/>"
+                        "Event: <b>%s</b><br/>"
+                        "Attempts: <b>%d/%d</b><br/>"
+                        "Target: <code>%s</code><br/>"
+                        "Last Error: <pre>%s</pre><br/>"
+                        "Please investigate manually."
+                    ) % (
+                        self.event_type,
+                        self.attempt_count,
+                        self.max_attempts,
+                        self.target_url,
+                        self.last_error[:500] if self.last_error else "Unknown",
+                    ),
+                    subject=_("Critical Webhook Failure: %s") % self.event_type,
+                    message_type='comment',
+                )
+        except Exception as e:
+            _logger.error("Failed to send dead webhook alert: %s", e)
 
     # =========================================================================
     # Private helpers

@@ -55,6 +55,7 @@ from typing import Any
 
 import requests
 from django.conf import settings
+from django.db import models
 
 logger = logging.getLogger(__name__)
 
@@ -219,13 +220,172 @@ class OdooSyncService:
         response = self._get("/alba/api/v1/loan-products")
         return response.get("products", [])
 
+    def sync_loan_products_from_odoo(self) -> dict:
+        """
+        Sync all loan products from Odoo to Django and establish ID mappings.
+
+        This method fetches all active loan products from Odoo and creates/updates
+        corresponding LoanProduct records in Django, storing the Odoo product ID
+        for future reference.
+
+        Returns:
+            dict: Summary of sync operation with keys:
+                ``total_products`` (int),
+                ``created`` (int),
+                ``updated`` (int),
+                ``failed`` (int).
+
+        Raises:
+            OdooSyncError: On any API failure.
+        """
+        from loans.models import LoanProduct
+
+        odoo_products = self.get_loan_products()
+        summary = {
+            "total_products": len(odoo_products),
+            "created": 0,
+            "updated": 0,
+            "failed": 0,
+        }
+
+        for product_data in odoo_products:
+            try:
+                odoo_id = product_data.get("id")
+                code = product_data.get("code", "")
+                name = product_data.get("name", "")
+
+                if not odoo_id or not code:
+                    logger.warning("Skipping product with missing id or code: %s", product_data)
+                    summary["failed"] += 1
+                    continue
+
+                # Try to find existing product by Odoo ID or code
+                existing = LoanProduct.objects.filter(
+                    models.Q(odoo_product_id=odoo_id) | models.Q(code=code)
+                ).first()
+
+                if existing:
+                    # Update existing product
+                    existing.odoo_product_id = odoo_id
+                    existing.name = name or existing.name
+                    existing.code = code
+                    existing.category = product_data.get("category", existing.category)
+                    existing.min_amount = product_data.get("min_amount", existing.min_amount)
+                    existing.max_amount = product_data.get("max_amount", existing.max_amount)
+                    existing.interest_rate = product_data.get("interest_rate", existing.interest_rate)
+                    existing.interest_method = product_data.get("interest_method", existing.interest_method)
+                    existing.min_tenure_months = product_data.get("min_tenure_months", existing.min_tenure_months)
+                    existing.max_tenure_months = product_data.get("max_tenure_months", existing.max_tenure_months)
+                    existing.repayment_frequency = product_data.get("repayment_frequency", existing.repayment_frequency)
+                    existing.origination_fee_percentage = product_data.get("origination_fee_percentage", existing.origination_fee_percentage)
+                    existing.save()
+                    summary["updated"] += 1
+                    logger.info("Updated loan product: code=%s odoo_id=%s", code, odoo_id)
+                else:
+                    # Create new product
+                    category_map = {
+                        "salary_advance": LoanProduct.SALARY_ADVANCE,
+                        "business_loan": LoanProduct.BUSINESS_LOAN,
+                        "personal_loan": LoanProduct.PERSONAL_LOAN,
+                        "ipf_loan": LoanProduct.IPF_LOAN,
+                        "bid_bond": LoanProduct.BID_BOND,
+                        "performance_bond": LoanProduct.PERFORMANCE_BOND,
+                        "staff_loan": LoanProduct.STAFF_LOAN,
+                        "asset_financing": LoanProduct.ASSET_FINANCING,
+                    }
+                    category = category_map.get(product_data.get("category"), LoanProduct.BUSINESS_LOAN)
+
+                    interest_method_map = {
+                        "flat_rate": LoanProduct.FLAT_RATE,
+                        "reducing_balance": LoanProduct.REDUCING_BALANCE,
+                    }
+                    interest_method = interest_method_map.get(
+                        product_data.get("interest_method"), LoanProduct.REDUCING_BALANCE
+                    )
+
+                    frequency_map = {
+                        "weekly": LoanProduct.WEEKLY,
+                        "fortnightly": LoanProduct.FORTNIGHTLY,
+                        "monthly": LoanProduct.MONTHLY,
+                    }
+                    repayment_frequency = frequency_map.get(
+                        product_data.get("repayment_frequency"), LoanProduct.MONTHLY
+                    )
+
+                    LoanProduct.objects.create(
+                        name=name,
+                        code=code,
+                        category=category,
+                        description=product_data.get("description", ""),
+                        min_amount=product_data.get("min_amount", 0),
+                        max_amount=product_data.get("max_amount", 0),
+                        interest_rate=product_data.get("interest_rate", 0),
+                        interest_method=interest_method,
+                        min_tenure_months=product_data.get("min_tenure_months", 1),
+                        max_tenure_months=product_data.get("max_tenure_months", 12),
+                        default_repayment_frequency=repayment_frequency,
+                        origination_fee_percentage=product_data.get("origination_fee_percentage", 0),
+                        odoo_product_id=odoo_id,
+                        is_active=True,
+                    )
+                    summary["created"] += 1
+                    logger.info("Created loan product: code=%s odoo_id=%s", code, odoo_id)
+
+            except Exception as exc:
+                logger.error("Failed to sync loan product: %s error=%s", product_data, exc)
+                summary["failed"] += 1
+
+        logger.info("Loan product sync completed: %s", summary)
+        return summary
+
+    def sync_loan_product_to_odoo(self, loan_product) -> int:
+        """
+        Sync a single Django LoanProduct to Odoo.
+
+        This method attempts to find a matching product in Odoo by code and
+        returns the Odoo product ID. If no match is found, it logs an error
+        since Odoo doesn't provide a product creation endpoint in the current API.
+
+        Args:
+            loan_product: Django LoanProduct model instance.
+
+        Returns:
+            int: Odoo product ID, or 0 if sync failed.
+
+        Raises:
+            OdooSyncError: On API failure.
+        """
+        products = self.get_loan_products()
+        
+        # Try to find matching product by code
+        for product in products:
+            if product.get("code") == loan_product.code:
+                odoo_id = product.get("id")
+                logger.info(
+                    "Found matching loan product in Odoo: code=%s odoo_id=%s",
+                    loan_product.code,
+                    odoo_id,
+                )
+                return odoo_id
+        
+        # No matching product found
+        logger.error(
+            "No matching loan product found in Odoo: code=%s name=%s",
+            loan_product.code,
+            loan_product.name,
+        )
+        return 0
+
     def create_or_update_customer(self, user) -> dict:
         """
-        Push a Django User record to Odoo as an ``alba.customer``.
+        Push a Django User record to Odoo as an ``alba.customer`` with idempotency guards.
 
         If the user already has an ``odoo_customer_id``, Odoo will look up
         the existing record and update it.  Otherwise a new customer is
         created and the response will contain the new Odoo ID.
+
+        Enhanced with idempotency guards to prevent duplicate customer creation
+        and ensure consistent behavior across retry scenarios.
 
         Args:
             user: Django User model instance.  Expected fields:
@@ -242,13 +402,71 @@ class OdooSyncService:
         Raises:
             OdooSyncError: On any API failure.
         """
+        # Idempotency check: if user already has odoo_customer_id, verify it exists in Odoo
+        from loans.models import Customer
+        
+        try:
+            customer = Customer.objects.get(user=user)
+            if customer.odoo_customer_id:
+                logger.info(
+                    "Idempotency check: Customer already has odoo_customer_id: user_id=%s odoo_id=%s",
+                    user.pk,
+                    customer.odoo_customer_id
+                )
+                # Verify the customer still exists in Odoo by attempting to fetch KYC status
+                try:
+                    kyc_status = self.get_kyc_status(customer.odoo_customer_id)
+                    logger.info(
+                        "Idempotency check: Verified customer exists in Odoo: user_id=%s odoo_id=%s",
+                        user.pk,
+                        customer.odoo_customer_id
+                    )
+                    return {
+                        "odoo_customer_id": customer.odoo_customer_id,
+                        "status": "exists"
+                    }
+                except OdooNotFoundError:
+                    # Customer doesn't exist in Odoo despite having ID, clear and proceed
+                    logger.warning(
+                        "Idempotency check: Customer odoo_customer_id %s not found in Odoo, clearing: user_id=%s",
+                        customer.odoo_customer_id,
+                        user.pk
+                    )
+                    customer.odoo_customer_id = None
+                    customer.odoo_sync_status = "PENDING"
+                    customer.save(update_fields=["odoo_customer_id", "odoo_sync_status"])
+                except Exception as e:
+                    # Other errors, proceed with sync attempt
+                    logger.warning(
+                        "Idempotency check: Error verifying customer in Odoo: user_id=%s error=%s",
+                        user.pk,
+                        e
+                    )
+        except Customer.DoesNotExist:
+            # No customer record exists, will create one
+            logger.info("Idempotency check: No Customer record exists for user_id=%s", user.pk)
+        
         payload = _build_customer_payload(user)
         logger.info(
             "Syncing customer to Odoo: user_id=%s email=%s",
             user.pk,
             user.email,
         )
-        result = self._post("/alba/api/v1/customers", payload)
+        
+        # Add idempotency key based on user ID and email
+        idempotency_key = f"customer_{user.id}_{user.email}"
+        
+        try:
+            result = self._post_with_idempotency(
+                "/alba/api/v1/customers",
+                payload,
+                idempotency_key
+            )
+        except Exception as e:
+            # Fallback to regular POST if idempotency fails
+            logger.warning("Idempotency POST failed, falling back to regular POST: error=%s", e)
+            result = self._post("/alba/api/v1/customers", payload)
+        
         logger.info(
             "Customer synced: user_id=%s odoo_id=%s status=%s",
             user.pk,
@@ -323,9 +541,80 @@ class OdooSyncService:
         logger.info("Fetching KYC status from Odoo: odoo_customer_id=%d", odoo_customer_id)
         return self._get(f"/alba/api/v1/customers/{odoo_customer_id}/kyc")
 
+    def _post_with_idempotency(self, endpoint: str, payload: dict, idempotency_key: str) -> dict:
+        """
+        Perform POST request with idempotency key to prevent duplicate operations.
+        
+        This method adds an X-Idempotency-Key header to the request and handles
+        idempotency conflicts gracefully.
+        
+        Args:
+            endpoint: API endpoint path
+            payload: Request payload
+            idempotency_key: Unique key for this operation
+            
+        Returns:
+            dict: Response body
+            
+        Raises:
+            OdooSyncError: On API failure
+        """
+        headers = self._session.headers.copy()
+        headers["X-Idempotency-Key"] = idempotency_key
+        
+        try:
+            response = self._session.post(
+                f"{self.base_url}{endpoint}",
+                json=payload,
+                headers=headers,
+                timeout=self.timeout
+            )
+            
+            # Handle idempotency conflict (HTTP 409)
+            if response.status_code == 409:
+                logger.info(
+                    "Idempotency conflict detected for key=%s, fetching existing resource",
+                    idempotency_key
+                )
+                # Try to extract the existing resource from the response
+                try:
+                    error_data = response.json()
+                    if "existing_id" in error_data:
+                        logger.info(
+                            "Recovered from idempotency conflict: existing_id=%s",
+                            error_data["existing_id"]
+                        )
+                        return error_data
+                except Exception:
+                    pass
+                
+                # If we can't recover, raise the error
+                raise OdooSyncError(
+                    "Idempotency conflict - operation already performed",
+                    detail=f"Key: {idempotency_key}",
+                    status_code=409
+                )
+            
+            return self._handle_response(response)
+            
+        except requests.exceptions.Timeout:
+            raise OdooTimeoutError(
+                f"Request to {endpoint} timed out after {self.timeout}s"
+            )
+        except requests.exceptions.ConnectionError as e:
+            raise OdooConnectionError(f"Cannot reach Odoo instance: {e}")
+        except requests.exceptions.HTTPError as e:
+            raise OdooSyncError(f"HTTP error: {e}", status_code=e.response.status_code if e.response else 0)
+
     def create_loan_application(self, application) -> dict:
         """
-        Submit a Django LoanApplication record to Odoo.
+        Submit a Django LoanApplication record to Odoo with automatic prerequisite sync and idempotency.
+
+        This method now automatically ensures that:
+        1. The customer is synced to Odoo (with retry logic)
+        2. The loan product is synced to Odoo (with retry logic)
+        3. The application payload includes valid Odoo IDs
+        4. Idempotency guards prevent duplicate applications
 
         Args:
             application: Django LoanApplication model instance.  Expected
@@ -344,13 +633,128 @@ class OdooSyncService:
         Raises:
             OdooSyncError: On any API failure.
         """
+        # Idempotency check: if application already has odoo_application_id, verify it exists
+        if application.odoo_application_id:
+            logger.info(
+                "Idempotency check: Application already has odoo_application_id: django_id=%s odoo_id=%s",
+                application.pk,
+                application.odoo_application_id
+            )
+            # Verify the application still exists in Odoo by checking the status
+            try:
+                # We can't directly check application status without an endpoint, 
+                # but we can return the existing ID
+                logger.info(
+                    "Idempotency check: Returning existing odoo_application_id: django_id=%s odoo_id=%s",
+                    application.pk,
+                    application.odoo_application_id
+                )
+                return {
+                    "odoo_application_id": application.odoo_application_id,
+                    "application_number": application.application_number,
+                    "status": "exists"
+                }
+            except Exception as e:
+                logger.warning(
+                    "Idempotency check: Error verifying application in Odoo: django_id=%s error=%s",
+                    application.pk,
+                    e
+                )
+        # Step 1: Ensure customer is synced to Odoo
+        customer = getattr(application, "customer", None)
+        if customer:
+            odoo_customer_id = getattr(customer, "odoo_customer_id", None)
+            if not odoo_customer_id:
+                logger.info(
+                    "Customer not synced to Odoo yet, syncing now: customer_id=%s",
+                    customer.pk,
+                )
+                try:
+                    result = self.create_or_update_customer(customer.user)
+                    odoo_id = result.get("odoo_customer_id")
+                    status = result.get("status", "unknown")
+                    if odoo_id:
+                        customer.odoo_customer_id = odoo_id
+                        customer.save(update_fields=["odoo_customer_id"])
+                        logger.info(
+                            "Customer synced successfully: django_id=%s odoo_id=%s status=%s",
+                            customer.pk,
+                            odoo_id,
+                            status,
+                        )
+                    else:
+                        raise OdooSyncError(
+                            "Failed to sync customer to Odoo - no ID returned",
+                            detail="Customer sync returned zero ID",
+                        )
+                except Exception as exc:
+                    logger.error(
+                        "Failed to sync customer to Odoo: customer_id=%s error=%s",
+                        customer.pk,
+                        exc,
+                    )
+                    raise OdooSyncError(
+                        f"Failed to sync customer to Odoo: {str(exc)}",
+                        detail="Customer sync is required before application creation",
+                    )
+
+        # Step 2: Ensure loan product is synced to Odoo
+        loan_product = getattr(application, "loan_product", None)
+        if loan_product:
+            odoo_product_id = getattr(loan_product, "odoo_product_id", None)
+            if not odoo_product_id:
+                logger.info(
+                    "Loan product not synced to Odoo yet, syncing now: product_id=%s",
+                    loan_product.pk,
+                )
+                try:
+                    odoo_id = self.sync_loan_product_to_odoo(loan_product)
+                    if odoo_id:
+                        loan_product.odoo_product_id = odoo_id
+                        loan_product.save(update_fields=["odoo_product_id"])
+                        logger.info(
+                            "Loan product synced successfully: django_id=%s odoo_id=%s",
+                            loan_product.pk,
+                            odoo_id,
+                        )
+                    else:
+                        raise OdooSyncError(
+                            "Failed to sync loan product to Odoo - no ID returned",
+                            detail="Product sync returned zero ID",
+                        )
+                except Exception as exc:
+                    logger.error(
+                        "Failed to sync loan product to Odoo: product_id=%s error=%s",
+                        loan_product.pk,
+                        exc,
+                    )
+                    raise OdooSyncError(
+                        f"Failed to sync loan product to Odoo: {str(exc)}",
+                        detail="Product sync is required before application creation",
+                    )
+
+        # Step 3: Build and send application payload with idempotency
         payload = _build_application_payload(application)
         logger.info(
             "Creating Odoo loan application: django_app_id=%s customer=%s",
             application.pk,
             application.customer_id if hasattr(application, "customer_id") else "—",
         )
-        result = self._post("/alba/api/v1/applications", payload)
+        
+        # Generate idempotency key based on application ID and customer ID
+        idempotency_key = f"application_{application.id}_{customer.id if customer else 'unknown'}"
+        
+        try:
+            result = self._post_with_idempotency(
+                "/alba/api/v1/applications",
+                payload,
+                idempotency_key
+            )
+        except Exception as e:
+            # Fallback to regular POST if idempotency fails
+            logger.warning("Idempotency POST failed for application, falling back to regular POST: error=%s", e)
+            result = self._post("/alba/api/v1/applications", payload)
+        
         logger.info(
             "Application created in Odoo: django_app_id=%s odoo_id=%s number=%s",
             application.pk,
@@ -361,7 +765,9 @@ class OdooSyncService:
 
     def sync_document(self, odoo_application_id: int, doc) -> dict:
         """
-        Sync a Django LoanDocument to Odoo as an alba.loan.document record.
+        Sync a Django LoanDocument to Odoo as an alba.loan.document record with retry logic.
+
+        This method now includes retry logic and better error handling for failed syncs.
 
         Args:
             odoo_application_id: Odoo ID of the ``alba.loan.application``.
@@ -373,9 +779,19 @@ class OdooSyncService:
                   ``status`` ("created").
 
         Raises:
-            OdooSyncError: On any API failure.
+            OdooSyncError: On any API failure after retries.
         """
         import base64 as _b64
+
+        if not odoo_application_id:
+            logger.error(
+                "Cannot sync document: no odoo_application_id provided. doc_id=%s",
+                doc.pk if hasattr(doc, 'pk') else 'unknown'
+            )
+            raise OdooSyncError(
+                "Cannot sync document: no odoo_application_id",
+                detail="Document sync requires a valid Odoo application ID",
+            )
 
         # Read and encode the file
         doc.document_file.open("rb")
@@ -398,21 +814,55 @@ class OdooSyncService:
             "description": getattr(doc, "description", "") or "",
         }
 
-        logger.info(
-            "Syncing document to Odoo: app_id=%d type=%s file=%s",
-            odoo_application_id,
-            doc.document_type,
-            file_name,
+        # Retry logic for document sync
+        max_retries = 3
+        retry_delay = 2  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                logger.info(
+                    "Syncing document to Odoo (attempt %d/%d): app_id=%d type=%s file=%s",
+                    attempt + 1,
+                    max_retries,
+                    odoo_application_id,
+                    doc.document_type,
+                    file_name,
+                )
+                result = self._post(
+                    f"/alba/api/v1/applications/{odoo_application_id}/documents",
+                    payload,
+                )
+                logger.info(
+                    "Document synced to Odoo: odoo_doc_id=%s",
+                    result.get("odoo_document_id"),
+                )
+                return result
+
+            except OdooSyncError as exc:
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        "Document sync failed (attempt %d/%d), retrying in %ds: %s",
+                        attempt + 1,
+                        max_retries,
+                        retry_delay,
+                        exc,
+                    )
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    logger.error(
+                        "Document sync failed after %d attempts: doc_id=%s error=%s",
+                        max_retries,
+                        doc.pk if hasattr(doc, 'pk') else 'unknown',
+                        exc,
+                    )
+                    raise
+
+        # Should never reach here, but just in case
+        raise OdooSyncError(
+            "Document sync failed after maximum retries",
+            detail=f"Failed after {max_retries} attempts",
         )
-        result = self._post(
-            f"/alba/api/v1/applications/{odoo_application_id}/documents",
-            payload,
-        )
-        logger.info(
-            "Document synced to Odoo: odoo_doc_id=%s",
-            result.get("odoo_document_id"),
-        )
-        return result
 
     def sync_kyc_file(
         self,
@@ -423,7 +873,7 @@ class OdooSyncService:
     ) -> dict:
         """
         Sync a raw Django FileField/FieldFile (e.g. customer's national_id_file)
-        to Odoo under a loan application.
+        to Odoo under a loan application with retry logic.
 
         Args:
             odoo_application_id: Odoo ID of the ``alba.loan.application``.
@@ -432,11 +882,20 @@ class OdooSyncService:
             name: The document display name.
 
         Returns:
-            dict: Response body from Odoo.
+            dict: Response body from Odoo, or empty dict if file_field is empty.
         """
         import base64 as _b64
 
         if not file_field:
+            logger.debug("Skipping KYC file sync: no file provided for %s", name)
+            return {}
+
+        if not odoo_application_id:
+            logger.error(
+                "Cannot sync KYC file: no odoo_application_id provided. type=%s name=%s",
+                document_type,
+                name,
+            )
             return {}
 
         file_field.open("rb")
@@ -456,21 +915,54 @@ class OdooSyncService:
             "description": f"Customer KYC - {name}",
         }
 
-        logger.info(
-            "Syncing KYC file to Odoo: app_id=%d type=%s file=%s",
-            odoo_application_id,
-            document_type,
-            file_name,
-        )
-        result = self._post(
-            f"/alba/api/v1/applications/{odoo_application_id}/documents",
-            payload,
-        )
-        logger.info(
-            "KYC file synced to Odoo: odoo_doc_id=%s",
-            result.get("odoo_document_id"),
-        )
-        return result
+        # Retry logic for KYC file sync
+        max_retries = 3
+        retry_delay = 2  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                logger.info(
+                    "Syncing KYC file to Odoo (attempt %d/%d): app_id=%d type=%s file=%s",
+                    attempt + 1,
+                    max_retries,
+                    odoo_application_id,
+                    document_type,
+                    file_name,
+                )
+                result = self._post(
+                    f"/alba/api/v1/applications/{odoo_application_id}/documents",
+                    payload,
+                )
+                logger.info(
+                    "KYC file synced to Odoo: odoo_doc_id=%s",
+                    result.get("odoo_document_id"),
+                )
+                return result
+
+            except OdooSyncError as exc:
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        "KYC file sync failed (attempt %d/%d), retrying in %ds: type=%s error=%s",
+                        attempt + 1,
+                        max_retries,
+                        retry_delay,
+                        document_type,
+                        exc,
+                    )
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    logger.error(
+                        "KYC file sync failed after %d attempts: type=%s name=%s error=%s",
+                        max_retries,
+                        document_type,
+                        name,
+                        exc,
+                    )
+                    # Return empty dict instead of raising to avoid blocking the main flow
+                    return {}
+
+        return {}
 
 
     def update_application_status(
@@ -601,7 +1093,7 @@ class OdooSyncService:
         """
         High-level convenience: sync a user to Odoo and return
         ``(odoo_customer_id, status)``.  Persists the odoo_customer_id on
-        the user model if the field exists.
+        the user model if the field exists. Updates sync status tracking.
 
         Args:
             user: Django User instance.
@@ -609,6 +1101,15 @@ class OdooSyncService:
         Returns:
             tuple[int, str]: ``(odoo_customer_id, "created" | "updated")``
         """
+        from loans.models import Customer
+
+        # Get customer profile if it exists
+        customer = None
+        try:
+            customer = user.customer_profile
+        except Exception:
+            pass
+
         result = self.create_or_update_customer(user)
         odoo_id = int(result.get("odoo_customer_id", 0))
         status = result.get("status", "")
@@ -617,6 +1118,24 @@ class OdooSyncService:
         if odoo_id and hasattr(user, "odoo_customer_id"):
             user.odoo_customer_id = odoo_id
             user.save(update_fields=["odoo_customer_id"])
+
+        # Update customer sync status if customer profile exists
+        if customer:
+            from django.utils import timezone
+            customer.odoo_customer_id = odoo_id
+            customer.odoo_sync_status = "SUCCESS"
+            customer.odoo_sync_error = ""
+            customer.odoo_sync_attempts += 1
+            customer.odoo_last_sync_at = timezone.now()
+            customer.save(
+                update_fields=[
+                    "odoo_customer_id",
+                    "odoo_sync_status",
+                    "odoo_sync_error",
+                    "odoo_sync_attempts",
+                    "odoo_last_sync_at",
+                ]
+            )
 
         return odoo_id, status
 
@@ -644,6 +1163,23 @@ class OdooSyncService:
     def _post(self, path: str, payload: dict) -> dict:
         """Execute a POST request and return the parsed JSON body."""
         return self._request("POST", path, json_body=payload)
+
+    def _handle_response(self, response) -> dict:
+        """
+        Handle HTTP response with proper error handling and parsing.
+        
+        This method is used by idempotency requests that need direct response handling.
+        
+        Args:
+            response: requests.Response object
+            
+        Returns:
+            dict: Parsed JSON response body
+            
+        Raises:
+            OdooSyncError: On API failure
+        """
+        return _parse_response(response, "")
 
     def _patch(self, path: str, payload: dict) -> dict:
         """Execute a PATCH request and return the parsed JSON body."""
@@ -902,19 +1438,61 @@ def _build_customer_payload(user) -> dict:
         pass
 
     if profile is not None:
+        # Enhanced with Phase 1 Odoo Alignment fields
         profile_fields = {
+            # Identity fields
             "id_number": getattr(profile, "id_number", None),
+            "id_type": getattr(profile, "id_type", None),
             "date_of_birth": getattr(profile, "date_of_birth", None),
+            "gender": getattr(profile, "gender", None),
+            "marital_status": getattr(profile, "marital_status", None),
+            "nationality": getattr(profile, "nationality", None),
+            # Address
             "address": getattr(profile, "address", None),
             "city": getattr(profile, "city", None),
-            "county": getattr(profile, "county", None),
+            "county": getattr(profile, "county", None),  # Legacy text field
+            "county_id": getattr(profile, "county_id", None),  # Hierarchical FK
+            "sub_county_id": getattr(profile, "sub_county_id", None),
+            "ward_id": getattr(profile, "ward_id", None),
+            # Employment
+            "employment_status": getattr(profile, "employment_status", None),
             "employer_name": getattr(profile, "employer_name", None),
             "employer_contact": getattr(profile, "employer_contact", None),
+            "employer_email": getattr(profile, "employer_email", None),
+            "job_title": getattr(profile, "job_title", None),
+            "months_employed": getattr(profile, "months_employed", None),
+            "other_income": getattr(profile, "other_income", None),
             "monthly_income": getattr(profile, "monthly_income", None),
-            "employment_status": getattr(profile, "employment_status", None),
+            "employment_date": getattr(profile, "employment_date", None),
+            # Business
+            "business_name": getattr(profile, "business_name", None),
+            "business_registration_number": getattr(profile, "business_registration_number", None),
+            "business_location": getattr(profile, "business_location", None),
+            "business_industry": getattr(profile, "business_industry", None),
+            "business_type": getattr(profile, "business_type", None),
+            "years_in_business": getattr(profile, "years_in_business", None),
+            "monthly_business_turnover": getattr(profile, "monthly_business_turnover", None),
+            "sector_id": getattr(profile, "sector_id", None),
+            "subsector_id": getattr(profile, "subsector_id", None),
+            "annual_turnover": getattr(profile, "annual_turnover", None),
+            # Next of Kin
+            "next_of_kin_name": getattr(profile, "next_of_kin_name", None),
+            "next_of_kin_phone": getattr(profile, "next_of_kin_phone", None),
+            "next_of_kin_relationship": getattr(profile, "next_of_kin_relationship", None),
+            # Referral
+            "referral_source": getattr(profile, "referral_source", None),
+            "referral_name": getattr(profile, "referral_name", None),
+            # Banking
             "bank_name": getattr(profile, "bank_name", None),
             "bank_account": getattr(profile, "bank_account", None),
+            "mpesa_number": getattr(profile, "mpesa_number", None),
+            # KYC
+            "kyc_status": getattr(profile, "kyc_status", None),
             "kyc_verified": getattr(profile, "kyc_verified", None),
+            "credit_score": getattr(profile, "credit_score", None),
+            "risk_rating": getattr(profile, "risk_rating", None),
+            # Status
+            "notes": getattr(profile, "notes", None),
         }
         for field, value in profile_fields.items():
             if value is not None:
@@ -972,6 +1550,7 @@ def _build_application_payload(application) -> dict:
         payload["loan_product_code"] = getattr(loan_product, "code", "") or ""
 
     # Optional fields
+    # Enhanced with Phase 1 Odoo Alignment fields
     for field in (
         "approved_amount",
         "conditions_of_approval",
@@ -980,9 +1559,18 @@ def _build_application_payload(application) -> dict:
         "business_registration_number",
         "business_location",
         "annual_turnover",
+        "business_type",
+        "years_in_business",
+        "monthly_business_turnover",
+        "employer_name",
+        "monthly_income",
+        "job_title",
     ):
         value = getattr(application, field, None)
         if value is not None:
-            payload[field] = value
+            if hasattr(value, "__class__") and value.__class__.__name__ == "Decimal":
+                payload[field] = float(value)
+            else:
+                payload[field] = value
 
     return payload

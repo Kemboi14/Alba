@@ -24,27 +24,57 @@ class CustomerProfileForm(forms.ModelForm):
 
     class Meta:
         model = Customer
+        # Enhanced with Phase 1 Odoo Alignment fields
         fields = [
+            # Identity fields
             "date_of_birth",
             "id_number",
+            "id_type",
+            "gender",
+            "marital_status",
+            "nationality",
+            # Address
             "address",
-            "county",
+            "county",  # Legacy text field
+            "county_id",  # Hierarchical FK
+            "sub_county_id",
+            "ward_id",
             "city",
+            # Employment
             "employment_status",
             "employer_name",
             "employer_contact",
             "employer_email",
+            "job_title",
+            "months_employed",
+            "other_income",
             "monthly_income",
             "employment_date",
+            # Business
             "is_business_entity",
             "business_name",
             "business_registration_number",
             "business_location",
             "business_industry",
+            "business_type",
+            "years_in_business",
+            "monthly_business_turnover",
+            "sector",
+            "subsector",
             "annual_turnover",
+            # Next of Kin
+            "next_of_kin_name",
+            "next_of_kin_phone",
+            "next_of_kin_relationship",
+            # Referral
+            "referral_source",
+            "referral_name",
+            # Financial
             "existing_loans",
             "bank_name",
             "bank_account",
+            "mpesa_number",
+            # KYC Documents
             "national_id_file",
             "bank_statement_file",
             "face_recognition_photo",
@@ -146,6 +176,162 @@ class CustomerProfileForm(forms.ModelForm):
                     ),
                 }
             ),
+            # New Phase 1 fields widgets
+            "id_type": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "gender": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "marital_status": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "nationality": forms.TextInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "county_id": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "sub_county_id": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "ward_id": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "job_title": forms.TextInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "months_employed": forms.NumberInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "other_income": forms.NumberInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                    "step": "0.01",
+                }
+            ),
+            "business_type": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "years_in_business": forms.NumberInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "monthly_business_turnover": forms.NumberInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                    "step": "0.01",
+                }
+            ),
+            "next_of_kin_name": forms.TextInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "next_of_kin_phone": forms.TextInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "next_of_kin_relationship": forms.TextInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "referral_source": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "referral_name": forms.TextInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "mpesa_number": forms.TextInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                    "placeholder": "254712345678",
+                }
+            ),
             "existing_loans": forms.NumberInput(
                 attrs={
                     "class": (
@@ -217,16 +403,25 @@ class LoanApplicationForm(forms.ModelForm):
 
     class Meta:
         model = LoanApplication
+        # Enhanced with Phase 1 Odoo Alignment fields
         fields = [
             "loan_product",
             "requested_amount",
             "tenure_months",
             "repayment_frequency",
             "purpose",
+            # Business fields
             "business_name",
             "business_registration_number",
             "business_location",
             "annual_turnover",
+            "business_type",
+            "years_in_business",
+            "monthly_business_turnover",
+            # Employment details (Phase 1)
+            "employer_name",
+            "monthly_income",
+            "job_title",
         ]
         widgets = {
             "loan_product": forms.Select(
@@ -281,6 +476,53 @@ class LoanApplicationForm(forms.ModelForm):
                         "text-base px-4 py-3"
                     ),
                     "placeholder": "Briefly describe the purpose of this loan",
+                }
+            ),
+            # New Phase 1 fields widgets
+            "business_type": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
+                    ),
+                }
+            ),
+            "years_in_business": forms.NumberInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
+                    ),
+                }
+            ),
+            "monthly_business_turnover": forms.NumberInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
+                    ),
+                    "step": "0.01",
+                }
+            ),
+            "employer_name": forms.TextInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
+                    ),
+                }
+            ),
+            "job_title": forms.TextInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
+                    ),
                 }
             ),
         }

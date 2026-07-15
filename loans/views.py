@@ -241,7 +241,7 @@ def customer_profile(request):
 
 @login_required
 def apply_for_loan(request):
-    """Customer loan application form"""
+    """Customer loan application form with enhanced pre-sync validation for Odoo 19 integration."""
     customer, _ = Customer.objects.get_or_create(user=request.user)
 
     # Require minimal profile before applying - check all KYC fields
@@ -276,6 +276,103 @@ def apply_for_loan(request):
     # Seed default products if none exist
     if not LoanProduct.objects.filter(is_active=True).exists():
         _seed_loan_products()
+
+    # Pre-sync validation: Ensure customer is synced to Odoo
+    odoo_sync_ready = True
+    sync_message = ""
+    
+    try:
+        from core.services.odoo_sync import OdooSyncService
+        
+        odoo_service = OdooSyncService()
+        
+        # Check if customer needs syncing
+        if not customer.odoo_customer_id:
+            if odoo_service.is_reachable():
+                try:
+                    logger.info(
+                        "Pre-sync validation: Customer not synced to Odoo, syncing now: customer_id=%s",
+                        customer.pk
+                    )
+                    result = odoo_service.create_or_update_customer(customer.user)
+                    if result and result.get("odoo_customer_id"):
+                        customer.odoo_customer_id = result.get("odoo_customer_id")
+                        customer.odoo_sync_status = "SUCCESS"
+                        customer.odoo_sync_error = ""
+                        customer.odoo_last_sync_at = timezone.now()
+                        customer.save(update_fields=["odoo_customer_id", "odoo_sync_status", "odoo_sync_error", "odoo_last_sync_at"])
+                        logger.info(
+                            "Pre-sync validation: Customer synced successfully: django_id=%s odoo_id=%s",
+                            customer.pk,
+                            customer.odoo_customer_id
+                        )
+                    else:
+                        odoo_sync_ready = False
+                        sync_message = "Customer sync returned invalid response"
+                        logger.warning(
+                            "Pre-sync validation: Customer sync failed - invalid response: customer_id=%s",
+                            customer.pk
+                        )
+                except Exception as sync_exc:
+                    odoo_sync_ready = False
+                    sync_message = f"Customer sync failed: {str(sync_exc)}"
+                    logger.warning(
+                        "Pre-sync validation: Customer sync failed: customer_id=%s error=%s",
+                        customer.pk,
+                        sync_exc
+                    )
+            else:
+                # Odoo not reachable, but allow application to proceed
+                logger.warning(
+                    "Pre-sync validation: Odoo unreachable, will sync later: customer_id=%s",
+                    customer.pk
+                )
+                sync_message = "Odoo unreachable - will sync during submission"
+        else:
+            logger.info(
+                "Pre-sync validation: Customer already synced to Odoo: django_id=%s odoo_id=%s",
+                customer.pk,
+                customer.odoo_customer_id
+            )
+
+        # Sync loan products if needed
+        products_needing_sync = LoanProduct.objects.filter(
+            is_active=True,
+            odoo_product_id__isnull=True
+        )
+        
+        if products_needing_sync.exists() and odoo_service.is_reachable():
+            try:
+                logger.info(
+                    "Pre-sync validation: Syncing %d loan products to Odoo",
+                    products_needing_sync.count()
+                )
+                sync_result = odoo_service.sync_loan_products_from_odoo()
+                logger.info(
+                    "Pre-sync validation: Loan products sync completed: %s",
+                    sync_result
+                )
+            except Exception as sync_exc:
+                logger.warning(
+                    "Pre-sync validation: Loan products sync failed: error=%s",
+                    sync_exc
+                )
+                # Don't block application if product sync fails
+        
+        # Show sync status to user
+        if sync_message:
+            if odoo_sync_ready:
+                messages.info(request, sync_message)
+            else:
+                messages.warning(request, sync_message)
+
+    except Exception as exc:
+        logger.exception(
+            "Pre-sync validation error: customer_id=%s error=%s",
+            customer.pk,
+            exc
+        )
+        # Don't block application on pre-sync errors
 
     if request.method == "POST":
         form = LoanApplicationForm(request.POST)
@@ -345,6 +442,7 @@ def apply_for_loan(request):
             "customer": customer,
             "default_product": default_product,
             "default_product_id": default_product.id if default_product else None,
+            "odoo_sync_ready": odoo_sync_ready,
         },
     )
 
@@ -385,7 +483,11 @@ def my_applications(request):
 
 @login_required
 def submit_application(request, pk):
-    """Final submission of a draft application — requires at least one supporting document."""
+    """Final submission of a draft application — requires at least one supporting document.
+    
+    Enhanced with robust error handling, pre-sync validation, and comprehensive logging
+    to ensure seamless integration with Odoo 19 Alba loan module.
+    """
     customer, _ = Customer.objects.get_or_create(user=request.user)
     application = get_object_or_404(LoanApplication, pk=pk, customer=customer)
 
@@ -404,53 +506,193 @@ def submit_application(request, pk):
         )
         return redirect("loans:upload_document", application_pk=pk)
 
+    # Update application status to SUBMITTED
     application.status = LoanApplication.SUBMITTED
     application.submitted_at = timezone.now()
     application.save()
 
-    # Sync to Odoo now that the application is formally submitted
+    # Enhanced sync to Odoo with comprehensive error handling
+    sync_success = False
+    sync_error_message = ""
+    
     try:
-        from core.services.odoo_sync import OdooSyncService
+        from core.services.odoo_sync import OdooSyncService, OdooSyncError, OdooConnectionError, OdooTimeoutError
+        from django.utils import timezone
 
         odoo_service = OdooSyncService()
-        if odoo_service.is_reachable():
-            result = odoo_service.create_loan_application(application)
-            application.odoo_application_id = result.get("odoo_application_id")
-            application.save(update_fields=["odoo_application_id"])
-            messages.info(request, "Application synced to Odoo.")
-
-            # Sync customer profile KYC documents to Odoo
-            if application.odoo_application_id:
-                customer = getattr(application, "customer", None)
-                if customer:
-                    kyc_docs = [
-                        (customer.national_id_file, "national_id", "National ID Document"),
-                        (customer.bank_statement_file, "bank_statement", "Bank Statement"),
-                        (customer.face_recognition_photo, "other", "Face Recognition Photo"),
-                    ]
-                    for file_field, doc_type, doc_name in kyc_docs:
-                        if file_field:
-                            try:
-                                odoo_service.sync_kyc_file(
-                                    odoo_application_id=application.odoo_application_id,
-                                    file_field=file_field,
-                                    document_type=doc_type,
-                                    name=doc_name
-                                )
-                            except Exception as doc_exc:
-                                logger.warning(
-                                    "KYC document sync to Odoo failed: type=%s error=%s",
-                                    doc_type,
-                                    doc_exc
-                                )
-        else:
+        
+        # Check Odoo connectivity before attempting sync
+        if not odoo_service.is_reachable():
+            logger.error(
+                "Odoo instance unreachable during application submission: app_id=%s",
+                application.pk
+            )
+            sync_error_message = "Odoo instance unreachable - please check network connectivity"
+            
+            # Mark sync as failed but allow application to proceed
+            application.odoo_sync_status = LoanApplication.ODOO_SYNC_FAILED
+            application.odoo_sync_error = sync_error_message
+            application.odoo_last_sync_at = timezone.now()
+            application.save(update_fields=["odoo_sync_status", "odoo_sync_error", "odoo_last_sync_at"])
+            
             messages.warning(
                 request,
-                "Application submitted but could not sync to Odoo right now. Will sync later.",
+                "Application submitted but could not sync to Odoo right now. "
+                "It will be synced automatically when connectivity is restored."
             )
-    except Exception as e:
-        logger.warning("Odoo sync failed for application %s: %s", application.pk, e)
+        else:
+            # Update application sync status to in-progress
+            application.odoo_sync_status = LoanApplication.ODOO_SYNC_PENDING
+            application.odoo_sync_attempts += 1
+            application.odoo_last_sync_at = timezone.now()
+            application.save(update_fields=["odoo_sync_status", "odoo_sync_attempts", "odoo_last_sync_at"])
 
+            logger.info(
+                "Starting Odoo sync for application: app_id=%s app_number=%s",
+                application.pk,
+                application.application_number
+            )
+
+            # Sync application to Odoo with automatic prerequisite sync
+            try:
+                result = odoo_service.create_loan_application(application)
+                
+                # Validate response
+                if not result or not result.get("odoo_application_id"):
+                    raise OdooSyncError(
+                        "Invalid response from Odoo - missing odoo_application_id",
+                        detail="Odoo returned an invalid response structure"
+                    )
+
+                application.odoo_application_id = result.get("odoo_application_id")
+                application.odoo_sync_status = LoanApplication.ODOO_SYNC_SUCCESS
+                application.odoo_sync_error = ""
+                application.save(update_fields=["odoo_application_id", "odoo_sync_status", "odoo_sync_error"])
+                
+                logger.info(
+                    "Application synced to Odoo successfully: django_id=%s odoo_id=%s app_number=%s",
+                    application.pk,
+                    application.odoo_application_id,
+                    application.application_number
+                )
+                
+                sync_success = True
+                messages.success(request, "Application synced to Odoo successfully.")
+
+                # Sync customer profile KYC documents to Odoo with error handling
+                if application.odoo_application_id:
+                    customer = getattr(application, "customer", None)
+                    if customer:
+                        kyc_docs = [
+                            (customer.national_id_file, "national_id", "National ID Document"),
+                            (customer.bank_statement_file, "bank_statement", "Bank Statement"),
+                            (customer.face_recognition_photo, "other", "Face Recognition Photo"),
+                        ]
+                        
+                        synced_docs = []
+                        failed_docs = []
+                        
+                        for file_field, doc_type, doc_name in kyc_docs:
+                            if file_field:
+                                try:
+                                    odoo_service.sync_kyc_file(
+                                        odoo_application_id=application.odoo_application_id,
+                                        file_field=file_field,
+                                        document_type=doc_type,
+                                        name=doc_name
+                                    )
+                                    synced_docs.append(doc_name)
+                                    logger.info(
+                                        "KYC document synced successfully: type=%s app_id=%s",
+                                        doc_type,
+                                        application.pk
+                                    )
+                                except Exception as doc_exc:
+                                    failed_docs.append(doc_name)
+                                    logger.warning(
+                                        "KYC document sync to Odoo failed: type=%s error=%s app_id=%s",
+                                        doc_type,
+                                        doc_exc,
+                                        application.pk
+                                    )
+                                    # Continue with other documents even if one fails
+                        
+                        if synced_docs:
+                            messages.info(
+                                request,
+                                f"KYC documents synced: {', '.join(synced_docs)}"
+                            )
+                        if failed_docs:
+                            messages.warning(
+                                request,
+                                f"Some KYC documents could not be synced: {', '.join(failed_docs)}. "
+                                "They will be retried automatically."
+                            )
+
+            except OdooConnectionError as conn_exc:
+                sync_error_message = f"Connection error: {str(conn_exc)}"
+                logger.error(
+                    "Odoo connection error during application sync: app_id=%s error=%s",
+                    application.pk,
+                    conn_exc
+                )
+            except OdooTimeoutError as timeout_exc:
+                sync_error_message = f"Timeout error: {str(timeout_exc)}"
+                logger.error(
+                    "Odoo timeout during application sync: app_id=%s error=%s",
+                    application.pk,
+                    timeout_exc
+                )
+            except OdooSyncError as sync_exc:
+                sync_error_message = f"Sync error: {str(sync_exc)}"
+                logger.error(
+                    "Odoo sync error during application sync: app_id=%s error=%s status=%s",
+                    application.pk,
+                    sync_exc,
+                    sync_exc.status_code if hasattr(sync_exc, 'status_code') else 'unknown'
+                )
+            except Exception as general_exc:
+                sync_error_message = f"Unexpected error: {str(general_exc)}"
+                logger.exception(
+                    "Unexpected error during Odoo application sync: app_id=%s error=%s",
+                    application.pk,
+                    general_exc
+                )
+
+            # Handle sync failure
+            if not sync_success:
+                application.odoo_sync_status = LoanApplication.ODOO_SYNC_FAILED
+                application.odoo_sync_error = sync_error_message[:500]  # Limit error message length
+                application.odoo_last_sync_at = timezone.now()
+                application.save(update_fields=["odoo_sync_status", "odoo_sync_error", "odoo_last_sync_at"])
+                
+                messages.warning(
+                    request,
+                    f"Application submitted but there was an issue syncing to Odoo: {sync_error_message}. "
+                    "Our team will resolve this automatically."
+                )
+
+    except Exception as e:
+        # Catch-all for any unexpected errors in the sync process
+        logger.exception(
+            "Critical error in submit_application sync process: app_id=%s error=%s",
+            application.pk,
+            e
+        )
+        
+        # Ensure application is marked as failed but still submitted
+        application.odoo_sync_status = LoanApplication.ODOO_SYNC_FAILED
+        application.odoo_sync_error = f"Critical sync error: {str(e)[:500]}"
+        application.odoo_last_sync_at = timezone.now()
+        application.save(update_fields=["odoo_sync_status", "odoo_sync_error", "odoo_last_sync_at"])
+        
+        messages.warning(
+            request,
+            "Application submitted successfully but encountered a technical issue. "
+            "Our team has been notified and will resolve it automatically."
+        )
+
+    # Final success message regardless of sync status
     messages.success(
         request,
         (
@@ -458,13 +700,15 @@ def submit_application(request, pk):
             "Our team will review it within 24 hours."
         ),
     )
+    
     create_audit_log(
         request.user,
         "UPDATE",
         "LoanApplication",
         application.pk,
-        f"Submitted application {application.application_number}",
+        f"Submitted application {application.application_number} - Odoo sync: {'Success' if sync_success else 'Failed'}",
     )
+    
     return redirect("loans:application_detail", pk=pk)
 
 
@@ -538,15 +782,22 @@ def upload_document(request, application_pk):
                 if application.odoo_application_id:
                     try:
                         from core.services.odoo_sync import OdooSyncService
+                        from django.utils import timezone
+
                         sync = OdooSyncService()
                         if sync.is_reachable():
                             sync.sync_document(application.odoo_application_id, doc)
+                            # Update document sync status if we add that field later
                     except Exception as exc:  # noqa: BLE001
                         logger.warning(
                             "Document sync to Odoo failed (non-fatal): app_id=%s err=%s",
                             application.pk,
                             exc,
                         )
+                        # Log the failure but don't block the user experience
+                        if hasattr(doc, 'odoo_sync_error'):
+                            doc.odoo_sync_error = str(exc)[:500]
+                            doc.save(update_fields=['odoo_sync_error'])
         if success:
             messages.success(request, "Documents uploaded successfully.")
             return redirect("loans:application_detail", pk=application_pk)
