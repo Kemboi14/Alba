@@ -188,7 +188,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Created At')),
                 ('updated_at', models.DateTimeField(auto_now=True, verbose_name='Updated At')),
                 ('loan_application', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='collaterals', to='loans.loanapplication', verbose_name='Loan Application')),
-                ('verified_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='verified_collaterals', to='loans.user')),
+                ('verified_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='verified_collaterals', to='core.user')),
             ],
             options={
                 'verbose_name': 'Collateral',
