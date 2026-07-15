@@ -763,6 +763,7 @@ def upload_document(request, application_pk):
                 )
         
         success = False
+        sync_success_count = 0
         for file in files:
             data = request.POST.copy()
             form = LoanDocumentForm(data, {"document_file": file})
@@ -779,27 +780,70 @@ def upload_document(request, application_pk):
                     doc.pk,
                     f"Uploaded document for application {application.application_number}",
                 )
+                
+                # Sync to Odoo with improved status tracking
                 if application.odoo_application_id:
                     try:
                         from core.services.odoo_sync import OdooSyncService
                         from django.utils import timezone
 
                         sync = OdooSyncService()
+                        
+                        # Update sync status to in-progress
+                        doc.odoo_sync_status = LoanDocument.ODOO_SYNC_PENDING
+                        doc.odoo_last_sync_at = timezone.now()
+                        doc.save(update_fields=["odoo_sync_status", "odoo_last_sync_at"])
+                        
                         if sync.is_reachable():
-                            sync.sync_document(application.odoo_application_id, doc)
-                            # Update document sync status if we add that field later
+                            result = sync.sync_document(application.odoo_application_id, doc)
+                            
+                            # Update sync status on success
+                            if result and result.get("odoo_document_id"):
+                                doc.odoo_document_id = result.get("odoo_document_id")
+                                doc.odoo_sync_status = LoanDocument.ODOO_SYNC_SUCCESS
+                                doc.odoo_sync_error = ""
+                                doc.odoo_last_sync_at = timezone.now()
+                                doc.save(update_fields=["odoo_document_id", "odoo_sync_status", "odoo_sync_error", "odoo_last_sync_at"])
+                                sync_success_count += 1
+                                logger.info(
+                                    "Document synced to Odoo successfully: doc_id=%s odoo_id=%s",
+                                    doc.pk,
+                                    doc.odoo_document_id
+                                )
+                            else:
+                                raise Exception("Invalid response from Odoo - missing odoo_document_id")
+                        else:
+                            # Odoo unreachable - mark as failed but don't block
+                            doc.odoo_sync_status = LoanDocument.ODOO_SYNC_FAILED
+                            doc.odoo_sync_error = "Odoo instance unreachable - will retry automatically"
+                            doc.odoo_last_sync_at = timezone.now()
+                            doc.save(update_fields=["odoo_sync_status", "odoo_sync_error", "odoo_last_sync_at"])
+                            logger.warning(
+                                "Odoo unreachable during document sync: doc_id=%s",
+                                doc.pk
+                            )
                     except Exception as exc:  # noqa: BLE001
-                        logger.warning(
-                            "Document sync to Odoo failed (non-fatal): app_id=%s err=%s",
-                            application.pk,
+                        logger.error(
+                            "Document sync to Odoo failed: doc_id=%s err=%s",
+                            doc.pk,
                             exc,
                         )
-                        # Log the failure but don't block the user experience
-                        if hasattr(doc, 'odoo_sync_error'):
-                            doc.odoo_sync_error = str(exc)[:500]
-                            doc.save(update_fields=['odoo_sync_error'])
+                        # Update sync status to failed
+                        doc.odoo_sync_status = LoanDocument.ODOO_SYNC_FAILED
+                        doc.odoo_sync_error = str(exc)[:500]
+                        doc.odoo_last_sync_at = timezone.now()
+                        doc.save(update_fields=["odoo_sync_status", "odoo_sync_error", "odoo_last_sync_at"])
         if success:
-            messages.success(request, "Documents uploaded successfully.")
+            if sync_success_count > 0:
+                messages.success(
+                    request, 
+                    f"Documents uploaded successfully. {sync_success_count} document(s) synced to Odoo for verification."
+                )
+            else:
+                messages.success(
+                    request,
+                    "Documents uploaded successfully. They will be synced to Odoo for verification shortly."
+                )
             return redirect("loans:application_detail", pk=application_pk)
     else:
         form = LoanDocumentForm()

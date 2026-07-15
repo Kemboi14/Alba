@@ -3400,6 +3400,42 @@ class LoanDocument(models.Model):
         User, on_delete=models.SET_NULL, null=True, related_name="uploaded_documents"
     )
 
+    # Odoo Sync Status (Odoo Alignment)
+    odoo_document_id = models.PositiveIntegerField(
+        "Odoo Document ID",
+        null=True,
+        blank=True,
+        help_text="ID of the corresponding alba.loan.document record in Odoo"
+    )
+    ODOO_SYNC_PENDING = "PENDING"
+    ODOO_SYNC_SUCCESS = "SUCCESS"
+    ODOO_SYNC_FAILED = "FAILED"
+    
+    ODOO_SYNC_STATUS_CHOICES = [
+        (ODOO_SYNC_PENDING, "Pending"),
+        (ODOO_SYNC_SUCCESS, "Success"),
+        (ODOO_SYNC_FAILED, "Failed"),
+    ]
+    
+    odoo_sync_status = models.CharField(
+        "Odoo Sync Status",
+        max_length=20,
+        choices=ODOO_SYNC_STATUS_CHOICES,
+        default=ODOO_SYNC_PENDING,
+        help_text="Status of document sync to Odoo"
+    )
+    odoo_sync_error = models.TextField(
+        "Odoo Sync Error",
+        blank=True,
+        help_text="Error message if sync to Odoo failed"
+    )
+    odoo_last_sync_at = models.DateTimeField(
+        "Last Odoo Sync At",
+        null=True,
+        blank=True,
+        help_text="Timestamp of last sync attempt to Odoo"
+    )
+
     # Timestamps
     created_at = models.DateTimeField("Created At", auto_now_add=True)
 
