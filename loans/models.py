@@ -3044,7 +3044,7 @@ class GuarantorVerification(models.Model):
     ]
 
     application = models.ForeignKey(
-        LoanApplication, on_delete=models.CASCADE, related_name="guarantors"
+        LoanApplication, on_delete=models.CASCADE, related_name="guarantor_verifications"
     )
 
     # Guarantor Details
