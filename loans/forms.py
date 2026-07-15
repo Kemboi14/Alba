@@ -415,9 +415,6 @@ class LoanApplicationForm(forms.ModelForm):
             "business_registration_number",
             "business_location",
             "annual_turnover",
-            "business_type",
-            "years_in_business",
-            "monthly_business_turnover",
             # Employment details (Phase 1)
             "employer_name",
             "monthly_income",
