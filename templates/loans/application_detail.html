@@ -17,7 +17,7 @@
                     </p>
                 </div>
                 <span
-                    class="inline-flex px-4 py-2 text-sm font-semibold rounded-lg {% if application.status == 'APPROVED' or application.status == 'DISBURSED' %}bg-green-100 text-green-800 {% elif application.status == 'REJECTED' %}bg-red-100 text-red-800 {% elif application.status == 'PENDING_APPROVAL' %}bg-yellow-100 text-yellow-800 {% elif application.status == 'DRAFT' %}bg-gray-100 text-gray-800 {% else %}bg-blue-100 text-blue-800{% endif %}"
+                    class="inline-flex px-4 py-2 text-sm font-semibold rounded-lg {% if application.status == 'APPROVED' or application.status == 'DISBURSED' %}bg-green-100 text-green-800 {% elif application.status == 'REJECTED' or application.status == 'DECLINED' %}bg-red-100 text-red-800 {% elif application.status == 'DEFERRED' %}bg-yellow-100 text-yellow-800 {% elif application.status == 'PENDING_APPROVAL' %}bg-yellow-100 text-yellow-800 {% elif application.status == 'DRAFT' %}bg-gray-100 text-gray-800 {% else %}bg-blue-100 text-blue-800{% endif %}"
                 >
                     {{ application.get_status_display }}
                 </span>
@@ -48,8 +48,8 @@
                     Application Progress
                 </h3>
                 <span class="text-xs text-gray-500">
-                    {% if application.status == 'REJECTED' %}Application
-                    Rejected {% elif application.status == 'CANCELLED' %}Application Cancelled {% elif application.status == 'DISBURSED' %}Loan Disbursed &#8212; Complete {% else %}Step
+                    {% if application.status == 'REJECTED' or application.status == 'DECLINED' %}Application
+                    Rejected {% elif application.status == 'CANCELLED' %}Application Cancelled {% elif application.status == 'DEFERRED' %}Application Deferred {% elif application.status == 'DISBURSED' %}Loan Disbursed &#8212; Complete {% else %}Step
                     {% if application.status == 'DRAFT' %}1 {% elif application.status == 'SUBMITTED' %}2 {% elif application.status == 'UNDER_REVIEW' %}3 {% elif application.status == 'CREDIT_ANALYSIS' %}4 {% elif application.status == 'PENDING_APPROVAL' %}5 {% elif application.status == 'APPROVED' %}6 {% elif application.status == 'EMPLOYER_VERIFICATION' %}7 {% elif application.status == 'GUARANTOR_CONFIRMATION' %}8 {% endif %} of 9 {% endif %}
                 </span>
             </div>
@@ -96,7 +96,7 @@
                                     />
                                 </svg>
                             </div>
-                            {% endif %} {% if application.status == 'DRAFT' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}
+                            {% endif %} {% if application.status == 'DRAFT' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}
                             <div class="flex-1 h-0.5 bg-gray-200"></div>
                             {% else %}
                             <div class="flex-1 h-0.5 bg-green-400"></div>
@@ -133,7 +133,7 @@
                                     class="w-2.5 h-2.5 rounded-full bg-white"
                                 ></div>
                             </div>
-                            {% elif application.status == 'UNDER_REVIEW' or application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}
+                            {% elif application.status == 'UNDER_REVIEW' or application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}
                             <div
                                 class="relative z-10 flex-shrink-0 w-8 h-8 rounded-full bg-green-500 ring-2 ring-white shadow-sm flex items-center justify-center"
                             >
@@ -155,7 +155,7 @@
                             <div
                                 class="relative z-10 flex-shrink-0 w-8 h-8 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center"
                             ></div>
-                            {% endif %} {% if application.status == 'UNDER_REVIEW' or application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}
+                            {% endif %} {% if application.status == 'UNDER_REVIEW' or application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}
                             <div class="flex-1 h-0.5 bg-green-400"></div>
                             {% else %}
                             <div class="flex-1 h-0.5 bg-gray-200"></div>
@@ -163,7 +163,7 @@
                         </div>
                         <div class="mt-2 text-center px-1">
                             <p
-                                class="text-xs font-medium leading-tight {% if application.status == 'SUBMITTED' %}text-orange-600{% elif application.status == 'UNDER_REVIEW' or application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
+                                class="text-xs font-medium leading-tight {% if application.status == 'SUBMITTED' %}text-orange-600{% elif application.status == 'UNDER_REVIEW' or application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
                             >
                                 Submitted
                             </p>
@@ -213,7 +213,7 @@
                             <div
                                 class="relative z-10 flex-shrink-0 w-8 h-8 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center"
                             ></div>
-                            {% endif %} {% if application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}
+                            {% endif %} {% if application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}
                             <div class="flex-1 h-0.5 bg-green-400"></div>
                             {% else %}
                             <div class="flex-1 h-0.5 bg-gray-200"></div>
@@ -221,7 +221,7 @@
                         </div>
                         <div class="mt-2 text-center px-1">
                             <p
-                                class="text-xs font-medium leading-tight {% if application.status == 'UNDER_REVIEW' %}text-orange-600{% elif application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
+                                class="text-xs font-medium leading-tight {% if application.status == 'UNDER_REVIEW' %}text-orange-600{% elif application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
                             >
                                 Under Review
                             </p>
@@ -270,7 +270,7 @@
                             <div
                                 class="relative z-10 flex-shrink-0 w-8 h-8 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center"
                             ></div>
-                            {% endif %} {% if application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}
+                            {% endif %} {% if application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}
                             <div class="flex-1 h-0.5 bg-green-400"></div>
                             {% else %}
                             <div class="flex-1 h-0.5 bg-gray-200"></div>
@@ -278,7 +278,7 @@
                         </div>
                         <div class="mt-2 text-center px-1">
                             <p
-                                class="text-xs font-medium leading-tight {% if application.status == 'CREDIT_ANALYSIS' %}text-orange-600{% elif application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
+                                class="text-xs font-medium leading-tight {% if application.status == 'CREDIT_ANALYSIS' %}text-orange-600{% elif application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
                             >
                                 Credit Analysis
                             </p>
@@ -327,7 +327,7 @@
                             <div
                                 class="relative z-10 flex-shrink-0 w-8 h-8 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center"
                             ></div>
-                            {% endif %} {% if application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}
+                            {% endif %} {% if application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}
                             <div class="flex-1 h-0.5 bg-green-400"></div>
                             {% else %}
                             <div class="flex-1 h-0.5 bg-gray-200"></div>
@@ -335,7 +335,7 @@
                         </div>
                         <div class="mt-2 text-center px-1">
                             <p
-                                class="text-xs font-medium leading-tight {% if application.status == 'PENDING_APPROVAL' %}text-orange-600{% elif application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
+                                class="text-xs font-medium leading-tight {% if application.status == 'PENDING_APPROVAL' %}text-orange-600{% elif application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
                             >
                                 Pend. Approval
                             </p>
@@ -383,7 +383,7 @@
                             <div
                                 class="relative z-10 flex-shrink-0 w-8 h-8 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center"
                             ></div>
-                            {% endif %} {% if application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}
+                            {% endif %} {% if application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}
                             <div class="flex-1 h-0.5 bg-green-400"></div>
                             {% else %}
                             <div class="flex-1 h-0.5 bg-gray-200"></div>
@@ -391,7 +391,7 @@
                         </div>
                         <div class="mt-2 text-center px-1">
                             <p
-                                class="text-xs font-medium leading-tight {% if application.status == 'APPROVED' %}text-orange-600{% elif application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
+                                class="text-xs font-medium leading-tight {% if application.status == 'APPROVED' %}text-orange-600{% elif application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
                             >
                                 Approved
                             </p>
@@ -439,7 +439,7 @@
                             <div
                                 class="relative z-10 flex-shrink-0 w-8 h-8 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center"
                             ></div>
-                            {% endif %} {% if application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}
+                            {% endif %} {% if application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}
                             <div class="flex-1 h-0.5 bg-green-400"></div>
                             {% else %}
                             <div class="flex-1 h-0.5 bg-gray-200"></div>
@@ -447,7 +447,7 @@
                         </div>
                         <div class="mt-2 text-center px-1">
                             <p
-                                class="text-xs font-medium leading-tight {% if application.status == 'EMPLOYER_VERIFICATION' %}text-orange-600{% elif application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
+                                class="text-xs font-medium leading-tight {% if application.status == 'EMPLOYER_VERIFICATION' %}text-orange-600{% elif application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
                             >
                                 Employer Verif.
                             </p>
@@ -494,7 +494,7 @@
                             <div
                                 class="relative z-10 flex-shrink-0 w-8 h-8 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center"
                             ></div>
-                            {% endif %} {% if application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}
+                            {% endif %} {% if application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}
                             <div class="flex-1 h-0.5 bg-green-400"></div>
                             {% else %}
                             <div class="flex-1 h-0.5 bg-gray-200"></div>
@@ -502,7 +502,7 @@
                         </div>
                         <div class="mt-2 text-center px-1">
                             <p
-                                class="text-xs font-medium leading-tight {% if application.status == 'GUARANTOR_CONFIRMATION' %}text-orange-600{% elif application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
+                                class="text-xs font-medium leading-tight {% if application.status == 'GUARANTOR_CONFIRMATION' %}text-orange-600{% elif application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}text-green-700{% else %}text-gray-400{% endif %}"
                             >
                                 Guarantor Conf.
                             </p>
@@ -638,7 +638,7 @@
                                 <div
                                     class="w-2.5 h-2.5 rounded-full bg-white"
                                 ></div>
-                                {% elif application.status == 'UNDER_REVIEW' or application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'CANCELLED' %}
+                                {% elif application.status == 'UNDER_REVIEW' or application.status == 'CREDIT_ANALYSIS' or application.status == 'PENDING_APPROVAL' or application.status == 'APPROVED' or application.status == 'EMPLOYER_VERIFICATION' or application.status == 'GUARANTOR_CONFIRMATION' or application.status == 'DISBURSED' or application.status == 'REJECTED' or application.status == 'DECLINED' or application.status == 'CANCELLED' %}
                                 <svg
                                     class="w-4 h-4 text-white"
                                     fill="none"
@@ -1043,6 +1043,46 @@
                                     >KES {{ loan_details.interest|floatformat:2 }}</span
                                 >
                             </div>
+                            {% if application.estimated_total_interest %}
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600"
+                                    >Estimated Total Interest:</span
+                                >
+                                <span class="text-sm font-semibold"
+                                    >KES {{ application.estimated_total_interest|floatformat:2 }}</span
+                                >
+                            </div>
+                            {% endif %}
+                            {% if application.estimated_total_fees %}
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600"
+                                    >Estimated Total Fees:</span
+                                >
+                                <span class="text-sm font-semibold"
+                                    >KES {{ application.estimated_total_fees|floatformat:2 }}</span
+                                >
+                            </div>
+                            {% endif %}
+                            {% if application.estimated_total_repayable %}
+                            <div class="flex justify-between border-t border-gray-200 pt-3 mt-3">
+                                <span class="text-sm font-bold text-gray-900"
+                                    >Estimated Total Repayable:</span
+                                >
+                                <span class="text-sm font-bold text-alba-orange"
+                                    >KES {{ application.estimated_total_repayable|floatformat:2 }}</span
+                                >
+                            </div>
+                            {% endif %}
+                            {% if application.net_disbursement_amount %}
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600"
+                                    >Net Disbursement Amount:</span
+                                >
+                                <span class="text-sm font-semibold text-green-600"
+                                    >KES {{ application.net_disbursement_amount|floatformat:2 }}</span
+                                >
+                            </div>
+                            {% endif %}
                             <div class="flex justify-between">
                                 <span class="text-sm text-gray-600"
                                     >Processing Fees:</span
@@ -1452,6 +1492,69 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <!-- Odoo Sync Status Card (Odoo Alignment) -->
+                {% if application.odoo_application_id or application.odoo_sync_status %}
+                <div
+                    class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden"
+                >
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">
+                            Odoo Sync Status
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="space-y-3">
+                            {% if application.odoo_application_id %}
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Odoo Application ID:</span>
+                                <span class="text-sm font-semibold">{{ application.odoo_application_id }}</span>
+                            </div>
+                            {% endif %}
+                            {% if application.odoo_loan_id %}
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Odoo Loan ID:</span>
+                                <span class="text-sm font-semibold">{{ application.odoo_loan_id }}</span>
+                            </div>
+                            {% endif %}
+                            {% if application.odoo_loan_number %}
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Odoo Loan Number:</span>
+                                <span class="text-sm font-semibold">{{ application.odoo_loan_number }}</span>
+                            </div>
+                            {% endif %}
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Sync Status:</span>
+                                <span class="text-sm font-semibold
+                                    {% if application.odoo_sync_status == 'SUCCESS' %}text-green-600
+                                    {% elif application.odoo_sync_status == 'FAILED' %}text-red-600
+                                    {% elif application.odoo_sync_status == 'RETRY' %}text-yellow-600
+                                    {% else %}text-gray-600{% endif %}">
+                                    {{ application.get_odoo_sync_status_display }}
+                                </span>
+                            </div>
+                            {% if application.odoo_sync_attempts %}
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Sync Attempts:</span>
+                                <span class="text-sm font-semibold">{{ application.odoo_sync_attempts }}</span>
+                            </div>
+                            {% endif %}
+                            {% if application.odoo_last_sync_at %}
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Last Sync At:</span>
+                                <span class="text-sm font-semibold">{{ application.odoo_last_sync_at|date:"Y-m-d H:i" }}</span>
+                            </div>
+                            {% endif %}
+                            {% if application.odoo_sync_error %}
+                            <div class="mt-3 p-3 bg-red-50 border border-red-200 rounded">
+                                <p class="text-xs text-red-700 font-medium">Sync Error:</p>
+                                <p class="text-xs text-red-600 mt-1">{{ application.odoo_sync_error }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- Actions Card -->
                 <div

@@ -509,6 +509,11 @@
                                     <label class="form-label">City / Town</label>
                                     {{ form.city }}
                                 </div>
+                                <div class="form-field md:col-span-2">
+                                    <label class="form-label">Customer Tags (Odoo Alignment)</label>
+                                    {{ form.tag_ids }}
+                                    <p class="help-text">Select any applicable customer tags for segmentation</p>
+                                </div>
                             </div>
                             <!-- Section nav -->
                             <div class="flex justify-end mt-6 pt-4 border-t border-gray-100">
@@ -548,7 +553,11 @@
                                     {{ form.employment_status }}
                                 </div>
                                 <div class="form-field">
-                                    <label class="form-label">Employer Name</label>
+                                    <label class="form-label">Employer (Odoo Alignment)</label>
+                                    {{ form.employer_id }}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Employer Name (if not in list)</label>
                                     {{ form.employer_name }}
                                 </div>
                                 <div class="form-field">

@@ -9,10 +9,13 @@ from django.core.exceptions import ValidationError
 
 from .models import (
     Customer,
+    CustomerTag,
+    Employer,
     GuarantorVerification,
     LoanApplication,
     LoanDocument,
     LoanProduct,
+    LoanStatusReason,
 )
 
 
@@ -40,9 +43,10 @@ class CustomerProfileForm(forms.ModelForm):
             "sub_county_id",
             "ward_id",
             "city",
-            # Employment
+            # Employment (Odoo Alignment)
             "employment_status",
-            "employer_name",
+            "employer_id",  # FK to Employer model
+            "employer_name",  # Fallback text field
             "employer_contact",
             "employer_email",
             "job_title",
@@ -78,6 +82,8 @@ class CustomerProfileForm(forms.ModelForm):
             "national_id_file",
             "bank_statement_file",
             "face_recognition_photo",
+            # Customer Tags (Odoo Alignment)
+            "tag_ids",
         ]
         widgets = {
             "date_of_birth": forms.DateInput(
@@ -138,7 +144,17 @@ class CustomerProfileForm(forms.ModelForm):
                         "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
                         "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
                     ),
+                    "placeholder": "Employer name (if not in list)",
                 }
+            ),
+            "employer_id": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                },
+                required=False,
             ),
             "employer_contact": forms.TextInput(
                 attrs={
@@ -358,6 +374,15 @@ class CustomerProfileForm(forms.ModelForm):
                     ),
                 }
             ),
+            "tag_ids": forms.SelectMultiple(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                },
+                required=False,
+            ),
             "national_id_file": forms.FileInput(
                 attrs={
                     "class": (
@@ -394,6 +419,18 @@ class CustomerProfileForm(forms.ModelForm):
             ),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Populate employer choices (Odoo Alignment)
+        employer_choices = [("", "Select Employer (optional)")]
+        for employer in Employer.objects.filter(is_active=True):
+            employer_choices.append((employer.pk, employer.name))
+        self.fields["employer_id"].choices = employer_choices
+        
+        # Populate customer tag choices (Odoo Alignment)
+        tag_choices = [(tag.pk, tag.name) for tag in CustomerTag.objects.filter(is_active=True)]
+        self.fields["tag_ids"].choices = tag_choices
+
 
 class LoanApplicationForm(forms.ModelForm):
     """
@@ -417,8 +454,11 @@ class LoanApplicationForm(forms.ModelForm):
             "annual_turnover",
             # Employment details (Phase 1)
             "employer_name",
+            "employer_id",
             "monthly_income",
             "job_title",
+            # Status reason (Odoo Alignment)
+            "status_reason_id",
         ]
         widgets = {
             "loan_product": forms.Select(
@@ -475,35 +515,6 @@ class LoanApplicationForm(forms.ModelForm):
                     "placeholder": "Briefly describe the purpose of this loan",
                 }
             ),
-            # New Phase 1 fields widgets
-            "business_type": forms.Select(
-                attrs={
-                    "class": (
-                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3"
-                    ),
-                }
-            ),
-            "years_in_business": forms.NumberInput(
-                attrs={
-                    "class": (
-                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3"
-                    ),
-                }
-            ),
-            "monthly_business_turnover": forms.NumberInput(
-                attrs={
-                    "class": (
-                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3"
-                    ),
-                    "step": "0.01",
-                }
-            ),
             "employer_name": forms.TextInput(
                 attrs={
                     "class": (
@@ -511,7 +522,18 @@ class LoanApplicationForm(forms.ModelForm):
                         "focus:border-alba-orange focus:ring-alba-orange "
                         "text-base px-4 py-3"
                     ),
+                    "placeholder": "Employer name (if not in list)",
                 }
+            ),
+            "employer_id": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
+                    ),
+                },
+                required=False,
             ),
             "job_title": forms.TextInput(
                 attrs={
@@ -521,6 +543,16 @@ class LoanApplicationForm(forms.ModelForm):
                         "text-base px-4 py-3"
                     ),
                 }
+            ),
+            "status_reason_id": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange "
+                        "text-base px-4 py-3"
+                    ),
+                },
+                required=False,
             ),
         }
 
@@ -536,6 +568,18 @@ class LoanApplicationForm(forms.ModelForm):
             )
             choices.append((product.pk, label))
         self.fields["loan_product"].choices = choices
+        
+        # Populate employer choices (Odoo Alignment)
+        employer_choices = [("", "Select Employer (optional)")]
+        for employer in Employer.objects.filter(is_active=True):
+            employer_choices.append((employer.pk, employer.name))
+        self.fields["employer_id"].choices = employer_choices
+        
+        # Populate status reason choices (Odoo Alignment)
+        status_reason_choices = [("", "Select Reason (if applicable)")]
+        for reason in LoanStatusReason.objects.filter(is_active=True):
+            status_reason_choices.append((reason.pk, f"{reason.category}: {reason.reason}"))
+        self.fields["status_reason_id"].choices = status_reason_choices
 
     def clean(self):
         cleaned_data = super().clean()
