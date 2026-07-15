@@ -153,8 +153,7 @@ class CustomerProfileForm(forms.ModelForm):
                         "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
                         "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
                     ),
-                },
-                required=False,
+                }
             ),
             "employer_contact": forms.TextInput(
                 attrs={
@@ -380,8 +379,7 @@ class CustomerProfileForm(forms.ModelForm):
                         "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
                         "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
                     ),
-                },
-                required=False,
+                }
             ),
             "national_id_file": forms.FileInput(
                 attrs={
@@ -532,8 +530,7 @@ class LoanApplicationForm(forms.ModelForm):
                         "focus:border-alba-orange focus:ring-alba-orange "
                         "text-base px-4 py-3"
                     ),
-                },
-                required=False,
+                }
             ),
             "job_title": forms.TextInput(
                 attrs={
@@ -551,8 +548,7 @@ class LoanApplicationForm(forms.ModelForm):
                         "focus:border-alba-orange focus:ring-alba-orange "
                         "text-base px-4 py-3"
                     ),
-                },
-                required=False,
+                }
             ),
         }
 
