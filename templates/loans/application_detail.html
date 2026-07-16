@@ -24,6 +24,30 @@
             </div>
         </div>
 
+        {% if application.odoo_sync_status == 'FAILED' %}
+        <div class="mb-8 p-4 rounded-lg border {% if application.status == 'DRAFT' %}bg-red-50 border-red-200 text-red-800{% else %}bg-yellow-50 border-yellow-200 text-yellow-800{% endif %}" role="alert">
+            <div class="flex items-start">
+                <svg class="h-5 w-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <div>
+                    <h3 class="font-semibold">Odoo Integration Synchronization Failure</h3>
+                    <p class="text-sm mt-1">
+                        {% if application.status == 'DRAFT' %}
+                        We couldn't synchronize this application with the Odoo backend because of a validation or data issue:
+                        <span class="block font-mono bg-red-100 p-2 rounded mt-2 text-xs text-red-900">{{ application.odoo_sync_error }}</span>
+                        Please update your customer profile details or application parameters to resolve the validation error and try submitting again.
+                        {% else %}
+                        There was a network connection error when trying to sync this application to Odoo:
+                        <span class="block font-mono bg-yellow-100 p-2 rounded mt-2 text-xs text-yellow-900">{{ application.odoo_sync_error }}</span>
+                        You can manually retry the synchronization once connection is restored by clicking the <strong>Retry Odoo Sync</strong> button in the Actions menu on the right.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- ================================================================
              APPLICATION STATUS TIMELINE STEPPER
              Stage order:
@@ -1253,16 +1277,20 @@
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2">
-                                {% if doc.is_validated %}
-                                <span
-                                    class="inline-flex px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-800"
-                                    >Verified</span
-                                >
+                                {% if doc.odoo_sync_status == 'SUCCESS' %}
+                                    {% if doc.odoo_document_state == 'verified' %}
+                                    <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-800">Verified</span>
+                                    {% elif doc.odoo_document_state == 'rejected' %}
+                                    <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800" title="{{ doc.rejection_reason }}">Rejected</span>
+                                    {% else %}
+                                    <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800">Sync Success</span>
+                                    {% endif %}
                                 {% else %}
-                                <span
-                                    class="inline-flex px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-800"
-                                    >Pending</span
-                                >
+                                    {% if doc.odoo_sync_status == 'FAILED' %}
+                                    <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800" title="{{ doc.odoo_sync_error }}">Sync Failed</span>
+                                    {% else %}
+                                    <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-800">Pending Sync</span>
+                                    {% endif %}
                                 {% endif %}
                                 <a
                                     href="{{ doc.document_file.url }}"
@@ -1572,6 +1600,14 @@
                             class="block w-full px-4 py-2 text-center border border-transparent rounded-md text-sm font-medium text-white bg-alba-orange hover:bg-opacity-90 transition"
                         >
                             Submit Application
+                        </a>
+                        {% endif %}
+                        {% if application.status == 'SUBMITTED' and application.odoo_sync_status == 'FAILED' %}
+                        <a
+                            href="{% url 'loans:retry_application_sync' application.pk %}"
+                            class="block w-full px-4 py-2 text-center border border-transparent rounded-md text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 transition"
+                        >
+                            Retry Odoo Sync
                         </a>
                         {% endif %}
 

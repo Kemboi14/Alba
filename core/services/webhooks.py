@@ -1067,6 +1067,56 @@ def _handle_integration_dead_webhooks_alert(data: dict, delivery_id: str):
     )
 
 
+def _handle_document_status_changed(data: dict, delivery_id: str):
+    """
+    document.status_changed
+    -----------------------
+    Odoo has verified or rejected a document. Update the Django
+    LoanDocument record to reflect the new state.
+
+    Expected data keys:
+        odoo_document_id, new_state, rejection_reason (optional)
+    """
+    from loans.models import LoanDocument
+
+    odoo_doc_id = _safe_int(data.get("odoo_document_id"), "odoo_document_id")
+    new_state = (data.get("new_state") or "").strip()
+    rejection_reason = (data.get("rejection_reason") or "").strip()
+
+    if odoo_doc_id <= 0:
+        logger.warning("document.status_changed: invalid odoo_document_id — skipping.")
+        return
+
+    doc = LoanDocument.objects.filter(odoo_document_id=odoo_doc_id).first()
+    if not doc:
+        logger.warning(
+            "document.status_changed: no LoanDocument found (odoo_document_id=%d).",
+            odoo_doc_id,
+        )
+        return
+
+    update_fields = []
+    if doc.odoo_document_state != new_state:
+        doc.odoo_document_state = new_state
+        update_fields.append("odoo_document_state")
+
+    if new_state == "rejected":
+        doc.rejection_reason = rejection_reason
+        update_fields.append("rejection_reason")
+    elif new_state == "verified" and doc.rejection_reason:
+        doc.rejection_reason = ""
+        update_fields.append("rejection_reason")
+
+    if update_fields:
+        doc.save(update_fields=update_fields)
+        logger.info(
+            "Document %d updated: state=%s, rejection_reason=%s",
+            doc.pk,
+            new_state,
+            rejection_reason,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Event handler registry
 # ---------------------------------------------------------------------------
@@ -1084,4 +1134,5 @@ _EVENT_HANDLERS = {
     "portfolio.stats_updated": _handle_portfolio_stats_updated,
     "integration.health_check": _handle_integration_health_check,
     "integration.dead_webhooks_alert": _handle_integration_dead_webhooks_alert,
+    "document.status_changed": _handle_document_status_changed,
 }

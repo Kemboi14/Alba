@@ -69,4 +69,9 @@ urlpatterns = [
         views.download_official_report,
         name="download_official_report",
     ),
+    path(
+        "application/<int:pk>/retry-sync/",
+        views.retry_application_sync,
+        name="retry_application_sync",
+    ),
 ]

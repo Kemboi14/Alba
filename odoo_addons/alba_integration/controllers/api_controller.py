@@ -1255,6 +1255,7 @@ class AlbaApiController(http.Controller):
                         "document_type": odoo_dtype,
                         "loan_application_id": application.id,
                         "customer_id": application.customer_id.id,
+                        "partner_id": application.customer_id.partner_id.id,
                         "attachment_id": attachment.id,
                         "description": (data.get("description") or "").strip(),
                         "state": "draft",

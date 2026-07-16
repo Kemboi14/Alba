@@ -810,23 +810,13 @@
                             <option value="" disabled selected>
                                 Select document type
                             </option>
-                            <option value="ID_CARD">National ID Card</option>
-                            <option value="PASSPORT_PHOTO">
-                                Passport Photo
-                            </option>
-                            <option value="PROOF_OF_INCOME">
-                                Proof of Income (Payslip)
-                            </option>
-                            <option value="BANK_STATEMENT">
-                                Bank Statement
-                            </option>
-                            <option value="PROOF_OF_RESIDENCE">
-                                Proof of Residence
-                            </option>
-                            <option value="EMPLOYMENT_VERIFICATION">
-                                Employment Verification Letter
-                            </option>
-                            <option value="OTHER">Other Document</option>
+                            <option value="national_id">National ID Card</option>
+                            <option value="passport">Passport Photo</option>
+                            <option value="bank_statement">Bank Statement</option>
+                            <option value="payslip">Payslip (Proof of Income)</option>
+                            <option value="employment_letter">Employment Verification Letter</option>
+                            <option value="kra_pin">KRA PIN Certificate</option>
+                            <option value="other">Other Document</option>
                         </select>
                         <p id="document-type-help" class="help-text">
                             Select the type of document you are uploading
@@ -968,6 +958,17 @@
                                         >
                                             Odoo Sync: {{ doc.get_odoo_sync_status_display }}
                                             {% if doc.odoo_last_sync_at %}({{ doc.odoo_last_sync_at|date:"M d, H:i" }}){% endif %}
+                                        </span>
+                                        {% endif %}
+                                        {% if doc.odoo_sync_status == 'SUCCESS' %}
+                                        <span class="doc-date" style="font-weight: 500; margin-top: 2px;">
+                                            Verification Status: 
+                                            <span style="color: {% if doc.odoo_document_state == 'verified' %}#059669{% elif doc.odoo_document_state == 'rejected' %}#dc2626{% else %}#b45309{% endif %};">
+                                                {{ doc.get_odoo_document_state_display }}
+                                            </span>
+                                            {% if doc.odoo_document_state == 'rejected' and doc.rejection_reason %}
+                                                <span class="block text-xs text-red-600 font-normal">Reason: {{ doc.rejection_reason }}</span>
+                                            {% endif %}
                                         </span>
                                         {% endif %}
                                     </div>

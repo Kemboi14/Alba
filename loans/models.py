@@ -3357,18 +3357,22 @@ class LoanDocument(models.Model):
     """
 
     # Document Types
-    ID_CARD = "ID_CARD"
-    PAYSLIP = "PAYSLIP"
-    BANK_STATEMENT = "BANK_STATEMENT"
-    EMPLOYMENT_LETTER = "EMPLOYMENT_LETTER"
-    GUARANTOR_ID = "GUARANTOR_ID"
-    OTHER = "OTHER"
+    NATIONAL_ID = "national_id"
+    PASSPORT = "passport"
+    BANK_STATEMENT = "bank_statement"
+    PAYSLIP = "payslip"
+    EMPLOYMENT_LETTER = "employment_letter"
+    KRA_PIN = "kra_pin"
+    GUARANTOR_ID = "guarantor_id"
+    OTHER = "other"
 
     DOCUMENT_TYPE_CHOICES = [
-        (ID_CARD, "ID Card/Passport"),
-        (PAYSLIP, "Payslip"),
+        (NATIONAL_ID, "National ID"),
+        (PASSPORT, "Passport"),
         (BANK_STATEMENT, "Bank Statement"),
+        (PAYSLIP, "Payslip"),
         (EMPLOYMENT_LETTER, "Employment Letter"),
+        (KRA_PIN, "KRA PIN Certificate"),
         (GUARANTOR_ID, "Guarantor ID"),
         (OTHER, "Other"),
     ]
@@ -3377,7 +3381,7 @@ class LoanDocument(models.Model):
         LoanApplication, on_delete=models.CASCADE, related_name="documents"
     )
     document_type = models.CharField(
-        "Document Type", max_length=20, choices=DOCUMENT_TYPE_CHOICES
+        "Document Type", max_length=30, choices=DOCUMENT_TYPE_CHOICES
     )
     document_file = models.FileField(
         "Document File", upload_to="loan_documents/%Y/%m/%d/"
@@ -3407,6 +3411,31 @@ class LoanDocument(models.Model):
         blank=True,
         help_text="ID of the corresponding alba.loan.document record in Odoo"
     )
+    
+    ODOO_STATE_DRAFT = "draft"
+    ODOO_STATE_VERIFIED = "verified"
+    ODOO_STATE_REJECTED = "rejected"
+    
+    ODOO_STATE_CHOICES = [
+        (ODOO_STATE_DRAFT, "Draft"),
+        (ODOO_STATE_VERIFIED, "Verified"),
+        (ODOO_STATE_REJECTED, "Rejected"),
+    ]
+    
+    odoo_document_state = models.CharField(
+        "Odoo Document State",
+        max_length=20,
+        choices=ODOO_STATE_CHOICES,
+        default=ODOO_STATE_DRAFT,
+        help_text="Verification status of the document in Odoo"
+    )
+    
+    rejection_reason = models.TextField(
+        "Rejection Reason",
+        blank=True,
+        help_text="Rejection reason from Odoo if rejected"
+    )
+
     ODOO_SYNC_PENDING = "PENDING"
     ODOO_SYNC_SUCCESS = "SUCCESS"
     ODOO_SYNC_FAILED = "FAILED"
