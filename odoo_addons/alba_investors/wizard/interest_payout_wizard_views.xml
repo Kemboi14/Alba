@@ -40,7 +40,7 @@
                         <group string="Payment Parameters">
                             <field name="journal_id" options="{'no_create': True}"/>
                             <field name="payout_date"/>
-                            <field name="memo" readonly="1"/>
+                            <field name="memo" placeholder="Enter a memo or narration for this payout…"/>
                         </group>
                     </group>
 

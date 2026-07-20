@@ -89,22 +89,12 @@ class AlbaInterestPayoutWizard(models.TransientModel):
     notes = fields.Text(string="Notes")
     memo = fields.Char(
         string="Payment Memo",
-        compute="_compute_memo",
-        store=True,
-        readonly=True,
+        help="Editable memo that will be stored on the payout and used for the payment narration.",
     )
 
     # =========================================================================
     # Compute
     # =========================================================================
-
-    @api.depends("investment_id")
-    def _compute_memo(self):
-        for wiz in self:
-            if wiz.investment_id:
-                wiz.memo = "Interest Payout — %s" % safe_investment_reference(wiz.investment_id)
-            else:
-                wiz.memo = False
 
     @api.depends(
         "payout_mode",
@@ -274,6 +264,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             "accrual_ids": [(6, 0, accruals_to_mark_paid.ids)],
             "state": "posted",
             "notes": self.notes or "",
+            "memo": self.memo or ("Interest Payout — %s" % safe_investment_reference(investment)),
         })
 
         # ── 5. Mark accruals as paid (full-payment modes only) ─────────────────
