@@ -98,7 +98,7 @@ class AlbaInterestPayout(models.Model):
     payment_memo = fields.Char(
         related="payment_id.memo",
         string="Payment Memo",
-        readonly=True,
+        readonly=False,
     )
     wht_move_id = fields.Many2one(
         "account.move",
