@@ -19,8 +19,31 @@
                 <span
                     class="inline-flex px-4 py-2 text-sm font-semibold rounded-lg {% if application.status == 'APPROVED' or application.status == 'DISBURSED' %}bg-green-100 text-green-800 {% elif application.status == 'REJECTED' or application.status == 'DECLINED' %}bg-red-100 text-red-800 {% elif application.status == 'DEFERRED' %}bg-yellow-100 text-yellow-800 {% elif application.status == 'PENDING_APPROVAL' %}bg-yellow-100 text-yellow-800 {% elif application.status == 'DRAFT' %}bg-gray-100 text-gray-800 {% else %}bg-blue-100 text-blue-800{% endif %}"
                 >
-                    {{ application.get_status_display }}
+                    {{ application.get_odoo_status_label }}
                 </span>
+            </div>
+            <div class="mt-3 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 font-medium text-gray-700">
+                    Odoo state: {{ application.get_odoo_status_label }}
+                </span>
+                {% if application.odoo_application_id %}
+                <span class="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 font-medium text-blue-700">
+                    Odoo app #{{ application.odoo_application_id }}
+                </span>
+                {% endif %}
+                {% if application.odoo_loan_number %}
+                <span class="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 font-medium text-indigo-700">
+                    Odoo loan {{ application.odoo_loan_number }}
+                </span>
+                {% endif %}
+                <span class="inline-flex items-center rounded-full px-3 py-1 font-medium {{ application.get_odoo_sync_badge_class }}">
+                    {{ application.get_odoo_sync_label }}
+                </span>
+                {% if application.odoo_last_sync_at %}
+                <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
+                    Last sync {{ application.odoo_last_sync_at|date:"M d, Y H:i" }}
+                </span>
+                {% endif %}
             </div>
         </div>
 

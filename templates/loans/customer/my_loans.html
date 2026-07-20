@@ -29,11 +29,14 @@
                             <p class="text-sm text-gray-600">
                                 {{ loan.loan_product.name }}
                             </p>
+                            <p class="mt-1 text-xs text-gray-500">
+                                Odoo status: {{ loan.get_odoo_status_label }}{% if loan.odoo_loan_id %} · Odoo #{{ loan.odoo_loan_id }}{% endif %}
+                            </p>
                         </div>
                         <span
                             class="inline-flex px-3 py-1 text-sm font-semibold rounded-full {% if loan.status == 'ACTIVE' %}bg-green-100 text-green-800 {% elif loan.status == 'OVERDUE' %}bg-red-100 text-red-800 {% elif loan.status == 'PAID' %}bg-blue-100 text-blue-800 {% else %}bg-gray-100 text-gray-800{% endif %}"
                         >
-                            {{ loan.get_status_display }}
+                            {{ loan.get_odoo_status_label }}
                         </span>
                     </div>
 

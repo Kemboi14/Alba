@@ -103,17 +103,11 @@ class ReportInvestorStatement(models.AbstractModel):
         # Sort all transactions chronologically. When dates are identical,
         # use logical transaction priority so top-ups come before accruals,
         # and accruals come before payouts/withdrawals.
-        type_priority = {
-            "deposit": 0,
-            "topup": 0,
-            "top_up": 0,
-            "accrual": 1,
-            "interest": 1,
-            "payout": 2,
-            "withdrawal": 2,
-        }
         period_events.sort(
-            key=lambda x: (x["date"], type_priority.get(x.get("type"), 99))
+            key=lambda x: (
+                x["date"],
+                self._statement_event_type_priority(x.get("type")),
+            )
         )
 
         # ── Build ledger lines ────────────────────────────────────────────────
@@ -155,11 +149,12 @@ class ReportInvestorStatement(models.AbstractModel):
             debit_amt = abs(tx["amount"]) if is_debit else 0.0
             credit_amt = tx["amount"] if not is_debit else 0.0
 
-            if tx["type"] in ("deposit", "topup"):
+            tx_type = (tx.get("type") or "").lower()
+            if tx_type in ("deposit", "topup", "top_up"):
                 deposits += tx["amount"]
-            elif tx["type"] == "withdrawal":
+            elif tx_type == "withdrawal":
                 principal_withdrawals += abs(tx["amount"])
-            elif tx["type"] == "accrual":
+            elif tx_type in ("accrual", "interest"):
                 interest_accrued += tx["amount"]
             # "payout" debits the balance but is NOT a withdrawal — it's interest paid
 

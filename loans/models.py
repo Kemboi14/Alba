@@ -2355,6 +2355,66 @@ class LoanApplication(models.Model):
         }
 
         return new_status in valid_transitions.get(self.status, [])
+
+    def get_odoo_state(self):
+        """Return the canonical Odoo-style state slug for this application."""
+        mapping = {
+            self.DRAFT: "draft",
+            self.SUBMITTED: "submitted",
+            self.UNDER_REVIEW: "under_review",
+            self.CREDIT_ANALYSIS: "credit_analysis",
+            self.PENDING_APPROVAL: "pending_approval",
+            self.APPROVED: "approved",
+            self.DEFERRED: "deferred",
+            self.EMPLOYER_VERIFICATION: "employer_verification",
+            self.GUARANTOR_CONFIRMATION: "guarantor_confirmation",
+            self.DISBURSED: "disbursed",
+            self.DECLINED: "declined",
+            self.REJECTED: "rejected",
+            self.CANCELLED: "cancelled",
+        }
+        return mapping.get(self.status, (self.status or "draft").lower().replace(" ", "_"))
+
+    def get_odoo_status_label(self):
+        """Return the portal-facing status label aligned to Odoo workflow names."""
+        mapping = {
+            self.DRAFT: "Draft",
+            self.SUBMITTED: "Submitted",
+            self.UNDER_REVIEW: "Under Review",
+            self.CREDIT_ANALYSIS: "Credit Analysis",
+            self.PENDING_APPROVAL: "Pending Approval",
+            self.APPROVED: "Approved",
+            self.DEFERRED: "Deferred",
+            self.EMPLOYER_VERIFICATION: "Employer Verification",
+            self.GUARANTOR_CONFIRMATION: "Guarantor Confirmation",
+            self.DISBURSED: "Disbursed",
+            self.DECLINED: "Declined",
+            self.REJECTED: "Rejected",
+            self.CANCELLED: "Cancelled",
+        }
+        if self.status in mapping:
+            return mapping[self.status]
+        return self.get_status_display() or (self.status or "Draft")
+
+    def get_odoo_sync_label(self):
+        """Return a customer-friendly label for Odoo sync state."""
+        mapping = {
+            self.ODOO_SYNC_PENDING: "Pending sync",
+            self.ODOO_SYNC_SUCCESS: "Synced to Odoo",
+            self.ODOO_SYNC_FAILED: "Sync failed",
+            self.ODOO_SYNC_RETRY: "Retrying sync",
+        }
+        return mapping.get(self.odoo_sync_status, self.odoo_sync_status or "Pending sync")
+
+    def get_odoo_sync_badge_class(self):
+        """Return Tailwind classes for the Odoo sync badge."""
+        mapping = {
+            self.ODOO_SYNC_PENDING: "bg-gray-100 text-gray-700",
+            self.ODOO_SYNC_SUCCESS: "bg-green-100 text-green-700",
+            self.ODOO_SYNC_FAILED: "bg-red-100 text-red-700",
+            self.ODOO_SYNC_RETRY: "bg-yellow-100 text-yellow-700",
+        }
+        return mapping.get(self.odoo_sync_status, "bg-gray-100 text-gray-700")
     
     def calculate_estimated_totals(self):
         """
@@ -2759,6 +2819,44 @@ class Loan(models.Model):
             paid = self.total_amount - self.outstanding_balance
             return (paid / self.total_amount) * 100
         return 0
+
+    def get_odoo_state(self):
+        """Return the canonical Odoo-style state slug for this loan."""
+        mapping = {
+            self.ACTIVE: "active",
+            self.PAID: "closed",
+            self.OVERDUE: "overdue",
+            self.DEFAULTED: "defaulted",
+            self.WRITTEN_OFF: "written_off",
+            self.RESTRUCTURED: "restructured",
+        }
+        return mapping.get(self.status, (self.status or "active").lower().replace(" ", "_"))
+
+    def get_odoo_status_label(self):
+        """Return the portal-facing label aligned to Odoo loan states."""
+        mapping = {
+            self.ACTIVE: "Active",
+            self.PAID: "Closed",
+            self.OVERDUE: "Overdue",
+            self.DEFAULTED: "Defaulted",
+            self.WRITTEN_OFF: "Written Off",
+            self.RESTRUCTURED: "Restructured",
+        }
+        if self.status in mapping:
+            return mapping[self.status]
+        return self.get_status_display() or (self.status or "Active")
+
+    def get_odoo_status_class(self):
+        """Return Tailwind classes for the Odoo loan status badge."""
+        mapping = {
+            self.ACTIVE: "bg-green-100 text-green-800",
+            self.PAID: "bg-blue-100 text-blue-800",
+            self.OVERDUE: "bg-red-100 text-red-800",
+            self.DEFAULTED: "bg-red-100 text-red-800",
+            self.WRITTEN_OFF: "bg-gray-100 text-gray-800",
+            self.RESTRUCTURED: "bg-yellow-100 text-yellow-800",
+        }
+        return mapping.get(self.status, "bg-gray-100 text-gray-800")
 
 
 class LoanRepayment(models.Model):

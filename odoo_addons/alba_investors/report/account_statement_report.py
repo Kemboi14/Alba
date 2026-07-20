@@ -18,6 +18,19 @@ class AccountStatementReportMixin(models.AbstractModel):
     _description = "Shared investor account statement helpers"
 
     @api.model
+    def _statement_event_type_priority(self, event_type):
+        priority_map = {
+            "deposit": 0,
+            "topup": 0,
+            "top_up": 0,
+            "accrual": 1,
+            "interest": 1,
+            "payout": 2,
+            "withdrawal": 2,
+        }
+        return priority_map.get((event_type or "").lower(), 99)
+
+    @api.model
     def _clean_string(self, value):
         if not value:
             return ""
@@ -296,19 +309,10 @@ class AccountStatementReportMixin(models.AbstractModel):
         # - A top-up adds to the principal first; it is the basis for accrual.
         # - Accrual/interest is computed on the available principal, so it comes second.
         # - Payout/withdrawal is disbursed from accrued interest, so it comes last.
-        type_priority = {
-            "deposit": 0,
-            "topup": 0,
-            "top_up": 0,
-            "accrual": 1,
-            "interest": 1,
-            "payout": 2,
-            "withdrawal": 2,
-        }
         events.sort(
             key=lambda item: (
                 item["sort_date"],
-                type_priority.get(item.get("type"), 99),
+                self._statement_event_type_priority(item.get("type")),
                 item["sort_id"],
             )
         )

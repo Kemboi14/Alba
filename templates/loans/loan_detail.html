@@ -16,11 +16,14 @@ Capital{% endblock %} {% block body %}
                     <p class="mt-2 text-sm text-gray-600">
                         {{ loan.loan_product.name }} - {{ loan.loan_product.get_category_display }}
                     </p>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Odoo loan {{ loan.application.odoo_loan_number|default:loan.loan_number }} · Last sync {{ loan.application.odoo_last_sync_at|date:"M d, Y H:i"|default:"not synced yet" }}
+                    </p>
                 </div>
                 <span
-                    class="inline-flex px-4 py-2 text-sm font-semibold rounded-lg {% if loan.status == 'ACTIVE' %}bg-green-100 text-green-800 {% elif loan.status == 'OVERDUE' %}bg-red-100 text-red-800 {% elif loan.status == 'PAID' %}bg-blue-100 text-blue-800 {% else %}bg-gray-100 text-gray-800{% endif %}"
+                    class="inline-flex px-4 py-2 text-sm font-semibold rounded-lg {{ loan.get_odoo_status_class }}"
                 >
-                    {{ loan.get_status_display }}
+                    {{ loan.get_odoo_status_label }}
                 </span>
             </div>
         </div>
@@ -81,6 +84,26 @@ Capital{% endblock %} {% block body %}
                                 </p>
                                 <p class="mt-1 text-lg font-bold text-red-600">
                                     KES {{ loan.outstanding_balance|floatformat:2 }}
+                                </p>
+                            </div>
+                            <div>
+                                <p
+                                    class="text-xs text-gray-500 uppercase font-medium"
+                                >
+                                    Odoo Status
+                                </p>
+                                <p class="mt-1 text-base font-semibold text-gray-900">
+                                    {{ loan.get_odoo_status_label }}
+                                </p>
+                            </div>
+                            <div>
+                                <p
+                                    class="text-xs text-gray-500 uppercase font-medium"
+                                >
+                                    Odoo Loan No.
+                                </p>
+                                <p class="mt-1 text-base font-semibold text-gray-900">
+                                    {{ loan.application.odoo_loan_number|default:loan.loan_number }}
                                 </p>
                             </div>
                             <div>
