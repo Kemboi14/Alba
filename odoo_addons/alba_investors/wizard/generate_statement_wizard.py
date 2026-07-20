@@ -4,6 +4,8 @@ from datetime import date, timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
+from odoo.addons.alba_investors.models.accrual_backfill import _period_start_from_accrual_date
+
 
 class AlbaGenerateStatementWizard(models.TransientModel):
     _name = "alba.generate.statement.wizard"
@@ -92,14 +94,9 @@ class AlbaGenerateStatementWizard(models.TransientModel):
         """Pre-fill period_start / period_end to the previous 29th-to-28th accrual cycle."""
         res = super().default_get(fields_list)
         today = fields.Date.today()
-        month = today.month
-        year = today.year
-        # 29th-to-28th rule: period_end = 28th of current month,
-        # period_start = 29th of previous month (timedelta handles leap years)
-        prev_month = month - 1 or 12
-        prev_year = year if month > 1 else year - 1
-        res["period_end"] = date(year, month, 28)
-        res["period_start"] = date(prev_year, prev_month, 28) + timedelta(days=1)
+        # 29th-to-28th rule via canonical helper
+        res["period_end"] = date(today.year, today.month, 28)
+        res["period_start"] = _period_start_from_accrual_date(res["period_end"])
         return res
 
     # =========================================================================
@@ -246,12 +243,13 @@ class AlbaGenerateStatementWizard(models.TransientModel):
                         continue
 
                 # ── Accruals within period ────────────────────────────────────
+                # Match by the accrual's own period_end (same billing cycle)
                 accruals = Accrual.search(
                     [
                         ("investment_id", "=", inv.id),
                         ("state", "=", "posted"),
-                        ("accrual_date", ">=", self.period_start),
-                        ("accrual_date", "<=", self.period_end),
+                        ("period_end", ">=", self.period_start),
+                        ("period_end", "<=", self.period_end),
                     ]
                 )
                 total_interest = sum(accruals.mapped("interest_amount"))

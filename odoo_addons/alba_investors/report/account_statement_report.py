@@ -232,11 +232,12 @@ class AccountStatementReportMixin(models.AbstractModel):
         # ── 3. Interest accruals ──────────────────────────────────────────────
         # Include both posted (outstanding) and paid accruals so the ledger
         # shows: Credit when earned, then Debit when paid out (via payout event).
+        # Filter by the accrual's own period_end (same billing cycle as the statement).
         accruals = env["alba.interest.accrual"].search([
             ("investment_id", "=", investment.id),
             ("state", "in", ["posted", "paid"]),
-            ("accrual_date", ">=", period_start),
-            ("accrual_date", "<=", period_end),
+            ("period_end", ">=", period_start),
+            ("period_end", "<=", period_end),
         ], order="accrual_date asc, id asc")
         for accrual in accruals:
             amount = accrual.interest_amount
@@ -477,11 +478,13 @@ class AccountStatementReportMixin(models.AbstractModel):
         total_net_paid = sum(period_payouts.mapped("net_amount"))
 
         # ── Accrual detail table ───────────────────────────────────────────────
+        # Filter by the accrual's own period_end so the table is consistent
+        # with the statement lines, regardless of which day the accrual was posted.
         period_accruals = self.env["alba.interest.accrual"].search([
             ("investment_id", "=", stmt.investment_id.id),
             ("state", "in", ["posted", "paid"]),
-            ("accrual_date", ">=", stmt.period_start),
-            ("accrual_date", "<=", stmt.period_end),
+            ("period_end", ">=", stmt.period_start),
+            ("period_end", "<=", stmt.period_end),
         ])
         interest_outstanding = sum(
             a.interest_amount for a in period_accruals if a.state == "posted"

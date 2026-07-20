@@ -5,6 +5,8 @@ from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
+from .accrual_backfill import _period_start_from_accrual_date
+
 _logger = logging.getLogger(__name__)
 
 
@@ -311,12 +313,9 @@ class AlbaInvestmentStatement(models.Model):
         today = fields.Date.today()
         month = today.month
         year = today.year
-        # 29th-to-28th rule: period_end = 28th of current month,
-        # period_start = 29th of previous month (timedelta handles leap years)
-        prev_month = month - 1 or 12
-        prev_year = year if month > 1 else year - 1
+        # 29th-to-28th rule via canonical helper
         period_end = date(year, month, 28)
-        period_start = date(prev_year, prev_month, 28) + timedelta(days=1)
+        period_start = _period_start_from_accrual_date(period_end)
 
         active_investments = self.env["alba.investment"].search(
             [("state", "=", "active")]
@@ -336,13 +335,12 @@ class AlbaInvestmentStatement(models.Model):
             if existing:
                 continue
 
-            # Collect accruals in this period
+            # Collect accruals whose own period_end matches this billing cycle
             accruals = self.env["alba.interest.accrual"].search(
                 [
                     ("investment_id", "=", inv.id),
                     ("state", "=", "posted"),
-                    ("accrual_date", ">=", period_start),
-                    ("accrual_date", "<=", period_end),
+                    ("period_end", "=", period_end),
                 ]
             )
             total_interest = sum(accruals.mapped("interest_amount"))
@@ -438,31 +436,28 @@ class AlbaInvestmentStatement(models.Model):
         (1 day after the accrual day).
         """
         today = fields.Date.context_today(self)
-        from datetime import date, timedelta
-        
+        from datetime import date
+
         created_count = 0
         active_investments = self.env["alba.investment"].search([("state", "=", "active")])
-        
+
         # We determine if today is the day after the target accrual run day
         yesterday = today - timedelta(days=1)
-        
+
         for inv in active_investments:
             product = inv.investment_product_id
             if not product:
                 continue
-            
+
             target_day = product.auto_accrual_day or 28
             yesterday_target_run_day = min(target_day, 28)
-            
+
             if yesterday.day == yesterday_target_run_day:
-                month = today.month
-                year = today.year
-                period_start = date(year, month, 28)
-                if month == 12:
-                    period_end = date(year + 1, 1, 27)
-                else:
-                    period_end = date(year, month + 1, 27)
-                
+                # 29th-to-28th rule: period_end = 28th of yesterday's month (= accrual run day)
+                # period_start = 29th of the previous month — canonical helper handles leap years
+                period_end = date(yesterday.year, yesterday.month, 28)
+                period_start = _period_start_from_accrual_date(period_end)
+
                 existing = self.search(
                     [
                         ("investment_id", "=", inv.id),
@@ -474,13 +469,12 @@ class AlbaInvestmentStatement(models.Model):
                 if existing:
                     continue
 
-                # Collect accruals in this period
+                # Collect accruals whose own period_end matches this billing cycle
                 accruals = self.env["alba.interest.accrual"].search(
                     [
                         ("investment_id", "=", inv.id),
                         ("state", "=", "posted"),
-                        ("accrual_date", ">=", period_start),
-                        ("accrual_date", "<=", period_end),
+                        ("period_end", "=", period_end),
                     ]
                 )
                 total_interest = sum(accruals.mapped("interest_amount"))
