@@ -4,6 +4,8 @@ from datetime import date
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
+from .accrual_backfill import _period_start_from_accrual_date
+
 
 class AlbaInterestAccrual(models.Model):
     _name = "alba.interest.accrual"
@@ -213,11 +215,10 @@ class AlbaInterestAccrual(models.Model):
         today = fields.Date.context_today(self)
 
         self.accrual_date = today
-        self.period_start = date(today.year, today.month, 28)
-        if today.month == 12:
-            self.period_end = date(today.year + 1, 1, 27)
-        else:
-            self.period_end = date(today.year, today.month + 1, 27)
+        # 29th-to-28th rule: period_end = 28th of current month,
+        # period_start = 29th of previous month (handles leap years via timedelta)
+        self.period_end = date(today.year, today.month, 28)
+        self.period_start = _period_start_from_accrual_date(self.period_end)
 
         # Opening balance = closing balance of last posted accrual, or principal if none
         last_accrual = self.env['alba.interest.accrual'].search([

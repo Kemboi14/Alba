@@ -4,7 +4,7 @@ from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
-from .accrual_backfill import iter_missing_accrual_periods
+from .accrual_backfill import iter_missing_accrual_periods, _period_start_from_accrual_date
 
 
 class AlbaInvestment(models.Model):
@@ -670,11 +670,10 @@ class AlbaInvestment(models.Model):
             from datetime import date as _date
             month = today.month
             year = today.year
-            period_start = _date(year, month, 28)
-            if month == 12:
-                period_end = _date(year + 1, 1, 27)
-            else:
-                period_end = _date(year, month + 1, 27)
+            # 29th-to-28th rule: period_end = 28th of current month,
+            # period_start = 29th of previous month (timedelta handles leap years)
+            period_end = _date(year, month, 28)
+            period_start = _period_start_from_accrual_date(period_end)
 
         existing = self.env["alba.interest.accrual"].search(
             [

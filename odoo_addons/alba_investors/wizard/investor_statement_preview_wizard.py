@@ -6,7 +6,7 @@ Light-weight wizard launched from the Investor form that lets staff
 select a date range and immediately preview / download the PDF statement
 for that specific investor.  No need to navigate to the Statements menu.
 """
-from datetime import date
+from datetime import date, timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
@@ -100,15 +100,16 @@ class InvestorStatementPreviewWizard(models.TransientModel):
         if investor_id:
             res["investor_id"] = investor_id
 
-        # Pre-fill period to the previous 28th-to-27th accrual cycle
+        # Pre-fill period to the previous 29th-to-28th accrual cycle
         today = date.today()
         month = today.month
         year = today.year
-        res["period_start"] = date(year, month, 28)
-        if month == 12:
-            res["period_end"] = date(year + 1, 1, 27)
-        else:
-            res["period_end"] = date(year, month + 1, 27)
+        # 29th-to-28th rule: period_end = 28th of current month,
+        # period_start = 29th of previous month (timedelta handles leap years)
+        prev_month = month - 1 or 12
+        prev_year = year if month > 1 else year - 1
+        res["period_end"] = date(year, month, 28)
+        res["period_start"] = date(prev_year, prev_month, 28) + timedelta(days=1)
 
         return res
 

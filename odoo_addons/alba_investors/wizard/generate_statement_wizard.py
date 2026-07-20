@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from datetime import date, timedelta
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
@@ -87,18 +89,17 @@ class AlbaGenerateStatementWizard(models.TransientModel):
 
     @api.model
     def default_get(self, fields_list):
-        """Pre-fill period_start / period_end to the previous 28th-to-27th accrual cycle."""
-        from datetime import date
-
+        """Pre-fill period_start / period_end to the previous 29th-to-28th accrual cycle."""
         res = super().default_get(fields_list)
         today = fields.Date.today()
         month = today.month
         year = today.year
-        res["period_start"] = date(year, month, 28)
-        if month == 12:
-            res["period_end"] = date(year + 1, 1, 27)
-        else:
-            res["period_end"] = date(year, month + 1, 27)
+        # 29th-to-28th rule: period_end = 28th of current month,
+        # period_start = 29th of previous month (timedelta handles leap years)
+        prev_month = month - 1 or 12
+        prev_year = year if month > 1 else year - 1
+        res["period_end"] = date(year, month, 28)
+        res["period_start"] = date(prev_year, prev_month, 28) + timedelta(days=1)
         return res
 
     # =========================================================================

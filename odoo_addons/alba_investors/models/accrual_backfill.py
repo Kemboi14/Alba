@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 
 def accrual_run_date(year, month, target_day):
@@ -6,8 +6,27 @@ def accrual_run_date(year, month, target_day):
     return date(year, month, min(target_day, 28))
 
 
+def _period_start_from_accrual_date(accrual_date):
+    """
+    Return the period_start for a given accrual_date under the 29th-to-28th rule.
+
+    period_end   = 28th of accrual_date.month
+    period_start = 29th of previous month
+                 = date(prev_year, prev_month, 28) + timedelta(days=1)
+
+    This naturally handles short months:
+      - Feb accrual  → period_start = Jan 29
+      - Mar accrual (leap year 2024)    → period_start = Feb 29
+      - Mar accrual (non-leap year)     → period_start = Mar 1
+        (because date(year, 2, 28) + 1 day = date(year, 3, 1) in non-leap years)
+    """
+    prev_month = accrual_date.month - 1 or 12
+    prev_year = accrual_date.year if accrual_date.month > 1 else accrual_date.year - 1
+    return date(prev_year, prev_month, 28) + timedelta(days=1)
+
+
 def previous_month_bounds(run_date):
-    """Return the previous 28th-to-27th accrual cycle bounds for a run date."""
+    """Return the previous 29th-to-28th accrual cycle bounds for a run date."""
     if run_date.day >= 28:
         period_end_year = run_date.year
         period_end_month = run_date.month
@@ -15,10 +34,8 @@ def previous_month_bounds(run_date):
         period_end_month = run_date.month - 1 or 12
         period_end_year = run_date.year if run_date.month > 1 else run_date.year - 1
 
-    period_end = date(period_end_year, period_end_month, 27)
-    start_month = period_end.month - 1 or 12
-    start_year = period_end.year if period_end.month > 1 else period_end.year - 1
-    period_start = date(start_year, start_month, 28)
+    period_end = date(period_end_year, period_end_month, 28)
+    period_start = _period_start_from_accrual_date(period_end)
     return period_start, period_end
 
 
@@ -34,6 +51,11 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
     period it covers — not the following run month — so that the journal
     entry date matches the period month.
 
+    Period bounds follow the 29th-to-28th rule:
+        period_end   = 28th of current month (= accrual_date)
+        period_start = 29th of previous month
+                     = date(prev_year, prev_month, 28) + timedelta(days=1)
+
     Args:
         start_date:        First date from which to look for missing periods.
         as_of_date:        Upper bound (inclusive); no periods beyond this date.
@@ -47,11 +69,10 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
     current_month = as_of_date.month
 
     while (current_year, current_month) >= (start_date.year, start_date.month):
-        period_start = date(current_year, current_month, 28)
-        if current_month == 12:
-            period_end = date(current_year + 1, 1, 27)
-        else:
-            period_end = date(current_year, current_month + 1, 27)
+        # period_end = 28th of current month
+        period_end = date(current_year, current_month, 28)
+        # period_start = 29th of previous month (handles leap years automatically)
+        period_start = _period_start_from_accrual_date(period_end)
 
         accrual_date = accrual_run_date(current_year, current_month, target_day)
 

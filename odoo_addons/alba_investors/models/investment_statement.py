@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+from datetime import timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
@@ -310,11 +311,12 @@ class AlbaInvestmentStatement(models.Model):
         today = fields.Date.today()
         month = today.month
         year = today.year
-        period_start = date(year, month, 28)
-        if month == 12:
-            period_end = date(year + 1, 1, 27)
-        else:
-            period_end = date(year, month + 1, 27)
+        # 29th-to-28th rule: period_end = 28th of current month,
+        # period_start = 29th of previous month (timedelta handles leap years)
+        prev_month = month - 1 or 12
+        prev_year = year if month > 1 else year - 1
+        period_end = date(year, month, 28)
+        period_start = date(prev_year, prev_month, 28) + timedelta(days=1)
 
         active_investments = self.env["alba.investment"].search(
             [("state", "=", "active")]

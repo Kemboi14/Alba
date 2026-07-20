@@ -135,6 +135,11 @@ class AlbaInterestPayout(models.Model):
 
     # ── Notes ─────────────────────────────────────────────────────────────────
     notes = fields.Text(string="Notes")
+    memo = fields.Char(
+        string="Memo / Narration",
+        tracking=True,
+        help="Editable memo or narration for this payout. Freely editable at any time.",
+    )
 
     # =========================================================================
     # ORM overrides
