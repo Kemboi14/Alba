@@ -338,6 +338,19 @@ class AlbaInterestAccrual(models.Model):
                     % (rec.company_id.name, investment.investment_number)
                 )
 
+            # Bug 3 fix (action_post): pro-rata for partial first month
+            if rec.period_start and rec.period_end:
+                total_days = 30
+                actual_days = (rec.period_end - rec.period_start).days + 1
+                if actual_days < total_days:
+                    # Recompute interest proportionally; opening_balance is already stored
+                    monthly_rate = investment.interest_rate / 100.0 / 12.0
+                    pro_rata_interest = round(
+                        rec.opening_balance * monthly_rate * actual_days / total_days, 2
+                    )
+                    if pro_rata_interest != rec.interest_amount:
+                        rec.write({"interest_amount": pro_rata_interest})
+
             # Convert interest amount to company currency when accrual currency differs
             # FIX: ensure debit/credit in company currency are set using Odoo's conversion
             amount_in_company = rec.currency_id._convert(
@@ -418,19 +431,6 @@ class AlbaInterestAccrual(models.Model):
                 inv_num,
                 rec.accrual_date.strftime("%Y%m") if rec.accrual_date else "",
             )
-
-            # Bug 3 fix (action_post): pro-rata for partial first month
-            if rec.period_start and rec.period_end:
-                total_days = 30
-                actual_days = (rec.period_end - rec.period_start).days + 1
-                if actual_days < total_days:
-                    # Recompute interest proportionally; opening_balance is already stored
-                    monthly_rate = investment.interest_rate / 100.0 / 12.0
-                    pro_rata_interest = round(
-                        rec.opening_balance * monthly_rate * actual_days / total_days, 2
-                    )
-                    if pro_rata_interest != rec.interest_amount:
-                        rec.write({"interest_amount": pro_rata_interest})
 
             move_vals = {
                 "journal_id": journal.id,
