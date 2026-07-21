@@ -76,10 +76,15 @@
 
                 </sheet>
                 <footer>
-                    <button name="action_preview"
-                            string="Preview / Download PDF"
+                    <button name="action_view_dynamic"
+                            string="View Statement"
                             type="object"
                             class="btn-primary"
+                            icon="fa-table"/>
+                    <button name="action_preview"
+                            string="Download PDF"
+                            type="object"
+                            class="btn-secondary"
                             icon="fa-file-pdf-o"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>

@@ -149,6 +149,24 @@ class InvestorStatementPreviewWizard(models.TransientModel):
 
         return report.report_action(stmt)
 
+    def action_view_dynamic(self):
+        """Open the interactive dynamic statement view (OWL client action)."""
+        self.ensure_one()
+        self._validate()
+        investment_ids = [] if self.include_all_investments else self.investment_ids.ids
+        return {
+            "type": "ir.actions.client",
+            "tag": "alba_investors.InvestorStatement",
+            "name": _("Statement — %s") % self.investor_id.investor_name,
+            "params": {
+                "investor_id": self.investor_id.id,
+                "date_from": str(self.period_start),
+                "date_to": str(self.period_end),
+                "investment_ids": investment_ids,
+            },
+            "target": "current",
+        }
+
     def action_view_existing(self):
         """Open all existing statements for this investor/period."""
         self.ensure_one()

@@ -60,6 +60,7 @@ Manages the full investor lifecycle:
         "views/investment_topup_views.xml",
         "views/currency_sync_views.xml",
         "views/investor_dashboard_views.xml",
+        "views/investor_statement_client_action.xml",
         # Menus last
         "views/menus.xml",
     ],
@@ -75,6 +76,8 @@ Manages the full investor lifecycle:
             "alba_investors/static/lib/chart.js/chart.umd.min.js",
             "alba_investors/static/src/js/investor_dashboard.js",
             "alba_investors/static/src/xml/investor_dashboard.xml",
+            "alba_investors/static/src/js/investor_statement.js",
+            "alba_investors/static/src/xml/investor_statement.xml",
         ],
     },
 }

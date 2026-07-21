@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="action_investor_statement_dynamic" model="ir.actions.client">
+            <field name="name">Investor Statement</field>
+            <field name="tag">alba_investors.InvestorStatement</field>
+        </record>
+    </data>
+</odoo>

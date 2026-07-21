@@ -17,8 +17,8 @@ class ReportInvestorStatement(models.AbstractModel):
         investors = self.env["alba.investor"].browse(docids)
         data = data or {}
         today = date.today()
-        date_from = data.get("date_from") or date(today.year, 1, 1)
-        date_to = data.get("date_to") or today
+        date_from = data.get("date_from") or self.env.context.get("date_from") or date(today.year, 1, 1)
+        date_to = data.get("date_to") or self.env.context.get("date_to") or today
 
         payloads = []
         for investor in investors:
@@ -37,7 +37,7 @@ class ReportInvestorStatement(models.AbstractModel):
         }
 
     @api.model
-    def _report_payload_from_investor(self, investor, date_from, date_to):
+    def _report_payload_from_investor(self, investor, date_from, date_to, investment_ids=None):
         """
         Build the full statement payload for an investor across all their investments.
 
@@ -56,10 +56,13 @@ class ReportInvestorStatement(models.AbstractModel):
         if isinstance(date_to, str):
             date_to = date.fromisoformat(date_to)
 
-        investments = self.env["alba.investment"].search([
+        inv_domain = [
             ("investor_id", "=", investor.id),
             ("state", "!=", "draft"),
-        ])
+        ]
+        if investment_ids:
+            inv_domain.append(("id", "in", investment_ids))
+        investments = self.env["alba.investment"].search(inv_domain)
 
         # ── Compute opening balance (correct for ALL investments) ─────────────
         # For every investment active on or before date_from, compute its balance.

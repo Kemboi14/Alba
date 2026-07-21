@@ -631,6 +631,29 @@ class AlbaInvestorPro(models.Model):
         if company_id:
             self.company_id = company_id
 
+    @api.model
+    def get_statement_data(self, investor_id, date_from, date_to, investment_ids=None):
+        """Return JSON-serialisable statement payload for the OWL dynamic view."""
+        investor = self.browse(investor_id)
+        if not investor.exists():
+            return {}
+        report_model = self.env["report.alba_investors.investor_statement_template"]
+        payload = report_model._report_payload_from_investor(
+            investor, date_from, date_to, investment_ids=investment_ids
+        )
+        serializable_payload = dict(payload)
+        serializable_payload.pop("doc", None)
+        serializable_payload.pop("partner", None)
+        serializable_payload.pop("res_company", None)
+        if "currency" in serializable_payload and serializable_payload["currency"]:
+            curr = serializable_payload["currency"]
+            serializable_payload["currency"] = {
+                "id": curr.id,
+                "name": curr.name,
+                "symbol": curr.symbol,
+            }
+        return serializable_payload
+
 
 class AlbaInvestorDocument(models.Model):
     _name = "alba.investor.document"

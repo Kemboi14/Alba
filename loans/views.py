@@ -497,7 +497,10 @@ def submit_application(request, pk):
 
     # Enforce SRS 3.1.2 step 2: customer must upload at least one supporting document
     # (payslip, employment letter, bank statement, etc.) before submission.
-    has_documents = LoanDocument.objects.filter(application=application).exists()
+    has_documents = (
+        LoanDocument.objects.filter(application=application).exists()
+        or bool(customer.national_id_file or customer.bank_statement_file or customer.face_recognition_photo)
+    )
     if not has_documents:
         messages.warning(
             request,
