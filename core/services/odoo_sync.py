@@ -11,6 +11,7 @@ methods map 1-to-1 with the REST endpoints exposed by alba_integration:
   POST  /alba/api/v1/customers
   POST  /alba/api/v1/customers/<id>/kyc
   POST  /alba/api/v1/applications
+  POST  /alba/api/v1/applications/<id>/submit
   PATCH /alba/api/v1/applications/<id>/status
   POST  /alba/api/v1/payments
   GET   /alba/api/v1/loan-products
@@ -762,6 +763,38 @@ class OdooSyncService:
             result.get("application_number"),
         )
         return result
+
+    def submit_loan_application(self, odoo_application_id: int) -> dict:
+        """
+        Trigger the Odoo workflow transition from ``draft`` → ``submitted``
+        by calling the dedicated submit endpoint.
+
+        This must be called *after* :meth:`create_loan_application` has
+        returned a valid ``odoo_application_id``.  Calling the submit
+        endpoint causes Odoo to run ``action_submit()`` on the
+        ``alba.loan.application`` record, which starts KYC verification,
+        credit scoring, and the auto-decisioning pipeline.
+
+        Args:
+            odoo_application_id: Odoo database ID of the loan application.
+
+        Returns:
+            dict: Response body containing ``status``, ``previous_state``,
+                  ``new_state``, and ``application_number``.
+
+        Raises:
+            OdooNotFoundError:   When the application ID does not exist.
+            OdooValidationError: When the application is not in draft state.
+            OdooSyncError:       On any other API failure.
+        """
+        logger.info(
+            "Submitting loan application to Odoo workflow: odoo_id=%d",
+            odoo_application_id,
+        )
+        return self._post(
+            f"/alba/api/v1/applications/{odoo_application_id}/submit",
+            {},
+        )
 
     def sync_document(self, odoo_application_id: int, doc) -> dict:
         """
@@ -1520,6 +1553,13 @@ def _build_application_payload(application) -> dict:
     """
     Build the JSON payload for POST /alba/api/v1/applications from a
     Django LoanApplication instance.
+
+    Field resolution priority:
+    - Odoo IDs are pulled from related objects (customer.odoo_customer_id, etc.)
+    - employer_name: resolved from the employer_id FK first, then falls back
+      to the plain employer_name text field on the application.
+    - business_type / years_in_business / monthly_business_turnover: sourced
+      from the Customer profile when not overridden on the application.
     """
     # Resolve the Odoo customer ID from the Customer profile
     customer = getattr(application, "customer", None)
@@ -1549,8 +1589,18 @@ def _build_application_payload(application) -> dict:
         payload["loan_product_name"] = getattr(loan_product, "name", "") or ""
         payload["loan_product_code"] = getattr(loan_product, "code", "") or ""
 
-    # Optional fields
-    # Enhanced with Phase 1 Odoo Alignment fields
+    # --- Employer name resolution -------------------------------------------------
+    # Prefer the structured employer FK (employer_id → Employer.name), then fall
+    # back to the free-text employer_name field stored directly on the application.
+    employer_fk = getattr(application, "employer_id", None)
+    if employer_fk is not None:
+        resolved_employer_name = getattr(employer_fk, "name", "") or ""
+    else:
+        resolved_employer_name = getattr(application, "employer_name", "") or ""
+    if resolved_employer_name:
+        payload["employer_name"] = resolved_employer_name
+
+    # Optional application-level fields (Odoo Alignment)
     for field in (
         "approved_amount",
         "conditions_of_approval",
@@ -1559,10 +1609,6 @@ def _build_application_payload(application) -> dict:
         "business_registration_number",
         "business_location",
         "annual_turnover",
-        "business_type",
-        "years_in_business",
-        "monthly_business_turnover",
-        "employer_name",
         "monthly_income",
         "job_title",
     ):
@@ -1572,5 +1618,19 @@ def _build_application_payload(application) -> dict:
                 payload[field] = float(value)
             else:
                 payload[field] = value
+
+    # --- Customer-level business fields ------------------------------------------
+    # These live on the Customer profile rather than the application, so we read
+    # them from there when they are not already present on the application itself.
+    if customer is not None:
+        for cust_field in ("business_type", "years_in_business", "monthly_business_turnover"):
+            # Only add if not already set from application-level data
+            if cust_field not in payload:
+                value = getattr(customer, cust_field, None)
+                if value is not None:
+                    if hasattr(value, "__class__") and value.__class__.__name__ == "Decimal":
+                        payload[cust_field] = float(value)
+                    else:
+                        payload[cust_field] = value
 
     return payload

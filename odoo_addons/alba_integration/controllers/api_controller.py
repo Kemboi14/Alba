@@ -34,12 +34,45 @@ import logging
 import time
 from datetime import date, datetime
 
-from odoo import _, http
+from odoo import _, api, http
 from odoo import exceptions as odoo_exceptions
 from odoo.http import request
 from werkzeug.wrappers import Response as WerkzeugResponse
 
 _logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Sync logging helper
+# ---------------------------------------------------------------------------
+
+def _log_inbound_sync(api_key, operation, odoo_model, django_record_id, odoo_record_id, 
+                     status, detail, request_data, response_data, http_status_code, 
+                     remote_ip="", user_agent="", duration_ms=0, django_model="", event_type=""):
+    """
+    Helper function to log inbound sync operations to AlbaSyncLog.
+    This ensures sync logging even if the main operation fails.
+    """
+    try:
+        request.env["alba.sync.log"].sudo().log_inbound(
+            operation=operation,
+            odoo_model=odoo_model,
+            django_record_id=django_record_id,
+            odoo_record_id=odoo_record_id,
+            status=status,
+            detail=detail,
+            request_data=request_data,
+            response_data=response_data,
+            http_status_code=http_status_code,
+            api_key=api_key,
+            remote_ip=remote_ip,
+            user_agent=user_agent,
+            duration_ms=duration_ms,
+            django_model=django_model,
+            event_type=event_type,
+        )
+    except Exception as log_exc:
+        _logger.error("Failed to log inbound sync operation: %s", log_exc)
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +141,21 @@ class AlbaApiController(http.Controller):
     # =========================================================================
     # Private helpers
     # =========================================================================
+
+    def _get_request_metadata(self):
+        """
+        Extract request metadata for logging purposes.
+        Returns tuple of (remote_ip, user_agent).
+        """
+        remote_ip = (
+            request.httprequest.environ.get("HTTP_X_FORWARDED_FOR", "")
+            .split(",")[0]
+            .strip()
+            or request.httprequest.remote_addr
+            or ""
+        )
+        user_agent = request.httprequest.environ.get("HTTP_USER_AGENT", "") or ""
+        return remote_ip, user_agent
 
     def _authenticate(self):
         """
@@ -490,6 +538,14 @@ class AlbaApiController(http.Controller):
                 "status": "created"
             }
         """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        odoo_customer_id = 0
+        http_status = 200
+        sync_status = "success"
+        detail = ""
+        
         try:
             api_key = self._authenticate()
             data = self._parse_json_body()
@@ -499,9 +555,16 @@ class AlbaApiController(http.Controller):
                 data, ["django_customer_id", "email", "first_name", "last_name"]
             )
             if missing:
-                return self._error_response(
-                    f"Missing required fields: {', '.join(missing)}", 400
+                http_status = 400
+                sync_status = "failure"
+                detail = f"Missing required fields: {', '.join(missing)}"
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.customer", django_customer_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Customer"
                 )
+                return response
 
             django_customer_id = self._safe_int(
                 str(data["django_customer_id"]).strip(), default=0
@@ -515,7 +578,16 @@ class AlbaApiController(http.Controller):
             # Validate email format
             email = (data.get("email") or "").strip()
             if not email or "@" not in email:
-                return self._error_response("Invalid email format.", 400)
+                http_status = 400
+                sync_status = "failure"
+                detail = "Invalid email format."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.customer", django_customer_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Customer"
+                )
+                return response
 
             # Handle idempotency
             idempotency_key = request.httprequest.headers.get("X-Idempotency-Key", "").strip()
@@ -638,38 +710,74 @@ class AlbaApiController(http.Controller):
                     customer_vals[odoo_field] = val
 
             # --- Persist -----------------------------------------------------
+            operation_status = "updated"
             if customer:
                 customer.write(customer_vals)
-                status = "updated"
                 http_status = 200
             else:
                 customer = Customer.create(customer_vals)
-                status = "created"
+                operation_status = "created"
                 http_status = 201
 
+            odoo_customer_id = customer.id
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            
             _logger.info(
                 "create_or_update_customer: django_id=%s odoo_id=%d status=%s",
                 django_customer_id,
                 customer.id,
-                status,
+                operation_status,
             )
 
-            return self._json_response(
-                {
-                    "odoo_customer_id": customer.id,
-                    "odoo_partner_id": partner.id,
-                    "status": status,
-                },
-                status=http_status,
+            # Log successful sync operation
+            response_data = {
+                "odoo_customer_id": customer.id,
+                "odoo_partner_id": partner.id,
+                "status": operation_status,
+            }
+            _log_inbound_sync(
+                api_key, "update" if customer else "create", "alba.customer", 
+                django_customer_id, customer.id, sync_status, "", 
+                data, response_data, http_status, remote_ip, user_agent, 
+                duration_ms, "Customer"
             )
+
+            return self._json_response(response_data, status=http_status)
 
         except odoo_exceptions.AccessDenied as exc:
-            return self._error_response(str(exc), 403)
+            http_status = 403
+            sync_status = "failure"
+            detail = str(exc)
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            _log_inbound_sync(
+                api_key, "create", "alba.customer", django_customer_id, 0,
+                sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                duration_ms, "Customer"
+            )
+            return self._error_response(detail, http_status)
         except odoo_exceptions.UserError as exc:
-            return self._error_response(str(exc), 400)
+            http_status = 400
+            sync_status = "failure"
+            detail = str(exc)
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            _log_inbound_sync(
+                api_key, "create", "alba.customer", django_customer_id, 0,
+                sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                duration_ms, "Customer"
+            )
+            return self._error_response(detail, http_status)
         except Exception as exc:
+            http_status = 500
+            sync_status = "failure"
+            detail = f"Unexpected error: {str(exc)}"
+            duration_ms = int((time.monotonic() - start_time) * 1000)
             _logger.exception("create_or_update_customer: unexpected error — %s", exc)
-            return self._error_response("Internal server error.", 500)
+            _log_inbound_sync(
+                api_key, "create", "alba.customer", django_customer_id, 0,
+                sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                duration_ms, "Customer"
+            )
+            return self._error_response("Internal server error.", http_status)
 
     # -------------------------------------------------------------------------
     # 4. Update KYC status
@@ -915,6 +1023,14 @@ class AlbaApiController(http.Controller):
                 "status": "created"
             }
         """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        odoo_application_id = 0
+        http_status = 200
+        sync_status = "success"
+        detail = ""
+        
         try:
             api_key = self._authenticate()
             data = self._parse_json_body()
@@ -931,27 +1047,59 @@ class AlbaApiController(http.Controller):
             if not data.get("odoo_loan_product_id") and not data.get("loan_product_code"):
                 missing.append("odoo_loan_product_id (or loan_product_code)")
             if missing:
-                return self._error_response(
-                    f"Missing required fields: {', '.join(missing)}", 400
+                http_status = 400
+                sync_status = "failure"
+                detail = f"Missing required fields: {', '.join(missing)}"
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", 
+                    self._safe_int(data.get("django_application_id", 0)), 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
                 )
+                return response
 
             django_app_id = self._safe_int(
                 str(data["django_application_id"]).strip(), default=0
             )
             if not django_app_id:
-                return self._error_response(
-                    "django_application_id must be a positive integer (Django LoanApplication PK).",
-                    400,
+                http_status = 400
+                sync_status = "failure"
+                detail = "django_application_id must be a positive integer (Django LoanApplication PK)."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
                 )
+                return response
 
             # Validate financial amounts
             requested_amount = self._safe_float(data["requested_amount"])
             if requested_amount <= 0:
-                return self._error_response("requested_amount must be greater than 0.", 400)
+                http_status = 400
+                sync_status = "failure"
+                detail = "requested_amount must be greater than 0."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
+                )
+                return response
 
             tenure_months = self._safe_int(data["tenure_months"], 1)
             if tenure_months <= 0 or tenure_months > 120:  # Max 10 years
-                return self._error_response("tenure_months must be between 1 and 120.", 400)
+                http_status = 400
+                sync_status = "failure"
+                detail = "tenure_months must be between 1 and 120."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
+                )
+                return response
 
             Application = request.env["alba.loan.application"].sudo()
 
@@ -966,15 +1114,19 @@ class AlbaApiController(http.Controller):
                     django_app_id,
                     existing.id,
                 )
-                return self._json_response(
-                    {
-                        "odoo_application_id": existing.id,
-                        "application_number": existing.application_number or "",
-                        "status": "exists",
-                        "existing_id": existing.id,
-                    },
-                    status=409,
+                duration_ms = int((time.monotonic() - start_time) * 1000)
+                response_data = {
+                    "odoo_application_id": existing.id,
+                    "application_number": existing.application_number or "",
+                    "status": "exists",
+                    "existing_id": existing.id,
+                }
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, existing.id,
+                    "skipped", "Duplicate application (idempotency)", data, response_data, 409,
+                    remote_ip, user_agent, duration_ms, "LoanApplication"
                 )
+                return self._json_response(response_data, status=409)
 
             # --- Resolve customer -------------------------------------------
             # Prefer direct Odoo ID lookup (sent by Django portal), fallback to
@@ -991,11 +1143,16 @@ class AlbaApiController(http.Controller):
                     limit=1,
                 )
             if not customer:
-                return self._error_response(
-                    "Customer not found. Ensure the customer is synced to Odoo first "
-                    "via POST /alba/api/v1/customers.",
-                    404,
+                http_status = 404
+                sync_status = "failure"
+                detail = "Customer not found. Ensure the customer is synced to Odoo first via POST /alba/api/v1/customers."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
                 )
+                return response
 
             # --- Resolve loan product -------------------------------------------
             # Prefer direct Odoo product ID, fallback to product code lookup.
@@ -1014,35 +1171,64 @@ class AlbaApiController(http.Controller):
                     limit=1,
                 )
             if not product:
-                return self._error_response(
-                    "Active loan product not found. Verify the product exists and is "
-                    "active in Odoo.",
-                    404,
+                http_status = 404
+                sync_status = "failure"
+                detail = "Active loan product not found. Verify the product exists and is active in Odoo."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
                 )
+                return response
 
             # Validate amount against product limits
             if requested_amount < product.min_amount:
-                return self._error_response(
-                    f"Requested amount {requested_amount} is below minimum {product.min_amount} for product {product.code}.",
-                    400,
+                http_status = 400
+                sync_status = "failure"
+                detail = f"Requested amount {requested_amount} is below minimum {product.min_amount} for product {product.code}."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
                 )
+                return response
             if requested_amount > product.max_amount:
-                return self._error_response(
-                    f"Requested amount {requested_amount} exceeds maximum {product.max_amount} for product {product.code}.",
-                    400,
+                http_status = 400
+                sync_status = "failure"
+                detail = f"Requested amount {requested_amount} exceeds maximum {product.max_amount} for product {product.code}."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
                 )
+                return response
 
             # Validate tenure against product limits
             if tenure_months < product.min_tenure_months:
-                return self._error_response(
-                    f"Tenure {tenure_months} months is below minimum {product.min_tenure_months} for product {product.code}.",
-                    400,
+                http_status = 400
+                sync_status = "failure"
+                detail = f"Tenure {tenure_months} months is below minimum {product.min_tenure_months} for product {product.code}."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
                 )
+                return response
             if tenure_months > product.max_tenure_months:
-                return self._error_response(
-                    f"Tenure {tenure_months} months exceeds maximum {product.max_tenure_months} for product {product.code}.",
-                    400,
+                http_status = 400
+                sync_status = "failure"
+                detail = f"Tenure {tenure_months} months exceeds maximum {product.max_tenure_months} for product {product.code}."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
                 )
+                return response
 
             # Determine repayment frequency — fallback to product default
             repayment_freq = (
@@ -1056,10 +1242,16 @@ class AlbaApiController(http.Controller):
             # Validate repayment frequency
             valid_frequencies = ["weekly", "fortnightly", "monthly"]
             if repayment_freq not in valid_frequencies:
-                return self._error_response(
-                    f"Invalid repayment frequency '{repayment_freq}'. Must be one of: {', '.join(valid_frequencies)}.",
-                    400,
+                http_status = 400
+                sync_status = "failure"
+                detail = f"Invalid repayment frequency '{repayment_freq}'. Must be one of: {', '.join(valid_frequencies)}."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.application", django_app_id, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication"
                 )
+                return response
 
             purpose = (data.get("purpose") or "").strip() or "General"
 
@@ -1104,6 +1296,8 @@ class AlbaApiController(http.Controller):
                     app_vals[odoo_field] = val
 
             application = Application.create(app_vals)
+            odoo_application_id = application.id
+            duration_ms = int((time.monotonic() - start_time) * 1000)
 
             _logger.info(
                 "create_application: created odoo_id=%d number=%s django_app_id=%s state=draft",
@@ -1112,22 +1306,54 @@ class AlbaApiController(http.Controller):
                 django_app_id,
             )
 
-            return self._json_response(
-                {
-                    "odoo_application_id": application.id,
-                    "application_number": application.application_number or "",
-                    "status": "created",
-                },
-                status=201,
+            # Log successful sync operation
+            response_data = {
+                "odoo_application_id": application.id,
+                "application_number": application.application_number or "",
+                "status": "created",
+            }
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.application", django_app_id, application.id,
+                sync_status, "", data, response_data, 201, remote_ip, user_agent,
+                duration_ms, "LoanApplication"
             )
 
+            return self._json_response(response_data, status=201)
+
         except odoo_exceptions.AccessDenied as exc:
-            return self._error_response(str(exc), 403)
+            http_status = 403
+            sync_status = "failure"
+            detail = str(exc)
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.application", django_app_id, 0,
+                sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                duration_ms, "LoanApplication"
+            )
+            return self._error_response(detail, http_status)
         except odoo_exceptions.UserError as exc:
-            return self._error_response(str(exc), 400)
+            http_status = 400
+            sync_status = "failure"
+            detail = str(exc)
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.application", django_app_id, 0,
+                sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                duration_ms, "LoanApplication"
+            )
+            return self._error_response(detail, http_status)
         except Exception as exc:
+            http_status = 500
+            sync_status = "failure"
+            detail = f"Unexpected error: {str(exc)}"
+            duration_ms = int((time.monotonic() - start_time) * 1000)
             _logger.exception("create_application: unexpected error — %s", exc)
-            return self._error_response("Internal server error.", 500)
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.application", django_app_id, 0,
+                sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                duration_ms, "LoanApplication"
+            )
+            return self._error_response("Internal server error.", http_status)
 
     # -------------------------------------------------------------------------
     # 6b. Sync document from Django portal to Odoo
@@ -1170,7 +1396,14 @@ class AlbaApiController(http.Controller):
             }
         """
         import base64 as _base64
-
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        odoo_document_id = 0
+        http_status = 200
+        sync_status = "success"
+        detail = ""
+        
         try:
             api_key = self._authenticate()
             data = self._parse_json_body()
@@ -1179,25 +1412,49 @@ class AlbaApiController(http.Controller):
                 data, ["name", "document_type", "file_content", "file_name"]
             )
             if missing:
-                return self._error_response(
-                    f"Missing required fields: {', '.join(missing)}", 400
+                http_status = 400
+                sync_status = "failure"
+                detail = f"Missing required fields: {', '.join(missing)}"
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.document", 0, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanDocument",
+                    event_type="document_sync"
                 )
+                return response
 
             application = (
                 request.env["alba.loan.application"].sudo().browse(application_id)
             )
             if not application.exists():
-                return self._error_response(
-                    f"Application with id={application_id} not found.", 404
+                http_status = 404
+                sync_status = "failure"
+                detail = f"Application with id={application_id} not found."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.document", 0, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanDocument",
+                    event_type="document_sync"
                 )
+                return response
 
             # Decode base64 file content
             try:
                 file_bytes = _base64.b64decode(data["file_content"])
             except Exception:
-                return self._error_response(
-                    "Invalid base64 encoding for file_content.", 400
+                http_status = 400
+                sync_status = "failure"
+                detail = "Invalid base64 encoding for file_content."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.document", 0, 0,
+                    sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanDocument",
+                    event_type="document_sync"
                 )
+                return response
 
             # Determine mimetype from filename
             file_name = (data["file_name"] or "document").strip()
@@ -1263,6 +1520,8 @@ class AlbaApiController(http.Controller):
                     }
                 )
             )
+            odoo_document_id = doc.id
+            duration_ms = int((time.monotonic() - start_time) * 1000)
 
             _logger.info(
                 "sync_document: created odoo_doc_id=%d app_id=%d type=%s",
@@ -1271,21 +1530,204 @@ class AlbaApiController(http.Controller):
                 odoo_dtype,
             )
 
-            return self._json_response(
-                {"odoo_document_id": doc.id, "status": "created"}, status=201
+            # Log successful sync operation
+            response_data = {"odoo_document_id": doc.id, "status": "created"}
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.document", 0, doc.id,
+                sync_status, "", data, response_data, 201, remote_ip, user_agent,
+                duration_ms, "LoanDocument", event_type="document_sync"
             )
 
+            return self._json_response(response_data, status=201)
+
         except odoo_exceptions.AccessDenied as exc:
-            return self._error_response(str(exc), 403)
+            http_status = 403
+            sync_status = "failure"
+            detail = str(exc)
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.document", 0, 0,
+                sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                duration_ms, "LoanDocument", event_type="document_sync"
+            )
+            return self._error_response(detail, http_status)
         except odoo_exceptions.UserError as exc:
-            return self._error_response(str(exc), 400)
+            http_status = 400
+            sync_status = "failure"
+            detail = str(exc)
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.document", 0, 0,
+                sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                duration_ms, "LoanDocument", event_type="document_sync"
+            )
+            return self._error_response(detail, http_status)
         except Exception as exc:
+            http_status = 500
+            sync_status = "failure"
+            detail = f"Unexpected error: {str(exc)}"
+            duration_ms = int((time.monotonic() - start_time) * 1000)
             _logger.exception(
                 "sync_document: unexpected error for app_id=%d — %s",
                 application_id,
                 exc,
             )
-            return self._error_response("Internal server error.", 500)
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.document", 0, 0,
+                sync_status, detail, data, None, http_status, remote_ip, user_agent,
+                duration_ms, "LoanDocument", event_type="document_sync"
+            )
+            return self._error_response("Internal server error.", http_status)
+
+    # -------------------------------------------------------------------------
+    # 6c. Submit loan application (trigger workflow transition)
+    # -------------------------------------------------------------------------
+
+    @http.route(
+        "/alba/api/v1/applications/<int:application_id>/submit",
+        type="http",
+        auth="public",
+        methods=["POST"],
+        csrf=False,
+    )
+    def submit_application(self, application_id, **kwargs):
+        """
+        Submit a loan application to trigger the workflow transition from draft to submitted.
+        
+        This endpoint calls the action_submit() method on the alba.loan.application model,
+        which advances the application through the Odoo loan workflow and triggers
+        automated processes like KYC verification, credit scoring, and auto-decisioning.
+
+        Authentication
+        --------------
+        Requires ``X-Alba-API-Key`` header.
+
+        URL parameter
+        -------------
+        ``application_id`` — Odoo database ID of the ``alba.loan.application``.
+
+        Response 200
+        ------------
+        .. code-block:: json
+
+            {
+                "status": "submitted",
+                "previous_state": "draft",
+                "new_state": "submitted",
+                "application_number": "APP-20240115-0001"
+            }
+        """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        http_status = 200
+        sync_status = "success"
+        detail = ""
+        
+        try:
+            api_key = self._authenticate()
+            
+            Application = request.env["alba.loan.application"].sudo()
+            application = Application.browse(application_id)
+            
+            if not application.exists():
+                http_status = 404
+                sync_status = "failure"
+                detail = f"Application with id={application_id} not found."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "status_change", "alba.loan.application", 
+                    application.django_application_id, application_id,
+                    sync_status, detail, None, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                    event_type="application.submit"
+                )
+                return response
+            
+            previous_state = application.state
+            
+            # Check if application can be submitted
+            if application.state != "draft":
+                http_status = 400
+                sync_status = "failure"
+                detail = f"Application is in '{application.state}' state and cannot be submitted. Only draft applications can be submitted."
+                response = self._error_response(detail, http_status)
+                _log_inbound_sync(
+                    api_key, "status_change", "alba.loan.application", 
+                    application.django_application_id, application_id,
+                    sync_status, detail, None, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                    event_type="application.submit"
+                )
+                return response
+            
+            # Call the action_submit method to trigger workflow
+            application.action_submit()
+            
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            
+            _logger.info(
+                "submit_application: submitted app_id=%d number=%s from %s to %s",
+                application.id,
+                application.application_number,
+                previous_state,
+                application.state,
+            )
+            
+            # Log successful operation
+            response_data = {
+                "status": "submitted",
+                "previous_state": previous_state,
+                "new_state": application.state,
+                "application_number": application.application_number or "",
+            }
+            _log_inbound_sync(
+                api_key, "status_change", "alba.loan.application", 
+                application.django_application_id, application.id,
+                sync_status, "", None, response_data, http_status, remote_ip, user_agent,
+                duration_ms, "LoanApplication", event_type="application.submit"
+            )
+            
+            return self._json_response(response_data, status=http_status)
+            
+        except odoo_exceptions.AccessDenied as exc:
+            http_status = 403
+            sync_status = "failure"
+            detail = str(exc)
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            _log_inbound_sync(
+                api_key, "status_change", "alba.loan.application", 0, application_id,
+                sync_status, detail, None, None, http_status, remote_ip, user_agent,
+                duration_ms, "LoanApplication", event_type="application.submit"
+            )
+            return self._error_response(detail, http_status)
+        except odoo_exceptions.UserError as exc:
+            http_status = 400
+            sync_status = "failure"
+            detail = str(exc)
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            _log_inbound_sync(
+                api_key, "status_change", "alba.loan.application", 0, application_id,
+                sync_status, detail, None, None, http_status, remote_ip, user_agent,
+                duration_ms, "LoanApplication", event_type="application.submit"
+            )
+            return self._error_response(detail, http_status)
+        except Exception as exc:
+            http_status = 500
+            sync_status = "failure"
+            detail = f"Unexpected error: {str(exc)}"
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            _logger.exception(
+                "submit_application: unexpected error for id=%d — %s",
+                application_id,
+                exc,
+            )
+            _log_inbound_sync(
+                api_key, "status_change", "alba.loan.application", 0, application_id,
+                sync_status, detail, None, None, http_status, remote_ip, user_agent,
+                duration_ms, "LoanApplication", event_type="application.submit"
+            )
+            return self._error_response("Internal server error.", http_status)
 
     # -------------------------------------------------------------------------
     # 6. Update application status

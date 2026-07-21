@@ -540,14 +540,33 @@ def submit_application(request, pk):
         application.odoo_sync_status = LoanApplication.ODOO_SYNC_SUCCESS
         application.odoo_sync_error = ""
         application.save()
-        
+
         logger.info(
             "Application synced to Odoo successfully: django_id=%s odoo_id=%s app_number=%s",
             application.pk,
             application.odoo_application_id,
             application.application_number
         )
-        
+
+        # Trigger Odoo workflow transition: draft → submitted.
+        # This is a non-fatal step — if the network fails here the application
+        # has already been created in Odoo and can be submitted manually.
+        try:
+            submit_result = odoo_service.submit_loan_application(application.odoo_application_id)
+            logger.info(
+                "Application submitted to Odoo workflow: django_id=%s odoo_id=%s new_state=%s",
+                application.pk,
+                application.odoo_application_id,
+                submit_result.get("new_state", "unknown"),
+            )
+        except Exception as submit_exc:
+            logger.warning(
+                "Odoo workflow submit failed (non-fatal): django_id=%s odoo_id=%s error=%s",
+                application.pk,
+                application.odoo_application_id,
+                submit_exc,
+            )
+
         sync_success = True
         messages.success(request, "Application submitted and synced to Odoo successfully.")
 
@@ -703,6 +722,23 @@ def retry_application_sync(request, pk):
         application.odoo_sync_status = LoanApplication.ODOO_SYNC_SUCCESS
         application.odoo_sync_error = ""
         application.save(update_fields=["odoo_application_id", "odoo_sync_status", "odoo_sync_error"])
+
+        # Trigger Odoo workflow transition: draft → submitted (non-fatal).
+        try:
+            submit_result = odoo_service.submit_loan_application(application.odoo_application_id)
+            logger.info(
+                "Application submitted to Odoo workflow on retry: django_id=%s odoo_id=%s new_state=%s",
+                application.pk,
+                application.odoo_application_id,
+                submit_result.get("new_state", "unknown"),
+            )
+        except Exception as submit_exc:
+            logger.warning(
+                "Odoo workflow submit failed during retry (non-fatal): django_id=%s odoo_id=%s error=%s",
+                application.pk,
+                application.odoo_application_id,
+                submit_exc,
+            )
 
         # Also sync documents
         pre_uploaded_docs = application.documents.exclude(odoo_sync_status=LoanDocument.ODOO_SYNC_SUCCESS)
