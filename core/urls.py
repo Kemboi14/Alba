@@ -84,6 +84,4 @@ urlpatterns = [
     path("admin-panel/settings/", system_settings, name="admin_settings"),
     path("admin-panel/api/status/", api_status, name="admin_api_status"),
     path("admin-panel/api/test-odoo/", test_odoo_connection, name="admin_test_odoo"),
-    # ── Odoo Webhook Receiver ────────────────────────────────────────────────
-    path("api/v1/webhooks/odoo/", views.odoo_webhook, name="odoo_webhook"),
 ]

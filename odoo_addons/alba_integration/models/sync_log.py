@@ -40,6 +40,7 @@ import json
 import logging
 
 from odoo import _, api, fields, models
+from odoo import exceptions as odoo_exceptions
 
 _logger = logging.getLogger(__name__)
 
