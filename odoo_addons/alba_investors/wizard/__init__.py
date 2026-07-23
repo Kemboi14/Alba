@@ -5,4 +5,4 @@ from . import investment_withdraw_wizard
 from . import accrual_reverse_wizard
 from . import interest_payout_wizard
 from . import investment_topup_wizard
-
+from . import maturity_wizard

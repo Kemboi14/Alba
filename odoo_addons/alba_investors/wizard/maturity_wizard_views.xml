@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_alba_investment_maturity_wizard_form" model="ir.ui.view">
+        <field name="name">alba.investment.maturity.wizard.form</field>
+        <field name="model">alba.investment.maturity.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Maturity Processing">
+                <sheet>
+
+                    <!-- ── Hidden ──────────────────────────────────────────── -->
+                    <field name="investment_id" invisible="1"/>
+                    <field name="currency_id" invisible="1"/>
+
+                    <!-- ── Header banner ───────────────────────────────────── -->
+                    <div class="alert alert-success d-flex align-items-start gap-3 mb-3"
+                         role="alert"
+                         style="border-left: 4px solid #198754; border-radius: 6px; padding: 14px 18px;">
+                        <i class="fa fa-check-circle fa-2x text-success me-3"/>
+                        <div class="flex-grow-1">
+                            <strong class="d-block" style="font-size: 1.1em;">
+                                🔔 Investment Has Matured
+                            </strong>
+                            <span class="text-muted small">
+                                Select how to process this matured investment.
+                                You may pay out, roll over, partially roll over,
+                                or hold pending investor instructions.
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- ── Maturity Summary ─────────────────────────────────── -->
+                    <group string="Maturity Summary">
+                        <group>
+                            <field name="principal_amount" widget="monetary" readonly="1"/>
+                            <field name="total_topup_amount" widget="monetary" readonly="1"
+                                   invisible="not total_topup_amount"/>
+                            <field name="total_interest_outstanding" widget="monetary" readonly="1"/>
+                            <field name="wht_rate" readonly="1"/>
+                            <field name="wht_amount" widget="monetary" readonly="1"
+                                   class="text-danger"/>
+                            <field name="net_interest_payable" widget="monetary" readonly="1"
+                                   class="text-success"/>
+                        </group>
+                        <group>
+                            <field name="total_value" widget="monetary" readonly="1"
+                                   class="h4 fw-bold text-primary"
+                                   string="Total Maturity Value"/>
+                            <field name="investor_id" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <separator/>
+
+                    <!-- ── Action Selection ────────────────────────────────── -->
+                    <group string="Choose Maturity Action">
+                        <field name="maturity_action" widget="radio" nolabel="1"/>
+                    </group>
+
+                    <!-- ── Payout fields (payout only) ─────────────────────── -->
+                    <group string="Payout Details"
+                           invisible="maturity_action not in ('payout',)">
+                        <field name="payout_journal_id" options="{'no_create': True}"
+                               required="maturity_action == 'payout'"/>
+                        <field name="payout_date"
+                               required="maturity_action == 'payout'"/>
+                    </group>
+
+                    <!-- ── Rollover fields (rollover_full) ─────────────────── -->
+                    <group string="Rollover Details"
+                           invisible="maturity_action != 'rollover_full'">
+                        <field name="new_interest_rate"
+                               required="maturity_action == 'rollover_full'"/>
+                        <field name="new_maturity_date"
+                               required="maturity_action == 'rollover_full'"/>
+                        <field name="payout_date" string="Rollover Start Date"
+                               required="maturity_action == 'rollover_full'"/>
+                    </group>
+
+                    <!-- ── Partial rollover fields ──────────────────────────── -->
+                    <group string="Partial Rollover Details"
+                           invisible="maturity_action != 'rollover_partial'">
+                        <field name="rollover_amount" widget="monetary"
+                               required="maturity_action == 'rollover_partial'"/>
+                        <field name="payout_amount" widget="monetary" readonly="1"
+                               string="Cash Payout Amount"
+                               class="text-success"/>
+                        <field name="new_interest_rate"
+                               required="maturity_action == 'rollover_partial'"/>
+                        <field name="new_maturity_date"
+                               required="maturity_action == 'rollover_partial'"/>
+                        <field name="payout_journal_id" options="{'no_create': True}"
+                               required="maturity_action == 'rollover_partial'"/>
+                        <field name="payout_date"
+                               required="maturity_action == 'rollover_partial'"/>
+                    </group>
+
+                    <!-- ── Hold notice ──────────────────────────────────────── -->
+                    <div class="alert alert-warning mb-0"
+                         invisible="maturity_action != 'hold'"
+                         style="border-radius: 6px;">
+                        <i class="fa fa-pause-circle me-2"/>
+                        <strong>Hold Selected:</strong> The investment will remain in
+                        <em>Matured</em> state. Return here when the investor has provided
+                        instructions to complete processing.
+                    </div>
+
+                    <footer>
+                        <button name="action_confirm"
+                                string="Confirm"
+                                type="object"
+                                class="btn-primary"/>
+                        <button string="Cancel"
+                                class="btn-secondary"
+                                special="cancel"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

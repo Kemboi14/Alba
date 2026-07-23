@@ -35,4 +35,5 @@ access_alba_investment_topup_user,alba.investment.topup user,model_alba_investme
 access_alba_investment_topup_officer,alba.investment.topup officer,model_alba_investment_topup,alba_investors.group_investor_officer,1,1,1,0
 access_alba_investment_topup_manager,alba.investment.topup manager,model_alba_investment_topup,alba_investors.group_investor_manager,1,1,1,1
 access_alba_investment_topup_wizard_manager,alba.investment.topup.wizard manager,model_alba_investment_topup_wizard,alba_investors.group_investor_manager,1,1,1,1
+access_alba_investment_maturity_wizard_manager,alba.investment.maturity.wizard manager,model_alba_investment_maturity_wizard,alba_investors.group_investor_manager,1,1,1,1
 

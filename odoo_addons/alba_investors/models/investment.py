@@ -734,10 +734,37 @@ class AlbaInvestment(models.Model):
 
 
     def action_mature(self):
-        """Mark the investment as matured."""
+        """Mark the investment as matured and open the maturity processing wizard (Rule 5)."""
         self.ensure_one()
+        if self.state != "active":
+            raise UserError(_("Only active investments can be matured."))
+        today = fields.Date.today()
+        if (
+            self.investment_type == "fixed_term"
+            and self.maturity_date
+            and self.maturity_date > today
+        ):
+            raise UserError(_(
+                "This fixed-term investment matures on %s. "
+                "It cannot be marked as matured before its maturity date."
+            ) % self.maturity_date)
+
+        # Mark the investment as matured first so the wizard operates on a
+        # matured record (required by maturity action validation).
         self.write({"state": "matured"})
-        self.message_post(body=_("Investment marked as <b>Matured</b>."))
+        self.message_post(body=_("Investment reached <b>Maturity</b>. Select processing option."))
+
+        # Open the 4-option maturity processing wizard
+        return {
+            "name": _("Maturity Processing — %s") % self.investment_number,
+            "type": "ir.actions.act_window",
+            "res_model": "alba.investment.maturity.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_investment_id": self.id,
+            },
+        }
 
     def action_view_accruals(self):
         self.ensure_one()
@@ -1277,11 +1304,12 @@ class AlbaInvestment(models.Model):
                 continue
 
             target_day = product.auto_accrual_day or 28
+            cutoff_day = product.after_cutoff_day if product.after_cutoff_day else 15
             start_date = inv.start_date or as_of_date
 
             _logger.info(
-                "Backfill: processing %s (start=%s)",
-                inv.investment_number, inv.start_date,
+                "Backfill: processing %s (start=%s, cutoff_day=%d)",
+                inv.investment_number, inv.start_date, cutoff_day,
             )
 
             try:
@@ -1293,6 +1321,8 @@ class AlbaInvestment(models.Model):
                 for accrual_date, period_start, period_end in iter_missing_accrual_periods(
                     start_date, as_of_date, target_day,
                     investment_start=inv.start_date,
+                    cutoff_day=cutoff_day,
+                    env=self.env,
                 ):
                     existing = self.env["alba.interest.accrual"].search(
                         [

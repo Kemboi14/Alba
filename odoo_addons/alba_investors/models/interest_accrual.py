@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from datetime import date
+from datetime import date, timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
@@ -218,7 +218,16 @@ class AlbaInterestAccrual(models.Model):
         # 29th-to-28th rule: period_end = 28th of current month,
         # period_start = 29th of previous month (handles leap years via timedelta)
         self.period_end = date(today.year, today.month, 28)
-        self.period_start = _period_start_from_accrual_date(self.period_end)
+        natural_start = _period_start_from_accrual_date(self.period_end)
+        # Rule 1 — Day 0: interest starts the day AFTER the investment receipt date.
+        # Rule 3 — After-15th: if received after the 15th, no interest this month
+        #   (period_start would already be past period_end for the first cycle,
+        #    so the manual onchange preview just shows the natural start).
+        if inv.start_date and inv.start_date >= natural_start:
+            interest_start = inv.start_date + timedelta(days=1)
+            self.period_start = max(natural_start, interest_start)
+        else:
+            self.period_start = natural_start
 
         # Opening balance = closing balance of last posted accrual, or principal if none
         last_accrual = self.env['alba.interest.accrual'].search([

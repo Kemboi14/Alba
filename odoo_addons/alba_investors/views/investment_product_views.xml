@@ -67,6 +67,8 @@
                             <field name="compounding_frequency"/>
                             <field name="auto_accrual_day"/>
                             <field name="early_withdrawal_notice_days"/>
+                            <field name="after_cutoff_day"
+                                   help="Investments received AFTER this day do not earn interest until the following month (Rule 3)."/>
                         </group>
                         <group string="Company &amp; Default">
                             <field name="company_id" groups="base.group_multi_company"/>

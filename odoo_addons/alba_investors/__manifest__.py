@@ -50,6 +50,7 @@ Manages the full investor lifecycle:
         "wizard/accrual_reverse_wizard_views.xml",
         "wizard/interest_payout_wizard_views.xml",
         "wizard/investment_topup_wizard_views.xml",
+        "wizard/maturity_wizard_views.xml",
         # Views
         "views/investor_views.xml",
         "views/investment_statement_views.xml",

@@ -86,6 +86,15 @@ class AlbaInvestmentProduct(models.Model):
         required=True,
         help="Minimum notice period before paying out a fixed-term investment before maturity.",
     )
+    after_cutoff_day = fields.Integer(
+        string="After-Cutoff Day (Interest Rule)",
+        default=15,
+        required=True,
+        tracking=True,
+        help="Investments received AFTER this day of the month do not earn interest "
+             "in the month they were received.  Their first interest cycle begins the "
+             "following month.  Default: 15 (Rule 3).",
+    )
 
     account_interest_expense_id = fields.Many2one(
         "account.account",
@@ -149,6 +158,10 @@ class AlbaInvestmentProduct(models.Model):
     _notice_days_non_negative = models.Constraint(
         "CHECK(early_withdrawal_notice_days >= 0)",
         "Early withdrawal notice days cannot be negative.",
+    )
+    _cutoff_day_range = models.Constraint(
+        "CHECK(after_cutoff_day >= 1 AND after_cutoff_day <= 28)",
+        "After-Cutoff Day must be between 1 and 28.",
     )
 
     @api.constrains("interest_rate")
