@@ -72,6 +72,7 @@ class AlbaInvestmentMaturityWizard(models.TransientModel):
         string="Total Maturity Value",
         currency_field="currency_id",
         compute="_compute_totals",
+        store=False,
         help="Principal + top-ups + net interest after WHT.",
     )
 
@@ -107,6 +108,7 @@ class AlbaInvestmentMaturityWizard(models.TransientModel):
         string="Amount to Pay Out",
         currency_field="currency_id",
         compute="_compute_totals",
+        store=False,
         help="For Partial Roll Over: total value minus the rollover amount.",
     )
 

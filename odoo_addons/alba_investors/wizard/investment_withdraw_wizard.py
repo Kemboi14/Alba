@@ -34,6 +34,7 @@ class InvestmentWithdrawWizard(models.TransientModel):
     is_premature = fields.Boolean(
         string="Premature Withdrawal",
         compute="_compute_premature",
+        store=False,
         help="True when the investment is being withdrawn before its maturity date.",
     )
 
@@ -59,6 +60,7 @@ class InvestmentWithdrawWizard(models.TransientModel):
         string="Forfeited Interest (Current Month)",
         currency_field="currency_id",
         compute="_compute_premature",
+        store=False,
         help="Gross interest for the current billing cycle that the investor forfeits "
              "on premature withdrawal (Rule 4a).",
     )
@@ -66,22 +68,26 @@ class InvestmentWithdrawWizard(models.TransientModel):
         string="Eligible Gross Interest (Prior Months)",
         currency_field="currency_id",
         compute="_compute_premature",
+        store=False,
         help="Total gross interest from completed prior months only.",
     )
     wht_amount = fields.Monetary(
         string="Withholding Tax (WHT)",
         currency_field="currency_id",
         compute="_compute_premature",
+        store=False,
     )
     net_interest_payable = fields.Monetary(
         string="Net Interest Payable",
         currency_field="currency_id",
         compute="_compute_premature",
+        store=False,
     )
     amount = fields.Monetary(
         string="Net Payout Amount",
         currency_field="currency_id",
         compute="_compute_premature",
+        store=False,
         help="Principal + top-ups + net eligible interest (WHT deducted).",
     )
 
