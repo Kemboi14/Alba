@@ -79,22 +79,20 @@ def accrual_run_date(year, month, target_day, env=None):
 def get_first_eligible_accrual_start(investment_start, cutoff_day=15):
     """
     Return the earliest eligible period_start for an investment under Rule 3.
-    If investment_start.day > cutoff_day (default 15), the investment earns
-    no interest during its initial receipt month cycle. First interest starts on
-    the 29th of the month FOLLOWING the investment receipt month.
+    If investment_start.day <= cutoff_day:
+        returns investment_start + timedelta(days=1)
+    If investment_start.day > cutoff_day (default 15):
+        The investment earns no interest during its initial receipt month cycle.
+        First interest payment commences in the following month's payment cycle
+        (starting on the 29th of the receipt month).
     """
     if not investment_start:
         return None
     if investment_start.day <= cutoff_day:
         return investment_start + timedelta(days=1)
 
-    next_month = investment_start.month + 1
-    next_year = investment_start.year
-    if next_month > 12:
-        next_month = 1
-        next_year += 1
-
-    return date(next_year, next_month, 28) + timedelta(days=1)
+    receipt_month_end = date(investment_start.year, investment_start.month, 28)
+    return receipt_month_end + timedelta(days=1)
 
 
 def iter_missing_accrual_periods(start_date, as_of_date, target_day,
