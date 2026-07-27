@@ -24,6 +24,11 @@
                     <button name="action_open_defer_wizard" string="Defer" type="object" class="btn-secondary" invisible="not can_defer" groups="alba_loans.group_loan_officer"/>
                     <button name="action_open_decline_wizard" string="Decline" type="object" class="btn-danger" invisible="not can_decline" groups="alba_loans.group_loan_officer"/>
                     <button name="action_cancel" string="Cancel" type="object" class="btn-secondary" invisible="not can_cancel"/>
+                    <!-- Recovery: only shown to Directors/Admins when loan exists but state is stuck -->
+                    <button name="action_reconcile_disbursement" string="⚠️ Reconcile Disbursement" type="object"
+                            class="btn-warning" invisible="not can_reconcile_disbursement"
+                            groups="alba_loans.group_director"
+                            confirm="This will force the application status to 'Disbursed'. Only use this if a loan record already exists but the application was not updated due to a system error. Continue?"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,submitted,under_review,credit_analysis,pending_approval,approved,deferred,disbursed,declined"/>
                 </header>
 

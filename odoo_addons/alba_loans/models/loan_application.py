@@ -433,6 +433,8 @@ class AlbaLoanApplication(models.Model):
     can_decline = fields.Boolean(compute="_compute_button_visibility")
     can_reject = fields.Boolean(compute="_compute_button_visibility")
     can_cancel = fields.Boolean(compute="_compute_button_visibility")
+    # Recovery: visible when a loan record exists but application state is not yet 'disbursed'
+    can_reconcile_disbursement = fields.Boolean(compute="_compute_button_visibility")
 
     # =========================================================================
     # Valid state transitions
@@ -617,6 +619,12 @@ class AlbaLoanApplication(models.Model):
                 "guarantor_confirmation",
             )
             rec.can_cancel = rec.state in ("draft", "submitted")
+            # Show reconcile button when a linked loan exists but state is not yet 'disbursed'
+            rec.can_reconcile_disbursement = (
+                bool(rec.loan_id)
+                and rec.state != "disbursed"
+                and rec._has_admin_override()
+            )
 
     # =========================================================================
     # Workflow action methods
@@ -1038,6 +1046,59 @@ class AlbaLoanApplication(models.Model):
                     "state": "cancelled",
                     "cancelled_date": fields.Datetime.now(),
                 }
+            )
+        return True
+
+    def action_reconcile_disbursement(self):
+        """
+        Recovery action for applications stuck at 'approved' (85%) when an
+        alba.loan record already exists.
+
+        This happens when the disbursement wizard created the loan record but
+        crashed before writing state='disbursed' on the application (e.g. a
+        missing accounting account raises a UserError mid-transaction, or the
+        credit-life PO step fails).
+
+        Only directors and system administrators can trigger this action.
+        """
+        for rec in self:
+            if not rec._has_admin_override():
+                raise UserError(_(
+                    "Only Directors or System Administrators can reconcile a "
+                    "disbursement. Please contact your administrator."
+                ))
+            if not rec.loan_id:
+                raise UserError(_(
+                    "No linked loan found on application %s. "
+                    "Please complete the full disbursement wizard instead."
+                ) % rec.application_number)
+            if rec.state == "disbursed":
+                raise UserError(_(
+                    "Application %s is already marked as disbursed."
+                ) % rec.application_number)
+
+            loan = rec.loan_id
+            rec.write({
+                "state": "disbursed",
+                "approved_amount": loan.principal_amount,
+                "disbursed_date": loan.disbursement_date or fields.Datetime.now(),
+                "disbursed_by": rec.disbursed_by.id or self.env.uid,
+                "loan_id": loan.id,
+            })
+            rec.message_post(body=Markup(_(
+                "<b>🔧 Disbursement Reconciled</b><br/>"
+                "Application state corrected to <b>Disbursed</b> by %(user)s.<br/>"
+                "Linked loan: <b>%(loan)s</b>. "
+                "Use this action only when the loan was already disbursed but "
+                "the application state was not updated due to a system error."
+            )) % {
+                "user": self.env.user.name,
+                "loan": loan.loan_number,
+            })
+            _logger.warning(
+                "Disbursement reconciled on application %s by user %s (uid=%s). "
+                "Linked loan: %s.",
+                rec.application_number, self.env.user.name, self.env.uid, loan.loan_number,
             )
         return True
 
