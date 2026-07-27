@@ -567,7 +567,7 @@ class AlbaLoanApplication(models.Model):
             ])
             rec.all_partner_document_ids = documents
 
-    @api.depends("state", "loan_product_id",
+    @api.depends("state", "loan_product_id", "loan_id",
                  "loan_product_id.requires_employer",
                  "loan_product_id.requires_guarantor")
     def _compute_button_visibility(self):
