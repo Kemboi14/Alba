@@ -14,16 +14,21 @@ class ReportInvestorStatement(models.AbstractModel):
 
     @api.model
     def _get_report_values(self, docids, data=None):
-        investors = self.env["alba.investor"].browse(docids)
         data = data or {}
+        if not docids:
+            docids = data.get("ids") or self.env.context.get("active_ids") or []
+            if not docids and self.env.context.get("active_id"):
+                docids = [self.env.context.get("active_id")]
+        investors = self.env["alba.investor"].browse(docids)
         today = date.today()
         date_from = data.get("date_from") or self.env.context.get("date_from") or date(today.year, 1, 1)
         date_to = data.get("date_to") or self.env.context.get("date_to") or today
+        investment_ids = data.get("investment_ids") or self.env.context.get("investment_ids")
 
         payloads = []
         for investor in investors:
             payload = self._report_payload_from_investor(
-                investor, date_from, date_to
+                investor, date_from, date_to, investment_ids=investment_ids
             )
             payloads.append(payload)
 

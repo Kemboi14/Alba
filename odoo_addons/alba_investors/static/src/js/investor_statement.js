@@ -66,8 +66,11 @@ export class InvestorStatementComponent extends Component {
         return this.action.doAction("alba_investors.action_investor_statement_report", {
             resIds: [this.state.investorId],
             additionalContext: {
+                active_id: this.state.investorId,
+                active_ids: [this.state.investorId],
                 date_from: this.state.dateFrom,
                 date_to: this.state.dateTo,
+                investment_ids: this.state.investmentIds || [],
             },
         });
     }
