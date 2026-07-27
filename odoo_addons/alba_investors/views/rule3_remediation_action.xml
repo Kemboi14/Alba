@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="action_server_remediate_rule3_violations" model="ir.actions.server">
+            <field name="name">Remediate Rule 3 (After-15th Cutoff) Violations</field>
+            <field name="model_id" ref="alba_investors.model_alba_investment"/>
+            <field name="binding_model_id" ref="alba_investors.model_alba_investment"/>
+            <field name="binding_view_types">list,form</field>
+            <field name="state">code</field>
+            <field name="code">action = records.action_remediate_rule3_violations()</field>
+        </record>
+    </data>
+</odoo>

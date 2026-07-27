@@ -4,7 +4,11 @@ from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
-from .accrual_backfill import iter_missing_accrual_periods, _period_start_from_accrual_date
+from .accrual_backfill import (
+    iter_missing_accrual_periods,
+    _period_start_from_accrual_date,
+    get_first_eligible_accrual_start,
+)
 
 
 class AlbaInvestment(models.Model):
@@ -674,6 +678,23 @@ class AlbaInvestment(models.Model):
             # period_start = 29th of previous month (timedelta handles leap years)
             period_end = _date(year, month, 28)
             period_start = _period_start_from_accrual_date(period_end)
+
+        # ── Rule 3: After-15th Cutoff pre-check safeguard ──────────────────────
+        if self.start_date:
+            cutoff_day = (
+                self.investment_product_id.after_cutoff_day
+                if self.investment_product_id and self.investment_product_id.after_cutoff_day
+                else 15
+            )
+            if self.start_date.day > cutoff_day:
+                first_eligible_start = get_first_eligible_accrual_start(self.start_date, cutoff_day=cutoff_day)
+                if first_eligible_start and period_start < first_eligible_start:
+                    import logging
+                    logging.getLogger(__name__).info(
+                        "Skipping interest accrual for %s: period_start %s is before Rule 3 cutoff first eligible start %s",
+                        self.investment_number, period_start, first_eligible_start,
+                    )
+                    return False
 
         existing = self.env["alba.interest.accrual"].search(
             [
@@ -1390,6 +1411,131 @@ class AlbaInvestment(models.Model):
                 % (len(errors), "\n".join("• %s" % e for e in errors))
             )
         return True
+
+    @api.model
+    def action_remediate_rule3_violations(self):
+        """
+        Server Action / Remediation Utility for Business Rule 3 (After-15th Cutoff).
+
+        Finds active/matured investments where start_date.day > cutoff_day (default 15).
+        Inspects posted accruals to detect any invalid accrual created for the initial
+        receipt month cycle (period_start < first_eligible_accrual_start).
+
+        Remediation steps for affected investments:
+        1. Reverse the invalid initial accruals and unpost/reverse their journal entries.
+        2. Recalculate opening balances and interest for subsequent posted accruals
+           so compounding balances are 100% mathematically accurate.
+        """
+        import logging
+        _logger = logging.getLogger(__name__)
+
+        target_investments = self if self else self.search([("state", "in", ["active", "matured"])])
+        remediated_count = 0
+        result_logs = []
+
+        for inv in target_investments:
+            if not inv.start_date:
+                continue
+
+            cutoff_day = (
+                inv.investment_product_id.after_cutoff_day
+                if inv.investment_product_id and inv.investment_product_id.after_cutoff_day
+                else 15
+            )
+            if inv.start_date.day <= cutoff_day:
+                continue
+
+            first_eligible_start = get_first_eligible_accrual_start(inv.start_date, cutoff_day=cutoff_day)
+            if not first_eligible_start:
+                continue
+
+            # Identify invalid posted accruals prior to first_eligible_start
+            invalid_accruals = inv.accrual_ids.filtered(
+                lambda a, fes=first_eligible_start: a.state == "posted" and a.period_start < fes
+            ).sorted(key=lambda a: a.period_start)
+
+            if not invalid_accruals:
+                continue
+
+            remediated_count += 1
+            inv_log = ["Remediating Rule 3 violations for %s (start_date=%s):" % (inv.investment_number, inv.start_date)]
+
+            # 1. Reverse invalid accruals
+            for accrual in invalid_accruals:
+                reason = "Remediation: Rule 3 (After-15th Cutoff) violation — start_date %s" % inv.start_date
+                accrual.write({"reversal_reason": reason})
+                try:
+                    accrual.action_reverse()
+                    inv_log.append("  → Reversed invalid accrual %s (period %s to %s, interest %.2f)" % (
+                        accrual.display_name, accrual.period_start, accrual.period_end, accrual.interest_amount
+                    ))
+                except Exception as e:
+                    if accrual.move_id and accrual.move_id.state == "posted":
+                        accrual.move_id.button_cancel()
+                    accrual.write({"state": "reversed"})
+                    inv_log.append("  → Unposted move & reversed %s (%s)" % (accrual.display_name, e))
+
+            # 2. Recalculate subsequent posted accruals sequentially
+            subsequent_accruals = inv.accrual_ids.filtered(
+                lambda a, fes=first_eligible_start: a.state == "posted" and a.period_start >= fes
+            ).sorted(key=lambda a: a.period_start)
+
+            for acc in subsequent_accruals:
+                topups = self.env["alba.investment.topup"].search([
+                    ("investment_id", "=", inv.id),
+                    ("state", "=", "posted"),
+                    ("date", "<=", acc.period_start),
+                ])
+                base = inv.principal_amount + sum(topups.mapped("amount"))
+
+                prior_posted = inv.accrual_ids.filtered(
+                    lambda a, ps=acc.period_start, fes=first_eligible_start: (
+                        a.state == "posted" and fes <= a.period_start < ps
+                    )
+                )
+                expected_opening = base + sum(prior_posted.mapped("interest_amount"))
+                monthly_rate = inv.interest_rate / 100.0 / 12.0
+
+                total_days = 30
+                actual_days = (acc.period_end - acc.period_start).days + 1
+                if actual_days < total_days:
+                    expected_interest = round(expected_opening * monthly_rate * actual_days / total_days, 2)
+                else:
+                    expected_interest = round(expected_opening * monthly_rate, 2)
+
+                if round(acc.opening_balance, 2) != round(expected_opening, 2) or round(acc.interest_amount, 2) != round(expected_interest, 2):
+                    inv_log.append("  → Recalculated %s: opening %.2f -> %.2f, interest %.2f -> %.2f" % (
+                        acc.display_name, acc.opening_balance, expected_opening, acc.interest_amount, expected_interest
+                    ))
+                    if acc.move_id:
+                        if acc.move_id.state == "posted":
+                            acc.move_id.button_cancel()
+                        acc.move_id.unlink()
+                        acc.write({"move_id": False})
+
+                    acc.write({
+                        "opening_balance": expected_opening,
+                        "interest_amount": expected_interest,
+                        "closing_balance": expected_opening + expected_interest,
+                        "state": "draft",
+                    })
+                    acc.action_post()
+
+            inv._compute_financials()
+            result_logs.append("\n".join(inv_log))
+
+        full_log = "\n\n".join(result_logs) if result_logs else "No Rule 3 violations found."
+        _logger.info("action_remediate_rule3_violations:\n%s", full_log)
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Rule 3 Remediation Complete"),
+                "message": _("Successfully remediated %d investment(s).") % remediated_count,
+                "sticky": False,
+            },
+        }
 
     @api.model
     def action_run_automated_interest_accrual(self):

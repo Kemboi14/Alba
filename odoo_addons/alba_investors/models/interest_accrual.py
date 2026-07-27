@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
-from .accrual_backfill import _period_start_from_accrual_date
+from .accrual_backfill import _period_start_from_accrual_date, get_first_eligible_accrual_start
 
 
 class AlbaInterestAccrual(models.Model):
@@ -210,7 +210,6 @@ class AlbaInterestAccrual(models.Model):
         """Auto-fill period dates, opening balance and interest when investment is selected."""
         if not self.investment_id:
             return
-        import calendar
         inv = self.investment_id
         today = fields.Date.context_today(self)
 
@@ -219,11 +218,24 @@ class AlbaInterestAccrual(models.Model):
         # period_start = 29th of previous month (handles leap years via timedelta)
         self.period_end = date(today.year, today.month, 28)
         natural_start = _period_start_from_accrual_date(self.period_end)
-        # Rule 1 — Day 0: interest starts the day AFTER the investment receipt date.
-        # Rule 3 — After-15th: if received after the 15th, no interest this month
-        #   (period_start would already be past period_end for the first cycle,
-        #    so the manual onchange preview just shows the natural start).
-        if inv.start_date and inv.start_date >= natural_start:
+
+        cutoff_day = (
+            inv.investment_product_id.after_cutoff_day
+            if inv.investment_product_id and inv.investment_product_id.after_cutoff_day
+            else 15
+        )
+        first_eligible_start = (
+            get_first_eligible_accrual_start(inv.start_date, cutoff_day=cutoff_day)
+            if inv.start_date and inv.start_date.day > cutoff_day
+            else None
+        )
+
+        if first_eligible_start and natural_start < first_eligible_start:
+            self.period_start = first_eligible_start
+            m = first_eligible_start.month
+            y = first_eligible_start.year
+            self.period_end = date(y, m, 28)
+        elif inv.start_date and inv.start_date >= natural_start:
             interest_start = inv.start_date + timedelta(days=1)
             self.period_start = max(natural_start, interest_start)
         else:
@@ -241,20 +253,21 @@ class AlbaInterestAccrual(models.Model):
             self.opening_balance = inv.principal_amount
 
         if inv.interest_rate:
-            import calendar as _cal
-            monthly_rate = inv.interest_rate / 100.0 / 12.0
-            # Bug 3 fix (_onchange_investment_id): pro-rata preview for partial first month
-            if self.period_start and self.period_end:
-                total_days = 30
-                actual_days = (self.period_end - self.period_start).days + 1
-                if actual_days < total_days:
-                    self.interest_amount = round(
-                        self.opening_balance * monthly_rate * actual_days / total_days, 2
-                    )
+            if first_eligible_start and self.period_start < first_eligible_start:
+                self.interest_amount = 0.00
+            else:
+                monthly_rate = inv.interest_rate / 100.0 / 12.0
+                if self.period_start and self.period_end:
+                    total_days = 30
+                    actual_days = (self.period_end - self.period_start).days + 1
+                    if actual_days < total_days:
+                        self.interest_amount = round(
+                            self.opening_balance * monthly_rate * actual_days / total_days, 2
+                        )
+                    else:
+                        self.interest_amount = round(self.opening_balance * monthly_rate, 2)
                 else:
                     self.interest_amount = round(self.opening_balance * monthly_rate, 2)
-            else:
-                self.interest_amount = round(self.opening_balance * monthly_rate, 2)
             self.closing_balance = self.opening_balance + self.interest_amount
 
     @api.onchange('opening_balance')

@@ -62,6 +62,7 @@ Manages the full investor lifecycle:
         "views/currency_sync_views.xml",
         "views/investor_dashboard_views.xml",
         "views/investor_statement_client_action.xml",
+        "views/rule3_remediation_action.xml",
         # Menus last
         "views/menus.xml",
     ],

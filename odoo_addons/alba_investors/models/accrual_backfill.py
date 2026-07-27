@@ -76,6 +76,27 @@ def accrual_run_date(year, month, target_day, env=None):
     return d
 
 
+def get_first_eligible_accrual_start(investment_start, cutoff_day=15):
+    """
+    Return the earliest eligible period_start for an investment under Rule 3.
+    If investment_start.day > cutoff_day (default 15), the investment earns
+    no interest during its initial receipt month cycle. First interest starts on
+    the 29th of the month FOLLOWING the investment receipt month.
+    """
+    if not investment_start:
+        return None
+    if investment_start.day <= cutoff_day:
+        return investment_start + timedelta(days=1)
+
+    next_month = investment_start.month + 1
+    next_year = investment_start.year
+    if next_month > 12:
+        next_month = 1
+        next_year += 1
+
+    return date(next_year, next_month, 28) + timedelta(days=1)
+
+
 def iter_missing_accrual_periods(start_date, as_of_date, target_day,
                                   investment_start=None, cutoff_day=15,
                                   env=None):
@@ -94,8 +115,8 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
 
     Rule 3 — After-cutoff-day rule:
         If investment_start.day > cutoff_day, the investment does NOT earn
-        interest in the month it was received.  The first eligible period is
-        the following month's cycle.  The earliest (first) period is skipped.
+        interest in the month it was received. The first eligible period is
+        the following month's full billing cycle (starting 29th of receipt month).
 
     Rule 1 — Day 0 exclusion:
         No interest accrues on the investment receipt date itself.
@@ -112,7 +133,7 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
                           to the first period.
         cutoff_day:       Day-of-month threshold for Rule 3 (default 15).
                           Investments received AFTER this day skip the first period.
-        env:              Optional Odoo Environment.  When provided, the accrual
+        env:              Optional Odoo Environment. When provided, the accrual
                           date is adjusted to the next working day (Rule 6).
     """
     periods = []
@@ -135,24 +156,26 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
             current_month = 12
             current_year -= 1
 
+    first_eligible_start = None
+    if investment_start is not None and investment_start.day > cutoff_day:
+        first_eligible_start = get_first_eligible_accrual_start(investment_start, cutoff_day=cutoff_day)
+
     # Yield oldest first so journal entries post chronologically
     for i, (accrual_date, period_start, period_end) in enumerate(reversed(periods)):
-        if i == 0 and investment_start is not None:
-            # ── Rule 3: After-cutoff-day — skip the receipt month entirely ──
-            # Investments received after the cutoff day (default: 15th) earn no
-            # interest in the month of receipt.  Their first eligible payment
-            # cycle starts in the following month.
-            if investment_start.day > cutoff_day:
-                continue  # skip this (earliest) period; next iteration = following month
-
-            # ── Rule 1: Day 0 exclusion — interest starts the NEXT day ──────
-            # The investment receipt date itself is NOT an interest-bearing day.
-            interest_start = investment_start + timedelta(days=1)
-            if period_start < interest_start <= period_end:
-                period_start = interest_start
-            elif interest_start > period_end:
-                # Edge case: investment received on the last day of the period
-                # (e.g. day 28).  No interest can accrue this period.
+        if investment_start is not None:
+            # ── Rule 3: After-cutoff-day — skip receipt month cycle ──
+            if first_eligible_start and period_start < first_eligible_start:
                 continue
+
+            if i == 0:
+                # ── Rule 1: Day 0 exclusion — interest starts the NEXT day ──────
+                # The investment receipt date itself is NOT an interest-bearing day.
+                interest_start = investment_start + timedelta(days=1)
+                if period_start < interest_start <= period_end:
+                    period_start = interest_start
+                elif interest_start > period_end:
+                    # Edge case: investment received on the last day of the period
+                    # (e.g. day 28). No interest can accrue this period.
+                    continue
 
         yield (accrual_date, period_start, period_end)
