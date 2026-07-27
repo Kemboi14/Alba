@@ -4,7 +4,12 @@ from datetime import date, timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
-from .accrual_backfill import _period_start_from_accrual_date, get_first_eligible_accrual_start
+from .accrual_backfill import (
+    _period_start_from_accrual_date,
+    get_first_eligible_accrual_start,
+    get_first_eligible_accrual_date,
+    compute_accrual_interest,
+)
 
 
 class AlbaInterestAccrual(models.Model):
@@ -224,16 +229,21 @@ class AlbaInterestAccrual(models.Model):
             if inv.investment_product_id and inv.investment_product_id.after_cutoff_day
             else 15
         )
-        first_eligible_start = (
-            get_first_eligible_accrual_start(inv.start_date, cutoff_day=cutoff_day)
+        first_eligible_date = (
+            get_first_eligible_accrual_date(inv.start_date, cutoff_day=cutoff_day)
             if inv.start_date and inv.start_date.day > cutoff_day
             else None
         )
+        first_eligible_start = (
+            get_first_eligible_accrual_start(inv.start_date, cutoff_day=cutoff_day)
+            if inv.start_date
+            else None
+        )
 
-        if first_eligible_start and natural_start < first_eligible_start:
-            self.period_start = first_eligible_start
-            m = first_eligible_start.month
-            y = first_eligible_start.year
+        if first_eligible_date and today < first_eligible_date:
+            self.period_start = first_eligible_start or natural_start
+            m = first_eligible_date.month
+            y = first_eligible_date.year
             self.period_end = date(y, m, 28)
         elif inv.start_date and inv.start_date >= natural_start:
             interest_start = inv.start_date + timedelta(days=1)
@@ -253,29 +263,27 @@ class AlbaInterestAccrual(models.Model):
             self.opening_balance = inv.principal_amount
 
         if inv.interest_rate:
-            if first_eligible_start and self.period_start < first_eligible_start:
+            if first_eligible_date and today < first_eligible_date:
                 self.interest_amount = 0.00
             else:
-                monthly_rate = inv.interest_rate / 100.0 / 12.0
-                if self.period_start and self.period_end:
-                    total_days = 30
-                    actual_days = (self.period_end - self.period_start).days + 1
-                    if actual_days < total_days:
-                        self.interest_amount = round(
-                            self.opening_balance * monthly_rate * actual_days / total_days, 2
-                        )
-                    else:
-                        self.interest_amount = round(self.opening_balance * monthly_rate, 2)
-                else:
-                    self.interest_amount = round(self.opening_balance * monthly_rate, 2)
+                self.interest_amount = compute_accrual_interest(
+                    opening_balance=self.opening_balance,
+                    annual_rate=inv.interest_rate,
+                    period_start=self.period_start,
+                    period_end=self.period_end,
+                )
             self.closing_balance = self.opening_balance + self.interest_amount
 
     @api.onchange('opening_balance')
     def _onchange_opening_balance(self):
         """Recalculate interest amount when opening balance is changed manually."""
         if self.investment_id and self.investment_id.interest_rate:
-            monthly_rate = self.investment_id.interest_rate / 100.0 / 12.0
-            self.interest_amount = round(self.opening_balance * monthly_rate, 2)
+            self.interest_amount = compute_accrual_interest(
+                opening_balance=self.opening_balance,
+                annual_rate=self.investment_id.interest_rate,
+                period_start=self.period_start,
+                period_end=self.period_end,
+            )
             self.closing_balance = self.opening_balance + self.interest_amount
 
     # =========================================================================

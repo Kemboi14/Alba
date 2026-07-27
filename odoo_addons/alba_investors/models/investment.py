@@ -8,6 +8,8 @@ from .accrual_backfill import (
     iter_missing_accrual_periods,
     _period_start_from_accrual_date,
     get_first_eligible_accrual_start,
+    get_first_eligible_accrual_date,
+    compute_accrual_interest,
 )
 
 
@@ -687,12 +689,12 @@ class AlbaInvestment(models.Model):
                 else 15
             )
             if self.start_date.day > cutoff_day:
-                first_eligible_start = get_first_eligible_accrual_start(self.start_date, cutoff_day=cutoff_day)
-                if first_eligible_start and period_start < first_eligible_start:
+                first_eligible_date = get_first_eligible_accrual_date(self.start_date, cutoff_day=cutoff_day)
+                if first_eligible_date and today < first_eligible_date:
                     import logging
                     logging.getLogger(__name__).info(
-                        "Skipping interest accrual for %s: period_start %s is before Rule 3 cutoff first eligible start %s",
-                        self.investment_number, period_start, first_eligible_start,
+                        "Skipping interest accrual for %s: today %s is before Rule 3 cutoff first eligible accrual date %s",
+                        self.investment_number, today, first_eligible_date,
                     )
                     return False
 
@@ -708,20 +710,13 @@ class AlbaInvestment(models.Model):
         if existing:
             return False
 
-        # ── Pro-rata interest calculation (Bug 3) ─────────────────────────────
-        # If period_start is not the 1st of the month (partial first month),
-        # scale the full-month interest by actual_days / total_days_in_month.
         accrual_opening_balance = opening_balance if opening_balance is not None else self.current_value
-        full_month_interest = self.compute_compound_interest_for_period(
-            opening_balance=accrual_opening_balance
+        period_interest = compute_accrual_interest(
+            opening_balance=accrual_opening_balance,
+            annual_rate=self.interest_rate,
+            period_start=period_start,
+            period_end=period_end,
         )
-
-        total_days = 30
-        actual_days = (period_end - period_start).days + 1
-        if actual_days < total_days:
-            period_interest = round(full_month_interest * actual_days / total_days, 2)
-        else:
-            period_interest = full_month_interest
 
         if period_interest <= 0:
             raise UserError(

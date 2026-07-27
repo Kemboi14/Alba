@@ -76,23 +76,57 @@ def accrual_run_date(year, month, target_day, env=None):
     return d
 
 
-def get_first_eligible_accrual_start(investment_start, cutoff_day=15):
+def get_first_eligible_accrual_date(investment_start, cutoff_day=15):
     """
-    Return the earliest eligible period_start for an investment under Rule 3.
-    If investment_start.day <= cutoff_day:
-        returns investment_start + timedelta(days=1)
-    If investment_start.day > cutoff_day (default 15):
-        The investment earns no interest during its initial receipt month cycle.
-        First interest payment commences in the following month's payment cycle
-        (starting on the 29th of the receipt month).
+    Return the first accrual posting date for an investment under Rule 3 (Payment Deferral).
+
+    Rule 3 — Payment Deferral rule:
+    - If investment_start.day <= cutoff_day (e.g. Feb 10 <= 15):
+        First accrual is posted in month M+1 (e.g. March 28).
+    - If investment_start.day > cutoff_day (e.g. Feb 26 > 15):
+        The receipt month accrual (March 28) is deferred.
+        First accrual is posted in month M+2 (e.g. April 28).
     """
     if not investment_start:
         return None
     if investment_start.day <= cutoff_day:
-        return investment_start + timedelta(days=1)
+        m = investment_start.month % 12 + 1
+        y = investment_start.year + (1 if investment_start.month == 12 else 0)
+        return date(y, m, 28)
+    else:
+        m = (investment_start.month + 1) % 12 + 1
+        y = investment_start.year + ((investment_start.month + 1) // 12)
+        return date(y, m, 28)
 
-    receipt_month_end = date(investment_start.year, investment_start.month, 28)
-    return receipt_month_end + timedelta(days=1)
+
+def get_first_eligible_accrual_start(investment_start, cutoff_day=15):
+    """
+    Return the earliest interest-bearing start date for an investment.
+    Under Rule 1 (Day 0 exclusion), interest starts on investment_start + 1 day.
+    """
+    if not investment_start:
+        return None
+    return investment_start + timedelta(days=1)
+
+
+def compute_accrual_interest(opening_balance, annual_rate, period_start, period_end):
+    """
+    Compute interest amount for an accrual period.
+    Supports standard 1-month cycles, partial initial cycles, and multi-month deferred cycles.
+    """
+    if not opening_balance or not annual_rate or not period_start or not period_end:
+        return 0.00
+
+    monthly_rate = annual_rate / 100.0 / 12.0
+    full_month_interest = opening_balance * monthly_rate
+
+    actual_days = (period_end - period_start).days + 1
+
+    months = round(actual_days / 30.0)
+    if months >= 1 and abs(actual_days - months * 30) <= 3:
+        return round(months * full_month_interest, 2)
+    else:
+        return round(full_month_interest * actual_days / 30.0, 2)
 
 
 def iter_missing_accrual_periods(start_date, as_of_date, target_day,
@@ -101,49 +135,27 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
     """
     Yield (accrual_date, period_start, period_end) for every month
     from start_date up to as_of_date, in ASCENDING order (oldest first).
-    This ensures journal entries are posted chronologically and
-    compound interest accumulates correctly.
 
-    Period bounds follow the 29th-to-28th rule:
-        period_end   = 28th of current month (= accrual_date)
-        period_start = 29th of previous month
-                     = date(prev_year, prev_month, 28) + timedelta(days=1)
+    Period bounds follow the 29th-to-28th rule.
 
-    Business rules applied on the FIRST period only (i == 0):
-
-    Rule 3 — After-cutoff-day rule:
-        If investment_start.day > cutoff_day, the investment does NOT earn
-        interest in the month it was received. The first eligible period is
-        the following month's full billing cycle (starting 29th of receipt month).
+    Rule 3 — Payment Deferral rule:
+        If investment_start.day > cutoff_day (default 15), no accrual is posted
+        in the receipt month (e.g. March 28 for Feb 26 start).
+        The first accrual is posted on the subsequent cycle (April 28), and its
+        period_start is rolled back to investment_start + 1 day (Feb 27),
+        combining the deferred month and current month into a single cycle.
 
     Rule 1 — Day 0 exclusion:
-        No interest accrues on the investment receipt date itself.
         Interest begins the NEXT calendar day (investment_start + 1 day).
-        The first period's period_start is clamped to investment_start + 1.
-        If that would push period_start beyond period_end, the period is
-        skipped entirely (edge case: investment received on the 28th).
-
-    Args:
-        start_date:       First date from which to look for missing periods.
-        as_of_date:       Upper bound (inclusive); no periods beyond this date.
-        target_day:       Preferred day-of-month for the accrual_date (e.g. 28).
-        investment_start: Optional date; if provided, Rules 1 and 3 are applied
-                          to the first period.
-        cutoff_day:       Day-of-month threshold for Rule 3 (default 15).
-                          Investments received AFTER this day skip the first period.
-        env:              Optional Odoo Environment. When provided, the accrual
-                          date is adjusted to the next working day (Rule 6).
+        The first period's period_start is set to investment_start + 1 day.
     """
     periods = []
     current_year = as_of_date.year
     current_month = as_of_date.month
 
     while (current_year, current_month) >= (start_date.year, start_date.month):
-        # period_end = 28th of current month
         period_end = date(current_year, current_month, 28)
-        # period_start = 29th of previous month (handles leap years automatically)
         period_start = _period_start_from_accrual_date(period_end)
-
         accrual_date = accrual_run_date(current_year, current_month, target_day, env=env)
 
         if accrual_date <= as_of_date and period_end >= start_date:
@@ -154,26 +166,23 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
             current_month = 12
             current_year -= 1
 
-    first_eligible_start = None
-    if investment_start is not None and investment_start.day > cutoff_day:
-        first_eligible_start = get_first_eligible_accrual_start(investment_start, cutoff_day=cutoff_day)
+    first_accrual_date = None
+    if investment_start is not None:
+        first_accrual_date = get_first_eligible_accrual_date(investment_start, cutoff_day=cutoff_day)
 
-    # Yield oldest first so journal entries post chronologically
-    for i, (accrual_date, period_start, period_end) in enumerate(reversed(periods)):
-        if investment_start is not None:
-            # ── Rule 3: After-cutoff-day — skip receipt month cycle ──
-            if first_eligible_start and period_start < first_eligible_start:
-                continue
+    effective_periods = []
+    for accrual_date, period_start, period_end in reversed(periods):
+        if first_accrual_date and accrual_date < first_accrual_date:
+            # Skip accrual cycles before the first eligible accrual date (payment deferral)
+            continue
+        effective_periods.append((accrual_date, period_start, period_end))
 
-            if i == 0:
-                # ── Rule 1: Day 0 exclusion — interest starts the NEXT day ──────
-                # The investment receipt date itself is NOT an interest-bearing day.
-                interest_start = investment_start + timedelta(days=1)
-                if period_start < interest_start <= period_end:
-                    period_start = interest_start
-                elif interest_start > period_end:
-                    # Edge case: investment received on the last day of the period
-                    # (e.g. day 28). No interest can accrue this period.
-                    continue
+    for i, (accrual_date, period_start, period_end) in enumerate(effective_periods):
+        if investment_start is not None and i == 0:
+            # First posted cycle starts at investment_start + 1 day (Rule 1 & Rule 3 combined start)
+            interest_start = investment_start + timedelta(days=1)
+            if interest_start <= period_end:
+                period_start = interest_start
 
         yield (accrual_date, period_start, period_end)
+
