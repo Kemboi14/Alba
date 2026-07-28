@@ -853,7 +853,7 @@ class AlbaLoan(models.Model):
                 line.interest_due for line in schedule if line.due_date <= today
             )
 
-    @api.depends("state", "id")
+    @api.depends("state")
     def _compute_is_accrual_pending(self):
         today = fields.Date.context_today(self)
         month_start = today.replace(day=1)
