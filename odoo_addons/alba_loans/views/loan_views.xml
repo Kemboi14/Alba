@@ -24,6 +24,8 @@
                     <field name="state" widget="statusbar" statusbar_visible="normal,watch,substandard,doubtful,loss,closed,written_off"/>
                 </header>
 
+                <field name="is_accrual_pending" invisible="1"/>
+
                 <div class="alert alert-warning" role="alert" invisible="not is_accrual_pending or state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')">
                     ⚠ Interest accrual has not been posted for this period. Please click 'Post Interest Accrual' before proceeding.
                 </div>
