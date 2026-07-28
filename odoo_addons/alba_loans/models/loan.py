@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from datetime import date
+from datetime import date, timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
@@ -534,6 +534,12 @@ class AlbaLoan(models.Model):
         compute="_compute_accrued_interest",
         compute_sudo=True,
     )
+    is_accrual_pending = fields.Boolean(
+        string="Interest Accrual Pending",
+        compute="_compute_is_accrual_pending",
+        store=False,
+        help="True when no posted interest accrual exists for the current month.",
+    )
     interest_amount = fields.Monetary(
         string="Interest Amount",
         compute="_compute_report_fields",
@@ -843,6 +849,32 @@ class AlbaLoan(models.Model):
             rec.accrued_interest = sum(
                 line.interest_due for line in schedule if line.due_date <= today
             )
+
+    @api.depends("state", "id")
+    def _compute_is_accrual_pending(self):
+        today = fields.Date.context_today(self)
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            next_month = date(today.year + 1, 1, 1)
+        else:
+            next_month = date(today.year, today.month + 1, 1)
+        month_end = next_month - timedelta(days=1)
+
+        for rec in self:
+            if rec.state not in ("normal", "watch", "substandard", "doubtful", "loss"):
+                rec.is_accrual_pending = False
+                continue
+
+            has_posted_accrual = bool(
+                self.env["account.move"].search_count([
+                    ("alba_loan_id", "=", rec.id),
+                    ("state", "=", "posted"),
+                    ("date", ">=", month_start),
+                    ("date", "<=", month_end),
+                    ("ref", "ilike", "INT/"),
+                ])
+            )
+            rec.is_accrual_pending = not has_posted_accrual
 
     # =========================================================================
     # IMPORT-EXPORT FIX: no-op inverse methods for all computed+stored fields
