@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
+import logging
 from datetime import date, timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from markupsafe import Markup
+
+_logger = logging.getLogger(__name__)
 
 
 class AlbaLoan(models.Model):
@@ -859,22 +862,30 @@ class AlbaLoan(models.Model):
         else:
             next_month = date(today.year, today.month + 1, 1)
         month_end = next_month - timedelta(days=1)
+        active_states = ("normal", "watch", "substandard", "doubtful", "loss")
 
         for rec in self:
-            if rec.state not in ("normal", "watch", "substandard", "doubtful", "loss"):
+            if rec.state not in active_states:
                 rec.is_accrual_pending = False
                 continue
 
-            has_posted_accrual = bool(
-                self.env["account.move"].search_count([
+            try:
+                posted_count = self.env["account.move"].search_count([
                     ("alba_loan_id", "=", rec.id),
                     ("state", "=", "posted"),
                     ("date", ">=", month_start),
                     ("date", "<=", month_end),
                     ("ref", "ilike", "INT/"),
                 ])
-            )
-            rec.is_accrual_pending = not has_posted_accrual
+            except Exception:
+                _logger.exception(
+                    "is_accrual_pending: failed checking accrual for loan %s",
+                    rec.id,
+                )
+                rec.is_accrual_pending = True
+                continue
+
+            rec.is_accrual_pending = posted_count == 0
 
     # =========================================================================
     # IMPORT-EXPORT FIX: no-op inverse methods for all computed+stored fields
@@ -1212,6 +1223,7 @@ class AlbaLoan(models.Model):
 
         move = self.env["account.move"].create(move_vals)
         move.action_post()
+        self.is_accrual_pending = False
         self.message_post(
             body=_("Interest accrual journal entry %s posted for KES %s.")
             % (move.name, f"{interest_amount:,.2f}")
