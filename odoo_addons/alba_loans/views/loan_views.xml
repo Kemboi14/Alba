@@ -14,11 +14,12 @@
                 <header>
                     <button name="action_generate_schedule" string="Generate Schedule" type="object" class="btn-primary" invisible="schedule_generated == True" groups="alba_loans.group_loan_officer"/>
                     <button name="action_post_disbursement_entry" string="Post Disbursement Entry" type="object" class="btn-primary" invisible="disbursement_move_id != False" groups="account.group_account_manager"/>
-                    <button name="action_post_interest_accrual_entry" string="Post Interest Accrual" type="object" class="btn-info" groups="account.group_account_manager"/>
+                    <button name="action_post_interest_accrual_entry" string="Post Interest Accrual" type="object" class="btn-danger" invisible="not is_accrual_pending" groups="account.group_account_manager"/>
+                    <button name="action_post_interest_accrual_entry" string="Post Interest Accrual" type="object" class="btn-secondary" invisible="is_accrual_pending" groups="account.group_account_manager"/>
                     <button name="action_close" string="Close Loan" type="object" class="btn-success" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')" groups="alba_loans.group_loan_manager"/>
                     <button name="action_write_off" string="Write Off" type="object" class="btn-danger" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')" groups="alba_loans.group_loan_manager"/>
-                    <button name="action_full_repayment" string="Full Repayment" type="object" class="btn-success" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss') or is_accrual_pending" groups="alba_loans.group_loan_officer"/>
-                    <button name="action_request_topup" string="Refinance / Top-Up" type="object" class="btn-primary" invisible="(not can_request_topup) or is_accrual_pending" groups="alba_loans.group_loan_officer"/>
+                    <button name="action_full_repayment" string="Full Repayment" type="object" class="btn-success" invisible="1" groups="alba_loans.group_loan_officer"/>
+                    <button name="action_request_topup" string="Refinance / Top-Up" type="object" class="btn-primary" invisible="1" groups="alba_loans.group_loan_officer"/>
                     <button name="action_calculate_partial_payoff" string="Calculate Partial Payoff" type="object" class="btn-primary" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')" groups="alba_loans.group_loan_officer"/>
                     <button name="action_sync_loan_currency_to_accounting" string="Sync Currency" type="object" class="btn-info" groups="alba_loans.group_loan_manager"/>
                     <field name="state" widget="statusbar" statusbar_visible="normal,watch,substandard,doubtful,loss,closed,written_off"/>
