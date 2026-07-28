@@ -1228,7 +1228,7 @@ class AlbaLoan(models.Model):
             body=_("Interest accrual journal entry %s posted for KES %s.")
             % (move.name, f"{interest_amount:,.2f}")
         )
-        return move
+        return True
 
 
     @api.onchange("journal_id")
