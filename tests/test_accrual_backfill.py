@@ -13,6 +13,8 @@ iter_missing_accrual_periods = accrual_backfill.iter_missing_accrual_periods
 previous_month_bounds = accrual_backfill.previous_month_bounds
 compute_accrual_interest = accrual_backfill.compute_accrual_interest
 get_first_eligible_accrual_date = accrual_backfill.get_first_eligible_accrual_date
+get_effective_period_start = accrual_backfill.get_effective_period_start
+split_period_for_payout_cutoff = accrual_backfill.split_period_for_payout_cutoff
 
 
 class AccrualBackfillTests(unittest.TestCase):
@@ -34,35 +36,46 @@ class AccrualBackfillTests(unittest.TestCase):
         self.assertEqual(periods[2], (date(2026, 5, 28), date(2026, 4, 29), date(2026, 5, 28)))
         self.assertEqual(periods[3], (date(2026, 6, 28), date(2026, 5, 29), date(2026, 6, 28)))
 
-    def test_rule3_payment_deferral_im0305(self):
+    def test_day_zero_rule_is_universal_for_post_cutoff_start(self):
         # Principal KES 2M, start_date Feb 26 (after 15th)
         start_date = date(2026, 2, 26)
         as_of_date = date(2026, 4, 28)
 
-        # 1. First eligible accrual date is April 28
-        first_date = get_first_eligible_accrual_date(start_date, cutoff_day=15)
-        self.assertEqual(first_date, date(2026, 4, 28))
-
-        # 2. Check periods generated up to April 28
         periods = list(iter_missing_accrual_periods(
             start_date, as_of_date, 28, investment_start=start_date, cutoff_day=15
         ))
 
-        # March 28 cycle is deferred, so only 1 period is posted on April 28
-        self.assertEqual(len(periods), 1)
-        accrual_date, period_start, period_end = periods[0]
-        self.assertEqual(accrual_date, date(2026, 4, 28))
-        self.assertEqual(period_start, date(2026, 2, 27))  # Feb 26 + 1 day (Rule 1)
-        self.assertEqual(period_end, date(2026, 4, 28))
+        self.assertEqual(len(periods), 3)
 
-        # 3. Interest calculation for combined period (Feb 27 - Apr 28)
-        interest = compute_accrual_interest(
-            opening_balance=2000000.0,
-            annual_rate=36.0,
-            period_start=period_start,
-            period_end=period_end,
+        first_accrual_date, first_period_start, first_period_end = periods[0]
+        self.assertEqual(first_accrual_date, date(2026, 2, 28))
+        self.assertEqual(first_period_start, date(2026, 2, 27))
+        self.assertEqual(first_period_end, date(2026, 2, 28))
+
+        second_accrual_date, second_period_start, second_period_end = periods[1]
+        self.assertEqual(second_accrual_date, date(2026, 3, 28))
+        self.assertEqual(second_period_start, date(2026, 3, 1))
+        self.assertEqual(second_period_end, date(2026, 3, 28))
+
+        third_accrual_date, third_period_start, third_period_end = periods[2]
+        self.assertEqual(third_accrual_date, date(2026, 4, 28))
+        self.assertEqual(third_period_start, date(2026, 3, 29))
+        self.assertEqual(third_period_end, date(2026, 4, 28))
+
+    def test_effective_period_start_uses_day_zero_rule_for_first_period(self):
+        self.assertEqual(
+            get_effective_period_start(date(2026, 2, 26), date(2026, 2, 26), is_first_period=True),
+            date(2026, 2, 27),
         )
-        self.assertEqual(interest, 120000.0)  # KES 60k deferred March + KES 60k regular April
+        self.assertEqual(
+            get_effective_period_start(date(2026, 2, 26), date(2026, 3, 29), is_first_period=False),
+            date(2026, 3, 29),
+        )
+
+    def test_split_period_for_payout_cutoff(self):
+        self.assertEqual(split_period_for_payout_cutoff(date(2026, 2, 1), date(2026, 2, 10)), (10, 0))
+        self.assertEqual(split_period_for_payout_cutoff(date(2026, 2, 16), date(2026, 2, 20)), (0, 5))
+        self.assertEqual(split_period_for_payout_cutoff(date(2026, 2, 10), date(2026, 2, 20)), (6, 5))
 
     def test_rule3_within_cutoff_day(self):
         # Start date Feb 10 (on or before 15th)

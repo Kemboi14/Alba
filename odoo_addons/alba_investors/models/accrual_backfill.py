@@ -109,6 +109,43 @@ def get_first_eligible_accrual_start(investment_start, cutoff_day=15):
     return investment_start + timedelta(days=1)
 
 
+def get_effective_period_start(investment_start, period_start, is_first_period=False):
+    """Return the effective accrual start date after applying the universal Day-0 rule."""
+    if not investment_start or not is_first_period:
+        return period_start
+    return max(period_start, investment_start + timedelta(days=1))
+
+
+def split_period_for_payout_cutoff(period_start, period_end, interest_amount=None):
+    """Split a period by the 15th cutoff for payout eligibility.
+
+    Returns either (eligible_days, deferred_days) or, when interest_amount is provided,
+    (eligible_amount, deferred_amount).
+    """
+    if not period_start or not period_end:
+        return (0, 0) if interest_amount is None else (0.0, 0.0)
+
+    total_days = (period_end - period_start).days + 1
+    cutoff_date = date(period_end.year, period_end.month, 15)
+
+    if period_end <= cutoff_date:
+        eligible_days = total_days
+        deferred_days = 0
+    elif period_start > cutoff_date:
+        eligible_days = 0
+        deferred_days = total_days
+    else:
+        eligible_days = (cutoff_date - period_start).days + 1
+        deferred_days = (period_end - cutoff_date).days
+
+    if interest_amount is None:
+        return eligible_days, deferred_days
+
+    eligible_amount = round(interest_amount * eligible_days / float(total_days), 2)
+    deferred_amount = round(interest_amount - eligible_amount, 2)
+    return eligible_amount, deferred_amount
+
+
 def compute_accrual_interest(opening_balance, annual_rate, period_start, period_end):
     """
     Compute interest amount for an accrual period.
@@ -138,16 +175,9 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
 
     Period bounds follow the 29th-to-28th rule.
 
-    Rule 3 — Payment Deferral rule:
-        If investment_start.day > cutoff_day (default 15), no accrual is posted
-        in the receipt month (e.g. March 28 for Feb 26 start).
-        The first accrual is posted on the subsequent cycle (April 28), and its
-        period_start is rolled back to investment_start + 1 day (Feb 27),
-        combining the deferred month and current month into a single cycle.
-
-    Rule 1 — Day 0 exclusion:
-        Interest begins the NEXT calendar day (investment_start + 1 day).
-        The first period's period_start is set to investment_start + 1 day.
+    The universal Day-0 rule is applied to the first period only: interest
+    begins on investment_start + 1 day. The 15th/16th cutoff no longer affects
+    accrual periods or their boundaries.
     """
     periods = []
     current_year = as_of_date.year
@@ -166,23 +196,15 @@ def iter_missing_accrual_periods(start_date, as_of_date, target_day,
             current_month = 12
             current_year -= 1
 
-    first_accrual_date = None
-    if investment_start is not None:
-        first_accrual_date = get_first_eligible_accrual_date(investment_start, cutoff_day=cutoff_day)
-
     effective_periods = []
     for accrual_date, period_start, period_end in reversed(periods):
-        if first_accrual_date and accrual_date < first_accrual_date:
-            # Skip accrual cycles before the first eligible accrual date (payment deferral)
-            continue
         effective_periods.append((accrual_date, period_start, period_end))
 
     for i, (accrual_date, period_start, period_end) in enumerate(effective_periods):
-        if investment_start is not None and i == 0:
-            # First posted cycle starts at investment_start + 1 day (Rule 1 & Rule 3 combined start)
-            interest_start = investment_start + timedelta(days=1)
-            if interest_start <= period_end:
-                period_start = interest_start
-
+        period_start = get_effective_period_start(
+            investment_start,
+            period_start,
+            is_first_period=(investment_start is not None and i == 0),
+        )
         yield (accrual_date, period_start, period_end)
 

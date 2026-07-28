@@ -2,6 +2,7 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
+from ..models.accrual_backfill import split_period_for_payout_cutoff
 from ..models.reference_utils import safe_investment_reference
 
 
@@ -108,13 +109,15 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         for wiz in self:
             outstanding = wiz.investment_id.total_interest_outstanding or 0.0
 
+            posted_accruals = wiz.investment_id.accrual_ids.filtered(lambda a: a.state == "posted")
             if wiz.payout_mode == "all":
-                gross = outstanding
+                gross = sum(
+                    (self._get_accrual_cutoff_breakdown(accrual)[0] for accrual in posted_accruals)
+                )
             elif wiz.payout_mode == "select":
                 gross = sum(
-                    wiz.selected_accrual_ids.filtered(
-                        lambda a: a.state == "posted"
-                    ).mapped("interest_amount")
+                    self._get_accrual_cutoff_breakdown(accrual)[0]
+                    for accrual in wiz.selected_accrual_ids.filtered(lambda a: a.state == "posted")
                 )
             else:  # partial
                 gross = min(wiz.custom_gross_amount or 0.0, outstanding)
@@ -134,6 +137,15 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             self.selected_accrual_ids = [(6, 0, posted.ids)]
         else:
             self.selected_accrual_ids = False
+
+    def _get_accrual_cutoff_breakdown(self, accrual):
+        if accrual.interest_amount_payable_now or accrual.interest_amount_deferred:
+            return accrual.interest_amount_payable_now or 0.0, accrual.interest_amount_deferred or 0.0
+        return split_period_for_payout_cutoff(
+            accrual.period_start,
+            accrual.period_end,
+            accrual.interest_amount,
+        )
 
     # =========================================================================
     # Confirm
@@ -238,19 +250,28 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             })
             wht_move.action_post()
 
-        # ── 3. Determine accruals to mark as 'paid' ────────────────────────────
-        # Only full-month payouts mark accruals as paid.
-        # Partial payouts leave accruals as 'posted'.
-        accruals_to_mark_paid = self.env["alba.interest.accrual"]
+        # ── 3. Determine accruals to include in this payout ───────────────────
+        payout_accruals = self.env["alba.interest.accrual"]
+        accrued_candidates = self.env["alba.interest.accrual"]
         if self.payout_mode == "all":
-            accruals_to_mark_paid = investment.accrual_ids.filtered(
-                lambda a: a.state == "posted"
-            )
+            accrued_candidates = investment.accrual_ids.filtered(lambda a: a.state == "posted")
         elif self.payout_mode == "select":
-            accruals_to_mark_paid = self.selected_accrual_ids.filtered(
-                lambda a: a.state == "posted"
-            )
-        # partial mode: no accruals marked paid
+            accrued_candidates = self.selected_accrual_ids.filtered(lambda a: a.state == "posted")
+
+        for accrual in accrued_candidates:
+            payable_now, deferred_amount = self._get_accrual_cutoff_breakdown(accrual)
+            if payable_now <= 0:
+                accrual.write({
+                    "interest_amount_payable_now": 0.0,
+                    "interest_amount_deferred": deferred_amount,
+                })
+                continue
+
+            payout_accruals |= accrual
+            accrual.write({
+                "interest_amount_payable_now": payable_now,
+                "interest_amount_deferred": deferred_amount,
+            })
 
         # ── 4. Create payout record ────────────────────────────────────────────
         payout = self.env["alba.interest.payout"].create({
@@ -261,36 +282,53 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             "net_amount": net,
             "payment_id": payment.id,
             "wht_move_id": wht_move.id if wht_move else False,
-            "accrual_ids": [(6, 0, accruals_to_mark_paid.ids)],
+            "accrual_ids": [(6, 0, payout_accruals.ids)],
             "state": "posted",
             "notes": self.notes or "",
             "memo": self.memo or ("Interest Payout — %s" % safe_investment_reference(investment)),
         })
 
-        # ── 5. Mark accruals as paid (full-payment modes only) ─────────────────
-        if accruals_to_mark_paid:
-            accruals_to_mark_paid.write({
-                "state": "paid",
-                "interest_payout_id": payout.id,
-            })
+        # ── 5. Mark accruals as paid only when no deferred remainder remains ───
+        if payout_accruals:
+            for accrual in payout_accruals:
+                payable_now, deferred_amount = self._get_accrual_cutoff_breakdown(accrual)
+                if deferred_amount > 0:
+                    accrual.write({
+                        "state": "posted",
+                        "interest_payout_id": False,
+                        "interest_amount_payable_now": payable_now,
+                        "interest_amount_deferred": deferred_amount,
+                    })
+                else:
+                    accrual.write({
+                        "state": "paid",
+                        "interest_payout_id": payout.id,
+                        "interest_amount_payable_now": 0.0,
+                        "interest_amount_deferred": 0.0,
+                    })
 
         # ── 6. Invalidate subsequent posted accruals ───────────────────────────
         # After a payout, the opening balance for all future accruals changes
         # (paid interest is no longer compounding). Delete any posted accruals
         # that come AFTER the last paid accrual so the backfill recreates them
         # with the correct opening balance derived from current_value.
-        if accruals_to_mark_paid:
-            last_paid_period_end = max(accruals_to_mark_paid.mapped("period_end"))
-            subsequent_posted = investment.accrual_ids.filtered(
-                lambda a: a.state == "posted" and a.period_start > last_paid_period_end
-            )
-            if subsequent_posted:
-                # Reverse and delete the journal entries first
-                for accrual in subsequent_posted:
-                    if accrual.move_id and accrual.move_id.state == "posted":
-                        accrual.move_id.button_cancel()
-                        accrual.move_id.unlink()
-                subsequent_posted.unlink()
+        if payout_accruals:
+            paid_period_ends = [
+                accrual.period_end for accrual in payout_accruals
+                if accrual.state == "paid"
+            ]
+            if paid_period_ends:
+                last_paid_period_end = max(paid_period_ends)
+                subsequent_posted = investment.accrual_ids.filtered(
+                    lambda a: a.state == "posted" and a.period_start > last_paid_period_end
+                )
+                if subsequent_posted:
+                    # Reverse and delete the journal entries first
+                    for accrual in subsequent_posted:
+                        if accrual.move_id and accrual.move_id.state == "posted":
+                            accrual.move_id.button_cancel()
+                            accrual.move_id.unlink()
+                    subsequent_posted.unlink()
 
         # ── 7. Chatter ─────────────────────────────────────────────────────────
         mode_label = dict(self._fields["payout_mode"].selection).get(self.payout_mode, "")

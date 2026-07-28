@@ -102,6 +102,20 @@ class AlbaInterestAccrual(models.Model):
         tracking=True,
         help="Compound interest accrued for this period.",
     )
+    interest_amount_payable_now = fields.Monetary(
+        string="Payable Now",
+        currency_field="currency_id",
+        default=0.0,
+        tracking=True,
+        help="Amount of this accrual eligible for payout in the current cycle.",
+    )
+    interest_amount_deferred = fields.Monetary(
+        string="Deferred",
+        currency_field="currency_id",
+        default=0.0,
+        tracking=True,
+        help="Amount of this accrual deferred to a later payout cycle.",
+    )
     closing_balance = fields.Monetary(
         string="Closing Balance",
         currency_field="currency_id",

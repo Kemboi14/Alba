@@ -7,8 +7,8 @@ from odoo.exceptions import UserError, ValidationError
 from .accrual_backfill import (
     iter_missing_accrual_periods,
     _period_start_from_accrual_date,
-    get_first_eligible_accrual_start,
-    get_first_eligible_accrual_date,
+    get_effective_period_start,
+    split_period_for_payout_cutoff,
     compute_accrual_interest,
 )
 
@@ -681,23 +681,6 @@ class AlbaInvestment(models.Model):
             period_end = _date(year, month, 28)
             period_start = _period_start_from_accrual_date(period_end)
 
-        # ── Rule 3: After-15th Cutoff pre-check safeguard ──────────────────────
-        if self.start_date:
-            cutoff_day = (
-                self.investment_product_id.after_cutoff_day
-                if self.investment_product_id and self.investment_product_id.after_cutoff_day
-                else 15
-            )
-            if self.start_date.day > cutoff_day:
-                first_eligible_date = get_first_eligible_accrual_date(self.start_date, cutoff_day=cutoff_day)
-                if first_eligible_date and today < first_eligible_date:
-                    import logging
-                    logging.getLogger(__name__).info(
-                        "Skipping interest accrual for %s: today %s is before Rule 3 cutoff first eligible accrual date %s",
-                        self.investment_number, today, first_eligible_date,
-                    )
-                    return False
-
         existing = self.env["alba.interest.accrual"].search(
             [
                 ("investment_id", "=", self.id),
@@ -709,6 +692,19 @@ class AlbaInvestment(models.Model):
         )
         if existing:
             return False
+
+        has_existing_accruals = bool(self.env["alba.interest.accrual"].search(
+            [
+                ("investment_id", "=", self.id),
+                ("state", "in", ["posted", "draft", "paid", "reversed"]),
+            ],
+            limit=1,
+        ))
+        period_start = get_effective_period_start(
+            self.start_date,
+            period_start,
+            is_first_period=(self.start_date is not None and not has_existing_accruals),
+        )
 
         accrual_opening_balance = opening_balance if opening_balance is not None else self.current_value
         period_interest = compute_accrual_interest(
@@ -724,6 +720,11 @@ class AlbaInvestment(models.Model):
                 % self.investment_number
             )
 
+        payable_now, deferred_amount = split_period_for_payout_cutoff(
+            period_start,
+            period_end,
+            interest_amount=period_interest,
+        )
         accrual_vals = {
             "investment_id": self.id,
             "accrual_date": today,
@@ -731,6 +732,8 @@ class AlbaInvestment(models.Model):
             "period_end": period_end,
             "opening_balance": accrual_opening_balance,
             "interest_amount": period_interest,
+            "interest_amount_payable_now": payable_now,
+            "interest_amount_deferred": deferred_amount,
         }
         accrual = self.env["alba.interest.accrual"].create(accrual_vals)
         accrual.action_post()
