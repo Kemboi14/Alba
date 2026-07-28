@@ -5,7 +5,7 @@ Switch to different loan product - old loan settled, new loan created
 Fee: 1% of new principal (lower than restructure 3%)
 """
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from markupsafe import Markup
 
 
@@ -267,6 +267,8 @@ class AlbaLoanRefinance(models.Model):
     def _compute_new_terms(self):
         for rec in self:
             if not rec.new_principal or not rec.new_tenure_months:
+                if rec.id:
+                    continue
                 rec.new_emi = 0
                 rec.new_total_repayable = 0
                 continue
@@ -309,6 +311,8 @@ class AlbaLoanRefinance(models.Model):
     def _compute_settlement(self):
         for rec in self:
             if not rec.original_loan_id:
+                if rec.id:
+                    continue
                 rec.settlement_amount = 0
                 rec.accrued_interest_to_date = 0
                 rec.refinance_fee_amount = 0
