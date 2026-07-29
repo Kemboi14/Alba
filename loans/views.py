@@ -529,6 +529,24 @@ def submit_application(request, pk):
         if not odoo_service.is_reachable():
             raise OdooConnectionError("Odoo instance unreachable - please check network connectivity")
         
+        # Explicitly sync customer to Odoo first before creating application
+        logger.info("Syncing customer to Odoo before application creation: customer_id=%s", customer.pk)
+        try:
+            customer_result = odoo_service.create_or_update_customer(request.user)
+            customer_odoo_id = customer_result.get("odoo_customer_id")
+            if customer_odoo_id:
+                customer.odoo_customer_id = customer_odoo_id
+                customer.save(update_fields=["odoo_customer_id"])
+                logger.info("Customer synced successfully: django_id=%s odoo_id=%s", customer.pk, customer_odoo_id)
+            else:
+                raise OdooSyncError("Failed to sync customer - no Odoo ID returned")
+        except Exception as customer_sync_error:
+            logger.error("Failed to sync customer to Odoo: customer_id=%s error=%s", customer.pk, customer_sync_error)
+            raise OdooSyncError(
+                f"Failed to sync customer to Odoo: {str(customer_sync_error)}",
+                detail="Customer sync is required before application creation"
+            )
+        
         # Sync application to Odoo with automatic prerequisite sync
         result = odoo_service.create_loan_application(application)
         
