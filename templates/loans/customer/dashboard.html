@@ -163,7 +163,7 @@
                     <div class="bg-gray-50 rounded-lg p-4">
                         <h3 class="text-sm font-semibold text-gray-900 mb-3">Verification Status (Odoo)</h3>
                         <div class="flex items-center gap-3">
-                            {% if customer.kyc_status == 'verified' %}
+                            {% if kyc_status == 'verified' %}
                             <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                                 <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -173,7 +173,7 @@
                                 <p class="text-sm font-semibold text-green-800">Verified</p>
                                 <p class="text-xs text-gray-500">Your identity has been verified in Odoo</p>
                             </div>
-                            {% elif customer.kyc_status == 'complete' %}
+                            {% elif kyc_status == 'complete' %}
                             <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
                                 <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -322,10 +322,7 @@
                                 KES {{ app.requested_amount|floatformat:0 }}
                             </td>
                             <td>
-                                <span
-                                    class="badge {% if app.status == 'APPROVED' or app.status == 'DISBURSED' %}badge-green {% elif app.status == 'REJECTED' %}badge-red {% elif app.status == 'PENDING_APPROVAL' or app.status == 'CREDIT_ANALYSIS' %}badge-yellow {% elif app.status == 'DRAFT' %}badge-gray {% else %}badge-blue {% endif %}"
-                                    >{{ app.get_odoo_status_label }}</span
-                                >
+                                <span class="badge {% if app.status == 'APPROVED' or app.status == 'DISBURSED' %}badge-green {% elif app.status == 'REJECTED' %}badge-red {% elif app.status == 'PENDING_APPROVAL' or app.status == 'CREDIT_ANALYSIS' %}badge-yellow {% elif app.status == 'DRAFT' %}badge-gray {% else %}badge-blue {% endif %}">{{ app.get_odoo_status_label }}</span>
                             </td>
                             <td class="text-gray-500">
                                 {{ app.created_at|date:"d M Y" }}
@@ -333,15 +330,9 @@
                             <td class="text-right">
                                 <div class="flex items-center justify-end gap-2">
                                     {% if app.status == 'DRAFT' %}
-                                    <a
-                                        href="{% url 'loans:submit_application' app.pk %}"
-                                        class="btn btn-primary btn-sm text-xs"
-                                    >Submit</a>
+                                    <a href="{% url 'loans:submit_application' app.pk %}" class="btn btn-primary btn-sm text-xs">Submit</a>
                                     {% endif %}
-                                    <a
-                                        href="{% url 'loans:application_detail' app.pk %}"
-                                        class="btn btn-ghost btn-sm text-alba-orange hover:text-alba-navy"
-                                    >View</a>
+                                    <a href="{% url 'loans:application_detail' app.pk %}" class="btn btn-ghost btn-sm text-alba-orange hover:text-alba-navy">View</a>
                                 </div>
                             </td>
                         </tr>

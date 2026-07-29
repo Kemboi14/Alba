@@ -88,6 +88,7 @@ def customer_loan_dashboard(request):
         "recent_applications": applications.order_by("-created_at")[:5],
         "my_loans": active_loans.order_by("-disbursement_date")[:5],
         "kyc_complete": customer.kyc_verified,
+        "kyc_status": customer.kyc_status,  # Odoo Alignment - KYC status
     }
 
     create_audit_log(
