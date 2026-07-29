@@ -117,6 +117,90 @@
             </div>
         </div>
 
+        <!-- KYC Verification Status (Odoo Integration) -->
+        <div class="card mb-6">
+            <div class="card-header flex items-center justify-between">
+                <h2 class="section-title">KYC Verification Status</h2>
+                <a
+                    href="{% url 'loans:customer_profile' %}"
+                    class="text-sm font-medium text-alba-orange hover:text-alba-navy transition"
+                    >Update Profile</a>
+            </div>
+            <div class="px-5 py-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Documents Status -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-sm font-semibold text-gray-900 mb-3">Documents</h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">National ID</span>
+                                {% if customer.national_id_file %}
+                                <span class="text-xs text-green-600 font-medium">Uploaded</span>
+                                {% else %}
+                                <span class="text-xs text-gray-400">Not uploaded</span>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Bank Statement</span>
+                                {% if customer.bank_statement_file %}
+                                <span class="text-xs text-green-600 font-medium">Uploaded</span>
+                                {% else %}
+                                <span class="text-xs text-gray-400">Not uploaded</span>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Face Photo</span>
+                                {% if customer.face_recognition_photo %}
+                                <span class="text-xs text-green-600 font-medium">Uploaded</span>
+                                {% else %}
+                                <span class="text-xs text-gray-400">Not uploaded</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- KYC Status from Odoo -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-sm font-semibold text-gray-900 mb-3">Verification Status (Odoo)</h3>
+                        <div class="flex items-center gap-3">
+                            {% if customer.kyc_status == 'verified' %}
+                            <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-green-800">Verified</p>
+                                <p class="text-xs text-gray-500">Your identity has been verified in Odoo</p>
+                            </div>
+                            {% elif customer.kyc_status == 'complete' %}
+                            <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-yellow-800">Complete - Pending Verification</p>
+                                <p class="text-xs text-gray-500">Documents under review in Odoo</p>
+                            </div>
+                            {% else %}
+                            <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">Not Verified</p>
+                                <p class="text-xs text-gray-500">Upload documents for Odoo verification</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <p class="text-xs text-gray-400 mt-3">Document verification is processed in Odoo backend</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Recent Loans -->
         <div class="card mb-6">
             <div class="card-header flex items-center justify-between">
@@ -247,11 +331,18 @@
                                 {{ app.created_at|date:"d M Y" }}
                             </td>
                             <td class="text-right">
-                                <a
-                                    href="{% url 'loans:application_detail' app.pk %}"
-                                    class="btn btn-ghost btn-sm text-alba-orange hover:text-alba-navy"
-                                    >View</a
-                                >
+                                <div class="flex items-center justify-end gap-2">
+                                    {% if app.status == 'DRAFT' %}
+                                    <a
+                                        href="{% url 'loans:submit_application' app.pk %}"
+                                        class="btn btn-primary btn-sm text-xs"
+                                    >Submit</a>
+                                    {% endif %}
+                                    <a
+                                        href="{% url 'loans:application_detail' app.pk %}"
+                                        class="btn btn-ghost btn-sm text-alba-orange hover:text-alba-navy"
+                                    >View</a>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
