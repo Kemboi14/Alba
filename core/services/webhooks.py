@@ -158,8 +158,36 @@ def odoo_webhook_receiver(request: HttpRequest) -> JsonResponse:
     raw_body = request.body  # bytes
 
     # ── 2. Verify HMAC signature ────────────────────────────────────────────
-    secret = getattr(settings, "ODOO_WEBHOOK_SECRET", "") or ""
+    # Try to get webhook secret from admin configuration first, fallback to env variable
+    secret = ""
+    try:
+        from core.models import OdooConfig
+        config = OdooConfig.get_active()
+        if config and config.webhook_secret:
+            secret = config.webhook_secret
+            logger.info("Using webhook secret from admin configuration")
+    except Exception as e:
+        logger.warning("Could not get webhook secret from admin config: %s", e)
+    
+    # Fallback to environment variable if admin config not available
+    if not secret:
+        secret = getattr(settings, "ODOO_WEBHOOK_SECRET", "") or ""
+        if secret:
+            logger.info("Using webhook secret from environment variable")
+        else:
+            logger.warning("No webhook secret configured in admin or environment")
+    
     sig_header = request.META.get(_SIGNATURE_HEADER, "")
+
+    if not secret:
+        logger.warning(
+            "Webhook secret not configured. Configure in admin (OdooConfig) or set ODOO_WEBHOOK_SECRET environment variable.  remote_addr=%s",
+            request.META.get("REMOTE_ADDR", "—"),
+        )
+        return JsonResponse(
+            {"status": "error", "detail": "Webhook secret not configured. Configure in admin (OdooConfig) or set ODOO_WEBHOOK_SECRET environment variable."},
+            status=503,
+        )
 
     if not verify_signature(raw_body, sig_header, secret):
         logger.warning(
