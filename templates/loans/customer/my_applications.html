@@ -123,12 +123,22 @@
                         <td
                             class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
                         >
-                            <a
-                                href="{% url 'loans:application_detail' app.pk %}"
-                                class="text-alba-orange hover:text-alba-navy transition"
-                            >
-                                View Details →
-                            </a>
+                            <div class="flex items-center justify-end gap-2">
+                                {% if app.status == 'DRAFT' %}
+                                <a
+                                    href="{% url 'loans:submit_application' app.pk %}"
+                                    class="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-xs font-medium text-white bg-alba-orange hover:bg-opacity-90 transition"
+                                >
+                                    Submit
+                                </a>
+                                {% endif %}
+                                <a
+                                    href="{% url 'loans:application_detail' app.pk %}"
+                                    class="text-alba-orange hover:text-alba-navy transition"
+                                >
+                                    View Details →
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
