@@ -475,7 +475,7 @@ class LoanApplicationForm(forms.ModelForm):
                     "class": (
                         "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
                         "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3"
+                        "text-base px-4 py-3 pl-12"
                     ),
                     "placeholder": "e.g. 50,000",
                     "step": "0.01",
@@ -487,7 +487,7 @@ class LoanApplicationForm(forms.ModelForm):
                     "class": (
                         "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
                         "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3"
+                        "text-base px-4 py-3 pl-14"
                     ),
                     "placeholder": "e.g. 12",
                     "onchange": "updateLoanCalculator()",
