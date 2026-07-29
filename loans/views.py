@@ -491,6 +491,8 @@ def submit_application(request, pk):
     Enhanced with robust error handling, pre-sync validation, and comprehensive logging
     to ensure seamless integration with Odoo 19 Alba loan module.
     """
+    from .models import LoanDocument  # Ensure local import
+    
     customer, _ = Customer.objects.get_or_create(user=request.user)
     application = get_object_or_404(LoanApplication, pk=pk, customer=customer)
 
