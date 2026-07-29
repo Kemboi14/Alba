@@ -39,6 +39,7 @@ _logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Retry back-off schedule  (attempt_number -> delay in minutes)
 # Enhanced for Odoo 19 with more aggressive early retries for transient failures
+# and improved back-off strategy for better integration resilience
 # ---------------------------------------------------------------------------
 _BACKOFF_MINUTES = {
     1: 1,   # 1 minute for first retry (aggressive for transient issues)
@@ -46,9 +47,11 @@ _BACKOFF_MINUTES = {
     3: 10,  # 10 minutes for third retry
     4: 30,  # 30 minutes for fourth retry
     5: 60,  # 1 hour for fifth retry
+    6: 120, # 2 hours for sixth retry (Enhanced)
+    7: 240, # 4 hours for seventh retry (Enhanced)
 }
-_DEFAULT_BACKOFF = 240  # 4 hours for attempt 6+
-_DEFAULT_MAX_ATTEMPTS = 7  # Increased to 7 for better resilience
+_DEFAULT_BACKOFF = 480  # 8 hours for attempt 8+ (Enhanced for better resilience)
+_DEFAULT_MAX_ATTEMPTS = 8  # Increased to 8 for better resilience
 
 
 def _next_retry_at(attempt_number: int) -> object:

@@ -660,7 +660,7 @@ class AlbaApiController(http.Controller):
             }
 
             # Optional KYC / personal fields — only write when supplied
-            # Enhanced with Phase 1 Odoo Alignment fields
+            # Enhanced with Phase 1 Odoo Alignment fields including referral and location
             optional_map = {
                 "id_number": "id_number",
                 "id_type": "id_type",
@@ -690,8 +690,8 @@ class AlbaApiController(http.Controller):
                 "next_of_kin_name": "next_of_kin_name",
                 "next_of_kin_phone": "next_of_kin_phone",
                 "next_of_kin_relationship": "next_of_kin_relationship",
-                "referral_source": "referral_source",
-                "referral_name": "referral_name",
+                "referral_source": "referral_source",  # Odoo Alignment - referral tracking
+                "referral_name": "referral_name",  # Odoo Alignment - referral name
                 "bank_name": "bank_name",
                 "bank_account": "bank_account",
                 "mpesa_number": "mpesa_number",
@@ -703,11 +703,19 @@ class AlbaApiController(http.Controller):
                 "county_id": "county_id",  # Hierarchical FK
                 "sub_county_id": "sub_county_id",
                 "ward_id": "ward_id",
+                "tag_ids": "tag_ids",  # Odoo Alignment - customer tags
             }
             for django_field, odoo_field in optional_map.items():
                 val = data.get(django_field)
                 if val is not None and val != "":
-                    customer_vals[odoo_field] = val
+                    # Special handling for Many2many tag_ids field
+                    if odoo_field == "tag_ids" and isinstance(val, list):
+                        customer_vals[odoo_field] = [(6, 0, val)]  # Many2many command: replace with new list
+                    else:
+                        customer_vals[odoo_field] = val
+                    # Special handling for location FK fields that need integer IDs
+                    if odoo_field in ["county_id", "sub_county_id", "ward_id"] and isinstance(val, int):
+                        customer_vals[odoo_field] = val
 
             # --- Persist -----------------------------------------------------
             operation_status = "updated"

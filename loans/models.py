@@ -3124,7 +3124,7 @@ class EmployerVerification(models.Model):
 
 class GuarantorVerification(models.Model):
     """
-    Guarantor Verification Model - SRS 3.1.4
+    Guarantor Verification Model - SRS 3.1.4 (Odoo Alignment)
     Third-party guarantor confirmation
     """
 
@@ -3155,6 +3155,7 @@ class GuarantorVerification(models.Model):
         max_length=100,
         help_text="e.g., Friend, Colleague, Relative",
     )
+    address = models.TextField("Physical Address", blank=True)  # Odoo Alignment
 
     # Financial Information
     employer = models.CharField("Employer", max_length=200, blank=True)
@@ -3164,6 +3165,15 @@ class GuarantorVerification(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    liability_amount = models.DecimalField(
+        "Liability Amount",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Maximum guaranteed amount (Odoo Alignment)",
         validators=[MinValueValidator(Decimal("0"))],
     )
 
@@ -3451,16 +3461,22 @@ class Notification(models.Model):
 class LoanDocument(models.Model):
     """
     Loan Document Model
-    Manages uploaded documents for loan applications
+    Manages uploaded documents for loan applications (Odoo Alignment)
     """
 
-    # Document Types
+    # Document Types (Odoo Alignment)
     NATIONAL_ID = "national_id"
     PASSPORT = "passport"
     BANK_STATEMENT = "bank_statement"
     PAYSLIP = "payslip"
     EMPLOYMENT_LETTER = "employment_letter"
+    BUSINESS_REGISTRATION = "business_registration"
     KRA_PIN = "kra_pin"
+    UTILITY_BILL = "utility_bill"
+    TITLE_DEED = "title_deed"
+    VALUATION_REPORT = "valuation_report"
+    INSURANCE = "insurance"
+    CONTRACT = "contract"
     GUARANTOR_ID = "guarantor_id"
     OTHER = "other"
 
@@ -3470,7 +3486,13 @@ class LoanDocument(models.Model):
         (BANK_STATEMENT, "Bank Statement"),
         (PAYSLIP, "Payslip"),
         (EMPLOYMENT_LETTER, "Employment Letter"),
+        (BUSINESS_REGISTRATION, "Business Registration"),
         (KRA_PIN, "KRA PIN Certificate"),
+        (UTILITY_BILL, "Utility Bill"),
+        (TITLE_DEED, "Title Deed"),
+        (VALUATION_REPORT, "Valuation Report"),
+        (INSURANCE, "Insurance Document"),
+        (CONTRACT, "Contract"),
         (GUARANTOR_ID, "Guarantor ID"),
         (OTHER, "Other"),
     ]

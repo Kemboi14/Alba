@@ -627,7 +627,7 @@ class LoanApplicationForm(forms.ModelForm):
 
 
 class GuarantorForm(forms.ModelForm):
-    """Form for adding a guarantor to a loan application."""
+    """Form for adding a guarantor to a loan application (Odoo Alignment)."""
 
     class Meta:
         model = GuarantorVerification
@@ -639,6 +639,8 @@ class GuarantorForm(forms.ModelForm):
             "relationship",
             "employer",
             "monthly_income",
+            "address",
+            "liability_amount",  # Odoo Alignment: guaranteed amount
         ]
         widgets = {
             "full_name": forms.TextInput(
@@ -705,11 +707,31 @@ class GuarantorForm(forms.ModelForm):
                     "step": "0.01",
                 }
             ),
+            "address": forms.Textarea(
+                attrs={
+                    "rows": 2,
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                    "placeholder": "Physical address",
+                }
+            ),
+            "liability_amount": forms.NumberInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                    "placeholder": "Maximum guaranteed amount",
+                    "step": "0.01",
+                }
+            ),
         }
 
 
 class LoanDocumentForm(forms.ModelForm):
-    """Form for uploading a supporting document to a loan application."""
+    """Form for uploading a supporting document to a loan application (Odoo Alignment)."""
 
     class Meta:
         model = LoanDocument

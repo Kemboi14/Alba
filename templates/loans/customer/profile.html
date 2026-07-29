@@ -448,6 +448,11 @@
                 <div class="wizard-step-connector" data-after="3"></div>
                 <button type="button" class="wizard-step" data-step="4" onclick="goToStep(4)">
                     <span class="wizard-step-circle">4</span>
+                    <span class="wizard-step-label">Additional</span>
+                </button>
+                <div class="wizard-step-connector" data-after="4"></div>
+                <button type="button" class="wizard-step" data-step="5" onclick="goToStep(5)">
+                    <span class="wizard-step-circle">5</span>
                     <span class="wizard-step-label">Documents</span>
                 </button>
             </div>
@@ -636,6 +641,66 @@
                                     Employment
                                 </button>
                                 <button type="button" class="section-nav-btn section-nav-btn-next" onclick="goToStep(4)">
+                                    Continue to Additional
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─── STEP 4: Additional Information (Odoo Alignment) ─────────── -->
+                <div class="kyc-section fade-up fade-up-d4" data-section="4" id="section-4">
+                    <button type="button" class="kyc-section-trigger" onclick="toggleSection(4)">
+                        <div class="kyc-section-icon bg-orange-50">
+                            <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-sm font-semibold text-gray-900">Additional Information</h3>
+                                <span class="kyc-section-badge bg-gray-100 text-gray-500">Optional</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">Referral, next of kin (Odoo Alignment)</p>
+                        </div>
+                        <svg class="kyc-section-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div class="kyc-section-body">
+                        <div class="kyc-section-content">
+                            <div class="tip-callout mb-5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>Help us understand how you found us and provide emergency contact information.</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="form-field">
+                                    <label class="form-label">Referral Source</label>
+                                    {{ form.referral_source }}
+                                    <p class="help-text">How did you hear about Alba Capital?</p>
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Referred By</label>
+                                    {{ form.referral_name }}
+                                    <p class="help-text">Name of the person who referred you</p>
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Next of Kin Name</label>
+                                    {{ form.next_of_kin_name }}
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label">Next of Kin Phone</label>
+                                    {{ form.next_of_kin_phone }}
+                                </div>
+                                <div class="form-field md:col-span-2">
+                                    <label class="form-label">Next of Kin Relationship</label>
+                                    {{ form.next_of_kin_relationship }}
+                                </div>
+                            </div>
+                            <!-- Section nav -->
+                            <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" class="section-nav-btn" onclick="goToStep(3)">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                                    Financial
+                                </button>
+                                <button type="button" class="section-nav-btn section-nav-btn-next" onclick="goToStep(5)">
                                     Continue to Documents
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                                 </button>
@@ -644,9 +709,9 @@
                     </div>
                 </div>
 
-                <!-- ─── STEP 4: Document Verification ─────────── -->
-                <div class="kyc-section fade-up fade-up-d4" data-section="4" id="section-4">
-                    <button type="button" class="kyc-section-trigger" onclick="toggleSection(4)">
+                <!-- ─── STEP 5: Document Verification ─────────── -->
+                <div class="kyc-section fade-up fade-up-d5" data-section="5" id="section-5">
+                    <button type="button" class="kyc-section-trigger" onclick="toggleSection(5)">
                         <div class="kyc-section-icon" style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5180 100%);">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                         </div>
@@ -941,9 +1006,9 @@
 
                             <!-- Section nav -->
                             <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
-                                <button type="button" class="section-nav-btn" onclick="goToStep(3)">
+                                <button type="button" class="section-nav-btn" onclick="goToStep(4)">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                                    Financial
+                                    Additional
                                 </button>
                                 <span class="text-xs text-gray-400 self-center">Last step — save below</span>
                             </div>
@@ -972,7 +1037,7 @@
 <script>
     // ── Wizard section navigation ──────────────────────────────────────────
     let currentStep = 1;
-    const totalSteps = 4;
+    const totalSteps = 5;
 
     function goToStep(n) {
         if (n < 1 || n > totalSteps) return;

@@ -783,6 +783,7 @@ class GuarantorVerificationAdmin(admin.ModelAdmin):
         'application_link',
         'phone',
         'relationship',
+        'liability_amount',  # Odoo Alignment
         'status',
         'confirmed_at',
     ]
@@ -807,10 +808,11 @@ class GuarantorVerificationAdmin(admin.ModelAdmin):
                 'phone',
                 'email',
                 'relationship',
+                'address',  # Odoo Alignment
             )
         }),
         ('Financial Information', {
-            'fields': ('employer', 'monthly_income')
+            'fields': ('employer', 'monthly_income', 'liability_amount')  # Odoo Alignment
         }),
         ('Verification', {
             'fields': (
