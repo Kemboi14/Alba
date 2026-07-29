@@ -486,6 +486,8 @@ def my_applications(request):
 def submit_application(request, pk):
     """Final submission of a draft application — requires at least one supporting document.
     
+    Documents must be uploaded before submission, but verification happens asynchronously in Odoo.
+    The Django portal displays the verification progress as it updates from Odoo.
     Enhanced with robust error handling, pre-sync validation, and comprehensive logging
     to ensure seamless integration with Odoo 19 Alba loan module.
     """
@@ -496,7 +498,7 @@ def submit_application(request, pk):
         messages.info(request, "This application has already been submitted.")
         return redirect("loans:application_detail", pk=pk)
 
-    # Enforce SRS 3.1.2 step 2: customer must upload at least one supporting document
+    # Enforce document requirement: customer must upload at least one supporting document
     # (payslip, employment letter, bank statement, etc.) before submission.
     has_documents = (
         LoanDocument.objects.filter(application=application).exists()
@@ -509,6 +511,7 @@ def submit_application(request, pk):
             "letter) before submitting your application.",
         )
         return redirect("loans:upload_document", application_pk=pk)
+    
     # Enhanced sync to Odoo with comprehensive error handling before locking Django status
     sync_success = False
     sync_error_message = ""
@@ -569,7 +572,7 @@ def submit_application(request, pk):
             )
 
         sync_success = True
-        messages.success(request, "Application submitted and synced to Odoo successfully.")
+        messages.success(request, "Application submitted successfully. Verification progress will be updated from Odoo.")
 
         # Sync customer profile KYC documents to Odoo with error handling
         customer = getattr(application, "customer", None)
