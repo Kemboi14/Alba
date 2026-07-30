@@ -15,14 +15,19 @@
                             <field name="original_rate" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="New Terms">
-                            <field name="new_product_id" options="{'no_create': True}"/>
-                            <field name="new_principal"/>
-                            <field name="new_interest_rate"/>
-                            <field name="new_tenure_months"/>
-                               <field name="is_topup" invisible="1"/>
-                               <field name="topup_amount" invisible="not is_topup"/>
+                        <group string="Refinance Mode">
+                            <field name="is_topup"/>
                         </group>
+                    </group>
+                    <group string="Top-Up Details" invisible="not is_topup">
+                        <field name="topup_amount"/>
+                        <field name="new_principal"/>
+                    </group>
+                    <group string="New Loan Terms" invisible="is_topup">
+                        <field name="new_product_id" options="{'no_create': True}"/>
+                        <field name="new_principal"/>
+                        <field name="new_interest_rate"/>
+                        <field name="new_tenure_months"/>
                     </group>
                 </sheet>
                 <footer>

@@ -107,19 +107,31 @@
                             <field name="original_outstanding" readonly="1"/>
                             <field name="currency_id"        invisible="1"/>
                         </group>
-                        <group string="New Settings">
-                            <field name="new_product_id"
-                                   options="{'no_create': True}"
-                                   readonly="state != 'draft'"/>
-                            <field name="is_topup"     readonly="state != 'draft'"/>
-                            <field name="topup_amount" readonly="state != 'draft'"
-                                   invisible="not is_topup"/>
+                        <group string="Refinance Mode">
+                            <field name="is_topup" readonly="state != 'draft'"/>
                         </group>
                     </group>
 
-                    <group string="New Loan Terms &amp; Calculations">
+                    <!-- Top-Up Details Section (visible only when is_topup = True) -->
+                    <group string="Top-Up Details" invisible="not is_topup">
                         <group>
-                            <field name="settlement_amount"       readonly="1"/>
+                            <field name="topup_amount"     readonly="state != 'draft'"/>
+                            <field name="settlement_amount" readonly="state != 'draft'"/>
+                            <field name="new_principal"     readonly="state != 'draft'"/>
+                        </group>
+                        <group>
+                            <field name="new_emi"          readonly="1"/>
+                            <field name="monthly_savings"  readonly="1"/>
+                        </group>
+                    </group>
+
+                    <!-- Standard Refinance Terms Section (visible only when is_topup = False) -->
+                    <group string="New Product &amp; Refinance Terms" invisible="is_topup">
+                        <group>
+                            <field name="new_product_id"
+                                   options="{'no_create': True}"
+                                   readonly="state != 'draft'"/>
+                            <field name="settlement_amount"       readonly="state != 'draft'"/>
                             <field name="new_principal"           readonly="state != 'draft'"/>
                             <field name="new_interest_rate"       readonly="state != 'draft'"/>
                             <field name="new_tenure_months"       readonly="state != 'draft'"/>
