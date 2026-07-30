@@ -109,7 +109,7 @@ class AlbaLoanApplication(models.Model):
         default="monthly",
     )
     relationship_officer_id = fields.Many2one(
-        "res.users",
+        "hr.employee",
         string="Relationship Officer",
         tracking=True,
         help="Relationship Officer assigned to this loan application.",

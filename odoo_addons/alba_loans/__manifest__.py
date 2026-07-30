@@ -52,6 +52,7 @@ Accounting
         "contacts",
         "base_setup",
         "purchase",
+        "hr",
     ],
     "external_dependencies": {
         "python": ["requests"],

@@ -57,7 +57,7 @@ class AlbaInvestment(models.Model):
         help="Configuration that supplies default rates, ledgers, journals, and document requirements.",
     )
     relationship_officer_id = fields.Many2one(
-        "res.users",
+        "hr.employee",
         string="Relationship Officer",
         tracking=True,
         help="Relationship Officer assigned to this investment account.",

@@ -28,6 +28,7 @@ Manages the full investor lifecycle:
         "contacts",
         "base_setup",
         "alba_loans",
+        "hr",
     ],
     "data": [
         # Security — always first
