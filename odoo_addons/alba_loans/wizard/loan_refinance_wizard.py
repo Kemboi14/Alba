@@ -84,15 +84,17 @@ class AlbaLoanRefinanceWizard(models.TransientModel):
                     vals["new_product_id"] = loan.loan_product_id.id
                     vals["new_interest_rate"] = loan.loan_product_id.interest_rate
                     vals["new_tenure_months"] = loan.tenure_months
-                # default new_principal to remaining balance
-                vals["new_principal"] = loan.outstanding_balance
+                # default new_principal to settlement amount
+                settlement = loan.outstanding_principal + (loan.accrued_interest or 0.0) + (loan.outstanding_charges or 0.0)
+                vals["new_principal"] = settlement
         return vals
 
     @api.onchange("topup_amount", "is_topup")
     def _onchange_topup_amount(self):
         if self.is_topup and self.original_loan_id:
             loan = self.original_loan_id
-            self.new_principal = (loan.outstanding_balance or loan.outstanding_principal or 0.0) + (self.topup_amount or 0.0)
+            settlement = loan.outstanding_principal + (loan.accrued_interest or 0.0) + (loan.outstanding_charges or 0.0)
+            self.new_principal = settlement + (self.topup_amount or 0.0)
             repaid_pct = (loan.total_paid / loan.total_repayable * 100.0) if loan.total_repayable > 0 else 0.0
             if repaid_pct < 50.0:
                 return {

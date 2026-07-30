@@ -137,9 +137,7 @@ class AlbaLoanRefinance(models.Model):
     settlement_amount = fields.Monetary(
         string="Settlement Amount",
         currency_field="currency_id",
-        compute="_compute_settlement",
-        store=True,
-        help="Amount to pay off original loan",
+        help="Amount to pay off original loan. Auto-suggested from remaining principal + accrued interest + charges, but can be manually overridden.",
     )
     accrued_interest_to_date = fields.Monetary(
         string="Accrued Interest to Settlement",
@@ -319,13 +317,12 @@ class AlbaLoanRefinance(models.Model):
             rec.new_total_repayable = total_repayable
             rec.new_emi = emi
     
-    @api.depends("original_loan_id", "new_principal", "refinance_fee_rate", "original_loan_id.outstanding_balance")
+    @api.depends("original_loan_id", "settlement_amount", "new_principal", "refinance_fee_rate", "original_loan_id.outstanding_balance")
     def _compute_settlement(self):
         for rec in self:
             if not rec.original_loan_id:
                 if rec.id:
                     continue
-                rec.settlement_amount = 0
                 rec.accrued_interest_to_date = 0
                 rec.refinance_fee_amount = 0
                 rec.cashback_to_customer = 0
@@ -334,9 +331,6 @@ class AlbaLoanRefinance(models.Model):
                 continue
             
             loan = rec.original_loan_id
-            
-            # Settlement = outstanding principal + accrued interest + outstanding charges
-            rec.settlement_amount = loan.outstanding_principal + (loan.accrued_interest or 0.0) + (loan.outstanding_charges or 0.0)
             rec.accrued_interest_to_date = loan.accrued_interest or 0
             
             # Refinance fee defaults
@@ -351,7 +345,7 @@ class AlbaLoanRefinance(models.Model):
                 # Refinance fee = percentage of new principal
                 rec.refinance_fee_amount = rec.new_principal * (rec.refinance_fee_rate / 100)
             
-            total_required = rec.settlement_amount + rec.refinance_fee_amount
+            total_required = (rec.settlement_amount or 0.0) + rec.refinance_fee_amount
             
             # Calculate cashback or shortfall
             if rec.new_principal > total_required:
@@ -365,14 +359,27 @@ class AlbaLoanRefinance(models.Model):
             old_emi = loan.installment_amount
             rec.monthly_savings = max(0, old_emi - rec.new_emi)
 
+    @api.onchange("settlement_amount")
+    def _onchange_settlement_amount(self):
+        for rec in self:
+            if rec.is_topup:
+                rec.new_principal = (rec.settlement_amount or 0.0) + (rec.topup_amount or 0.0)
+            total_required = (rec.settlement_amount or 0.0) + (rec.refinance_fee_amount or 0.0)
+            if rec.new_principal > total_required:
+                rec.cashback_to_customer = rec.new_principal - total_required
+                rec.customer_to_pay = 0.0
+            else:
+                rec.cashback_to_customer = 0.0
+                rec.customer_to_pay = total_required - rec.new_principal
+
     @api.onchange("is_topup", "topup_amount", "original_loan_id")
     def _onchange_topup_terms(self):
         for rec in self:
             if rec.is_topup and rec.original_loan_id:
                 loan = rec.original_loan_id
-                rec._compute_settlement()
-                remaining_balance = rec.settlement_amount or loan.outstanding_balance or loan.outstanding_principal
-                rec.new_principal = (remaining_balance or 0.0) + (rec.topup_amount or 0.0)
+                settlement = loan.outstanding_principal + (loan.accrued_interest or 0.0) + (loan.outstanding_charges or 0.0)
+                rec.settlement_amount = settlement
+                rec.new_principal = settlement + (rec.topup_amount or 0.0)
                 
                 repaid_pct = (loan.total_paid / loan.total_repayable * 100.0) if loan.total_repayable > 0 else 0.0
                 if repaid_pct < 50.0:
@@ -396,6 +403,8 @@ class AlbaLoanRefinance(models.Model):
                     rec.new_interest_rate = loan.interest_rate
                 if not rec.new_tenure_months:
                     rec.new_tenure_months = loan.tenure_months
+                if not rec.settlement_amount:
+                    rec.settlement_amount = loan.outstanding_principal + (loan.accrued_interest or 0.0) + (loan.outstanding_charges or 0.0)
                 if rec.is_topup:
                     rec._onchange_topup_terms()
 
