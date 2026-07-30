@@ -107,6 +107,7 @@
                             <field name="approved_amount" readonly="state not in ('pending_approval','approved','employer_verification','guarantor_confirmation')" groups="alba_loans.group_loan_manager"/>
                             <field name="net_disbursement_amount" widget="monetary" string="Net Payout" class="oe_subtotal_footer_separator"/>
                             <field name="repayment_frequency" readonly="state != 'draft'"/>
+                            <field name="relationship_officer_id" options="{'no_create': True}" readonly="state != 'draft'"/>
                             <field name="estimated_total_repayable" widget="monetary" string="Indicative Total"/>
                         </group>
                     </group>

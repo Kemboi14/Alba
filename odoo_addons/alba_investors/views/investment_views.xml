@@ -177,6 +177,7 @@
                     <group>
                         <group string="Investor &amp; Terms">
                             <field name="investor_id" options="{'no_create': False, 'no_open': True}" readonly="state != 'draft'"/>
+                            <field name="relationship_officer_id" options="{'no_create': True}" readonly="state != 'draft'"/>
                             <field name="investment_product_id" options="{'no_create': True}" readonly="state != 'draft'"/>
                             <field name="principal_amount" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="state != 'draft'"/>
                             <field name="investment_type" widget="radio" options="{'horizontal': true}" readonly="state != 'draft'"/>
