@@ -94,6 +94,18 @@ class AlbaLoanRefinance(models.Model):
             if rec.new_principal <= 0.0:
                 raise ValidationError(_("New Principal Amount must be greater than 0.00 and is mandatory."))
 
+    @api.constrains("is_topup", "original_loan_id")
+    def _check_topup_eligibility(self):
+        for rec in self:
+            if rec.is_topup and rec.original_loan_id:
+                loan = rec.original_loan_id
+                repaid_pct = (loan.total_paid / loan.total_repayable * 100.0) if loan.total_repayable > 0 else 0.0
+                if repaid_pct < 50.0:
+                    raise ValidationError(_(
+                        "Top-Up Refinance is not allowed. Customer has only repaid %.1f%% of original loan '%s' "
+                        "(minimum 50%% repayment required)."
+                    ) % (repaid_pct, loan.loan_number))
+
     new_interest_rate = fields.Float(
         string="New Interest Rate (% p.m.)",
         digits=(5, 2),
@@ -353,6 +365,26 @@ class AlbaLoanRefinance(models.Model):
             old_emi = loan.installment_amount
             rec.monthly_savings = max(0, old_emi - rec.new_emi)
 
+    @api.onchange("is_topup", "topup_amount", "original_loan_id")
+    def _onchange_topup_terms(self):
+        for rec in self:
+            if rec.is_topup and rec.original_loan_id:
+                loan = rec.original_loan_id
+                rec._compute_settlement()
+                remaining_balance = rec.settlement_amount or loan.outstanding_balance or loan.outstanding_principal
+                rec.new_principal = (remaining_balance or 0.0) + (rec.topup_amount or 0.0)
+                
+                repaid_pct = (loan.total_paid / loan.total_repayable * 100.0) if loan.total_repayable > 0 else 0.0
+                if repaid_pct < 50.0:
+                    return {
+                        "warning": {
+                            "title": _("Ineligible for Top-Up"),
+                            "message": _(
+                                "Original loan '%s' has only %.1f%% repaid. At least 50%% repayment is required before a top-up can be granted."
+                            ) % (loan.loan_number, repaid_pct)
+                        }
+                    }
+
     @api.onchange("original_loan_id")
     def _onchange_original_loan_id(self):
         for rec in self:
@@ -364,6 +396,8 @@ class AlbaLoanRefinance(models.Model):
                     rec.new_interest_rate = loan.interest_rate
                 if not rec.new_tenure_months:
                     rec.new_tenure_months = loan.tenure_months
+                if rec.is_topup:
+                    rec._onchange_topup_terms()
 
 
     @api.onchange("new_product_id")
@@ -457,6 +491,14 @@ class AlbaLoanRefinance(models.Model):
     def action_generate_quote(self):
         """Generate refinance quote"""
         for rec in self:
+            if rec.is_topup and rec.original_loan_id:
+                loan = rec.original_loan_id
+                repaid_pct = (loan.total_paid / loan.total_repayable * 100.0) if loan.total_repayable > 0 else 0.0
+                if repaid_pct < 50.0:
+                    raise UserError(_(
+                        "Cannot generate quote: Top-Up Refinance is not allowed. Customer has only repaid %.1f%% of original loan '%s' (minimum 50%% repayment required)."
+                    ) % (repaid_pct, loan.loan_number))
+
             from datetime import date, timedelta
             
             rec.write({
@@ -488,6 +530,14 @@ class AlbaLoanRefinance(models.Model):
             if not self.env.user.has_group("alba_loans.group_operations_manager"):
                 raise UserError(_("Only Operations Manager can approve refinances."))
             
+            if rec.is_topup and rec.original_loan_id:
+                loan = rec.original_loan_id
+                repaid_pct = (loan.total_paid / loan.total_repayable * 100.0) if loan.total_repayable > 0 else 0.0
+                if repaid_pct < 50.0:
+                    raise UserError(_(
+                        "Cannot approve: Top-Up Refinance is not allowed. Customer has only repaid %.1f%% of original loan '%s' (minimum 50%% repayment required)."
+                    ) % (repaid_pct, loan.loan_number))
+
             rec.write({
                 "state": "approved",
                 "approved_by": self.env.user.id,

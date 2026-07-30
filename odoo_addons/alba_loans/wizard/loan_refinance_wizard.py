@@ -84,14 +84,25 @@ class AlbaLoanRefinanceWizard(models.TransientModel):
                     vals["new_product_id"] = loan.loan_product_id.id
                     vals["new_interest_rate"] = loan.loan_product_id.interest_rate
                     vals["new_tenure_months"] = loan.tenure_months
-                # default new_principal to original principal
-                vals["new_principal"] = loan.principal_amount
+                # default new_principal to remaining balance
+                vals["new_principal"] = loan.outstanding_balance
         return vals
 
     @api.onchange("topup_amount", "is_topup")
     def _onchange_topup_amount(self):
-        if self.is_topup and self.topup_amount and self.original_loan_id:
-            self.new_principal = (self.original_loan_id.principal_amount or 0.0) + (self.topup_amount or 0.0)
+        if self.is_topup and self.original_loan_id:
+            loan = self.original_loan_id
+            self.new_principal = (loan.outstanding_balance or loan.outstanding_principal or 0.0) + (self.topup_amount or 0.0)
+            repaid_pct = (loan.total_paid / loan.total_repayable * 100.0) if loan.total_repayable > 0 else 0.0
+            if repaid_pct < 50.0:
+                return {
+                    "warning": {
+                        "title": _("Ineligible for Top-Up"),
+                        "message": _(
+                            "Original loan '%s' has only %.1f%% repaid. At least 50%% repayment is required before a top-up can be granted."
+                        ) % (loan.loan_number, repaid_pct)
+                    }
+                }
     
     def action_create_refinance(self):
         self.ensure_one()
@@ -100,6 +111,16 @@ class AlbaLoanRefinanceWizard(models.TransientModel):
             raise UserError(_("Please select a new product."))
         if self.new_principal <= 0.0:
             raise UserError(_("New Principal Amount must be greater than 0.00 and is mandatory."))
+        
+        if self.is_topup and self.original_loan_id:
+            loan = self.original_loan_id
+            repaid_pct = (loan.total_paid / loan.total_repayable * 100.0) if loan.total_repayable > 0 else 0.0
+            if repaid_pct < 50.0:
+                raise UserError(_(
+                    "Top-Up Refinance is not allowed. Customer has only repaid %.1f%% of original loan '%s' "
+                    "(minimum 50%% repayment required)."
+                ) % (repaid_pct, loan.loan_number))
+
         vals = {
             "original_loan_id": self.original_loan_id.id,
             "new_product_id": self.new_product_id.id,
