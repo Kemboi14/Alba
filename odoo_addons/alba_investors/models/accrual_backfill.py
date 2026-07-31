@@ -35,45 +35,18 @@ def previous_month_bounds(run_date):
 
 
 def accrual_run_date(year, month, target_day, env=None):
-    """Return the accrual recording date for a given cycle, adjusted to the next
-    working day when the target falls on a weekend or public holiday.
+    """Return the accrual recording date for a given cycle (always the 28th of the month).
 
     Args:
         year, month : the accrual period month
         target_day  : preferred day of month (e.g. 28)
-        env         : Odoo Environment; when provided, weekends and entries in
-                      resource.calendar.leaves (global, time_type='leave') are
-                      skipped.  When None, no adjustment is made.
+        env         : Odoo Environment (unused, kept for signature compatibility)
 
     Returns:
-        date: the (possibly adjusted) accrual date
+        date: the accrual date (28th of the specified year and month)
     """
-    d = date(year, month, min(target_day, 28))
-    if env is None:
-        return d
+    return date(year, month, min(target_day, 28))
 
-    # ── Advance past weekends ─────────────────────────────────────────────────
-    while d.weekday() >= 5:          # 5 = Saturday, 6 = Sunday
-        d += timedelta(days=1)
-
-    # ── Advance past global public holidays ───────────────────────────────────
-    def _is_holiday(check_date):
-        dt_from = "%s 00:00:00" % check_date
-        dt_to   = "%s 23:59:59" % check_date
-        return bool(env["resource.calendar.leaves"].search([
-            ("resource_id", "=", False),
-            ("time_type", "=", "leave"),
-            ("date_from", "<=", dt_to),
-            ("date_to",   ">=", dt_from),
-        ], limit=1))
-
-    while _is_holiday(d):
-        d += timedelta(days=1)
-        # Re-check weekend after advancing past a holiday
-        while d.weekday() >= 5:
-            d += timedelta(days=1)
-
-    return d
 
 
 def get_first_eligible_accrual_date(investment_start, cutoff_day=15):
