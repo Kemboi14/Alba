@@ -711,6 +711,11 @@ class AlbaInvestment(models.Model):
             period_start,
             is_first_period=(self.start_date is not None and not has_existing_accruals),
         )
+        if period_start > period_end:
+            # Day-0 exclusion pushed the start past the period boundary — nothing
+            # to accrue for this stub period (e.g. investment started on the same
+            # day the period boundary falls). Not an error.
+            return False
 
         accrual_opening_balance = opening_balance if opening_balance is not None else self.current_value
         period_interest = compute_accrual_interest(
