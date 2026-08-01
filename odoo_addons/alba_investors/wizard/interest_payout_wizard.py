@@ -139,6 +139,11 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             self.selected_accrual_ids = False
 
     def _get_accrual_cutoff_breakdown(self, accrual):
+        payout_date = self.payout_date or fields.Date.today()
+        # For completed/posted periods (or periods ending on or before payout date),
+        # 100% of the interest amount is payable.
+        if accrual.state in ("posted", "paid") or (accrual.period_end and accrual.period_end <= payout_date):
+            return accrual.interest_amount or 0.0, 0.0
         if accrual.interest_amount_payable_now or accrual.interest_amount_deferred:
             return accrual.interest_amount_payable_now or 0.0, accrual.interest_amount_deferred or 0.0
         return split_period_for_payout_cutoff(

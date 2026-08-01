@@ -100,7 +100,7 @@ class AlbaInvestmentTopupWizard(models.TransientModel):
         # the correct running balance that includes this top-up.
         # We only touch 'posted' accruals — 'paid' and 'reversed' are immutable.
         subsequent_posted = investment.accrual_ids.filtered(
-            lambda a: a.state == "posted" and a.period_start > self.date
+            lambda a: a.state == "posted" and a.period_end >= self.date
         )
         if subsequent_posted:
             for accrual in subsequent_posted:

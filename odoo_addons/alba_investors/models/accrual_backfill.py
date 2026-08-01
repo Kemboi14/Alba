@@ -139,6 +139,69 @@ def compute_accrual_interest(opening_balance, annual_rate, period_start, period_
         return round(full_month_interest * actual_days / 30.0, 2)
 
 
+def split_period_by_topups(opening_balance, annual_rate, period_start, period_end, topups=None):
+    """
+    Compute total period interest when top-ups occur mid-period.
+
+    Splits [period_start, period_end] into N+1 sub-periods around top-up dates.
+    Applies Day-0 exclusion at top-up dates (top-up begins earning on topup_date + 1 day).
+    Applies intra-period compounding (sub-period interest is added to running balance).
+
+    Args:
+        opening_balance (float): Balance at period_start (prior to in-period top-ups).
+        annual_rate (float): Annual interest rate percentage.
+        period_start (date): Start of overall accrual period.
+        period_end (date): End of overall accrual period.
+        topups (iterable): Objects or dicts with date and amount for posted top-ups
+                           occurring within [period_start, period_end].
+
+    Returns:
+        float: Total rounded interest for the period.
+    """
+    if not opening_balance or not annual_rate or not period_start or not period_end:
+        return 0.00
+
+    in_period_topups = []
+    for t in (topups or []):
+        t_date = getattr(t, "date", None) or (t.get("date") if isinstance(t, dict) else None)
+        t_amount = getattr(t, "amount", None) or (t.get("amount") if isinstance(t, dict) else 0.0)
+        if t_date and period_start <= t_date <= period_end:
+            in_period_topups.append((t_date, t_amount))
+
+    if not in_period_topups:
+        return compute_accrual_interest(opening_balance, annual_rate, period_start, period_end)
+
+    from collections import defaultdict
+    topups_by_date = defaultdict(float)
+    for t_date, t_amount in in_period_topups:
+        topups_by_date[t_date] += t_amount
+
+    current_start = period_start
+    current_balance = float(opening_balance)
+    total_interest = 0.0
+
+    for topup_date in sorted(topups_by_date.keys()):
+        sub_end = topup_date
+        if current_start <= sub_end:
+            sub_interest = compute_accrual_interest(
+                current_balance, annual_rate, current_start, sub_end
+            )
+            total_interest += sub_interest
+            current_balance += sub_interest  # Intra-period compounding
+
+        current_balance += topups_by_date[topup_date]
+        current_start = topup_date + timedelta(days=1)
+
+    if current_start <= period_end:
+        sub_interest = compute_accrual_interest(
+            current_balance, annual_rate, current_start, period_end
+        )
+        total_interest += sub_interest
+
+    return round(total_interest, 2)
+
+
+
 def iter_missing_accrual_periods(start_date, as_of_date, target_day,
                                   investment_start=None, cutoff_day=15,
                                   env=None):

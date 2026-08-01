@@ -10,6 +10,7 @@ from .accrual_backfill import (
     get_effective_period_start,
     split_period_for_payout_cutoff,
     compute_accrual_interest,
+    split_period_by_topups,
 )
 
 
@@ -718,11 +719,18 @@ class AlbaInvestment(models.Model):
             return False
 
         accrual_opening_balance = opening_balance if opening_balance is not None else self.current_value
-        period_interest = compute_accrual_interest(
+        topups_in_period = self.env["alba.investment.topup"].search([
+            ("investment_id", "=", self.id),
+            ("state", "=", "posted"),
+            ("date", ">=", period_start),
+            ("date", "<=", period_end),
+        ])
+        period_interest = split_period_by_topups(
             opening_balance=accrual_opening_balance,
             annual_rate=self.interest_rate,
             period_start=period_start,
             period_end=period_end,
+            topups=topups_in_period,
         )
 
         if period_interest <= 0:
@@ -1188,7 +1196,7 @@ class AlbaInvestment(models.Model):
 
             for topup in posted_topups:
                 candidate_accruals = inv.accrual_ids.filtered(
-                    lambda a, d=topup.date: a.state in ("posted", "paid") and a.period_start >= d
+                    lambda a, d=topup.date: a.state in ("posted", "paid") and a.period_end >= d
                 ).sorted(key=lambda a: a.period_start)
 
                 if not candidate_accruals:
@@ -1364,13 +1372,13 @@ class AlbaInvestment(models.Model):
                         limit=1,
                     )
 
-                    # Compute principal + all posted top-ups up to and including period_start
-                    topups_to_date = self.env["alba.investment.topup"].search([
+                    # Compute principal + posted top-ups strictly BEFORE period_start
+                    topups_prior = self.env["alba.investment.topup"].search([
                         ("investment_id", "=", inv.id),
                         ("state", "=", "posted"),
-                        ("date", "<=", period_start),
+                        ("date", "<", period_start),
                     ])
-                    base_with_topups = inv.principal_amount + sum(topups_to_date.mapped("amount"))
+                    base_before_period = inv.principal_amount + sum(topups_prior.mapped("amount"))
 
                     # Add interest from prior accruals that are still unpaid ('posted')
                     prior_unpaid_accruals = self.env["alba.interest.accrual"].search([
@@ -1378,7 +1386,7 @@ class AlbaInvestment(models.Model):
                         ("state", "=", "posted"),
                         ("period_end", "<", period_start),
                     ])
-                    running_balance = base_with_topups + sum(prior_unpaid_accruals.mapped("interest_amount"))
+                    running_balance = base_before_period + sum(prior_unpaid_accruals.mapped("interest_amount"))
 
                     if existing:
                         # Period already exists — nothing to recreate. Skip.
