@@ -707,10 +707,11 @@ class AlbaInvestment(models.Model):
             ],
             limit=1,
         ))
+        is_first_period = (self.start_date is not None and not has_existing_accruals)
         period_start = get_effective_period_start(
             self.start_date,
             period_start,
-            is_first_period=(self.start_date is not None and not has_existing_accruals),
+            is_first_period=is_first_period,
         )
         if period_start > period_end:
             # Day-0 exclusion pushed the start past the period boundary — nothing
@@ -739,11 +740,15 @@ class AlbaInvestment(models.Model):
                 % self.investment_number
             )
 
-        payable_now, deferred_amount = split_period_for_payout_cutoff(
-            period_start,
-            period_end,
-            interest_amount=period_interest,
-        )
+        if is_first_period:
+            payable_now, deferred_amount = split_period_for_payout_cutoff(
+                period_start,
+                period_end,
+                interest_amount=period_interest,
+            )
+        else:
+            payable_now = period_interest
+            deferred_amount = 0.0
         accrual_vals = {
             "investment_id": self.id,
             "accrual_date": today,
