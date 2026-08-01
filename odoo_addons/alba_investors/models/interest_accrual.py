@@ -9,6 +9,7 @@ from .accrual_backfill import (
     get_first_eligible_accrual_start,
     get_first_eligible_accrual_date,
     compute_accrual_interest,
+    split_period_by_topups,
 )
 
 
@@ -382,15 +383,28 @@ class AlbaInterestAccrual(models.Model):
                     % (rec.company_id.name, investment.investment_number)
                 )
 
-            # Bug 3 fix (action_post): pro-rata for partial first month
+            # Bug 3 fix (action_post): pro-rata for partial month with top-up awareness
+            # Previously, action_post had an independent flat pro-rata recalculation that
+            # silently overwritten a correctly-computed top-up-aware interest_amount at posting
+            # time when top-ups were involved. We now search for posted top-ups in the period
+            # and delegate to split_period_by_topups (which handles intra-period compounding
+            # and Day-0 exclusion, falling back to compute_accrual_interest when no top-ups exist).
             if rec.period_start and rec.period_end:
                 total_days = 30
                 actual_days = (rec.period_end - rec.period_start).days + 1
                 if actual_days < total_days:
-                    # Recompute interest proportionally; opening_balance is already stored
-                    monthly_rate = investment.interest_rate / 100.0 / 12.0
-                    pro_rata_interest = round(
-                        rec.opening_balance * monthly_rate * actual_days / total_days, 2
+                    in_period_topups = self.env["alba.investment.topup"].search([
+                        ("investment_id", "=", investment.id),
+                        ("state", "=", "posted"),
+                        ("date", ">=", rec.period_start),
+                        ("date", "<=", rec.period_end),
+                    ])
+                    pro_rata_interest = split_period_by_topups(
+                        opening_balance=rec.opening_balance,
+                        annual_rate=investment.interest_rate,
+                        period_start=rec.period_start,
+                        period_end=rec.period_end,
+                        topups=in_period_topups,
                     )
                     if pro_rata_interest != rec.interest_amount:
                         rec.write({"interest_amount": pro_rata_interest})
