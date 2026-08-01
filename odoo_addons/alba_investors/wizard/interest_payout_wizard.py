@@ -107,9 +107,10 @@ class AlbaInterestPayoutWizard(models.TransientModel):
     )
     def _compute_payout_amounts(self):
         for wiz in self:
+            posted_accruals = wiz.investment_id.accrual_ids.filtered(lambda a: a.state == "posted")
+            total_accrued = sum(posted_accruals.mapped("interest_amount")) or 0.0
             outstanding = wiz.investment_id.total_interest_outstanding or 0.0
 
-            posted_accruals = wiz.investment_id.accrual_ids.filtered(lambda a: a.state == "posted")
             if wiz.payout_mode == "all":
                 gross = sum(
                     (self._get_accrual_cutoff_breakdown(accrual)[0] for accrual in posted_accruals)
@@ -120,6 +121,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                     for accrual in wiz.selected_accrual_ids.filtered(lambda a: a.state == "posted")
                 )
             else:  # partial
+                outstanding = total_accrued
                 gross = min(wiz.custom_gross_amount or 0.0, outstanding)
 
             wht = round(gross * ((wiz.wht_rate or 0.0) / 100.0), 2)
