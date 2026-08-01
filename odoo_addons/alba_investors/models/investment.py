@@ -1391,7 +1391,16 @@ class AlbaInvestment(models.Model):
                         ("state", "=", "posted"),
                         ("period_end", "<", period_start),
                     ])
-                    running_balance = base_before_period + sum(prior_unpaid_accruals.mapped("interest_amount"))
+                    prior_payouts = self.env["alba.interest.payout"].search([
+                        ("investment_id", "=", inv.id),
+                        ("state", "=", "posted"),
+                        ("payout_date", "<", period_start),
+                    ])
+                    running_balance = (
+                        base_before_period
+                        + sum(prior_unpaid_accruals.mapped("interest_amount"))
+                        - sum(prior_payouts.mapped("gross_interest"))
+                    )
 
                     if existing:
                         # Period already exists — nothing to recreate. Skip.

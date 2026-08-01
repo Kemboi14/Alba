@@ -264,9 +264,15 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             accrued_candidates = investment.accrual_ids.filtered(lambda a: a.state == "posted")
         elif self.payout_mode == "select":
             accrued_candidates = self.selected_accrual_ids.filtered(lambda a: a.state == "posted")
+        else:  # partial/custom payout
+            accrued_candidates = investment.accrual_ids.filtered(lambda a: a.state == "posted")
 
         for accrual in accrued_candidates:
             payable_now, deferred_amount = self._get_accrual_cutoff_breakdown(accrual)
+            if self.payout_mode == "partial":
+                payout_accruals |= accrual
+                continue
+
             if payable_now <= 0:
                 accrual.write({
                     "interest_amount_payable_now": 0.0,
@@ -296,7 +302,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         })
 
         # ── 5. Mark accruals as paid only when no deferred remainder remains ───
-        if payout_accruals:
+        if payout_accruals and self.payout_mode != "partial":
             for accrual in payout_accruals:
                 payable_now, deferred_amount = self._get_accrual_cutoff_breakdown(accrual)
                 if deferred_amount > 0:
@@ -317,25 +323,32 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         # ── 6. Invalidate subsequent posted accruals ───────────────────────────
         # After a payout, the opening balance for all future accruals changes
         # (paid interest is no longer compounding). Delete any posted accruals
-        # that come AFTER the last paid accrual so the backfill recreates them
-        # with the correct opening balance derived from current_value.
+        # that come AFTER the payout date so the backfill recreates them using
+        # the correct running balance.
         if payout_accruals:
-            paid_period_ends = [
-                accrual.period_end for accrual in payout_accruals
-                if accrual.state == "paid"
-            ]
-            if paid_period_ends:
-                last_paid_period_end = max(paid_period_ends)
+            if self.payout_mode == "partial":
                 subsequent_posted = investment.accrual_ids.filtered(
-                    lambda a: a.state == "posted" and a.period_start > last_paid_period_end
+                    lambda a: a.state == "posted" and a.period_end >= self.payout_date
                 )
-                if subsequent_posted:
-                    # Reverse and delete the journal entries first
-                    for accrual in subsequent_posted:
-                        if accrual.move_id and accrual.move_id.state == "posted":
-                            accrual.move_id.button_cancel()
-                            accrual.move_id.unlink()
-                    subsequent_posted.unlink()
+            else:
+                paid_period_ends = [
+                    accrual.period_end for accrual in payout_accruals
+                    if accrual.state == "paid"
+                ]
+                subsequent_posted = self.env["alba.interest.accrual"]
+                if paid_period_ends:
+                    last_paid_period_end = max(paid_period_ends)
+                    subsequent_posted = investment.accrual_ids.filtered(
+                        lambda a: a.state == "posted" and a.period_start > last_paid_period_end
+                    )
+
+            if subsequent_posted:
+                # Reverse and delete the journal entries first
+                for accrual in subsequent_posted:
+                    if accrual.move_id and accrual.move_id.state == "posted":
+                        accrual.move_id.button_cancel()
+                        accrual.move_id.unlink()
+                subsequent_posted.unlink()
 
         # ── 7. Chatter ─────────────────────────────────────────────────────────
         mode_label = dict(self._fields["payout_mode"].selection).get(self.payout_mode, "")
