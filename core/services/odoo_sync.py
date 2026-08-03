@@ -148,8 +148,34 @@ class OdooSyncService:
     _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
     def __init__(self):
-        self.base_url = (getattr(settings, "ODOO_URL", "") or "").rstrip("/")
-        self.api_key = getattr(settings, "ODOO_API_KEY", "") or ""
+        # Try to get configuration from database first (admin panel config)
+        # Fall back to environment variables if database config is not available
+        try:
+            from core.models import OdooConfig
+            
+            db_config = OdooConfig.get_active()
+            if db_config and db_config.is_active:
+                logger.info("Using Odoo configuration from database (admin panel)")
+                self.base_url = (db_config.url or "").rstrip("/")
+                self.api_key = db_config.api_key or ""
+                self.db_name = (db_config.database or "").strip()
+                self.webhook_secret = db_config.webhook_secret or ""
+                self.webhook_url = db_config.webhook_url or ""
+            else:
+                logger.info("No active database config, falling back to environment variables")
+                self.base_url = (getattr(settings, "ODOO_URL", "") or "").rstrip("/")
+                self.api_key = getattr(settings, "ODOO_API_KEY", "") or ""
+                self.db_name = (getattr(settings, "ODOO_DB", "") or "").strip()
+                self.webhook_secret = getattr(settings, "ODOO_WEBHOOK_SECRET", "") or ""
+                self.webhook_url = getattr(settings, "WEBHOOK_URL", "") or ""
+        except Exception as exc:
+            logger.warning("Failed to load database config, using environment variables: %s", exc)
+            self.base_url = (getattr(settings, "ODOO_URL", "") or "").rstrip("/")
+            self.api_key = getattr(settings, "ODOO_API_KEY", "") or ""
+            self.db_name = (getattr(settings, "ODOO_DB", "") or "").strip()
+            self.webhook_secret = getattr(settings, "ODOO_WEBHOOK_SECRET", "") or ""
+            self.webhook_url = getattr(settings, "WEBHOOK_URL", "") or ""
+
         self.timeout = int(getattr(settings, "ODOO_TIMEOUT", self._DEFAULT_TIMEOUT))
         self.max_retries = int(
             getattr(settings, "ODOO_MAX_RETRIES", self._DEFAULT_MAX_RETRIES)
@@ -157,8 +183,6 @@ class OdooSyncService:
         self.retry_backoff = float(
             getattr(settings, "ODOO_RETRY_BACKOFF", self._DEFAULT_RETRY_BACKOFF)
         )
-
-        self.db_name = (getattr(settings, "ODOO_DB", "") or "").strip()
 
         self._session = requests.Session()
         headers = {
@@ -174,6 +198,15 @@ class OdooSyncService:
     # =========================================================================
     # Public API methods
     # =========================================================================
+
+    def is_configured(self) -> bool:
+        """
+        Check if the service is properly configured with required credentials.
+        
+        Returns:
+            bool: True if base_url and api_key are configured, False otherwise.
+        """
+        return bool(self.base_url and self.api_key)
 
     def health_check(self) -> dict:
         """
@@ -664,6 +697,13 @@ class OdooSyncService:
         # Step 1: Ensure customer is synced to Odoo
         customer = getattr(application, "customer", None)
         if customer:
+            # Check if service is configured before attempting sync
+            if not self.is_configured():
+                raise OdooSyncError(
+                    "Odoo integration not configured. Please contact administrator.",
+                    detail="API credentials are not configured in the admin panel."
+                )
+            
             odoo_customer_id = getattr(customer, "odoo_customer_id", None)
             if not odoo_customer_id:
                 logger.info(

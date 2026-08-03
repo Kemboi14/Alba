@@ -287,8 +287,13 @@ def apply_for_loan(request):
         
         odoo_service = OdooSyncService()
         
+        # Check if Odoo service is properly configured
+        if not odoo_service.is_configured():
+            logger.warning("Odoo service not configured - pre-sync validation skipped")
+            odoo_sync_ready = False
+            sync_message = "Odoo integration not configured - application will be synced when configured"
         # Check if customer needs syncing
-        if not customer.odoo_customer_id:
+        elif not customer.odoo_customer_id:
             if odoo_service.is_reachable():
                 try:
                     logger.info(
@@ -342,7 +347,7 @@ def apply_for_loan(request):
             odoo_product_id__isnull=True
         )
         
-        if products_needing_sync.exists() and odoo_service.is_reachable():
+        if products_needing_sync.exists() and odoo_service.is_configured() and odoo_service.is_reachable():
             try:
                 logger.info(
                     "Pre-sync validation: Syncing %d loan products to Odoo",
@@ -359,6 +364,10 @@ def apply_for_loan(request):
                     sync_exc
                 )
                 # Don't block application if product sync fails
+        elif products_needing_sync.exists() and not odoo_service.is_configured():
+            logger.warning(
+                "Pre-sync validation: Odoo not configured, skipping loan product sync"
+            )
         
         # Show sync status to user
         if sync_message:
@@ -524,6 +533,14 @@ def submit_application(request, pk):
         from django.utils import timezone
 
         odoo_service = OdooSyncService()
+        
+        # Check if Odoo service is properly configured
+        if not odoo_service.is_configured():
+            logger.error("Odoo service not configured - missing API credentials")
+            raise OdooSyncError(
+                "Odoo integration not configured. Please contact administrator.",
+                detail="API credentials are not configured in the admin panel."
+            )
         
         # Check Odoo connectivity before attempting sync
         if not odoo_service.is_reachable():
