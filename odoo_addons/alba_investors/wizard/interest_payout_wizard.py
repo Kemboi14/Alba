@@ -142,12 +142,14 @@ class AlbaInterestPayoutWizard(models.TransientModel):
 
     def _get_accrual_cutoff_breakdown(self, accrual):
         payout_date = self.payout_date or fields.Date.today()
+        # Prefer the accrual's already-split payable/deferred fields so a partial
+        # payout can accurately preserve any outstanding deferred amount.
+        if accrual.interest_amount_payable_now or accrual.interest_amount_deferred:
+            return accrual.interest_amount_payable_now or 0.0, accrual.interest_amount_deferred or 0.0
         # For completed/posted periods (or periods ending on or before payout date),
         # 100% of the interest amount is payable.
         if accrual.state in ("posted", "paid") or (accrual.period_end and accrual.period_end <= payout_date):
             return accrual.interest_amount or 0.0, 0.0
-        if accrual.interest_amount_payable_now or accrual.interest_amount_deferred:
-            return accrual.interest_amount_payable_now or 0.0, accrual.interest_amount_deferred or 0.0
         return split_period_for_payout_cutoff(
             accrual.period_start,
             accrual.period_end,
@@ -289,15 +291,23 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                 if remaining <= 0:
                     break
 
-                accrual_amount = accrual.interest_amount or 0.0
-                if remaining >= accrual_amount:
-                    remaining -= accrual_amount
-                    payout_accruals |= accrual
+                payable_now, deferred_amount = self._get_accrual_cutoff_breakdown(accrual)
+                if payable_now <= 0:
                     accrual.write({
-                        "state": "paid",
+                        "interest_amount_payable_now": 0.0,
+                        "interest_amount_deferred": deferred_amount,
+                    })
+                    continue
+
+                if remaining >= payable_now:
+                    remaining -= payable_now
+                    payout_accruals |= accrual
+                    next_state = "paid" if deferred_amount <= 0 else "posted"
+                    accrual.write({
+                        "state": next_state,
                         "interest_payout_id": False,
-                        "interest_amount_payable_now": accrual_amount,
-                        "interest_amount_deferred": 0.0,
+                        "interest_amount_payable_now": payable_now,
+                        "interest_amount_deferred": deferred_amount,
                     })
                 else:
                     payout_accruals |= accrual
@@ -305,7 +315,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                         "state": "posted",
                         "interest_payout_id": False,
                         "interest_amount_payable_now": remaining,
-                        "interest_amount_deferred": accrual_amount - remaining,
+                        "interest_amount_deferred": deferred_amount + (payable_now - remaining),
                     })
                     remaining = 0.0
 
