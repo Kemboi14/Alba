@@ -797,8 +797,10 @@ class OdooSyncService:
             application.customer_id if hasattr(application, "customer_id") else "—",
         )
         
-        # Generate idempotency key based on application ID and customer ID
-        idempotency_key = f"application_{application.id}_{customer.id if customer else 'unknown'}"
+        # Generate idempotency key based on application ID and customer ID.
+        # Use .pk, not .id: loans.models.Customer sets its `user` FK as the
+        # primary key, so it has no implicit `id` attribute at all.
+        idempotency_key = f"application_{application.pk}_{customer.pk if customer else 'unknown'}"
         
         try:
             result = self._post_with_idempotency(
@@ -1500,6 +1502,76 @@ def _parse_response(response: requests.Response, path: str) -> dict:
 # Payload builders
 # ---------------------------------------------------------------------------
 
+# Django's Customer model stores choice fields as UPPER_SNAKE_CASE (e.g.
+# "EMPLOYED"), while the corresponding Odoo alba.customer/res.partner
+# Selection fields use lower_snake_case (e.g. "employed"). Sending the raw
+# Django value makes Odoo reject the *entire* customer record with
+# "Wrong value for alba.customer.<field>: '<value>'" the moment any one of
+# these optional fields is populated — which is effectively guaranteed for
+# any customer who has filled in their profile.
+_ID_TYPE_MAP = {
+    "NATIONAL": "national_id",
+    "PASSPORT": "passport",
+    "MILITARY": "alien_id",
+    "OTHER": "alien_id",
+}
+_GENDER_MAP = {"MALE": "male", "FEMALE": "female", "OTHER": "other"}
+_MARITAL_STATUS_MAP = {
+    "SINGLE": "single",
+    "MARRIED": "married",
+    "DIVORCED": "divorced",
+    "WIDOWED": "widowed",
+}
+_EMPLOYMENT_STATUS_MAP = {
+    "EMPLOYED": "employed",
+    "SELF_EMPLOYED": "self_employed",
+    "BUSINESS_OWNER": "business_owner",
+    "UNEMPLOYED": "unemployed",
+    "RETIRED": "retired",
+}
+_BUSINESS_TYPE_MAP = {
+    "SOLE_PROPRIETOR": "sole_proprietor",
+    "PARTNERSHIP": "partnership",
+    "LIMITED_COMPANY": "limited_company",
+    "OTHER": "other",
+}
+_REFERRAL_SOURCE_MAP = {"AGENT": "agent", "STAFF": "staff", "DIRECTOR": "director"}
+_KYC_STATUS_MAP = {
+    "PENDING": "pending",
+    "PARTIAL": "partial",
+    "COMPLETE": "complete",
+    "VERIFIED": "verified",
+    "REJECTED": "rejected",
+}
+_RISK_RATING_MAP = {
+    "LOW": "low",
+    "MEDIUM": "medium",
+    "HIGH": "high",
+    "VERY_HIGH": "very_high",
+}
+
+
+def _map_choice(value, mapping: dict, field_name: str):
+    """
+    Translate a Django UPPER_SNAKE_CASE choice value to the lower_snake_case
+    value Odoo's Selection field expects.
+
+    Returns None (dropping the field from the payload) when the value can't
+    be mapped, rather than forwarding a raw value that would make Odoo
+    reject the whole customer record.
+    """
+    if value is None or value == "":
+        return None
+    key = str(value).strip().upper()
+    mapped = mapping.get(key)
+    if mapped is None:
+        logger.warning(
+            "_build_customer_payload: unmappable %s value %r — omitting from Odoo payload",
+            field_name,
+            value,
+        )
+    return mapped
+
 
 def _build_customer_payload(user) -> dict:
     """
@@ -1530,10 +1602,12 @@ def _build_customer_payload(user) -> dict:
         profile_fields = {
             # Identity fields
             "id_number": getattr(profile, "id_number", None),
-            "id_type": getattr(profile, "id_type", None),
+            "id_type": _map_choice(getattr(profile, "id_type", None), _ID_TYPE_MAP, "id_type"),
             "date_of_birth": getattr(profile, "date_of_birth", None),
-            "gender": getattr(profile, "gender", None),
-            "marital_status": getattr(profile, "marital_status", None),
+            "gender": _map_choice(getattr(profile, "gender", None), _GENDER_MAP, "gender"),
+            "marital_status": _map_choice(
+                getattr(profile, "marital_status", None), _MARITAL_STATUS_MAP, "marital_status"
+            ),
             "nationality": getattr(profile, "nationality", None),
             # Address
             "address": getattr(profile, "address", None),
@@ -1543,7 +1617,11 @@ def _build_customer_payload(user) -> dict:
             "sub_county_id": getattr(profile, "sub_county_id", None),
             "ward_id": getattr(profile, "ward_id", None),
             # Employment
-            "employment_status": getattr(profile, "employment_status", None),
+            "employment_status": _map_choice(
+                getattr(profile, "employment_status", None),
+                _EMPLOYMENT_STATUS_MAP,
+                "employment_status",
+            ),
             "employer_name": getattr(profile, "employer_name", None),
             "employer_contact": getattr(profile, "employer_contact", None),
             "employer_email": getattr(profile, "employer_email", None),
@@ -1557,7 +1635,9 @@ def _build_customer_payload(user) -> dict:
             "business_registration_number": getattr(profile, "business_registration_number", None),
             "business_location": getattr(profile, "business_location", None),
             "business_industry": getattr(profile, "business_industry", None),
-            "business_type": getattr(profile, "business_type", None),
+            "business_type": _map_choice(
+                getattr(profile, "business_type", None), _BUSINESS_TYPE_MAP, "business_type"
+            ),
             "years_in_business": getattr(profile, "years_in_business", None),
             "monthly_business_turnover": getattr(profile, "monthly_business_turnover", None),
             "sector_id": getattr(profile, "sector_id", None),
@@ -1568,17 +1648,21 @@ def _build_customer_payload(user) -> dict:
             "next_of_kin_phone": getattr(profile, "next_of_kin_phone", None),
             "next_of_kin_relationship": getattr(profile, "next_of_kin_relationship", None),
             # Referral
-            "referral_source": getattr(profile, "referral_source", None),
+            "referral_source": _map_choice(
+                getattr(profile, "referral_source", None), _REFERRAL_SOURCE_MAP, "referral_source"
+            ),
             "referral_name": getattr(profile, "referral_name", None),
             # Banking
             "bank_name": getattr(profile, "bank_name", None),
             "bank_account": getattr(profile, "bank_account", None),
             "mpesa_number": getattr(profile, "mpesa_number", None),
             # KYC
-            "kyc_status": getattr(profile, "kyc_status", None),
+            "kyc_status": _map_choice(getattr(profile, "kyc_status", None), _KYC_STATUS_MAP, "kyc_status"),
             "kyc_verified": getattr(profile, "kyc_verified", None),
             "credit_score": getattr(profile, "credit_score", None),
-            "risk_rating": getattr(profile, "risk_rating", None),
+            "risk_rating": _map_choice(
+                getattr(profile, "risk_rating", None), _RISK_RATING_MAP, "risk_rating"
+            ),
             # Status
             "notes": getattr(profile, "notes", None),
         }
