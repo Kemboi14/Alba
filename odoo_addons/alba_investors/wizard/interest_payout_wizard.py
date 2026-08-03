@@ -101,6 +101,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         "payout_mode",
         "selected_accrual_ids",
         "custom_gross_amount",
+        "payout_date",
         "investment_id",
         "investment_id.total_interest_outstanding",
         "investment_id.wht_rate",
@@ -139,6 +140,35 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             self.selected_accrual_ids = [(6, 0, posted.ids)]
         else:
             self.selected_accrual_ids = False
+
+    @api.onchange("selected_accrual_ids")
+    def _onchange_selected_accrual_ids(self):
+        """Recalculate payout amounts when specific accruals are selected/deselected."""
+        # The compute method will automatically trigger due to @api.depends
+        # This onchange ensures UI updates immediately when user changes selection
+        pass
+
+    @api.onchange("custom_gross_amount")
+    def _onchange_custom_gross_amount(self):
+        """Recalculate and validate custom partial amount."""
+        if self.payout_mode == "partial" and self.custom_gross_amount:
+            outstanding = self.total_outstanding or 0.0
+            if self.custom_gross_amount > outstanding:
+                # Odoo will show a warning but not block the user
+                return {
+                    'warning': {
+                        'title': _('Amount Exceeds Outstanding'),
+                        'message': _('Custom amount (%.2f) exceeds total outstanding interest (%.2f). It will be capped at the outstanding amount.') 
+                                  % (self.custom_gross_amount, outstanding)
+                    }
+                }
+
+    @api.onchange("payout_date")
+    def _onchange_payout_date(self):
+        """Recalculate payout amounts when payout date changes (affects cutoff calculations)."""
+        # The compute method will automatically trigger due to @api.depends
+        # This onchange ensures UI updates immediately when user changes date
+        pass
 
     def _get_accrual_cutoff_breakdown(self, accrual):
         payout_date = self.payout_date or fields.Date.today()
