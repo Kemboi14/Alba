@@ -353,8 +353,11 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         # the correct running balance.
         if payout_accruals:
             if self.payout_mode == "partial":
+                last_processed_date = max(payout_accruals.mapped("accrual_date")) if payout_accruals else False
                 subsequent_posted = investment.accrual_ids.filtered(
-                    lambda a: a.state == "posted" and a.period_end >= self.payout_date
+                    lambda a: a.state == "posted"
+                    and a.id not in payout_accruals.ids
+                    and (last_processed_date and a.accrual_date > last_processed_date)
                 )
             else:
                 paid_period_ends = [
