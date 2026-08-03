@@ -728,6 +728,16 @@ class OdooSyncService:
                             "Failed to sync customer to Odoo - no ID returned",
                             detail="Customer sync returned zero ID",
                         )
+                except OdooSyncError:
+                    # Already a specific, correctly-typed sync error (auth,
+                    # validation, connection, timeout, ...) carrying its real
+                    # cause in .detail — propagate unchanged. Re-wrapping it
+                    # here would both erase the actual cause (replaced by a
+                    # generic message) and erase the type, which breaks the
+                    # transient-vs-permanent classification callers rely on
+                    # (e.g. a network timeout would look like a validation
+                    # failure and stop being auto-retried).
+                    raise
                 except Exception as exc:
                     logger.error(
                         "Failed to sync customer to Odoo: customer_id=%s error=%s",
@@ -735,9 +745,9 @@ class OdooSyncService:
                         exc,
                     )
                     raise OdooSyncError(
-                        f"Failed to sync customer to Odoo: {str(exc)}",
-                        detail="Customer sync is required before application creation",
-                    )
+                        f"Failed to sync customer to Odoo: {exc}",
+                        detail=f"Customer sync is required before application creation: {exc}",
+                    ) from exc
 
         # Step 2: Ensure loan product is synced to Odoo
         loan_product = getattr(application, "loan_product", None)
@@ -763,6 +773,11 @@ class OdooSyncService:
                             "Failed to sync loan product to Odoo - no ID returned",
                             detail="Product sync returned zero ID",
                         )
+                except OdooSyncError:
+                    # See comment in the customer-sync block above: preserve
+                    # the original error type and detail instead of masking
+                    # the real cause with a generic message.
+                    raise
                 except Exception as exc:
                     logger.error(
                         "Failed to sync loan product to Odoo: product_id=%s error=%s",
@@ -770,9 +785,9 @@ class OdooSyncService:
                         exc,
                     )
                     raise OdooSyncError(
-                        f"Failed to sync loan product to Odoo: {str(exc)}",
-                        detail="Product sync is required before application creation",
-                    )
+                        f"Failed to sync loan product to Odoo: {exc}",
+                        detail=f"Product sync is required before application creation: {exc}",
+                    ) from exc
 
         # Step 3: Build and send application payload with idempotency
         payload = _build_application_payload(application)

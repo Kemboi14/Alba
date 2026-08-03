@@ -61,6 +61,7 @@ SYNC_OPERATIONS = [
     ("delete", "Delete / Archive"),
     ("full_sync", "Full Sync"),
     ("health_check", "Health Check"),
+    ("read", "Read / List"),
 ]
 
 SYNC_STATUSES = [

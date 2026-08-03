@@ -446,6 +446,10 @@ class AlbaApiController(http.Controller):
                 "count": 1
             }
         """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+
         try:
             api_key = self._authenticate()
 
@@ -479,9 +483,21 @@ class AlbaApiController(http.Controller):
             return self._json_response({"products": result, "count": len(result)})
 
         except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "read", "alba.loan.product", 0, 0,
+                "failure", str(exc), None, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "LoanProduct",
+                event_type="loan_products.list",
+            )
             return self._error_response(str(exc), 403)
         except Exception as exc:
             _logger.exception("list_loan_products: unexpected error — %s", exc)
+            _log_inbound_sync(
+                api_key, "read", "alba.loan.product", 0, 0,
+                "failure", f"Unexpected error: {exc}", None, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "LoanProduct",
+                event_type="loan_products.list",
+            )
             return self._error_response("Internal server error.", 500)
 
     # -------------------------------------------------------------------------
@@ -829,21 +845,39 @@ class AlbaApiController(http.Controller):
                 "odoo_customer_id": 42
             }
         """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        data = None
+
         try:
             api_key = self._authenticate()
             data = self._parse_json_body()
 
             kyc_status = (data.get("kyc_status") or "").strip()
             if not kyc_status:
-                return self._error_response("Missing required field: kyc_status", 400)
+                detail = "Missing required field: kyc_status"
+                _log_inbound_sync(
+                    api_key, "update", "alba.customer", 0, customer_id,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Customer",
+                    event_type="customer.kyc_updated",
+                )
+                return self._error_response(detail, 400)
 
             valid_statuses = {"pending", "submitted", "verified", "rejected"}
             if kyc_status not in valid_statuses:
-                return self._error_response(
+                detail = (
                     f"Invalid kyc_status '{kyc_status}'. "
-                    f"Allowed values: {', '.join(sorted(valid_statuses))}.",
-                    400,
+                    f"Allowed values: {', '.join(sorted(valid_statuses))}."
                 )
+                _log_inbound_sync(
+                    api_key, "update", "alba.customer", 0, customer_id,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Customer",
+                    event_type="customer.kyc_updated",
+                )
+                return self._error_response(detail, 400)
 
             customer = request.env["alba.customer"].sudo().search(
                 [
@@ -853,9 +887,14 @@ class AlbaApiController(http.Controller):
                 limit=1,
             )
             if not customer.exists():
-                return self._error_response(
-                    f"Customer with id={customer_id} not found.", 404
+                detail = f"Customer with id={customer_id} not found."
+                _log_inbound_sync(
+                    api_key, "update", "alba.customer", 0, customer_id,
+                    "failure", detail, data, None, 404, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Customer",
+                    event_type="customer.kyc_updated",
                 )
+                return self._error_response(detail, 404)
 
             update_vals = {"kyc_status": kyc_status}
 
@@ -896,20 +935,43 @@ class AlbaApiController(http.Controller):
                     },
                 )
 
-            return self._json_response(
-                {
-                    "status": "updated",
-                    "kyc_status": kyc_status,
-                    "odoo_customer_id": customer.id,
-                }
+            response_data = {
+                "status": "updated",
+                "kyc_status": kyc_status,
+                "odoo_customer_id": customer.id,
+            }
+            _log_inbound_sync(
+                api_key, "update", "alba.customer", customer.django_customer_id or 0, customer.id,
+                "success", "", data, response_data, 200, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Customer",
+                event_type="customer.kyc_updated",
             )
+            return self._json_response(response_data)
 
         except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "update", "alba.customer", 0, customer_id,
+                "failure", str(exc), data, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Customer",
+                event_type="customer.kyc_updated",
+            )
             return self._error_response(str(exc), 403)
         except odoo_exceptions.UserError as exc:
+            _log_inbound_sync(
+                api_key, "update", "alba.customer", 0, customer_id,
+                "failure", str(exc), data, None, 400, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Customer",
+                event_type="customer.kyc_updated",
+            )
             return self._error_response(str(exc), 400)
         except Exception as exc:
             _logger.exception("update_kyc_status: unexpected error — %s", exc)
+            _log_inbound_sync(
+                api_key, "update", "alba.customer", 0, customer_id,
+                "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Customer",
+                event_type="customer.kyc_updated",
+            )
             return self._error_response("Internal server error.", 500)
 
     # -------------------------------------------------------------------------
@@ -943,6 +1005,10 @@ class AlbaApiController(http.Controller):
                 "kyc_notes": ""
             }
         """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+
         try:
             api_key = self._authenticate()
 
@@ -954,9 +1020,14 @@ class AlbaApiController(http.Controller):
                 limit=1,
             )
             if not customer.exists():
-                return self._error_response(
-                    f"Customer with id={customer_id} not found.", 404
+                detail = f"Customer with id={customer_id} not found."
+                _log_inbound_sync(
+                    api_key, "read", "alba.customer", 0, customer_id,
+                    "failure", detail, None, None, 404, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Customer",
+                    event_type="customer.kyc_status",
                 )
+                return self._error_response(detail, 404)
 
             return self._json_response(
                 {
@@ -977,9 +1048,21 @@ class AlbaApiController(http.Controller):
             )
 
         except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "read", "alba.customer", 0, customer_id,
+                "failure", str(exc), None, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Customer",
+                event_type="customer.kyc_status",
+            )
             return self._error_response(str(exc), 403)
         except Exception as exc:
             _logger.exception("get_kyc_status: unexpected error — %s", exc)
+            _log_inbound_sync(
+                api_key, "read", "alba.customer", 0, customer_id,
+                "failure", f"Unexpected error: {exc}", None, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Customer",
+                event_type="customer.kyc_status",
+            )
             return self._error_response("Internal server error.", 500)
 
     # -------------------------------------------------------------------------
@@ -1785,6 +1868,11 @@ class AlbaApiController(http.Controller):
                 "application_number": "APP-20240115-0001"
             }
         """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        data = None
+
         try:
             api_key = self._authenticate()
             data = self._parse_json_body()
@@ -1794,24 +1882,40 @@ class AlbaApiController(http.Controller):
                 data.get("new_status") or data.get("status") or ""
             ).strip().lower()
             if not new_status:
-                return self._error_response(
-                    "Missing required field: new_status (or status)", 400
+                detail = "Missing required field: new_status (or status)"
+                _log_inbound_sync(
+                    api_key, "status_change", "alba.loan.application", 0, application_id,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                    event_type="application.status_changed",
                 )
+                return self._error_response(detail, 400)
 
             if new_status not in _STATUS_ACTION_MAP:
-                return self._error_response(
+                detail = (
                     f"Unknown status '{new_status}'. "
-                    f"Allowed values: {', '.join(sorted(_STATUS_ACTION_MAP))}.",
-                    400,
+                    f"Allowed values: {', '.join(sorted(_STATUS_ACTION_MAP))}."
                 )
+                _log_inbound_sync(
+                    api_key, "status_change", "alba.loan.application", 0, application_id,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                    event_type="application.status_changed",
+                )
+                return self._error_response(detail, 400)
 
             application = (
                 request.env["alba.loan.application"].sudo().browse(application_id)
             )
             if not application.exists():
-                return self._error_response(
-                    f"Application with id={application_id} not found.", 404
+                detail = f"Application with id={application_id} not found."
+                _log_inbound_sync(
+                    api_key, "status_change", "alba.loan.application", 0, application_id,
+                    "failure", detail, data, None, 404, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                    event_type="application.status_changed",
                 )
+                return self._error_response(detail, 404)
 
             previous_state = application.state
             odoo_state_value, action_method_name = _STATUS_ACTION_MAP[new_status]
@@ -1841,9 +1945,15 @@ class AlbaApiController(http.Controller):
                     odoo_exceptions.UserError,
                     odoo_exceptions.ValidationError,
                 ) as exc:
-                    return self._error_response(
-                        f"Cannot transition to '{new_status}': {exc}", 400
+                    detail = f"Cannot transition to '{new_status}': {exc}"
+                    _log_inbound_sync(
+                        api_key, "status_change", "alba.loan.application",
+                        application.django_application_id or 0, application_id,
+                        "failure", detail, data, None, 400, remote_ip, user_agent,
+                        int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                        event_type="application.status_changed",
                     )
+                    return self._error_response(detail, 400)
             else:
                 _logger.warning(
                     "update_application_status: action '%s' not found on "
@@ -1853,9 +1963,15 @@ class AlbaApiController(http.Controller):
                 try:
                     application.write({"state": odoo_state_value})
                 except (odoo_exceptions.UserError, odoo_exceptions.ValidationError) as exc:
-                    return self._error_response(
-                        f"Cannot set state to '{new_status}': {exc}", 400
+                    detail = f"Cannot set state to '{new_status}': {exc}"
+                    _log_inbound_sync(
+                        api_key, "status_change", "alba.loan.application",
+                        application.django_application_id or 0, application_id,
+                        "failure", detail, data, None, 400, remote_ip, user_agent,
+                        int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                        event_type="application.status_changed",
                     )
+                    return self._error_response(detail, 400)
 
             # Refresh the record so we read the post-transition state
             application.invalidate_recordset()
@@ -1898,24 +2014,48 @@ class AlbaApiController(http.Controller):
                     },
                 )
 
-            return self._json_response(
-                {
-                    "status": "updated",
-                    "previous_state": previous_state,
-                    "new_state": new_state,
-                    "application_number": application.application_number or "",
-                }
+            response_data = {
+                "status": "updated",
+                "previous_state": previous_state,
+                "new_state": new_state,
+                "application_number": application.application_number or "",
+            }
+            _log_inbound_sync(
+                api_key, "status_change", "alba.loan.application",
+                application.django_application_id or 0, application.id,
+                "success", "", data, response_data, 200, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                event_type="application.status_changed",
             )
+            return self._json_response(response_data)
 
         except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "status_change", "alba.loan.application", 0, application_id,
+                "failure", str(exc), data, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                event_type="application.status_changed",
+            )
             return self._error_response(str(exc), 403)
         except odoo_exceptions.UserError as exc:
+            _log_inbound_sync(
+                api_key, "status_change", "alba.loan.application", 0, application_id,
+                "failure", str(exc), data, None, 400, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                event_type="application.status_changed",
+            )
             return self._error_response(str(exc), 400)
         except Exception as exc:
             _logger.exception(
                 "update_application_status: unexpected error for id=%d — %s",
                 application_id,
                 exc,
+            )
+            _log_inbound_sync(
+                api_key, "status_change", "alba.loan.application", 0, application_id,
+                "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "LoanApplication",
+                event_type="application.status_changed",
             )
             return self._error_response("Internal server error.", 500)
 
@@ -1965,6 +2105,11 @@ class AlbaApiController(http.Controller):
                 "interest_applied": 1550.00
             }
         """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        data = None
+
         try:
             api_key = self._authenticate()
             data = self._parse_json_body()
@@ -1980,9 +2125,14 @@ class AlbaApiController(http.Controller):
                 ],
             )
             if missing:
-                return self._error_response(
-                    f"Missing required fields: {', '.join(missing)}", 400
+                detail = f"Missing required fields: {', '.join(missing)}"
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.repayment", 0, 0,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Payment",
+                    event_type="payment.matched",
                 )
+                return self._error_response(detail, 400)
 
             django_payment_id = str(data["django_payment_id"]).strip()
             Repayment = request.env["alba.loan.repayment"].sudo()
@@ -2002,18 +2152,23 @@ class AlbaApiController(http.Controller):
                     django_payment_id,
                     existing.id,
                 )
-                return self._json_response(
-                    {
-                        "odoo_repayment_id": existing.id,
-                        "status": "already_exists",
-                        "principal_applied": self._safe_float(
-                            getattr(existing, "principal_applied", 0)
-                        ),
-                        "interest_applied": self._safe_float(
-                            getattr(existing, "interest_applied", 0)
-                        ),
-                    }
+                response_data = {
+                    "odoo_repayment_id": existing.id,
+                    "status": "already_exists",
+                    "principal_applied": self._safe_float(
+                        getattr(existing, "principal_applied", 0)
+                    ),
+                    "interest_applied": self._safe_float(
+                        getattr(existing, "interest_applied", 0)
+                    ),
+                }
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.repayment", 0, existing.id,
+                    "skipped", "Duplicate payment (idempotency)", data, response_data, 200,
+                    remote_ip, user_agent, int((time.monotonic() - start_time) * 1000),
+                    "Payment", event_type="payment.matched",
                 )
+                return self._json_response(response_data)
 
             # --- Resolve loan (scoped to company) ---------------------------
             loan = (
@@ -2028,9 +2183,14 @@ class AlbaApiController(http.Controller):
                 )
             )
             if not loan:
-                return self._error_response(
-                    f"Loan with loan_number='{data['loan_number']}' not found.", 404
+                detail = f"Loan with loan_number='{data['loan_number']}' not found."
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.repayment", 0, 0,
+                    "failure", detail, data, None, 404, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Payment",
+                    event_type="payment.matched",
                 )
+                return self._error_response(detail, 404)
 
             # --- Normalise payment method ------------------------------------
             raw_method = (
@@ -2045,9 +2205,14 @@ class AlbaApiController(http.Controller):
             # --- Build repayment record --------------------------------------
             amount_paid = self._safe_float(data["amount_paid"])
             if amount_paid <= 0:
-                return self._error_response(
-                    f"amount_paid must be greater than zero (got {amount_paid}).", 400
+                detail = f"amount_paid must be greater than zero (got {amount_paid})."
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.repayment", 0, 0,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Payment",
+                    event_type="payment.matched",
                 )
+                return self._error_response(detail, 400)
 
             repayment_vals = {
                 "loan_id": loan.id,
@@ -2070,7 +2235,14 @@ class AlbaApiController(http.Controller):
             except (odoo_exceptions.UserError, odoo_exceptions.ValidationError) as exc:
                 # Roll back the draft repayment to avoid orphan records
                 repayment.unlink()
-                return self._error_response(f"Cannot post repayment: {exc}", 400)
+                detail = f"Cannot post repayment: {exc}"
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.repayment", 0, 0,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Payment",
+                    event_type="payment.matched",
+                )
+                return self._error_response(detail, 400)
 
             # Refresh so computed allocation fields are visible
             repayment.invalidate_recordset()
@@ -2110,20 +2282,42 @@ class AlbaApiController(http.Controller):
                 },
             )
 
-            return self._json_response(
-                {
-                    "odoo_repayment_id": repayment.id,
-                    "status": "posted",
-                    "principal_applied": principal_applied,
-                    "interest_applied": interest_applied,
-                },
-                status=201,
+            response_data = {
+                "odoo_repayment_id": repayment.id,
+                "status": "posted",
+                "principal_applied": principal_applied,
+                "interest_applied": interest_applied,
+            }
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.repayment", 0, repayment.id,
+                "success", "", data, response_data, 201, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Payment",
+                event_type="payment.matched",
             )
+            return self._json_response(response_data, status=201)
 
         except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.repayment", 0, 0,
+                "failure", str(exc), data, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Payment",
+                event_type="payment.matched",
+            )
             return self._error_response(str(exc), 403)
         except odoo_exceptions.UserError as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.repayment", 0, 0,
+                "failure", str(exc), data, None, 400, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Payment",
+                event_type="payment.matched",
+            )
             return self._error_response(str(exc), 400)
         except Exception as exc:
             _logger.exception("record_payment: unexpected error — %s", exc)
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.repayment", 0, 0,
+                "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Payment",
+                event_type="payment.matched",
+            )
             return self._error_response("Internal server error.", 500)

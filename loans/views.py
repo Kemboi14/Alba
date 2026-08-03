@@ -557,12 +557,20 @@ def submit_application(request, pk):
                 logger.info("Customer synced successfully: django_id=%s odoo_id=%s", customer.pk, customer_odoo_id)
             else:
                 raise OdooSyncError("Failed to sync customer - no Odoo ID returned")
+        except OdooSyncError:
+            # Preserve the original error's type (auth/validation/connection/
+            # timeout) and detail. Re-wrapping it here would replace the real
+            # cause with a generic message and would erase the type, which
+            # the (OdooConnectionError, OdooTimeoutError) handler below
+            # relies on to tell a transient network blip apart from a
+            # permanent data/validation problem.
+            raise
         except Exception as customer_sync_error:
             logger.error("Failed to sync customer to Odoo: customer_id=%s error=%s", customer.pk, customer_sync_error)
             raise OdooSyncError(
-                f"Failed to sync customer to Odoo: {str(customer_sync_error)}",
-                detail="Customer sync is required before application creation"
-            )
+                f"Failed to sync customer to Odoo: {customer_sync_error}",
+                detail=f"Customer sync is required before application creation: {customer_sync_error}"
+            ) from customer_sync_error
         
         # Sync application to Odoo with automatic prerequisite sync
         result = odoo_service.create_loan_application(application)
