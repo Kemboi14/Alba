@@ -125,7 +125,7 @@
                     <!-- Customer Info -->
                     <table width="100%" style="margin-bottom: 20px; border-collapse: collapse;">
                         <tr>
-                            <td width="48%" style="border: 1.5px solid #0d2d5e; padding: 12px 14px; vertical-align: top; background-color: #ffffff;">
+                            <td width="48%" style="padding: 12px 0; vertical-align: top; background-color: #ffffff;">
                                 <div style="margin-bottom: 12px;">
                                     <div style="font-weight: 700; color: #0d2d5e; font-size: 12px; margin-bottom: 4px;">Customer Name</div>
                                     <div style="color: #111827; font-size: 13px;">
@@ -140,7 +140,7 @@
                                 </div>
                             </td>
                             <td width="4%"/>
-                            <td width="48%" style="border: 1.5px solid #0d2d5e; padding: 12px 14px; vertical-align: top; background-color: #ffffff;">
+                            <td width="48%" style="padding: 12px 0; vertical-align: top; background-color: #ffffff;">
                                 <table width="100%" style="border-collapse: collapse;">
                                     <tr>
                                         <td style="font-weight: 700; color: #0d2d5e; font-size: 12px; padding-bottom: 10px; vertical-align: top; width: 60%;">Account No.</td>
