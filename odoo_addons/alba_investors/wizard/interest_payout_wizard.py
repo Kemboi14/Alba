@@ -445,35 +445,70 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                         "interest_amount_deferred": 0.0,
                     })
 
-        # ── 6. Delete all stale posted accruals from the first paid period onwards ──
-        # Fix F: after paying any month(s), every subsequent posted accrual has a
-        # stale opening balance because it was computed assuming those months would
-        # compound. The old code only deleted accruals AFTER the last paid period,
-        # leaving gap months (e.g. M2, M4 when M1, M3, M5 were paid) with wrong
-        # opening balances. The fix: delete every posted accrual whose period_start
-        # is >= the EARLIEST paid period's period_start, excluding the accruals that
-        # were just processed in this payout. The cron will regenerate them all with
-        # the correct running balance.
+        # ── 6. Delete stale posted accruals so the cron regenerates with correct balance ──
+        #
+        # For all/select mode (confirmed working on IM-0490): use the existing logic —
+        # filter payout_accruals by state=="paid" to find the earliest paid period, then
+        # delete subsequent posted accruals via investment.accrual_ids.filtered().
+        #
+        # For partial mode (bug confirmed on IM-0490, IPAY/2026/0035): the existing logic
+        # has TWO failures:
+        #   1. When the custom amount only partially splits the first accrual (no full
+        #      consumption), partial_fully_consumed is empty, so payout_accruals has no
+        #      "paid" records, paid_in_this_payout is empty, and the guard `if
+        #      paid_in_this_payout:` never fires — zero stale accruals are deleted.
+        #   2. investment.accrual_ids.filtered() risks a stale Odoo ORM cache on the
+        #      One2many after writes in step 4.5, potentially missing accruals.
+        # Fix: for partial mode, derive the earliest affected period directly from the
+        # tracking variables (partial_fully_consumed / partial_partially_consumed) and use
+        # an explicit ORM search to query fresh from the DB.
         if payout_accruals:
-            # Find accruals that are now fully paid after step 5
-            paid_in_this_payout = payout_accruals.filtered(lambda a: a.state == "paid")
-            if paid_in_this_payout:
-                first_paid_period_start = min(paid_in_this_payout.mapped("period_start"))
-                payout_accrual_ids = set(payout_accruals.ids)
+            if self.payout_mode == "partial":
+                # Determine the earliest period touched by this payout.
+                # Case A: at least one accrual was fully consumed.
+                if partial_fully_consumed:
+                    first_affected_start = min(partial_fully_consumed.mapped("period_start"))
+                # Case B: the custom amount was smaller than one month — only a partial
+                # split, no full consumption. The split accrual's period is still affected.
+                elif partial_partially_consumed:
+                    first_affected_start = partial_partially_consumed.period_start
+                else:
+                    first_affected_start = None
 
-                # All posted accruals at or after the first paid period that were
-                # NOT part of this payout are now stale — delete them.
-                stale_posted = investment.accrual_ids.filtered(
-                    lambda a: a.state == "posted"
-                    and a.id not in payout_accrual_ids
-                    and a.period_start >= first_paid_period_start
-                )
-                if stale_posted:
-                    for accrual in stale_posted:
-                        if accrual.move_id and accrual.move_id.state == "posted":
-                            accrual.move_id.button_cancel()
-                            accrual.move_id.unlink()
-                    stale_posted.unlink()
+                if first_affected_start:
+                    payout_accrual_ids = set(payout_accruals.ids)
+                    # Explicit DB search bypasses any stale investment.accrual_ids cache.
+                    stale_posted = self.env["alba.interest.accrual"].search([
+                        ("investment_id", "=", investment.id),
+                        ("state", "=", "posted"),
+                        ("period_start", ">=", first_affected_start),
+                        ("id", "not in", list(payout_accrual_ids)),
+                    ])
+                    if stale_posted:
+                        for accrual in stale_posted:
+                            if accrual.move_id and accrual.move_id.state == "posted":
+                                accrual.move_id.button_cancel()
+                                accrual.move_id.unlink()
+                        stale_posted.unlink()
+
+            else:
+                # all / select mode — confirmed working, byte-for-byte unchanged.
+                paid_in_this_payout = payout_accruals.filtered(lambda a: a.state == "paid")
+                if paid_in_this_payout:
+                    first_paid_period_start = min(paid_in_this_payout.mapped("period_start"))
+                    payout_accrual_ids = set(payout_accruals.ids)
+
+                    stale_posted = investment.accrual_ids.filtered(
+                        lambda a: a.state == "posted"
+                        and a.id not in payout_accrual_ids
+                        and a.period_start >= first_paid_period_start
+                    )
+                    if stale_posted:
+                        for accrual in stale_posted:
+                            if accrual.move_id and accrual.move_id.state == "posted":
+                                accrual.move_id.button_cancel()
+                                accrual.move_id.unlink()
+                        stale_posted.unlink()
 
         # ── 7. Chatter ─────────────────────────────────────────────────────────
         mode_label = dict(self._fields["payout_mode"].selection).get(self.payout_mode, "")
