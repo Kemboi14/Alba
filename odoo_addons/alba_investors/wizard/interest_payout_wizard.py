@@ -122,7 +122,10 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                     for accrual in wiz.selected_accrual_ids.filtered(lambda a: a.state == "posted")
                 )
             else:  # partial
-                outstanding = total_accrued
+                # Bug 1 fix: use total_interest_outstanding (accrued minus already paid),
+                # not total_accrued (all-time sum). This prevents showing an inflated
+                # balance when some months have already been paid out.
+                outstanding = wiz.investment_id.total_interest_outstanding or 0.0
                 gross = min(wiz.custom_gross_amount or 0.0, outstanding)
 
             wht = round(gross * ((wiz.wht_rate or 0.0) / 100.0), 2)
@@ -316,7 +319,11 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                 })
 
         else:  # partial/custom — distribute oldest first
+            # Bug 2 fix: do NOT set state='paid' inside the loop — the payout record
+            # does not exist yet, so interest_payout_id cannot be linked. Instead
+            # collect fully-consumed accruals and mark them paid AFTER step 4.
             remaining = gross
+            partial_fully_consumed = self.env["alba.interest.accrual"]
             for accrual in accrued_candidates.sorted("accrual_date"):
                 if remaining <= 0:
                     break
@@ -332,18 +339,17 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                 if remaining >= payable_now:
                     remaining -= payable_now
                     payout_accruals |= accrual
-                    next_state = "paid" if deferred_amount <= 0 else "posted"
+                    # Only record payable_now / deferred here; state change comes after
+                    # the payout record is created so interest_payout_id can be set atomically.
                     accrual.write({
-                        "state": next_state,
-                        "interest_payout_id": False,
                         "interest_amount_payable_now": payable_now,
                         "interest_amount_deferred": deferred_amount,
                     })
+                    if deferred_amount <= 0:
+                        partial_fully_consumed |= accrual
                 else:
                     payout_accruals |= accrual
                     accrual.write({
-                        "state": "posted",
-                        "interest_payout_id": False,
                         "interest_amount_payable_now": remaining,
                         "interest_amount_deferred": deferred_amount + (payable_now - remaining),
                     })
@@ -363,6 +369,14 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             "notes": self.notes or "",
             "memo": self.memo or ("Interest Payout — %s" % safe_investment_reference(investment)),
         })
+
+        # Bug 2 fix (continued): now that the payout record exists, mark fully-consumed
+        # partial accruals as paid and link them to the payout atomically.
+        if self.payout_mode == "partial" and partial_fully_consumed:
+            partial_fully_consumed.write({
+                "state": "paid",
+                "interest_payout_id": payout.id,
+            })
 
         for accrual in payout_accruals.filtered(lambda a: a.state == "paid"):
             accrual.write({"interest_payout_id": payout.id})
@@ -387,32 +401,26 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                     })
 
         # ── 6. Invalidate subsequent posted accruals ───────────────────────────
-        # After a payout, the opening balance for all future accruals changes
-        # (paid interest is no longer compounding). Delete any posted accruals
-        # that come AFTER the payout date so the backfill recreates them using
-        # the correct running balance.
+        # After a payout, the opening balance for all future posted accruals is stale
+        # (paid interest no longer compounds into the base). Delete any posted accruals
+        # that come AFTER the last period covered by this payout so the backfill
+        # recreates them with the correct running balance.
+        #
+        # Bug 3 fix: derive last_processed_period_end from payout_accruals.period_end
+        # BEFORE step 5 changes any states — avoids relying on accrual.state == "paid"
+        # which may not be set yet when this block runs for the all/select paths.
+        # This also correctly handles select mode with non-consecutive month selections.
         if payout_accruals:
-            if self.payout_mode == "partial":
-                last_processed_date = max(payout_accruals.mapped("accrual_date")) if payout_accruals else False
-                subsequent_posted = investment.accrual_ids.filtered(
-                    lambda a: a.state == "posted"
-                    and a.id not in payout_accruals.ids
-                    and (last_processed_date and a.accrual_date > last_processed_date)
-                )
-            else:
-                paid_period_ends = [
-                    accrual.period_end for accrual in payout_accruals
-                    if accrual.state == "paid"
-                ]
-                subsequent_posted = self.env["alba.interest.accrual"]
-                if paid_period_ends:
-                    last_paid_period_end = max(paid_period_ends)
-                    subsequent_posted = investment.accrual_ids.filtered(
-                        lambda a: a.state == "posted" and a.period_start > last_paid_period_end
-                    )
+            payout_accrual_ids = set(payout_accruals.ids)
+            last_processed_period_end = max(payout_accruals.mapped("period_end"))
+            subsequent_posted = investment.accrual_ids.filtered(
+                lambda a: a.state == "posted"
+                and a.id not in payout_accrual_ids
+                and a.period_start > last_processed_period_end
+            )
 
             if subsequent_posted:
-                # Reverse and delete the journal entries first
+                # Cancel/unlink journal entries before deleting the accrual records.
                 for accrual in subsequent_posted:
                     if accrual.move_id and accrual.move_id.state == "posted":
                         accrual.move_id.button_cancel()

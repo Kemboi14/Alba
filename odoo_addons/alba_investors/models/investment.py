@@ -1386,20 +1386,24 @@ class AlbaInvestment(models.Model):
                     base_before_period = inv.principal_amount + sum(topups_prior.mapped("amount"))
 
                     # Add interest from prior accruals that are still unpaid ('posted')
+                    # Add interest from prior accruals that are still unpaid ('posted').
+                    # Accruals in 'paid' state are intentionally excluded: their interest
+                    # was paid out and no longer compounds into the opening balance.
                     prior_unpaid_accruals = self.env["alba.interest.accrual"].search([
                         ("investment_id", "=", inv.id),
                         ("state", "=", "posted"),
                         ("period_end", "<", period_start),
                     ])
-                    prior_payouts = self.env["alba.interest.payout"].search([
-                        ("investment_id", "=", inv.id),
-                        ("state", "=", "posted"),
-                        ("payout_date", "<", period_start),
-                    ])
+                    # Bug 4 fix: do NOT subtract prior payouts from the running balance.
+                    # Interest payouts clear the Interest Payable ledger account; they
+                    # do not reduce the capital/compounding base. Paid accruals are
+                    # already excluded above by the 'posted' state filter, so subtracting
+                    # payout amounts here was double-removing paid interest and producing
+                    # a deflated opening balance (e.g. principal - paid_interest instead
+                    # of just principal) after every payout.
                     running_balance = (
                         base_before_period
                         + sum(prior_unpaid_accruals.mapped("interest_amount"))
-                        - sum(prior_payouts.mapped("gross_interest"))
                     )
 
                     if existing:
