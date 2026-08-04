@@ -174,15 +174,28 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         pass
 
     def _get_accrual_cutoff_breakdown(self, accrual):
+        """
+        Return (payable_now, deferred_amount) for this accrual.
+
+        Fix A — Root cause of half-payments:
+        The old code unconditionally read interest_amount_payable_now/deferred from the
+        DB, which are set at accrual creation time by split_period_for_payout_cutoff
+        (the 15th-cutoff first-period rule). Once the period is complete those stored
+        values are stale — the full interest_amount is owed. Reading the stale stored
+        split caused the wizard to pay only the 'payable_now' portion (e.g. 450 of 1,000).
+
+        Rules (in priority order):
+        1. Period complete (period_end <= payout_date) → 100% of interest_amount is
+           payable. Ignore any stored payable_now/deferred entirely.
+        2. Period still in progress → split by the 15th cutoff.
+        """
         payout_date = self.payout_date or fields.Date.today()
-        # Prefer the accrual's already-split payable/deferred fields so a partial
-        # payout can accurately preserve any outstanding deferred amount.
-        if accrual.interest_amount_payable_now or accrual.interest_amount_deferred:
-            return accrual.interest_amount_payable_now or 0.0, accrual.interest_amount_deferred or 0.0
-        # For completed/posted periods (or periods ending on or before payout date),
-        # 100% of the interest amount is payable.
-        if accrual.state in ("posted", "paid") or (accrual.period_end and accrual.period_end <= payout_date):
+
+        # Completed period — full amount is always due regardless of stored split fields.
+        if accrual.period_end and accrual.period_end <= payout_date:
             return accrual.interest_amount or 0.0, 0.0
+
+        # In-progress period — split by the 15th-of-month payout cutoff.
         return split_period_for_payout_cutoff(
             accrual.period_start,
             accrual.period_end,
@@ -302,9 +315,15 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         else:  # partial/custom payout
             accrued_candidates = investment.accrual_ids.filtered(lambda a: a.state == "posted")
 
+        # Fix D: cache breakdown results here so step 5 can reuse them without
+        # a second DB read (which would read the values just written by this step
+        # and potentially produce a different result if any rounding occurred).
+        breakdown_cache = {}  # accrual.id -> (payable_now, deferred_amount)
+
         if self.payout_mode in ("all", "select"):
             for accrual in accrued_candidates:
                 payable_now, deferred_amount = self._get_accrual_cutoff_breakdown(accrual)
+                breakdown_cache[accrual.id] = (payable_now, deferred_amount)
                 if payable_now <= 0:
                     accrual.write({
                         "interest_amount_payable_now": 0.0,
@@ -382,9 +401,14 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             accrual.write({"interest_payout_id": payout.id})
 
         # ── 5. Mark accruals as paid only when no deferred remainder remains ───
+        # Fix D: reuse breakdown_cache from step 3 — avoids a second call to
+        # _get_accrual_cutoff_breakdown which would re-read the values just
+        # written by step 3 and could produce inconsistent results.
         if payout_accruals and self.payout_mode != "partial":
             for accrual in payout_accruals:
-                payable_now, deferred_amount = self._get_accrual_cutoff_breakdown(accrual)
+                payable_now, deferred_amount = breakdown_cache.get(
+                    accrual.id, (accrual.interest_amount or 0.0, 0.0)
+                )
                 if deferred_amount > 0:
                     accrual.write({
                         "state": "posted",
@@ -400,32 +424,35 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                         "interest_amount_deferred": 0.0,
                     })
 
-        # ── 6. Invalidate subsequent posted accruals ───────────────────────────
-        # After a payout, the opening balance for all future posted accruals is stale
-        # (paid interest no longer compounds into the base). Delete any posted accruals
-        # that come AFTER the last period covered by this payout so the backfill
-        # recreates them with the correct running balance.
-        #
-        # Bug 3 fix: derive last_processed_period_end from payout_accruals.period_end
-        # BEFORE step 5 changes any states — avoids relying on accrual.state == "paid"
-        # which may not be set yet when this block runs for the all/select paths.
-        # This also correctly handles select mode with non-consecutive month selections.
+        # ── 6. Delete all stale posted accruals from the first paid period onwards ──
+        # Fix F: after paying any month(s), every subsequent posted accrual has a
+        # stale opening balance because it was computed assuming those months would
+        # compound. The old code only deleted accruals AFTER the last paid period,
+        # leaving gap months (e.g. M2, M4 when M1, M3, M5 were paid) with wrong
+        # opening balances. The fix: delete every posted accrual whose period_start
+        # is >= the EARLIEST paid period's period_start, excluding the accruals that
+        # were just processed in this payout. The cron will regenerate them all with
+        # the correct running balance.
         if payout_accruals:
-            payout_accrual_ids = set(payout_accruals.ids)
-            last_processed_period_end = max(payout_accruals.mapped("period_end"))
-            subsequent_posted = investment.accrual_ids.filtered(
-                lambda a: a.state == "posted"
-                and a.id not in payout_accrual_ids
-                and a.period_start > last_processed_period_end
-            )
+            # Find accruals that are now fully paid after step 5
+            paid_in_this_payout = payout_accruals.filtered(lambda a: a.state == "paid")
+            if paid_in_this_payout:
+                first_paid_period_start = min(paid_in_this_payout.mapped("period_start"))
+                payout_accrual_ids = set(payout_accruals.ids)
 
-            if subsequent_posted:
-                # Cancel/unlink journal entries before deleting the accrual records.
-                for accrual in subsequent_posted:
-                    if accrual.move_id and accrual.move_id.state == "posted":
-                        accrual.move_id.button_cancel()
-                        accrual.move_id.unlink()
-                subsequent_posted.unlink()
+                # All posted accruals at or after the first paid period that were
+                # NOT part of this payout are now stale — delete them.
+                stale_posted = investment.accrual_ids.filtered(
+                    lambda a: a.state == "posted"
+                    and a.id not in payout_accrual_ids
+                    and a.period_start >= first_paid_period_start
+                )
+                if stale_posted:
+                    for accrual in stale_posted:
+                        if accrual.move_id and accrual.move_id.state == "posted":
+                            accrual.move_id.button_cancel()
+                            accrual.move_id.unlink()
+                    stale_posted.unlink()
 
         # ── 7. Chatter ─────────────────────────────────────────────────────────
         mode_label = dict(self._fields["payout_mode"].selection).get(self.payout_mode, "")
