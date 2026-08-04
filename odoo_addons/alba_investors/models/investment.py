@@ -1401,10 +1401,17 @@ class AlbaInvestment(models.Model):
                     # payout amounts here was double-removing paid interest and producing
                     # a deflated opening balance (e.g. principal - paid_interest instead
                     # of just principal) after every payout.
-                    running_balance = (
-                        base_before_period
-                        + sum(prior_unpaid_accruals.mapped("interest_amount"))
+                    # For partially-consumed accruals (posted but interest_payout_id set),
+                    # only the interest_amount_deferred portion is still unpaid and should
+                    # compound into the next period's opening balance. For fresh accruals,
+                    # use the full interest_amount.
+                    prior_unpaid_sum = sum(
+                        (a.interest_amount_deferred
+                         if (a.interest_payout_id and a.interest_amount_deferred > 0)
+                         else a.interest_amount)
+                        for a in prior_unpaid_accruals
                     )
+                    running_balance = base_before_period + prior_unpaid_sum
 
                     if existing:
                         # Period already exists — nothing to recreate. Skip.

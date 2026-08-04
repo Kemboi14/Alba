@@ -179,20 +179,28 @@ class AlbaInterestPayoutWizard(models.TransientModel):
 
         Fix A — Root cause of half-payments:
         The old code unconditionally read interest_amount_payable_now/deferred from the
-        DB, which are set at accrual creation time by split_period_for_payout_cutoff
+        DB. Those fields are written at creation time by split_period_for_payout_cutoff
         (the 15th-cutoff first-period rule). Once the period is complete those stored
         values are stale — the full interest_amount is owed. Reading the stale stored
-        split caused the wizard to pay only the 'payable_now' portion (e.g. 450 of 1,000).
+        split caused the wizard to pay only the 'payable_now' portion (e.g. 450/1,000).
 
         Rules (in priority order):
-        1. Period complete (period_end <= payout_date) → 100% of interest_amount is
-           payable. Ignore any stored payable_now/deferred entirely.
-        2. Period still in progress → split by the 15th cutoff.
+        1. Period complete (period_end <= payout_date):
+           a. If the accrual is POSTED and has interest_payout_id set, it was partially
+              consumed in a prior custom payout. The genuine remaining balance is stored
+              in interest_amount_deferred. Return that as the payable amount.
+           b. Otherwise (fresh or stale creation split): return full interest_amount.
+        2. Period still in progress: split by the 15th-of-month cutoff.
         """
         payout_date = self.payout_date or fields.Date.today()
 
-        # Completed period — full amount is always due regardless of stored split fields.
         if accrual.period_end and accrual.period_end <= payout_date:
+            # Partially consumed in a prior custom payout — interest_payout_id is set
+            # (even though state is still 'posted') and interest_amount_deferred holds
+            # the true remaining amount after the earlier partial payment.
+            if accrual.state == "posted" and accrual.interest_payout_id:
+                return accrual.interest_amount_deferred or 0.0, 0.0
+            # Fresh accrual or stale first-period creation split — full amount is due.
             return accrual.interest_amount or 0.0, 0.0
 
         # In-progress period — split by the 15th-of-month payout cutoff.
@@ -339,10 +347,13 @@ class AlbaInterestPayoutWizard(models.TransientModel):
 
         else:  # partial/custom — distribute oldest first
             # Bug 2 fix: do NOT set state='paid' inside the loop — the payout record
-            # does not exist yet, so interest_payout_id cannot be linked. Instead
-            # collect fully-consumed accruals and mark them paid AFTER step 4.
+            # does not exist yet, so interest_payout_id cannot be linked atomically.
             remaining = gross
             partial_fully_consumed = self.env["alba.interest.accrual"]
+            # Track the ONE accrual that was split (partially consumed, not fully paid).
+            # This is set to the payout after creation so _get_accrual_cutoff_breakdown
+            # can identify it as a genuine partial residual on the next payout.
+            partial_partially_consumed = self.env["alba.interest.accrual"]
             for accrual in accrued_candidates.sorted("accrual_date"):
                 if remaining <= 0:
                     break
@@ -358,8 +369,6 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                 if remaining >= payable_now:
                     remaining -= payable_now
                     payout_accruals |= accrual
-                    # Only record payable_now / deferred here; state change comes after
-                    # the payout record is created so interest_payout_id can be set atomically.
                     accrual.write({
                         "interest_amount_payable_now": payable_now,
                         "interest_amount_deferred": deferred_amount,
@@ -367,11 +376,17 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                     if deferred_amount <= 0:
                         partial_fully_consumed |= accrual
                 else:
+                    # Partial split: record how much was paid now and how much remains.
+                    # interest_amount_deferred = the true unpaid remainder.
+                    # interest_payout_id will be set after payout creation (step 4.5)
+                    # so _get_accrual_cutoff_breakdown returns this deferred amount
+                    # (not the full interest_amount) on the next payout run.
                     payout_accruals |= accrual
                     accrual.write({
                         "interest_amount_payable_now": remaining,
                         "interest_amount_deferred": deferred_amount + (payable_now - remaining),
                     })
+                    partial_partially_consumed = accrual
                     remaining = 0.0
 
         # ── 4. Create payout record ────────────────────────────────────────────
@@ -389,13 +404,19 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             "memo": self.memo or ("Interest Payout — %s" % safe_investment_reference(investment)),
         })
 
-        # Bug 2 fix (continued): now that the payout record exists, mark fully-consumed
-        # partial accruals as paid and link them to the payout atomically.
-        if self.payout_mode == "partial" and partial_fully_consumed:
-            partial_fully_consumed.write({
-                "state": "paid",
-                "interest_payout_id": payout.id,
-            })
+        # Step 4.5: now that the payout record exists, link accruals atomically.
+        if self.payout_mode == "partial":
+            # Fully consumed months: mark paid and link to payout.
+            if partial_fully_consumed:
+                partial_fully_consumed.write({
+                    "state": "paid",
+                    "interest_payout_id": payout.id,
+                })
+            # Partially consumed month: stays 'posted' but gets interest_payout_id set
+            # so _get_accrual_cutoff_breakdown knows its interest_amount_deferred is a
+            # genuine unpaid residual (not a stale first-period creation split).
+            if partial_partially_consumed:
+                partial_partially_consumed.write({"interest_payout_id": payout.id})
 
         for accrual in payout_accruals.filtered(lambda a: a.state == "paid"):
             accrual.write({"interest_payout_id": payout.id})
