@@ -203,14 +203,14 @@
                     <notebook>
                         <page string="Accrual History" name="accruals">
                             <field name="accrual_ids" mode="list">
-                                <list string="Accruals" decoration-success="state == 'posted'" decoration-danger="state == 'reversed'">
+                                <list string="Accruals" decoration-info="payment_status == 'posted'" decoration-warning="payment_status == 'partially_paid'" decoration-success="payment_status == 'paid'" decoration-danger="payment_status == 'reversed'">
                                     <field name="accrual_date"/>
                                     <field name="period_start"/>
                                     <field name="period_end"/>
                                     <field name="opening_balance"/>
                                     <field name="interest_amount" sum="Total Accrued"/>
                                     <field name="closing_balance"/>
-                                    <field name="state" widget="badge" decoration-success="state == 'posted'"/>
+                                    <field name="payment_status" widget="badge" decoration-info="payment_status == 'posted'" decoration-warning="payment_status == 'partially_paid'" decoration-success="payment_status == 'paid'" decoration-danger="payment_status == 'reversed'"/>
                                 </list>
                             </field>
                         </page>

@@ -11,10 +11,10 @@
         <field name="type">list</field>
         <field name="arch" type="xml">
             <list string="Interest Accruals"
-                  decoration-success="state == 'posted'"
-                  decoration-danger="state == 'reversed'"
-                  decoration-info="state == 'draft'"
-                  decoration-muted="state == 'paid'">
+                  decoration-info="payment_status == 'posted'"
+                  decoration-warning="payment_status == 'partially_paid'"
+                  decoration-success="payment_status == 'paid'"
+                  decoration-danger="payment_status == 'reversed'">
                 <field name="currency_id" column_invisible="1"/>
                 <field name="accrual_date"/>
                 <field name="investment_id"/>
@@ -26,7 +26,7 @@
                 <field name="opening_balance" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                 <field name="interest_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                 <field name="closing_balance" widget="monetary" options="{'currency_field': 'currency_id'}"/>
-                <field name="state"/>
+                <field name="payment_status" widget="badge" decoration-info="payment_status == 'posted'" decoration-warning="payment_status == 'partially_paid'" decoration-success="payment_status == 'paid'" decoration-danger="payment_status == 'reversed'"/>
                 <field name="interest_payout_id" optional="show" string="Payout Ref"/>
                 <button name="action_post" string="Post" type="object" icon="fa-check" invisible="state != 'draft'" groups="alba_investors.group_investor_manager"/>
                 <button name="action_reverse" string="Reverse" type="object" icon="fa-undo" invisible="state != 'posted'" groups="alba_investors.group_investor_manager"/>

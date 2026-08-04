@@ -142,6 +142,18 @@ class AlbaInterestAccrual(models.Model):
         copy=False,
         index=True,
     )
+    payment_status = fields.Selection(
+        selection=[
+            ("draft", "Draft"),
+            ("posted", "Posted"),
+            ("partially_paid", "Partially Paid"),
+            ("paid", "Paid Out"),
+            ("reversed", "Reversed"),
+        ],
+        string="Status",
+        compute="_compute_payment_status",
+        help="Display status of the accrual (Posted, Partially Paid, Paid Out, Draft, Reversed).",
+    )
 
     # ── Payout Link ───────────────────────────────────────────────────────────
     interest_payout_id = fields.Many2one(
@@ -196,6 +208,23 @@ class AlbaInterestAccrual(models.Model):
     # =========================================================================
     # Computed methods
     # =========================================================================
+
+    @api.depends("state", "interest_payout_id", "interest_amount_deferred")
+    def _compute_payment_status(self):
+        for rec in self:
+            if rec.state == "paid":
+                rec.payment_status = "paid"
+            elif rec.state == "draft":
+                rec.payment_status = "draft"
+            elif rec.state == "reversed":
+                rec.payment_status = "reversed"
+            elif rec.state == "posted":
+                if rec.interest_payout_id and rec.interest_amount_deferred > 0:
+                    rec.payment_status = "partially_paid"
+                else:
+                    rec.payment_status = "posted"
+            else:
+                rec.payment_status = rec.state
 
     @api.model
     def _check_company(self, company_id):

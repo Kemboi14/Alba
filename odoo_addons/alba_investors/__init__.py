@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from . import models, wizard, report
+from . import models, wizard, report, tests
 
 
 def pre_init_hook(env):

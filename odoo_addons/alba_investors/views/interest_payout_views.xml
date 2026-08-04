@@ -121,8 +121,9 @@
                                     <field name="interest_amount" widget="monetary"
                                            options="{'currency_field': 'currency_id'}"
                                            sum="Total"/>
-                                    <field name="state" widget="badge"
-                                           decoration-success="state == 'paid'"/>
+                                    <field name="payment_status" widget="badge"
+                                           decoration-success="payment_status == 'paid'"
+                                           decoration-warning="payment_status == 'partially_paid'"/>
                                     <field name="currency_id" invisible="1"/>
                                 </list>
                             </field>
