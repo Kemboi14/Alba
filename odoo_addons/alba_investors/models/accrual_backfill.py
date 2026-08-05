@@ -163,27 +163,34 @@ def split_period_by_topups(opening_balance, annual_rate, period_start, period_en
     if not opening_balance or not annual_rate or not period_start or not period_end:
         return 0.00
 
-    in_period_topups = []
+    topups_by_date = {}
     for t in (topups or []):
         t_date = getattr(t, "date", None) or (t.get("date") if isinstance(t, dict) else None)
         t_amount = getattr(t, "amount", None) or (t.get("amount") if isinstance(t, dict) else 0.0)
         if t_date and period_start <= t_date <= period_end:
-            in_period_topups.append((t_date, t_amount))
+            topups_by_date[t_date] = topups_by_date.get(t_date, 0.0) + t_amount
 
-    if not in_period_topups:
+    if not topups_by_date:
         return compute_accrual_interest(opening_balance, annual_rate, period_start, period_end)
 
-    # Method 2: Base principal earns interest for full period
-    total_interest = compute_accrual_interest(opening_balance, annual_rate, period_start, period_end)
+    sorted_dates = sorted(topups_by_date.keys())
+    current_start = period_start
+    current_balance = opening_balance
+    total_interest = 0.0
 
-    # Each top-up earns interest from topup_date + 1 day to period_end
-    for t_date, t_amount in in_period_topups:
-        topup_start = t_date + timedelta(days=1)  # Day-0 exclusion
-        if topup_start <= period_end:
-            topup_interest = compute_accrual_interest(t_amount, annual_rate, topup_start, period_end)
-            total_interest += topup_interest
+    for topup_date in sorted_dates:
+        sub_end = topup_date
+        sub_interest = compute_accrual_interest(current_balance, annual_rate, current_start, sub_end)
+        total_interest += sub_interest
+        current_balance += topups_by_date[topup_date]  # Only topup principal, no interest compounding
+        current_start = topup_date + timedelta(days=1)
+
+    if current_start <= period_end:
+        sub_interest = compute_accrual_interest(current_balance, annual_rate, current_start, period_end)
+        total_interest += sub_interest
 
     return round(total_interest, 2)
+
 
 
 
