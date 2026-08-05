@@ -128,7 +128,7 @@ def compute_accrual_interest(opening_balance, annual_rate, period_start, period_
     if not opening_balance or not annual_rate or not period_start or not period_end:
         return 0.00
 
-    monthly_rate = annual_rate / 100.0  # Monthly rate (e.g., 3% = 0.03)
+    monthly_rate = annual_rate / 100.0 / 12.0  # Monthly rate (e.g., 36% p.a. -> 3% = 0.03, 30% p.a. -> 2.5% = 0.025)
     full_month_interest = opening_balance * monthly_rate
 
     actual_days = (period_end - period_start).days + 1

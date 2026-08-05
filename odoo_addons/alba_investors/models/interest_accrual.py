@@ -438,7 +438,7 @@ class AlbaInterestAccrual(models.Model):
                             topups=in_period_topups,
                         )
                     else:
-                        monthly_rate = investment.interest_rate / 100.0
+                        monthly_rate = investment.interest_rate / 100.0 / 12.0
                         pro_rata_interest = round(
                             rec.opening_balance * monthly_rate * actual_days / total_days, 2
                         )

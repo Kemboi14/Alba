@@ -94,14 +94,14 @@ class AccrualBackfillTests(unittest.TestCase):
 
 
     def test_split_period_by_topups_single_topup_im0498(self):
-        # IM-0498: Feb 4-28, 2026 (25 days total). Rate: 3% monthly. Opening balance: 600,000.
+        # IM-0498: Feb 4-28, 2026 (25 days total). Rate: 36% p.a. (3% monthly). Opening balance: 600,000.
         # Top-up: Feb 11 of 100,000.
-        # Sub1 (Feb 4-11, 8d on 600k): 4,800.00
-        # Sub2 (Feb 12-28, 17d on 700k): 11,900.00
+        # Sub1 (Feb 4-11, 8d on 600k @ 3%): 4,800.00
+        # Sub2 (Feb 12-28, 17d on 700k @ 3%): 11,900.00
         # Expected total: 16,700.00 (No intra-period compounding)
         res = split_period_by_topups(
             opening_balance=600000.0,
-            annual_rate=3.0,
+            annual_rate=36.0,
             period_start=date(2026, 2, 4),
             period_end=date(2026, 2, 28),
             topups=[{"date": date(2026, 2, 11), "amount": 100000.0}],
@@ -111,7 +111,7 @@ class AccrualBackfillTests(unittest.TestCase):
     def test_split_period_by_topups_zero_topups(self):
         # Regression check: zero top-ups must match compute_accrual_interest directly
         op = 600000.0
-        rate = 3.0
+        rate = 36.0
         p_start = date(2026, 2, 4)
         p_end = date(2026, 2, 28)
         direct = compute_accrual_interest(op, rate, p_start, p_end)
@@ -119,8 +119,18 @@ class AccrualBackfillTests(unittest.TestCase):
         self.assertEqual(split_res, direct)
         self.assertEqual(split_res, 15000.0)
 
+    def test_monthly_interest_30_percent_annual_rate_on_600k(self):
+        # 30% per annum on 600,000 balance for 1 month = 600,000 * 30% / 12 = 15,000.00
+        res = compute_accrual_interest(
+            opening_balance=600000.0,
+            annual_rate=30.0,
+            period_start=date(2026, 2, 1),
+            period_end=date(2026, 2, 28),
+        )
+        self.assertEqual(res, 15000.0)
+
     def test_split_period_by_topups_two_topups(self):
-        # 2 top-ups: Feb 1-28. Opening 1,000,000, 3% monthly.
+        # 2 top-ups: Feb 1-28. Opening 1,000,000, 36% p.a. (3% monthly).
         # Topup 1: Feb 10 (200k), Topup 2: Feb 20 (300k).
         # Sub1 (Feb 1-10, 10d @ 1.0M): 10,000.00
         # Sub2 (Feb 11-20, 10d @ 1.2M): 12,000.00
@@ -128,7 +138,7 @@ class AccrualBackfillTests(unittest.TestCase):
         # Expected total: 34,000.00
         res = split_period_by_topups(
             opening_balance=1000000.0,
-            annual_rate=3.0,
+            annual_rate=36.0,
             period_start=date(2026, 2, 1),
             period_end=date(2026, 2, 28),
             topups=[
@@ -139,7 +149,7 @@ class AccrualBackfillTests(unittest.TestCase):
         self.assertEqual(res, 34000.0)
 
     def test_split_period_by_topups_three_topups(self):
-        # 3 top-ups: Feb 1-28. Opening 1,000,000, 3% monthly.
+        # 3 top-ups: Feb 1-28. Opening 1,000,000, 36% p.a. (3% monthly).
         # Topup 1: Feb 5 (100k), Topup 2: Feb 15 (200k), Topup 3: Feb 25 (300k).
         # Sub1 (Feb 1-5, 5d @ 1.0M): 5,000.00
         # Sub2 (Feb 6-15, 10d @ 1.1M): 11,000.00
@@ -148,7 +158,7 @@ class AccrualBackfillTests(unittest.TestCase):
         # Expected total: 33,800.00
         res = split_period_by_topups(
             opening_balance=1000000.0,
-            annual_rate=3.0,
+            annual_rate=36.0,
             period_start=date(2026, 2, 1),
             period_end=date(2026, 2, 28),
             topups=[
@@ -158,4 +168,5 @@ class AccrualBackfillTests(unittest.TestCase):
             ],
         )
         self.assertEqual(res, 33800.0)
+
 
