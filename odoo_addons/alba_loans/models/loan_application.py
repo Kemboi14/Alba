@@ -79,6 +79,13 @@ class AlbaLoanApplication(models.Model):
     )
 
     # ── Loan Details ──────────────────────────────────────────────────────────
+    application_date = fields.Date(
+        string="Application Date",
+        required=True,
+        default=fields.Date.context_today,
+        index=True,
+        tracking=True,
+    )
     currency_id = fields.Many2one(
         "res.currency",
         string="Currency",

@@ -95,8 +95,8 @@ class AlbaLoanDisburseWizard(models.TransientModel):
     loan_date = fields.Date(
         string="Loan Date",
         required=True,
-        default=fields.Date.today,
-        help="Creation/agreement date of the loan contract.",
+        default=lambda self: self._default_loan_date(),
+        help="Creation/agreement date of the loan contract. Defaults to the application date.",
     )
     disbursement_date = fields.Date(
         string="Disbursement Date",
@@ -204,6 +204,13 @@ class AlbaLoanDisburseWizard(models.TransientModel):
     # =========================================================================
     # Default helpers
     # =========================================================================
+
+    def _default_loan_date(self):
+        ctx_app_id = self.env.context.get("default_application_id")
+        if ctx_app_id:
+            app = self.env["alba.loan.application"].browse(ctx_app_id)
+            return app.application_date or fields.Date.today()
+        return fields.Date.today()
 
     def _default_tenure(self):
         ctx_app_id = self.env.context.get("default_application_id")

@@ -98,6 +98,7 @@
 
                     <group>
                         <group>
+                            <field name="application_date" readonly="state != 'draft'"/>
                             <field name="customer_id" options="{'no_create': False}" readonly="state != 'draft'"/>
                             <field name="partner_id" readonly="1"/>
                             <field name="journal_id" groups="alba_loans.group_loan_manager" invisible="state == 'draft'"/>
@@ -213,6 +214,7 @@
                   decoration-danger="state in ('rejected','declined')"
                   decoration-warning="state in ('pending_approval','deferred')">
                 <field name="application_number"/>
+                <field name="application_date" optional="show"/>
                 <field name="customer_id"/>
                 <field name="journal_id" optional="hide"/>
                 <field name="loan_product_id"/>
