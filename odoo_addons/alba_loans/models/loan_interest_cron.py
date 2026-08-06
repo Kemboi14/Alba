@@ -7,6 +7,7 @@ Referenced by cron_data.xml cron #10:
     env['alba.loan.interest.cron'].cron_continue_default_interest()
 """
 import logging
+from datetime import timedelta
 
 from odoo import _, api, fields, models
 from markupsafe import Markup
@@ -58,20 +59,33 @@ class AlbaLoanInterestCron(models.Model):
             if not product or not product.penalty_rate:
                 continue
 
-            daily_rate = product.penalty_rate / 100.0
+            # Respect grace period before calculating penalties
+            grace_days = product.grace_period_days or 0
+            
+            # Add collection stage additional penalty rate if applicable
+            collection_stage = loan.collection_stage_id
+            additional_penalty = collection_stage.additional_penalty_rate if collection_stage else 0.0
+            total_daily_rate = product.penalty_rate + additional_penalty
+            
+            daily_rate = total_daily_rate / 100.0
             total_penalty = 0.0
 
             overdue_lines = (loan.current_repayment_schedule_ids or loan.repayment_schedule_ids).filtered(
                 lambda s: s.due_date and s.due_date < today and s.balance_due > 0
             )
             for line in overdue_lines:
-                days_overdue = (today - line.due_date).days
-                penalty = line.balance_due * ((1 + daily_rate) ** days_overdue - 1)
-                total_penalty += penalty
+                # Calculate effective due date respecting grace period
+                effective_due_date = line.due_date + timedelta(days=grace_days)
+                
+                # Only calculate penalty if grace period has passed
+                if effective_due_date < today:
+                    days_overdue = (today - effective_due_date).days
+                    penalty = line.balance_due * ((1 + daily_rate) ** days_overdue - 1)
+                    total_penalty += penalty
 
             if total_penalty > 0.01:
-                # ENTRY 3 — Interest Accrual (Default/Penalty)
-                loan.action_post_interest_accrual_entry(amount=total_penalty)
+                # ENTRY 3b — Penalty Accrual (Default/Penalty)
+                loan.action_post_penalty_accrual_entry(amount=total_penalty)
 
                 loan.message_post(
                     body=Markup(

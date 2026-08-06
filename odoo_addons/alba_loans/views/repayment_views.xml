@@ -294,13 +294,16 @@
                     <field name="opening_balance"/>
                     <field name="principal_due"/>
                     <field name="interest_due"/>
+                    <field name="penalty_due" optional="show"/>
                     <field name="total_due"/>
                     <field name="principal_paid"/>
                     <field name="interest_paid"/>
+                    <field name="penalty_paid" optional="show"/>
                     <field name="total_paid"/>
                     <field name="balance_due"/>
                     <field name="closing_balance"/>
                     <field name="days_overdue"/>
+                    <field name="paid_late" optional="hide"/>
                     <field name="status"
                            widget="badge"
                            decoration-success="status == 'paid'"

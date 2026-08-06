@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from markupsafe import Markup
@@ -500,20 +501,31 @@ class AlbaLoanRepayment(models.Model):
             if entry.due_date and entry.due_date < today:
                 loan_product = self.loan_id.loan_product_id
                 if loan_product and loan_product.penalty_rate > 0:
-                    days_overdue = (today - entry.due_date).days
-                    # Use raw fields — not stored balance_due
-                    overdue_amount = max(
-                        (entry.principal_due - entry.principal_paid)
-                        + (entry.interest_due - entry.interest_paid),
-                        0.0,
-                    )
-                    if overdue_amount > 0:
-                        # Daily compounding: A = P(1+r)^n - P
-                        daily_rate = loan_product.penalty_rate / 100
-                        penalty_owed = overdue_amount * ((1 + daily_rate) ** days_overdue - 1)
-                        pay_penalty = min(remaining, penalty_owed)
-                        penalty += pay_penalty
-                        remaining -= pay_penalty
+                    # Respect grace period before calculating penalties
+                    grace_days = loan_product.grace_period_days or 0
+                    effective_due_date = entry.due_date + timedelta(days=grace_days)
+                    
+                    if effective_due_date < today:
+                        days_overdue = (today - effective_due_date).days
+                        
+                        # Add collection stage additional penalty rate if applicable
+                        collection_stage = self.loan_id.collection_stage_id
+                        additional_penalty = collection_stage.additional_penalty_rate if collection_stage else 0.0
+                        total_daily_rate = loan_product.penalty_rate + additional_penalty
+                        
+                        # Use raw fields — not stored balance_due
+                        overdue_amount = max(
+                            (entry.principal_due - entry.principal_paid)
+                            + (entry.interest_due - entry.interest_paid),
+                            0.0,
+                        )
+                        if overdue_amount > 0:
+                            # Daily compounding: A = P(1+r)^n - P
+                            daily_rate = total_daily_rate / 100
+                            penalty_owed = overdue_amount * ((1 + daily_rate) ** days_overdue - 1)
+                            pay_penalty = min(remaining, penalty_owed)
+                            penalty += pay_penalty
+                            remaining -= pay_penalty
 
         # 2. Allocate to fees / other charges (loan-level, not per instalment)
         # Application fees are recognised at disbursement only and are not
@@ -769,40 +781,45 @@ class AlbaLoanRepayment(models.Model):
     def _update_schedule_entries(self):
         """
         Mark schedule entries as paid/partial based on the posted repayment
-        components.  Allocates principal and interest across the oldest
+        components.  Allocates penalty, interest, and principal across the oldest
         unpaid/partial instalments first.
 
         SAFE PATTERN: Uses _get_schedule_lines() which filters in Python memory
         rather than relying on the stale stored `balance_due` DB field.
         """
         self.ensure_one()
-        remaining_principal = self.principal_component
+        remaining_penalty = self.penalty_component
         remaining_interest = self.interest_component
+        remaining_principal = self.principal_component
 
-        if remaining_principal <= 0 and remaining_interest <= 0:
+        if remaining_principal <= 0 and remaining_interest <= 0 and remaining_penalty <= 0:
             return
 
-        # SAFE: in-memory filtering via raw principal/interest fields
+        # SAFE: in-memory filtering via raw principal/interest/penalty fields
         schedule = self._get_schedule_lines()
 
         for entry in schedule:
-            if remaining_principal <= 0 and remaining_interest <= 0:
+            if remaining_principal <= 0 and remaining_interest <= 0 and remaining_penalty <= 0:
                 break
 
+            penalty_owed = entry.penalty_due - entry.penalty_paid
             interest_owed = entry.interest_due - entry.interest_paid
             principal_owed = entry.principal_due - entry.principal_paid
 
+            penalty_pay = min(remaining_penalty, max(penalty_owed, 0.0))
             interest_pay = min(remaining_interest, max(interest_owed, 0.0))
             principal_pay = min(remaining_principal, max(principal_owed, 0.0))
 
-            if interest_pay == 0.0 and principal_pay == 0.0:
+            if penalty_pay == 0.0 and interest_pay == 0.0 and principal_pay == 0.0:
                 continue
 
+            new_penalty_paid = round(entry.penalty_paid + penalty_pay, 2)
             new_interest_paid = round(entry.interest_paid + interest_pay, 2)
             new_principal_paid = round(entry.principal_paid + principal_pay, 2)
 
             entry.write(
                 {
+                    "penalty_paid": new_penalty_paid,
                     "interest_paid": new_interest_paid,
                     "principal_paid": new_principal_paid,
                 }
@@ -813,6 +830,7 @@ class AlbaLoanRepayment(models.Model):
             # dependency tracker will recompute them correctly once the write() above
             # propagates through the normal @api.depends chain.
 
+            remaining_penalty -= penalty_pay
             remaining_interest -= interest_pay
             remaining_principal -= principal_pay
 

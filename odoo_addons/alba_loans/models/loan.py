@@ -422,6 +422,11 @@ class AlbaLoan(models.Model):
         string="Insurance Events",
         compute="_compute_credit_life_insurance_count",
     )
+    installments_paid_late = fields.Integer(
+        string="Installments Paid Late",
+        compute="_compute_repayment_count",
+        help="Number of installments that were paid after their due date but are now fully paid.",
+    )
 
     # ── UX Helpers ────────────────────────────────────────────────────────────
 
@@ -696,9 +701,16 @@ class AlbaLoan(models.Model):
         "repayment_ids.amount_paid",
     )
     def _compute_par(self):
+        """
+        PAR (Portfolio at Risk) calculation - CORRECTLY ignores fully paid installments.
+        
+        Overdue logic: Only counts installments that are BOTH past due AND have outstanding balance.
+        This ensures that late payments that are now fully paid don't count as current arrears.
+        """
         today = fields.Date.today()
         for rec in self:
             schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
+            # CORRECT: Only count as overdue if due date passed AND balance still outstanding
             overdue = schedule.filtered(lambda s: s.due_date < today and s.balance_due > 0)
             if not overdue:
                 rec.arrears_amount = 0.0
@@ -722,9 +734,12 @@ class AlbaLoan(models.Model):
             else:
                 rec.par_bucket = "over_180"
 
+    @api.depends("repayment_ids", "repayment_schedule_ids.paid_late", "current_repayment_schedule_ids.paid_late")
     def _compute_repayment_count(self):
         for rec in self:
             rec.repayment_count = len(rec.repayment_ids)
+            schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
+            rec.installments_paid_late = len(schedule.filtered(lambda s: s.paid_late))
 
     def _compute_credit_life_insurance_count(self):
         for rec in self:
@@ -1236,6 +1251,83 @@ class AlbaLoan(models.Model):
         )
         return True
 
+    def action_post_penalty_accrual_entry(self, amount=None):
+        """
+        ENTRY 3b — Penalty Accrual:
+        DR  Loan Penalty Receivable       penalty amount
+        CR  Loan Penalty Income           penalty amount
+
+        NOTE: This entry must use a General journal (type='general'), NOT the
+        disbursement bank/cash journal, because it is a P&L accrual with no
+        cash movement.
+        """
+        self.ensure_one()
+        product = self.loan_product_id
+        # Use penalty receivable account if configured, otherwise fall back to interest receivable
+        penalty_receivable_account = product.account_penalty_receivable_id or product.account_interest_receivable_id
+        penalty_income_account = product.account_penalty_income_id or product.account_interest_income_id
+        
+        if not penalty_receivable_account:
+            raise UserError(_("Please configure Penalty Receivable or Interest Receivable account on product '%s'.") % product.name)
+        if not penalty_income_account:
+            raise UserError(_("Please configure Penalty Income or Interest Income account on product '%s'.") % product.name)
+
+        penalty_amount = amount if amount is not None else 0.0
+        if penalty_amount <= 0:
+            return False
+
+        # Resolve a General journal — never use the bank/cash disbursement journal
+        # for a pure P&L accrual entry (no cash movement involved).
+        accrual_journal = (
+            self.journal_id
+            if self.journal_id and self.journal_id.type == "general"
+            else False
+        )
+        if not accrual_journal:
+            accrual_journal = self.env["account.journal"].search(
+                [("type", "=", "general"), ("company_id", "=", self.company_id.id)],
+                limit=1,
+            )
+        if not accrual_journal:
+            raise UserError(_(
+                "No General journal found for company '%s'. "
+                "Please create one under Accounting > Configuration > Journals."
+            ) % self.company_id.name)
+
+        move_vals = {
+            "journal_id": accrual_journal.id,
+            "date": fields.Date.context_today(self),
+            "ref": f"PEN/{self.loan_number}",
+            "move_type": "entry",
+            "alba_loan_id": self.id,
+            "line_ids": [
+                # DR Loan Penalty Receivable
+                (0, 0, {
+                    "account_id": penalty_receivable_account.id,
+                    "name": _("Penalty Accrual \u2014 %s") % self.loan_number,
+                    "debit": penalty_amount,
+                    "credit": 0.0,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
+                # CR Loan Penalty Income
+                (0, 0, {
+                    "account_id": penalty_income_account.id,
+                    "name": _("Penalty Income \u2014 %s") % self.loan_number,
+                    "debit": 0.0,
+                    "credit": penalty_amount,
+                    "partner_id": self.customer_id.partner_id.id,
+                }),
+            ],
+        }
+
+        move = self.env["account.move"].create(move_vals)
+        move.action_post()
+        self.message_post(
+            body=_("Penalty accrual journal entry %s posted for KES %s.")
+            % (move.name, f"{penalty_amount:,.2f}")
+        )
+        return True
+
 
     @api.onchange("journal_id")
     def _onchange_journal_id(self):
@@ -1383,8 +1475,8 @@ class AlbaLoan(models.Model):
 
     def action_post_write_off_entry(self):
         """
-        Create a journal entry to write off the loan's outstanding principal and interest
-        by debiting the Provision/Allowance account and crediting the Loan and Interest Receivable accounts.
+        Create a journal entry to write off the loan's outstanding principal, interest, and penalties
+        by debiting the Provision/Allowance account and crediting the Loan, Interest Receivable, and Penalty Receivable accounts.
         """
         self.ensure_one()
         write_off_move = self.env["account.move"].search([
@@ -1399,11 +1491,12 @@ class AlbaLoan(models.Model):
         if not product.account_loan_receivable_id or not product.account_interest_receivable_id or not product.account_provision_id:
             raise UserError(_("Please configure Loan Receivable, Interest Receivable, and Provision accounts on the product '%s' before writing off.") % product.name)
 
-        # Calculate actual outstanding principal and interest from the schedule
+        # Calculate actual outstanding principal, interest, and penalty from the schedule
         schedule = (self.current_repayment_schedule_ids or self.repayment_schedule_ids)
         outstanding_principal = sum(max(line.principal_due - line.principal_paid, 0.0) for line in schedule)
         outstanding_interest = sum(max(line.interest_due - line.interest_paid, 0.0) for line in schedule)
-        total_write_off = outstanding_principal + outstanding_interest
+        outstanding_penalty = sum(max(line.penalty_due - line.penalty_paid, 0.0) for line in schedule)
+        total_write_off = outstanding_principal + outstanding_interest + outstanding_penalty
 
         if total_write_off <= 0:
             return False
@@ -1448,6 +1541,17 @@ class AlbaLoan(models.Model):
                 "name": _("Write-Off Interest — %s") % self.loan_number,
                 "debit": 0.0,
                 "credit": outstanding_interest,
+                "partner_id": self.customer_id.partner_id.id,
+            }))
+
+        if outstanding_penalty > 0:
+            # Use penalty receivable account if configured, otherwise fall back to interest receivable
+            penalty_account = product.account_penalty_receivable_id or product.account_interest_receivable_id
+            line_ids.append((0, 0, {
+                "account_id": penalty_account.id,
+                "name": _("Write-Off Penalty — %s") % self.loan_number,
+                "debit": 0.0,
+                "credit": outstanding_penalty,
                 "partner_id": self.customer_id.partner_id.id,
             }))
 
