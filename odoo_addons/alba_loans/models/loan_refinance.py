@@ -707,6 +707,7 @@ class AlbaLoanRefinance(models.Model):
                 "interest_method": rec.new_product_id.interest_method,
                 "tenure_months": rec.new_tenure_months,
                 "repayment_frequency": rec.new_repayment_frequency,
+                "loan_date": fields.Date.today(),
                 "disbursement_date": fields.Date.today(),
                 "installment_amount": rec.new_emi,
                 "outstanding_balance": rec.new_principal,

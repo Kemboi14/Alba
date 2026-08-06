@@ -519,6 +519,7 @@ class AlbaLoanConsolidation(models.Model):
                 "interest_method": "flat_rate",  # Use flat rate for simplicity
                 "tenure_months": rec.new_tenure_months,
                 "repayment_frequency": rec.new_repayment_frequency,
+                "loan_date": fields.Date.today(),
                 "disbursement_date": fields.Date.today(),
                 "installment_amount": rec.new_emi,
                 "outstanding_balance": rec.consolidated_amount,

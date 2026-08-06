@@ -125,6 +125,7 @@ class AlbaLoan(models.Model):
     # ── Dates ─────────────────────────────────────────────────────────────────
     loan_date = fields.Date(
         string="Loan Date",
+        required=True,
         default=fields.Date.context_today,
     )
     disbursement_date = fields.Date(

@@ -92,6 +92,12 @@ class AlbaLoanDisburseWizard(models.TransientModel):
         required=True,
         help="Amount to actually disburse. Defaults to the approved amount on the application.",
     )
+    loan_date = fields.Date(
+        string="Loan Date",
+        required=True,
+        default=fields.Date.today,
+        help="Creation/agreement date of the loan contract.",
+    )
     disbursement_date = fields.Date(
         string="Disbursement Date",
         required=True,
@@ -525,6 +531,7 @@ class AlbaLoanDisburseWizard(models.TransientModel):
                 "interest_method": self.interest_method,
                 "tenure_months": self.tenure_months,
                 "repayment_frequency": self.repayment_frequency,
+                "loan_date": self.loan_date,
                 "disbursement_date": self.disbursement_date,
                 "journal_id": self.journal_id.id,
                 "payment_method_line_id": (

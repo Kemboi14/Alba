@@ -28,6 +28,7 @@
                         <group string="Disbursement Terms">
                             <group>
                                 <field name="approved_amount"/>
+                                <field name="loan_date"/>
                                 <field name="disbursement_date"/>
                                 <field name="tenure_months"/>
                                 <field name="repayment_frequency"/>
