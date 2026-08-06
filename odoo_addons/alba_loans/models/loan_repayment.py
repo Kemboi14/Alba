@@ -714,8 +714,21 @@ class AlbaLoanRepayment(models.Model):
             # Update repayment schedule
             rec._update_schedule_entries()
 
-            # Auto-close loan if outstanding balance is zero
+            # ── Ensure loan state reflects the repayment immediately ────────
+            # The schedule entries' stored computed fields (balance_due, status)
+            # may still be cached from before this transaction.  Invalidate the
+            # ORM cache so the next reads go back to the DB (which now has fresh
+            # principal_paid / interest_paid values), then explicitly recompute
+            # the full status chain: financials → PAR → loan state.
             loan = rec.loan_id
+            loan.repayment_schedule_ids.invalidate_recordset(
+                ["balance_due", "total_paid", "status", "days_overdue"]
+            )
+            loan._compute_financial_totals()
+            loan._compute_par()
+            loan._compute_state()
+
+            # Auto-close loan if outstanding balance is zero
             if loan.outstanding_balance <= 0.01 and loan.state not in ("closed", "written_off"):
                 loan.action_close()
 
@@ -794,9 +807,11 @@ class AlbaLoanRepayment(models.Model):
                     "principal_paid": new_principal_paid,
                 }
             )
-            # Recompute status immediately so balance_due is fresh
-            entry._compute_balance_due()
-            entry._compute_status()
+            # NOTE: do NOT call _compute_balance_due() / _compute_status() manually
+            # here.  Those are stored computed fields; direct in-memory calls only
+            # update the Python-side cache and never flush to the DB.  The ORM
+            # dependency tracker will recompute them correctly once the write() above
+            # propagates through the normal @api.depends chain.
 
             remaining_interest -= interest_pay
             remaining_principal -= principal_pay
@@ -829,8 +844,13 @@ class AlbaLoanRepayment(models.Model):
         
         # 2. Force recomputation of financial totals on the loan
         self.loan_id._compute_financial_totals()
+
+        # 3. Recompute PAR and state so the loan's classification is immediately
+        #    correct — not just after the next daily cron run.
+        self.loan_id._compute_par()
+        self.loan_id._compute_state()
         
-        # 3. If loan was automatically closed but now has outstanding balance, move back to active
+        # 4. If loan was automatically closed but now has outstanding balance, move back to active
         if self.loan_id.state == "closed" and self.loan_id.outstanding_balance > 0.01:
             self.loan_id.write({"state": "normal"})
             self.loan_id.message_post(

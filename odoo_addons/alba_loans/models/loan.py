@@ -688,6 +688,11 @@ class AlbaLoan(models.Model):
         "repayment_schedule_ids.status",
         "repayment_schedule_ids.balance_due",
         "repayment_schedule_ids.due_date",
+        # Second dependency path: posting a repayment must also invalidate PAR
+        # so the loan state is refreshed even if the schedule-line stored fields
+        # (balance_due / status) have not yet been recomputed by the ORM.
+        "repayment_ids.state",
+        "repayment_ids.amount_paid",
     )
     def _compute_par(self):
         today = fields.Date.today()
