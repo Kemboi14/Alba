@@ -218,12 +218,12 @@ class AlbaReportPL(models.TransientModel):
         active_investors       = Investor.search([("state", "=", "active")])
         investor_interest_exp  = sum(active_investors.mapped("accrued_interest"))
 
-        # Provision for credit losses — 100 % of NPL outstanding at period end
-        npl_loans          = Loan.search([
-            ("state", "in", ("substandard", "doubtful", "loss")),
+        # Provision for credit losses — sum of computed provision_amount across active portfolio
+        all_active_loans = Loan.search([
+            ("state", "in", ("normal", "watch", "substandard", "doubtful", "loss")),
             ("company_id", "=", self.company_id.id),
         ])
-        provision_for_losses = sum(npl_loans.mapped("outstanding_balance"))
+        provision_for_losses = sum(all_active_loans.mapped("provision_amount"))
 
         total_expenses = investor_interest_exp + provision_for_losses
         net_profit     = total_income - total_expenses
@@ -391,7 +391,8 @@ class AlbaReportBalanceSheet(models.TransientModel):
             sum(active_loans.mapped("outstanding_balance")) +
             sum(npl_loans.mapped("outstanding_balance"))
         )
-        specific_provision = sum(npl_loans.mapped("outstanding_balance"))
+        all_loans = active_loans | npl_loans
+        specific_provision = sum(all_loans.mapped("provision_amount"))
         net_portfolio      = gross_portfolio - specific_provision
 
         investors                = Investor.search([("state", "in", ("active", "suspended"))])
