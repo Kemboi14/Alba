@@ -149,6 +149,11 @@ class AlbaLoanProduct(models.Model):
         default=1.0,
         help="Base provisioning rate for Normal loans. Substandard/Doubtful/Loss rates are fixed by company policy.",
     )
+    write_off_grace_days = fields.Integer(
+        string="Write-Off Grace Period (Days)",
+        default=180,
+        help="Number of days in Loss status or past maturity before a loan is flagged as a Write-Off Candidate.",
+    )
     
     # ─── Automation ───────────────────────────────────────────────────────────
     auto_approve_score_threshold = fields.Integer(

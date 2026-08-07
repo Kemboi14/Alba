@@ -171,7 +171,7 @@ class AlbaLoan(models.Model):
         store=True,
         currency_field="currency_id",
     )
-    @api.depends("days_in_arrears", "outstanding_balance")
+    @api.depends("days_in_arrears", "outstanding_balance", "loan_product_id.provision_rate")
     def _compute_state(self):
         for rec in self:
             if rec.state in ("closed", "written_off"):
@@ -179,16 +179,16 @@ class AlbaLoan(models.Model):
                 rec.provision_amount = 0.0
                 continue
             
-            if rec.outstanding_balance <= 0.01 and rec.disbursement_move_id:
+            if rec.outstanding_balance <= 0.01 and rec.disbursement_move_id and rec.total_paid > 0:
                 rec.state = "closed"
                 rec.provision_rate = 0.0
                 rec.provision_amount = 0.0
                 continue
 
             d = rec.days_in_arrears
-            if d == 0:
+            if d <= 0:
                 rec.state = "normal"
-                rec.provision_rate = 1.0
+                rec.provision_rate = rec.loan_product_id.provision_rate if (rec.loan_product_id and rec.loan_product_id.provision_rate) else 1.0
             elif d <= 30:
                 rec.state = "watch"
                 rec.provision_rate = 5.0
@@ -329,6 +329,19 @@ class AlbaLoan(models.Model):
         compute="_compute_par",
         inverse="_inverse_par_bucket",
         store=True,
+    )
+    days_past_maturity = fields.Integer(
+        string="Days Past Maturity",
+        compute="_compute_days_past_maturity",
+        store=True,
+        help="Number of days elapsed past the loan maturity date for unclosed loans.",
+    )
+    is_write_off_candidate = fields.Boolean(
+        string="Write-Off Candidate",
+        compute="_compute_is_write_off_candidate",
+        search="_search_is_write_off_candidate",
+        store=True,
+        help="Flagged when loan is in Loss status or past maturity beyond the product's write-off grace period.",
     )
 
     # ── Relationships ─────────────────────────────────────────────────────────
@@ -710,8 +723,8 @@ class AlbaLoan(models.Model):
         today = fields.Date.today()
         for rec in self:
             schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
-            # CORRECT: Only count as overdue if due date passed AND balance still outstanding
-            overdue = schedule.filtered(lambda s: s.due_date < today and s.balance_due > 0)
+            # CORRECT: Only count as overdue if due date is strictly in the past (< today) AND balance is outstanding (> 0)
+            overdue = schedule.filtered(lambda s: s.due_date and s.due_date < today and s.balance_due > 0)
             if not overdue:
                 rec.arrears_amount = 0.0
                 rec.days_in_arrears = 0
@@ -720,7 +733,8 @@ class AlbaLoan(models.Model):
 
             rec.arrears_amount = sum(overdue.mapped("balance_due"))
             oldest_due = min(overdue.mapped("due_date"))
-            rec.days_in_arrears = (today - oldest_due).days
+            days = (today - oldest_due).days
+            rec.days_in_arrears = max(0, days)
 
             d = rec.days_in_arrears
             if d <= 30:
@@ -733,6 +747,43 @@ class AlbaLoan(models.Model):
                 rec.par_bucket = "91_180"
             else:
                 rec.par_bucket = "over_180"
+
+    @api.depends("maturity_date", "outstanding_balance", "state")
+    def _compute_days_past_maturity(self):
+        today = fields.Date.today()
+        for rec in self:
+            if rec.maturity_date and rec.state not in ("closed", "written_off") and rec.outstanding_balance > 0.01:
+                if today > rec.maturity_date:
+                    rec.days_past_maturity = (today - rec.maturity_date).days
+                else:
+                    rec.days_past_maturity = 0
+            else:
+                rec.days_past_maturity = 0
+
+    @api.depends("state", "days_in_arrears", "days_past_maturity", "loan_product_id.write_off_grace_days")
+    def _compute_is_write_off_candidate(self):
+        for rec in self:
+            if rec.state in ("closed", "written_off"):
+                rec.is_write_off_candidate = False
+                continue
+            grace = rec.loan_product_id.write_off_grace_days if (rec.loan_product_id and rec.loan_product_id.write_off_grace_days) else 180
+            if rec.state == "loss" and rec.days_in_arrears >= grace:
+                rec.is_write_off_candidate = True
+            elif rec.days_past_maturity >= grace:
+                rec.is_write_off_candidate = True
+            else:
+                rec.is_write_off_candidate = False
+
+    def _search_is_write_off_candidate(self, operator, value):
+        loans = self.search([
+            ("state", "in", ["substandard", "doubtful", "loss"]),
+            ("outstanding_balance", ">", 0.01)
+        ])
+        candidate_ids = loans.filtered(lambda l: l.is_write_off_candidate).ids
+        if (operator in ("=", "==") and value) or (operator == "!=" and not value):
+            return [("id", "in", candidate_ids)]
+        else:
+            return [("id", "not in", candidate_ids)]
 
     @api.depends("repayment_ids", "repayment_schedule_ids.paid_late", "current_repayment_schedule_ids.paid_late")
     def _compute_repayment_count(self):
@@ -942,8 +993,11 @@ class AlbaLoan(models.Model):
                 schedules = self.env["alba.repayment.schedule"].search([("loan_id", "=", rec.id), ("batch_id", "=", batch.id)], order="installment_number asc")
                 rec.current_repayment_schedule_ids = schedules
             else:
-                # Fallback to any schedule lines if no batch exists
-                rec.current_repayment_schedule_ids = self.env["alba.repayment.schedule"].search([("loan_id", "=", rec.id)], order="installment_number asc")
+                # Fallback to schedule lines not attached to archived batches
+                rec.current_repayment_schedule_ids = self.env["alba.repayment.schedule"].search([
+                    ("loan_id", "=", rec.id),
+                    "|", ("batch_id", "=", False), ("batch_id.state", "=", "active")
+                ], order="installment_number asc")
 
     # =========================================================================
     # ORM Overrides
@@ -1570,8 +1624,8 @@ class AlbaLoan(models.Model):
 
     def action_write_off(self):
         self.ensure_one()
-        self.action_post_write_off_entry()
         self.write({"state": "written_off"})
+        self.action_post_write_off_entry()
         self.action_post_provisioning_entry()
         self.message_post(body=Markup(_("Loan has been <b>Written Off</b> as per policy (Loss classification).")))
 
@@ -1781,6 +1835,24 @@ class AlbaLoan(models.Model):
             self._fire_loan_status_webhooks(watch_loans, "loan.classification_updated")
 
         _logger.info("cron_flag_npl_loans: updated classifications for %d loan(s).", len(active_loans))
+
+    @api.model
+    def cron_flag_write_off_candidates(self):
+        """Daily cron: Identify loans that meet write-off criteria and post chatter warning alerts."""
+        _logger = __import__("logging").getLogger(__name__)
+        candidates = self.search([("is_write_off_candidate", "=", True)])
+        for loan in candidates:
+            loan.message_post(
+                body=Markup(_(
+                    "<b>WRITE-OFF CANDIDATE WARNING</b>: Loan <b>%s</b> is %d day(s) in arrears / past maturity. "
+                    "Eligible for Write-Off review under product '%s' policy."
+                )) % (
+                    loan.loan_number,
+                    max(loan.days_in_arrears, loan.days_past_maturity),
+                    loan.loan_product_id.name if loan.loan_product_id else ""
+                )
+            )
+        _logger.info("cron_flag_write_off_candidates: identified %d write-off candidate(s).", len(candidates))
 
     # =========================================================================
     # Scheduled action (cron) — overdue payment alerts

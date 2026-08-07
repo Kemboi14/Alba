@@ -83,6 +83,7 @@
 
                     <widget name="web_ribbon" title="Paid" bg_color="bg-success" invisible="state != 'closed'"/>
                     <widget name="web_ribbon" title="Written Off" bg_color="bg-danger" invisible="state != 'written_off'"/>
+                    <widget name="web_ribbon" title="Write-Off Candidate" bg_color="bg-warning" invisible="not is_write_off_candidate or state in ('closed', 'written_off')"/>
 
                     <div class="oe_title">
                         <label for="loan_number" string="Loan Account"/>
@@ -350,6 +351,7 @@
                 <filter string="Fully Repaid" name="closed" domain="[('state','=','closed')]"/>
                 <separator/>
                 <filter string="Overdue" name="overdue" domain="[('arrears_amount','>',0)]"/>
+                <filter string="Write-off Candidates" name="write_off_candidates" domain="[('is_write_off_candidate','=',True)]"/>
                 <separator/>
                 <group>
                     <field name="loan_product_id"/>
