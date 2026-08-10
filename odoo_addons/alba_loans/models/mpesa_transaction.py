@@ -1062,34 +1062,41 @@ class AlbaMpesaTransaction(models.Model):
                 continue
 
             try:
-                payment_date = (
-                    txn.completed_at.date() if txn.completed_at else fields.Date.today()
-                )
-                repayment = (
-                    self.env["alba.loan.repayment"]
-                    .sudo()
-                    .create(
-                        {
-                            "loan_id": txn.loan_id.id,
-                            "payment_date": payment_date,
-                            "amount_paid": txn.amount,
-                            "payment_method": "mpesa",
-                            "mpesa_transaction_id": txn.mpesa_code,
-                            "payment_reference": txn.mpesa_code,
-                            "state": "draft",
-                            "notes": _(
-                                "Auto-created by reconciliation cron from "
-                                "M-Pesa transaction %s (phone: %s, type: %s)."
-                            )
-                            % (
-                                txn.mpesa_code,
-                                txn.phone_number or "—",
-                                txn.transaction_type,
-                            ),
-                        }
+                # A savepoint isolates this transaction's create() from the
+                # rest of the batch: without it, a constraint hit here (e.g.
+                # a duplicate mpesa_transaction_id slipping past the check
+                # above in a race) leaves the whole cursor in an aborted
+                # state, silently failing every transaction processed later
+                # in this same cron run.
+                with self.env.cr.savepoint():
+                    payment_date = (
+                        txn.completed_at.date() if txn.completed_at else fields.Date.today()
                     )
-                )
-                txn.write({"repayment_id": repayment.id})
+                    repayment = (
+                        self.env["alba.loan.repayment"]
+                        .sudo()
+                        .create(
+                            {
+                                "loan_id": txn.loan_id.id,
+                                "payment_date": payment_date,
+                                "amount_paid": txn.amount,
+                                "payment_method": "mpesa",
+                                "mpesa_transaction_id": txn.mpesa_code,
+                                "payment_reference": txn.mpesa_code,
+                                "state": "draft",
+                                "notes": _(
+                                    "Auto-created by reconciliation cron from "
+                                    "M-Pesa transaction %s (phone: %s, type: %s)."
+                                )
+                                % (
+                                    txn.mpesa_code,
+                                    txn.phone_number or "—",
+                                    txn.transaction_type,
+                                ),
+                            }
+                        )
+                    )
+                    txn.write({"repayment_id": repayment.id})
                 reconciled_count += 1
                 _logger.info(
                     "cron_auto_reconcile: txn %s → repayment %s (draft).",

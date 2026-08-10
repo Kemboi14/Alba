@@ -272,11 +272,24 @@ class AlbaMpesaCallbackController(http.Controller):
             shortcode = str(data.get("BusinessShortCode") or "").strip()
             config = _get_config_for_shortcode(shortcode)
 
+            if not config:
+                # Unlike validation, Safaricom does not act on the result
+                # code of a confirmation callback — but we must still
+                # refuse to create a transaction/loan match from a request
+                # that doesn't carry a shortcode we recognise, otherwise
+                # anyone who finds this URL can forge a payment.
+                _logger.warning(
+                    "C2B confirmation: unknown shortcode '%s' — ignoring "
+                    "(not creating a transaction).",
+                    shortcode,
+                )
+                return _json_response({"ResultCode": 0, "ResultDesc": "Accepted"})
+
             TxnModel = request.env["alba.mpesa.transaction"].sudo()
             txn = TxnModel.process_c2b_confirmation(data)
 
-            # Link config if we found one
-            if config and txn and not txn.config_id:
+            # Link config since we already validated it above
+            if txn and not txn.config_id:
                 txn.write({"config_id": config.id})
 
             # Fire synchronisation webhook to Django portal
@@ -443,6 +456,6 @@ def _fire_payment_webhook(txn):
             "completed_at": txn.completed_at.isoformat() if txn.completed_at else "",
             "repayment_odoo_id": txn.repayment_id.id if txn.repayment_id else 0,
         }
-        api_key.send_webhook("payment.mpesa_received", payload)
+        api_key.send_webhook_with_retry("payment.mpesa_received", payload)
     except Exception as exc:
         _logger.warning("Failed to fire payment.mpesa_received webhook: %s", exc)

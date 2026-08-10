@@ -153,6 +153,7 @@ class AlbaRepaymentSchedule(models.Model):
             ("partial", "Partially Paid"),
             ("paid", "Paid"),
             ("overdue", "Overdue"),
+            ("deferred", "Deferred (Payment Holiday)"),
         ],
         string="Status",
         default="pending",
@@ -161,6 +162,15 @@ class AlbaRepaymentSchedule(models.Model):
         store=True,
         index=True,
         # IMPORT-EXPORT FIX
+    )
+    is_deferred = fields.Boolean(
+        string="Deferred by Payment Holiday",
+        default=False,
+        help=(
+            "Set while this instalment falls inside an active payment "
+            "holiday period — suppresses overdue/DPD tracking for it "
+            "until the holiday completes and the flag is cleared."
+        ),
     )
 
     # ── SQL Constraints ───────────────────────────────────────────────────────
@@ -221,11 +231,16 @@ class AlbaRepaymentSchedule(models.Model):
         for rec in self:
             rec.balance_due = max(rec.total_due - rec.total_paid, 0.0)
 
-    @api.depends("due_date", "balance_due")
+    @api.depends("due_date", "balance_due", "is_deferred")
     def _compute_days_overdue(self):
         today = fields.Date.today()
         for rec in self:
-            if rec.balance_due > 0.0 and rec.due_date and rec.due_date < today:
+            if (
+                not rec.is_deferred
+                and rec.balance_due > 0.0
+                and rec.due_date
+                and rec.due_date < today
+            ):
                 rec.days_overdue = (today - rec.due_date).days
             else:
                 rec.days_overdue = 0
@@ -250,13 +265,14 @@ class AlbaRepaymentSchedule(models.Model):
                 and rec.due_date < today
             )
 
-    @api.depends("balance_due", "total_paid", "total_due", "due_date")
+    @api.depends("balance_due", "total_paid", "total_due", "due_date", "is_deferred")
     def _compute_status(self):
         """
         FIXED: Prioritize balance over timing to avoid showing "overdue" for fully paid late payments.
-        
+
         Status logic:
         - If balance is fully paid: status = "paid" (regardless of payment timing)
+        - If deferred by an active payment holiday and not fully paid: status = "deferred"
         - If partial payment made: status = "partial" or "overdue" based on timing
         - If no payment but due date passed: status = "overdue"
         - If no payment and due date future: status = "pending"
@@ -266,13 +282,16 @@ class AlbaRepaymentSchedule(models.Model):
             # Priority 1: Fully paid - always "paid" regardless of timing
             if rec.balance_due <= 0.0:
                 rec.status = "paid"
-            # Priority 2: Partial payment - check timing
+            # Priority 2: Deferred by an active payment holiday - never "overdue"
+            elif rec.is_deferred:
+                rec.status = "deferred"
+            # Priority 3: Partial payment - check timing
             elif rec.total_paid > 0.0:
                 if rec.due_date and rec.due_date < today:
                     rec.status = "overdue"  # Partial payment, currently overdue
                 else:
                     rec.status = "partial"  # Partial payment, not yet overdue
-            # Priority 3: No payment, check timing
+            # Priority 4: No payment, check timing
             elif rec.due_date and rec.due_date < today:
                 rec.status = "overdue"  # No payment, currently overdue
             else:

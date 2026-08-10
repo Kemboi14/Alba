@@ -678,6 +678,8 @@ class AlbaLoan(models.Model):
         "repayment_schedule_ids.total_due",
         "repayment_ids.state",
         "repayment_ids.amount_paid",
+        "fee_ids.amount",
+        "fee_ids.is_posted",
     )
     def _compute_financial_totals(self):
         for rec in self:
@@ -688,9 +690,17 @@ class AlbaLoan(models.Model):
                 continue
             schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
             repayments = rec.repayment_ids.filtered(lambda r: r.state == "posted")
+            # Posted ad-hoc fees (restructure fee, etc.) hit the loan
+            # receivable account in the GL and must also count toward what
+            # the customer still owes — otherwise action_post() on
+            # alba.loan.fee posts real accounting entries that this
+            # tracked balance never reflects.
+            posted_fees = sum(
+                rec.fee_ids.filtered(lambda f: f.is_posted).mapped("amount")
+            )
             rec.total_repayable = (
                 sum(schedule.mapped("total_due")) or rec.principal_amount
-            )
+            ) + posted_fees
             rec.total_paid = sum(repayments.mapped("amount_paid"))
             rec.outstanding_balance = max(rec.total_repayable - rec.total_paid, 0.0)
 
@@ -1446,7 +1456,7 @@ class AlbaLoan(models.Model):
         # Query all posted moves linked to this loan
         posted_provision = 0.0
         moves = self.env["account.move"].search([
-            ("loan_id", "=", self.id),
+            ("alba_loan_id", "=", self.id),
             ("state", "=", "posted")
         ])
         for move in moves:
@@ -2096,7 +2106,7 @@ class AlbaLoan(models.Model):
             }
             if extra:
                 payload.update(extra)
-            api_key.send_webhook(event_type, payload)
+            api_key.send_webhook_with_retry(event_type, payload)
 
     @api.model
     def _check_company(self, company_id):

@@ -512,7 +512,12 @@ class AlbaWebhookRetry(models.Model):
             )
             return (False, 0, "API key is missing or inactive.")
 
-        success, http_code = api_key.send_webhook(self.event_type, payload_dict)
+        # Re-use the original delivery_id (not a fresh uuid) so that the
+        # Django-side idempotency guard recognises retries of the same
+        # delivery instead of treating each attempt as a brand-new event.
+        success, http_code = api_key.send_webhook(
+            self.event_type, payload_dict, delivery_id=self.delivery_id or None
+        )
 
         now = fields.Datetime.now()
         new_count = self.attempt_count + 1

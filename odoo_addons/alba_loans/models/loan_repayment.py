@@ -206,7 +206,7 @@ class AlbaLoanRepayment(models.Model):
             "payment_date": str(self.payment_date),
             "outstanding_balance": float(self.loan_id.outstanding_balance),
         }
-        api_key.send_webhook(event_type, payload)
+        api_key.send_webhook_with_retry(event_type, payload)
 
     def write(self, vals):
         if 'state' in vals:
@@ -281,10 +281,9 @@ class AlbaLoanRepayment(models.Model):
         "CHECK(mpesa_transaction_id IS NULL OR mpesa_transaction_id != '')",
         "M-Pesa transaction ID cannot be empty string.",
     )
-    _django_payment_id_not_empty = models.Constraint(
-        "CHECK(django_payment_id IS NULL OR django_payment_id != '')",
-        "Django payment ID cannot be empty string.",
-    )
+    # No equivalent "not empty string" constraint for django_payment_id:
+    # it is an Integer column, so an empty-string comparison is meaningless
+    # (and invalid SQL for that column type) — NULL is the only "not set" value.
 
     # =========================================================================
     # Computed Methods
@@ -494,7 +493,11 @@ class AlbaLoanRepayment(models.Model):
         schedule = self._get_schedule_lines()
 
         # 1. Allocate to penalties first (Daily Compounding)
-        today = fields.Date.today()
+        # Penalty accrues based on how late the payment actually was
+        # (payment_date), not on when it happens to get posted in Odoo —
+        # otherwise a delay in recording an on-time payment gets billed as
+        # a late one.
+        today = self.payment_date or fields.Date.today()
         for entry in schedule:
             if remaining <= 0:
                 break
@@ -580,10 +583,22 @@ class AlbaLoanRepayment(models.Model):
                 )
             if not rec.loan_id:
                 raise UserError(_("A loan must be linked before posting a repayment."))
-            if rec.loan_id.state == "written_off":
+            if rec.loan_id.state in ("written_off", "closed"):
                 raise UserError(
-                    _("Cannot post a repayment against a written-off loan.")
+                    _("Cannot post a repayment against a %s loan.")
+                    % rec.loan_id.state.replace("_", " ")
                 )
+
+            # Lock the loan row for the rest of this transaction so two
+            # concurrent repayment postings on the same loan (e.g. two
+            # near-simultaneous M-Pesa confirmations) can't both read the
+            # same pre-payment schedule baseline and overwrite each other's
+            # allocation in _update_schedule_entries(). The second poster
+            # blocks here until the first one commits.
+            self.env.cr.execute(
+                "SELECT id FROM alba_loan WHERE id = %s FOR UPDATE",
+                (rec.loan_id.id,),
+            )
 
             # Auto-allocate if components are all zero
             total_comp = (

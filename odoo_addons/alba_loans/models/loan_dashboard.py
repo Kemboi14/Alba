@@ -69,12 +69,28 @@ class AlbaLoanDashboard(models.TransientModel):
     loan_tenure_distribution_data = fields.Text(compute="_compute_graph_data")
 
     def _loan_domain(self):
+        """Cohort domain: loans *disbursed* within the selected period."""
         self.ensure_one()
         return [
             ("company_id", "=", self.company_id.id),
             ("disbursement_date", ">=", self.date_from),
             ("disbursement_date", "<=", self.date_to),
         ]
+
+    def _portfolio_domain(self):
+        """
+        Point-in-time domain: the full current book, not restricted by
+        when a loan was disbursed.
+
+        Portfolio-health metrics (outstanding balance, arrears, NPL, PAR
+        buckets) answer "how healthy is the book right now" — scoping them
+        to _loan_domain()'s disbursement-date cohort made a loan disbursed
+        last year and now 90+ days overdue invisible the moment the
+        dashboard's default "this month" range didn't include its
+        disbursement date.
+        """
+        self.ensure_one()
+        return [("company_id", "=", self.company_id.id)]
 
     def _application_domain(self):
         self.ensure_one()
@@ -101,6 +117,10 @@ class AlbaLoanDashboard(models.TransientModel):
             Repayment = rec.env["alba.loan.repayment"]
 
             loans = Loan.search(rec._loan_domain()) if rec.date_from and rec.date_to else Loan.browse()
+            # Portfolio-health metrics below deliberately use the full
+            # current book (not the disbursement-date cohort) — see
+            # _portfolio_domain().
+            portfolio = Loan.search(rec._portfolio_domain())
             applications = (
                 Application.search(rec._application_domain())
                 if rec.date_from and rec.date_to
@@ -116,16 +136,16 @@ class AlbaLoanDashboard(models.TransientModel):
             rec.application_count = len(applications)
             rec.customer_count = len(loans.mapped("customer_id"))
             rec.disbursed_amount = sum(loans.mapped("principal_amount"))
-            rec.outstanding_amount = sum(loans.mapped("outstanding_balance"))
-            rec.arrears_amount = sum(loans.mapped("arrears_amount"))
+            rec.outstanding_amount = sum(portfolio.mapped("outstanding_balance"))
+            rec.arrears_amount = sum(portfolio.mapped("arrears_amount"))
             rec.collected_amount = sum(repayments.mapped("amount_paid"))
-            npl = loans.filtered(lambda loan: loan.state in ("substandard", "doubtful", "loss"))
+            npl = portfolio.filtered(lambda loan: loan.state in ("substandard", "doubtful", "loss"))
             rec.npl_count = len(npl)
             rec.par_30_amount = sum(
-                loans.filtered(lambda loan: loan.par_bucket in ("1_30", "31_60", "61_90")).mapped("outstanding_balance")
+                portfolio.filtered(lambda loan: loan.par_bucket in ("1_30", "31_60", "61_90")).mapped("outstanding_balance")
             )
             rec.par_90_amount = sum(
-                loans.filtered(lambda loan: loan.par_bucket in ("91_180", "over_180") or loan.state in ("substandard", "doubtful", "loss")).mapped("outstanding_balance")
+                portfolio.filtered(lambda loan: loan.par_bucket in ("91_180", "over_180") or loan.state in ("substandard", "doubtful", "loss")).mapped("outstanding_balance")
             )
 
     def _group_context(self):
@@ -181,7 +201,7 @@ class AlbaLoanDashboard(models.TransientModel):
             "name": _("Portfolio at Risk"),
             "res_model": "alba.loan",
             "view_mode": "list,pivot,graph,form",
-            "domain": self._loan_domain() + [("par_bucket", "!=", "current")],
+            "domain": self._portfolio_domain() + [("par_bucket", "!=", "current")],
             "context": {"group_by": "par_bucket"},
         }
 
@@ -283,9 +303,9 @@ class AlbaLoanDashboard(models.TransientModel):
         })
 
     def _get_par_analysis(self):
-        """Get Portfolio at Risk analysis by PAR bucket"""
+        """Get Portfolio at Risk analysis by PAR bucket (point-in-time, not disbursement cohort)"""
         self.ensure_one()
-        loans = self.env["alba.loan"].search(self._loan_domain())
+        loans = self.env["alba.loan"].search(self._portfolio_domain())
         
         # Group by PAR bucket
         par_buckets = {
@@ -328,9 +348,9 @@ class AlbaLoanDashboard(models.TransientModel):
         })
 
     def _get_status_distribution(self):
-        """Get loan status distribution"""
+        """Get loan status distribution (point-in-time, not disbursement cohort)"""
         self.ensure_one()
-        loans = self.env["alba.loan"].search(self._loan_domain())
+        loans = self.env["alba.loan"].search(self._portfolio_domain())
         
         # Group by status
         status_data = {}
@@ -426,9 +446,9 @@ class AlbaLoanDashboard(models.TransientModel):
         })
 
     def _get_customer_loan_status(self):
-        """Get customer loan status distribution"""
+        """Get customer loan status distribution (point-in-time, not disbursement cohort)"""
         self.ensure_one()
-        loans = self.env["alba.loan"].search(self._loan_domain())
+        loans = self.env["alba.loan"].search(self._portfolio_domain())
         
         # Group customers by their loan status
         customer_status = {}

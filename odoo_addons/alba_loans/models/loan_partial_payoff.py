@@ -353,8 +353,14 @@ class AlbaLoanPartialPayoff(models.Model):
                         else:
                             rec.new_tenure = n  # fallback: EMI too low to amortise
                     else:
-                        # Flat-rate or zero-interest approximation
-                        rec.new_tenure = int(rec.new_outstanding / loan.installment_amount)
+                        # Flat-rate or zero-interest approximation.
+                        # Round up: paying off in "1.2 installments" still
+                        # requires 2 installments, not 1 — truncating would
+                        # understate the remaining tenure.
+                        import math
+                        rec.new_tenure = int(
+                            math.ceil(rec.new_outstanding / loan.installment_amount)
+                        )
                 else:
                     rec.new_tenure = 0
                 rec.emi_reduction = 0
@@ -507,17 +513,35 @@ class AlbaLoanPartialPayoff(models.Model):
                 "notes": _("Partial Payoff - %s") % rec.name,
             })
             repayment.action_post()
-            
-            # Apply principal reduction to loan
+
+            # Apply principal reduction to loan.
+            # NOTE: outstanding_balance / installment_amount are computed
+            # fields driven by the repayment schedule — writing them
+            # directly is a no-op (see loan_topup.py). The real inputs are
+            # principal_amount (always reduced) and, for "reduce_tenure"
+            # mode, tenure_months — action_generate_schedule() below derives
+            # the new outstanding balance and installment amount from these.
             new_outstanding = loan.outstanding_balance - rec.principal_reduction
-            loan.write({
-                "outstanding_balance": new_outstanding,
-                "installment_amount": rec.new_emi if rec.reduction_mode == "reduce_emi" else loan.installment_amount,
-            })
-            
-            # Regenerate schedule
+            new_principal_amount = max(loan.principal_amount - rec.principal_reduction, 0.0)
+            loan_write_vals = {"principal_amount": new_principal_amount}
+            if rec.reduction_mode == "reduce_tenure":
+                loan_write_vals["tenure_months"] = rec.new_tenure or loan.tenure_months
+            loan.write(loan_write_vals)
+
+            # Archive the current schedule batch (self-contained, matching
+            # the pattern in loan_topup.py's action_disburse — no separate
+            # manual "archive" click required) then regenerate against the
+            # new terms and reapply every already-posted repayment so DPD/
+            # PAR/state don't reset to "unpaid" on instalments that were
+            # already settled.
+            Batch = self.env["alba.repayment.schedule.batch"]
+            existing_batch = Batch.search([("loan_id", "=", loan.id), ("state", "=", "active")])
+            if existing_batch:
+                existing_batch.write({"state": "archived"})
+            loan.write({"schedule_generated": False})
             loan.action_generate_schedule()
-            
+            loan._recompute_schedule_paid_amounts()
+
             # Update payoff record
             rec.write({
                 "state": "applied",

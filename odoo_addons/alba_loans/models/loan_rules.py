@@ -73,7 +73,13 @@ class AlbaLoanRestructure(models.Model):
     def _compute_new_installment(self):
         for rec in self:
             if rec.new_tenure_months > 0:
-                total = rec.new_principal_amount * (1 + (rec.new_interest_rate / 100) * rec.new_tenure_months / 12)
+                # loan.interest_rate (and this new_interest_rate, which is
+                # written straight into it on apply) is "% p.m." — a
+                # per-month rate — so the tenure contribution is
+                # rate/100 * tenure_months, NOT divided by 12 again as if
+                # the rate were annual (that understated true interest by
+                # ~12x on multi-month restructures).
+                total = rec.new_principal_amount * (1 + (rec.new_interest_rate / 100) * rec.new_tenure_months)
                 rec.new_installment_amount = total / rec.new_tenure_months
             else:
                 rec.new_installment_amount = 0
@@ -133,16 +139,35 @@ class AlbaLoanRestructure(models.Model):
         for rec in self:
             if rec.state != "approved":
                 raise UserError(_("Restructure must be approved before applying."))
-            
-            # Apply new terms to loan
-            rec.loan_id.write({
+
+            loan = rec.loan_id
+
+            # Apply new terms to loan. installment_amount / outstanding_balance
+            # are computed fields driven by the repayment schedule (their
+            # inverses are no-ops) — writing them directly here is silently
+            # discarded the moment anything re-reads them, which is exactly
+            # why a restructure previously "succeeded" in chatter but left
+            # the loan tracking its pre-restructure amortisation. The real
+            # inputs are principal_amount / interest_rate / tenure_months;
+            # the schedule regeneration below derives the rest.
+            loan.write({
                 "principal_amount": rec.new_principal_amount,
                 "interest_rate": rec.new_interest_rate,
                 "tenure_months": rec.new_tenure_months,
-                "installment_amount": rec.new_installment_amount,
-                "outstanding_balance": rec.total_new_payable,
             })
-            
+
+            # Self-contained archive + regenerate (matching loan_topup.py's
+            # action_disburse pattern), then reapply every already-posted
+            # repayment so DPD/PAR/state don't reset to "unpaid" on
+            # instalments that were already settled before the restructure.
+            Batch = self.env["alba.repayment.schedule.batch"]
+            existing_batch = Batch.search([("loan_id", "=", loan.id), ("state", "=", "active")])
+            if existing_batch:
+                existing_batch.write({"state": "archived"})
+            loan.write({"schedule_generated": False})
+            loan.action_generate_schedule()
+            loan._recompute_schedule_paid_amounts()
+
             # Create fee charge if applicable
             if rec.restructure_fee_amount > 0:
                 self.env["alba.loan.fee"].create({
@@ -445,9 +470,11 @@ class AlbaLoanFee(models.Model):
                 "is_posted": True,
                 "move_id": move.id,
             })
-            
-            # Increase loan balance
-            rec.loan_id.outstanding_balance += rec.amount
+            # outstanding_balance is a computed field (see
+            # loan.py:_compute_financial_totals, which now depends on
+            # fee_ids.is_posted/amount) — setting is_posted above already
+            # triggers the recompute; writing it directly here would be a
+            # no-op (its inverse is a no-op) and is unnecessary.
 
 
 class AlbaLoan(models.Model):

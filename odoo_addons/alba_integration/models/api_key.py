@@ -320,7 +320,7 @@ class AlbaApiKey(models.Model):
             path = "/" + path
         return (base + path) if base else ""
 
-    def send_webhook(self, event_type, payload_dict):
+    def send_webhook(self, event_type, payload_dict, delivery_id=None):
         """
         Build, sign, and POST a webhook payload to the Django portal.
 
@@ -384,7 +384,9 @@ class AlbaApiKey(models.Model):
 
         # --- Build payload ---------------------------------------------------
         timestamp = datetime.now(timezone.utc).isoformat()
-        delivery_id = str(uuid.uuid4())
+        # A retry re-uses the original delivery_id so Django's dedup guard
+        # can recognise it as the same delivery rather than reprocessing it.
+        delivery_id = delivery_id or str(uuid.uuid4())
 
         envelope = {
             "event": event_type,
@@ -509,3 +511,45 @@ class AlbaApiKey(models.Model):
             )
 
         return (success, response_code)
+
+    def send_webhook_with_retry(self, event_type, payload_dict):
+        """
+        Send a webhook and, if the delivery fails, enqueue it on the
+        ``alba.webhook.retry`` queue instead of letting the event vanish.
+
+        Use this instead of calling ``send_webhook()`` directly for any
+        event the Django portal must eventually learn about — the plain
+        ``send_webhook()`` call has no retry safety net on its own.
+
+        Returns:
+            tuple[bool, int]: Same as ``send_webhook()`` — the outcome of
+            the *first* attempt. A later successful retry does not change
+            this return value since it happens asynchronously.
+        """
+        self.ensure_one()
+        delivery_id = str(uuid.uuid4())
+        success, http_code = self.send_webhook(
+            event_type, payload_dict, delivery_id=delivery_id
+        )
+        if not success:
+            try:
+                error_detail = (
+                    f"Initial delivery failed with HTTP {http_code}."
+                    if http_code
+                    else "Initial delivery failed: no response received."
+                )
+                self.env["alba.webhook.retry"].sudo().enqueue(
+                    api_key=self,
+                    event_type=event_type,
+                    payload_dict=payload_dict,
+                    original_error=error_detail,
+                    http_status=http_code,
+                    delivery_id=delivery_id,
+                )
+            except Exception:
+                _logger.exception(
+                    "Failed to enqueue webhook retry for event '%s' (delivery_id=%s).",
+                    event_type,
+                    delivery_id,
+                )
+        return (success, http_code)

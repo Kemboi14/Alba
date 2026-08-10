@@ -50,4 +50,4 @@ class LoanDocument(models.Model):
             "django_document_id": django_document_id,  # Enhanced with Django document ID
         }
         _logger.info("Firing document.status_changed webhook for doc_id=%d, state=%s, type=%s", self.id, self.state, self.document_type)
-        api_key.send_webhook("document.status_changed", payload)
+        api_key.send_webhook_with_retry("document.status_changed", payload)

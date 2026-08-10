@@ -657,12 +657,15 @@ class AlbaLoanRefinance(models.Model):
             # ── 3. Close original loan & forgive future interest/principal ───
             rec.original_loan_id.write({"state": "closed"})
             
-            # Set unpaid future schedule lines due amounts to 0 (forgive future interest and principal since they are settled)
+            # Set unpaid future schedule lines due amounts to 0 (forgive future interest, principal, and
+            # penalty since they are settled) — penalty_due must be forgiven too, otherwise a line with
+            # any unpaid penalty keeps balance_due > 0 forever on a loan that's supposedly "closed".
             schedule_to_adjust = rec.original_loan_id.repayment_schedule_ids.filtered(lambda s: s.balance_due > 0)
             for line in schedule_to_adjust:
                 line.write({
                     "principal_due": line.principal_paid,
                     "interest_due": line.interest_paid,
+                    "penalty_due": line.penalty_paid,
                 })
             # Force compute of financial totals on the loan to update outstanding_balance to 0
             rec.original_loan_id._compute_financial_totals()

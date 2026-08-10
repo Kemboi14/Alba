@@ -923,7 +923,7 @@ class AlbaApiController(http.Controller):
                 from datetime import timezone
 
                 partner = customer.partner_id
-                api_key.send_webhook(
+                api_key.send_webhook_with_retry(
                     "customer.kyc_verified",
                     {
                         "odoo_customer_id": customer.id,
@@ -1993,12 +1993,12 @@ class AlbaApiController(http.Controller):
                 "new_state": new_state,
                 "notes": notes,
             }
-            api_key.send_webhook("application.status_changed", webhook_payload)
+            api_key.send_webhook_with_retry("application.status_changed", webhook_payload)
 
             # Also fire loan.disbursed when the application reaches disbursed state
             if new_state == "disbursed":
                 loan = getattr(application, "loan_id", None)
-                api_key.send_webhook(
+                api_key.send_webhook_with_retry(
                     "loan.disbursed",
                     {
                         "odoo_application_id": application.id,
@@ -2134,7 +2134,20 @@ class AlbaApiController(http.Controller):
                 )
                 return self._error_response(detail, 400)
 
-            django_payment_id = str(data["django_payment_id"]).strip()
+            try:
+                django_payment_id = int(data["django_payment_id"])
+            except (TypeError, ValueError):
+                detail = (
+                    f"django_payment_id must be an integer "
+                    f"(got {data['django_payment_id']!r})."
+                )
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.repayment", 0, 0,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Payment",
+                    event_type="payment.matched",
+                )
+                return self._error_response(detail, 400)
             Repayment = request.env["alba.loan.repayment"].sudo()
 
             # --- Idempotency: check for existing repayment (scoped) ---------
@@ -2200,7 +2213,19 @@ class AlbaApiController(http.Controller):
                 .replace(" ", "_")
                 .replace("-", "_")
             )
-            odoo_payment_method = _PAYMENT_METHOD_MAP.get(raw_method, "bank_transfer")
+            odoo_payment_method = _PAYMENT_METHOD_MAP.get(raw_method)
+            if odoo_payment_method is None:
+                detail = (
+                    f"Unrecognised payment_method '{data.get('payment_method')}'. "
+                    f"Expected one of: {', '.join(sorted(set(_PAYMENT_METHOD_MAP.values())))}."
+                )
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.repayment", 0, 0,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Payment",
+                    event_type="payment.matched",
+                )
+                return self._error_response(detail, 400)
 
             # --- Build repayment record --------------------------------------
             amount_paid = self._safe_float(data["amount_paid"])
@@ -2264,7 +2289,7 @@ class AlbaApiController(http.Controller):
             )
 
             # --- Fire payment.matched webhook --------------------------------
-            api_key.send_webhook(
+            api_key.send_webhook_with_retry(
                 "payment.matched",
                 {
                     "odoo_repayment_id": repayment.id,

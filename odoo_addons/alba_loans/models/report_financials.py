@@ -12,6 +12,7 @@ Five MFI-specific reports computed on demand:
 from datetime import date
 
 from odoo import _, fields, models
+from odoo.exceptions import UserError
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -44,9 +45,24 @@ class AlbaReportPAR(models.TransientModel):
 
     def get_par_data(self):
         self.ensure_one()
-        # Non-terminal states: normal, watch, substandard, doubtful
+        # This report always reflects the *current* live state — there is
+        # no historical point-in-time snapshot of loan states/balances to
+        # query. Rather than silently mislabel today's numbers with a past
+        # "as of" date, refuse to run for anything but today.
+        if self.as_of_date and self.as_of_date != fields.Date.today():
+            raise UserError(_(
+                "Historical PAR reporting (as of a past date) is not "
+                "supported — this report always reflects the current "
+                "portfolio state. Please set 'As of Date' to today."
+            ))
+        # Non-terminal states — "loss" must be included: PAR buckets
+        # "91-180" and ">180" (loan.py par_bucket, days_in_arrears > 90) are
+        # exactly the same threshold that flips a loan's state to "loss"
+        # (loan.py _compute_state). Excluding "loss" here silently zeroed
+        # out both of those buckets and understated total_at_risk/npl by
+        # the entire loss book.
         loans = self.env["alba.loan"].search([
-            ("state", "in", ("normal", "watch", "substandard", "doubtful")),
+            ("state", "in", ("normal", "watch", "substandard", "doubtful", "loss")),
             ("company_id", "=", self.company_id.id),
         ])
         total_portfolio = sum(loans.mapped("outstanding_balance")) or 0.0
@@ -127,6 +143,12 @@ class AlbaReportNPL(models.TransientModel):
 
     def get_npl_data(self):
         self.ensure_one()
+        if self.as_of_date and self.as_of_date != fields.Date.today():
+            raise UserError(_(
+                "Historical NPL reporting (as of a past date) is not "
+                "supported — this report always reflects the current "
+                "portfolio state. Please set 'As of Date' to today."
+            ))
         Loan = self.env["alba.loan"]
         # NPL defined as substandard, doubtful, or loss
         states = ["substandard", "doubtful", "loss"]
@@ -138,8 +160,13 @@ class AlbaReportNPL(models.TransientModel):
             ("company_id", "=", self.company_id.id),
         ], order="days_in_arrears desc")
 
+        # Must match get_par_data()'s state list ("loss" included) — the
+        # denominator (total_portfolio) has to cover every non-terminal
+        # loan the numerator (npl_balance, which already includes "loss")
+        # can draw from, otherwise the ratio is inflated by counting a
+        # bucket in the numerator that the denominator omits.
         all_active = Loan.search([
-            ("state", "in", ("normal", "watch", "substandard", "doubtful")),
+            ("state", "in", ("normal", "watch", "substandard", "doubtful", "loss")),
             ("company_id", "=", self.company_id.id),
         ])
         total_portfolio = sum(all_active.mapped("outstanding_balance")) or 0.0
@@ -199,8 +226,6 @@ class AlbaReportPL(models.TransientModel):
     def get_pl_data(self):
         self.ensure_one()
         Repayment = self.env["alba.loan.repayment"]
-        Loan      = self.env["alba.loan"]
-        Investor  = self.env["alba.investor"]
 
         repayments = Repayment.search([
             ("payment_date", ">=", self.date_from),
@@ -214,16 +239,43 @@ class AlbaReportPL(models.TransientModel):
         penalty_income  = sum(repayments.mapped("penalty_component"))
         total_income    = interest_income + fees_income + penalty_income
 
-        # Investor interest expense — cumulative accrued (best available figure)
-        active_investors       = Investor.search([("state", "=", "active")])
-        investor_interest_exp  = sum(active_investors.mapped("accrued_interest"))
+        # Investor interest expense and provision for losses are P&L *flows*
+        # for this period, not the current cumulative balance — summing the
+        # live accrued_interest/provision_amount snapshot (as before) gave
+        # the exact same "expense" for every period regardless of length.
+        # Instead, sum the actual posted journal-entry movements that hit
+        # each expense account within [date_from, date_to] — the same
+        # entries created by the interest accrual cron (alba_investors) and
+        # by action_post_provisioning_entry (alba_loans).
+        AccountMoveLine = self.env["account.move.line"]
 
-        # Provision for credit losses — sum of computed provision_amount across active portfolio
-        all_active_loans = Loan.search([
-            ("state", "in", ("normal", "watch", "substandard", "doubtful", "loss")),
-            ("company_id", "=", self.company_id.id),
-        ])
-        provision_for_losses = sum(all_active_loans.mapped("provision_amount"))
+        interest_expense_accounts = self.env["alba.investment.product"].search([
+            ("account_interest_expense_id", "!=", False),
+        ]).mapped("account_interest_expense_id")
+        if interest_expense_accounts:
+            investor_interest_exp = sum(AccountMoveLine.search([
+                ("account_id", "in", interest_expense_accounts.ids),
+                ("move_id.state", "=", "posted"),
+                ("date", ">=", self.date_from),
+                ("date", "<=", self.date_to),
+                ("company_id", "=", self.company_id.id),
+            ]).mapped(lambda l: l.debit - l.credit))
+        else:
+            investor_interest_exp = 0.0
+
+        provision_expense_accounts = self.env["alba.loan.product"].search([
+            ("account_provision_expense_id", "!=", False),
+        ]).mapped("account_provision_expense_id")
+        if provision_expense_accounts:
+            provision_for_losses = sum(AccountMoveLine.search([
+                ("account_id", "in", provision_expense_accounts.ids),
+                ("move_id.state", "=", "posted"),
+                ("date", ">=", self.date_from),
+                ("date", "<=", self.date_to),
+                ("company_id", "=", self.company_id.id),
+            ]).mapped(lambda l: l.debit - l.credit))
+        else:
+            provision_for_losses = 0.0
 
         total_expenses = investor_interest_exp + provision_for_losses
         net_profit     = total_income - total_expenses
@@ -373,6 +425,13 @@ class AlbaReportBalanceSheet(models.TransientModel):
 
     def get_balance_sheet_data(self):
         self.ensure_one()
+        if self.as_of_date and self.as_of_date != fields.Date.today():
+            raise UserError(_(
+                "Historical Balance Sheet reporting (as of a past date) is "
+                "not supported — this report always reflects the current "
+                "portfolio and investor state. Please set 'As of Date' to "
+                "today."
+            ))
         Loan     = self.env["alba.loan"]
         Investor = self.env["alba.investor"]
 

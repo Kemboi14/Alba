@@ -52,7 +52,7 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
@@ -69,6 +69,15 @@ logger = logging.getLogger(__name__)
 _SIGNATURE_HEADER = "HTTP_X_ALBA_SIGNATURE"
 _EVENT_HEADER = "HTTP_X_ALBA_EVENT"
 _DELIVERY_HEADER = "HTTP_X_ALBA_DELIVERY"
+
+# Odoo stamps `timestamp` freshly at the moment each delivery attempt is
+# sent (including retries), so a signed envelope should never legitimately
+# be older than a couple of retry-http-timeouts. Anything older is either
+# severe delivery lag or a replayed/captured request.
+_MAX_WEBHOOK_AGE = timedelta(minutes=10)
+# Records left at "processing" past this age indicate the worker crashed
+# mid-request rather than a delivery that's genuinely still in flight.
+_STALE_PROCESSING_AGE = timedelta(minutes=5)
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +241,25 @@ def odoo_webhook_receiver(request: HttpRequest) -> JsonResponse:
         delivery_id or "(none)",
     )
 
+    # ── 3b. Replay-freshness check ──────────────────────────────────────────
+    envelope_ts = _parse_iso_timestamp(timestamp_str)
+    if envelope_ts is not None:
+        now = dj_timezone.now()
+        age = now - envelope_ts
+        if age > _MAX_WEBHOOK_AGE or age < -_MAX_WEBHOOK_AGE:
+            logger.warning(
+                "Webhook rejected: envelope timestamp too far from now "
+                "(event=%s delivery_id=%s timestamp=%s age=%s).",
+                event_type,
+                delivery_id or "(none)",
+                timestamp_str,
+                age,
+            )
+            return JsonResponse(
+                {"status": "error", "detail": "Webhook timestamp outside allowed window."},
+                status=401,
+            )
+
     # ── 4. Idempotency check ────────────────────────────────────────────────
     if delivery_id and _is_duplicate_delivery(delivery_id):
         logger.info(
@@ -301,7 +329,14 @@ def odoo_webhook_receiver(request: HttpRequest) -> JsonResponse:
 def _is_duplicate_delivery(delivery_id: str) -> bool:
     """
     Return ``True`` when a WebhookDelivery record with *delivery_id*
-    already exists and was processed successfully.
+    already exists and was processed successfully — or is still genuinely
+    in flight.
+
+    A record stuck at "processing" past ``_STALE_PROCESSING_AGE`` means the
+    worker handling that request died mid-way (crash/OOM/timeout) rather
+    than that the delivery is still being handled, so it is not treated as
+    a duplicate — it will be re-processed and its status overwritten by
+    ``_record_delivery``.
 
     Falls back to ``False`` when the model is unavailable (e.g. before
     migrations have run) so the webhook is processed rather than silently
@@ -312,10 +347,23 @@ def _is_duplicate_delivery(delivery_id: str) -> bool:
     try:
         from loans.models import WebhookDelivery  # lazy import
 
-        return WebhookDelivery.objects.filter(
-            delivery_id=delivery_id,
-            status__in=("success", "processing"),
-        ).exists()
+        record = WebhookDelivery.objects.filter(delivery_id=delivery_id).first()
+        if record is None:
+            return False
+        if record.status == "success":
+            return True
+        if record.status == "processing":
+            stale_cutoff = dj_timezone.now() - _STALE_PROCESSING_AGE
+            if record.received_at < stale_cutoff:
+                logger.warning(
+                    "Webhook delivery %s stuck at 'processing' since %s — "
+                    "treating as stale, not a duplicate.",
+                    delivery_id,
+                    record.received_at,
+                )
+                return False
+            return True
+        return False
     except Exception:
         return False
 
@@ -801,7 +849,7 @@ def _handle_payment_matched(data: dict, delivery_id: str):
             from loans.models import LoanRepayment  # lazy import
 
             LoanRepayment.objects.filter(id=django_payment_id).update(
-                status="posted",
+                sync_status="posted",
                 odoo_repayment_id=odoo_repayment_id,
                 principal_applied=principal_applied,
                 interest_applied=interest_applied,

@@ -7,6 +7,7 @@ Two interest options: Continue (capitalize) or Pause (extend only)
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 
 
 class AlbaLoanPaymentHoliday(models.Model):
@@ -175,9 +176,14 @@ class AlbaLoanPaymentHoliday(models.Model):
     def _compute_duration(self):
         for rec in self:
             if rec.start_date and rec.end_date:
-                # Approximate month difference
-                delta = rec.end_date - rec.start_date
-                rec.holiday_months = max(1, int(delta.days / 30))
+                # Exact calendar-month difference (not a days/30 approximation,
+                # which drifts due dates for holidays that aren't exact
+                # multiples of 30 days).
+                delta = relativedelta(rec.end_date, rec.start_date)
+                months = delta.years * 12 + delta.months
+                if delta.days > 0:
+                    months += 1
+                rec.holiday_months = max(1, months)
             else:
                 rec.holiday_months = 0
     
@@ -227,7 +233,7 @@ class AlbaLoanPaymentHoliday(models.Model):
             
             # Calculate new maturity date
             if loan.maturity_date:
-                rec.new_maturity_date = loan.maturity_date + timedelta(days=rec.holiday_months * 30)
+                rec.new_maturity_date = loan.maturity_date + relativedelta(months=rec.holiday_months)
             else:
                 rec.new_maturity_date = False
     
@@ -350,30 +356,49 @@ class AlbaLoanPaymentHoliday(models.Model):
             if not affected:
                 raise UserError(_("No unpaid installments found in the holiday period."))
             
-            # Mark as deferred
+            # Mark as deferred. `status` is a computed field (its inverse is
+            # a no-op) — is_deferred is the real, stored input that drives
+            # _compute_status()/_compute_days_overdue() to treat these
+            # instalments as "deferred" rather than "overdue".
             for inst in affected:
                 inst.write({
-                    "status": "deferred",
+                    "is_deferred": True,
                     "notes": (inst.notes or "") + " [Deferred due to payment holiday]",
                 })
-            
-            # Push subsequent installments forward
+
+            # Push subsequent (not-yet-fully-paid) installments forward by
+            # the exact holiday duration in calendar months.
             subsequent = self.env["alba.repayment.schedule"].search([
                 ("loan_id", "=", rec.loan_id.id),
                 ("due_date", ">", rec.end_date),
-                ("is_paid", "=", False),
+                ("status", "!=", "paid"),
             ])
-            
+
             for inst in subsequent:
-                new_due_date = inst.due_date + timedelta(days=rec.holiday_months * 30)
+                new_due_date = inst.due_date + relativedelta(months=rec.holiday_months)
                 inst.write({"due_date": new_due_date})
-            
-            # Handle interest capitalization
+
+            # Handle interest capitalization: outstanding_balance and
+            # accrued_interest are computed fields with no-op inverses (see
+            # loan.py) — writing them directly here would silently do
+            # nothing. To actually capitalize the deferred interest, spread
+            # it across the real interest_due of the (now-shifted)
+            # remaining instalments, which is what genuinely drives
+            # total_repayable/outstanding_balance.
             if rec.interest_accrual == "continue" and rec.deferred_interest > 0:
-                rec.loan_id.write({
-                    "outstanding_balance": rec.loan_id.outstanding_balance + rec.deferred_interest,
-                    "accrued_interest": (rec.loan_id.accrued_interest or 0) + rec.deferred_interest,
-                })
+                if subsequent:
+                    share = rec.deferred_interest / len(subsequent)
+                    for inst in subsequent:
+                        inst.write({"interest_due": inst.interest_due + share})
+                else:
+                    # No instalments remain after the holiday (it covers the
+                    # tail of the loan) — capitalize onto the last deferred
+                    # instalment instead of losing the amount.
+                    last_deferred = affected.sorted("due_date")[-1:]
+                    if last_deferred:
+                        last_deferred.write({
+                            "interest_due": last_deferred.interest_due + rec.deferred_interest
+                        })
             
             rec.write({
                 "state": "active",
@@ -405,7 +430,12 @@ class AlbaLoanPaymentHoliday(models.Model):
             # Check if end date has passed
             if fields.Date.today() < rec.end_date:
                 raise UserError(_("Cannot complete - holiday end date has not passed yet."))
-            
+
+            # Resume normal overdue/DPD tracking on the deferred instalments
+            # now that the holiday period is over.
+            if rec.affected_installment_ids:
+                rec.affected_installment_ids.write({"is_deferred": False})
+
             rec.write({"state": "completed"})
             rec.message_post(body=_("Payment holiday completed. Normal repayments resumed."))
     

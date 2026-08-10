@@ -281,6 +281,22 @@ class AlbaLoanTopup(models.Model):
             if loan.days_in_arrears > 90:
                 eligible = False
                 warnings.append("Loan is 90+ days overdue")
+
+            # Minimum repayment guardrail — same 50% threshold enforced for
+            # the refinance-based top-up flow (loan_refinance.py). Without
+            # it a customer could top up a loan they've barely started
+            # repaying.
+            repaid_pct = (
+                (loan.total_paid / loan.total_repayable * 100.0)
+                if loan.total_repayable > 0
+                else 0.0
+            )
+            if repaid_pct < 50.0:
+                eligible = False
+                warnings.append(
+                    "Only %.1f%% of loan %s repaid — at least 50%% must be "
+                    "repaid before a top-up is allowed" % (repaid_pct, loan.loan_number)
+                )
             
             # Check recent repayment history
             recent_missed = self.env["alba.repayment.schedule"].search_count([
@@ -377,8 +393,13 @@ class AlbaLoanTopup(models.Model):
                 existing.write({"state": "archived"})
             loan.write({"schedule_generated": False})
 
-            # Regenerate schedule (will create new active batch)
+            # Regenerate schedule (will create new active batch), then
+            # reapply every already-posted repayment against the new lines
+            # — otherwise a loan with repayment history reverts to
+            # "unpaid" on every instalment and gets misclassified as
+            # newly delinquent (DPD/PAR/state all read off the schedule).
             loan.action_generate_schedule()
+            loan._recompute_schedule_paid_amounts()
             rec.schedule_regenerated = True
             
             rec.write({

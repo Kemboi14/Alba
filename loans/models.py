@@ -3001,6 +3001,16 @@ class LoanRepayment(models.Model):
             models.Index(fields=["receipt_number"]),
             models.Index(fields=["payment_date"]),
         ]
+        constraints = [
+            # Blank reference numbers are allowed (many payment methods don't
+            # provide one), so the uniqueness only applies once one is set —
+            # otherwise every blank row would collide with every other.
+            models.UniqueConstraint(
+                fields=["reference_number"],
+                condition=~models.Q(reference_number=""),
+                name="unique_nonblank_reference_number",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.receipt_number} - {self.loan.loan_number} - KES {self.amount}"
