@@ -183,8 +183,8 @@
 
                     <notebook>
                         <page string="Repayment Schedule" name="schedule">
-                            <field name="repayment_schedule_ids" mode="list" readonly="1">
-                                <list string="Schedule" decoration-danger="status == 'overdue'" decoration-success="status == 'paid'">
+                            <field name="current_repayment_schedule_ids" mode="list" readonly="1">
+                                <list string="Schedule" decoration-danger="status == 'overdue'" decoration-success="status == 'paid'" decoration-warning="status == 'partial'">
                                     <field name="installment_number" string="#"/>
                                     <field name="due_date"/>
                                     <field name="opening_balance"/>
@@ -195,7 +195,11 @@
                                     <field name="total_paid" string="Paid"/>
                                     <field name="balance_due" string="Balance" decoration-danger="balance_due > 0"/>
                                     <field name="paid_late" optional="show"/>
-                                    <field name="status" widget="badge" decoration-success="status == 'paid'" decoration-danger="status == 'overdue'"/>
+                                    <field name="status" widget="badge"
+                                           decoration-success="status == 'paid'"
+                                           decoration-danger="status == 'overdue'"
+                                           decoration-warning="status == 'partial'"
+                                           decoration-info="status == 'pending'"/>
                                 </list>
                             </field>
                         </page>
