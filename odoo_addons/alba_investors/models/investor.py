@@ -413,9 +413,15 @@ class AlbaInvestorPro(models.Model):
                     all_by_currency[currency_id] = []
                 all_by_currency[currency_id].append(inv)
 
-            # Convert all amounts to investor's preferred currency for accurate totals
+            # Convert all amounts to investor's preferred currency for accurate totals.
+            # Deliberate policy: this is a LIVE, present-day figure ("what is
+            # this portfolio worth right now, in my currency") — converting
+            # at today's rate is the correct mark-to-market treatment for
+            # that, not an oversight. It intentionally does NOT try to
+            # reconstruct a historical rate per past transaction.
             investor_currency = rec.currency_id or self.env.company.currency_id
-            
+            today = fields.Date.today()
+
             total_invested = 0.0
             total_interest_earned = 0.0
             current_portfolio_value = 0.0
@@ -429,7 +435,8 @@ class AlbaInvestorPro(models.Model):
                     converted_total = from_currency._convert(
                         currency_total, 
                         investor_currency, 
-                        self.env.company or self.env['res.company']._company_default_get()
+                        self.env.company or self.env['res.company']._company_default_get(),
+                        today,
                     )
                     total_invested += converted_total
                 else:
@@ -442,7 +449,8 @@ class AlbaInvestorPro(models.Model):
                     converted_total = from_currency._convert(
                         interest_total,
                         investor_currency,
-                        self.env.company or self.env['res.company']._company_default_get()
+                        self.env.company or self.env['res.company']._company_default_get(),
+                        today,
                     )
                     total_interest_earned += converted_total
                 else:
@@ -454,7 +462,8 @@ class AlbaInvestorPro(models.Model):
                     converted_total = from_currency._convert(
                         paid_total,
                         investor_currency,
-                        self.env.company or self.env['res.company']._company_default_get()
+                        self.env.company or self.env['res.company']._company_default_get(),
+                        today,
                     )
                     total_interest_paid_out += converted_total
                 else:
@@ -468,7 +477,8 @@ class AlbaInvestorPro(models.Model):
                     converted_total = from_currency._convert(
                         value_total,
                         investor_currency,
-                        self.env.company or self.env['res.company']._company_default_get()
+                        self.env.company or self.env['res.company']._company_default_get(),
+                        today,
                     )
                     current_portfolio_value += converted_total
                 else:

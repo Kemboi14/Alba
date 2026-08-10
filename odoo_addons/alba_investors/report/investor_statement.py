@@ -69,6 +69,21 @@ class ReportInvestorStatement(models.AbstractModel):
             inv_domain.append(("id", "in", investment_ids))
         investments = self.env["alba.investment"].search(inv_domain)
 
+        # This statement merges events from potentially several investments
+        # into ONE ledger under a single currency. Every amount pulled from
+        # an investment is in THAT investment's own currency_id — if any
+        # investment's currency differs from the statement currency, convert
+        # it at the amount's own date before merging, rather than summing
+        # raw numbers across currencies (which previously treated e.g.
+        # 1 USD as 1 KES).
+        statement_currency = investor.currency_id or self.env.company.currency_id
+        company = investor.company_id or self.env.company
+
+        def _to_statement_currency(amount, from_currency, on_date):
+            if not amount or not from_currency or from_currency == statement_currency:
+                return amount
+            return from_currency._convert(amount, statement_currency, company, on_date)
+
         # ── Compute opening balance (correct for ALL investments) ─────────────
         # For every investment active on or before date_from, compute its balance.
         # For investments that started WITHIN the period, they contribute 0 to
@@ -77,8 +92,11 @@ class ReportInvestorStatement(models.AbstractModel):
         for inv in investments:
             if inv.start_date and inv.start_date < date_from:
                 # Investment started before the period — compute its balance
-                opening_balance += self._compute_investment_opening_balance(
+                inv_opening = self._compute_investment_opening_balance(
                     inv, date_from
+                )
+                opening_balance += _to_statement_currency(
+                    inv_opening, inv.currency_id, date_from
                 )
             # If start_date >= date_from, opening balance contribution is 0
             # (the initial deposit will appear as a credit line in the period)
@@ -96,14 +114,15 @@ class ReportInvestorStatement(models.AbstractModel):
                 period_end=date_to,
                 include_initial_deposit=include_initial,
             ):
+                event_date = event["date"]
                 period_events.append({
-                    "date": event["date"],
+                    "date": event_date,
                     "type": event["type"],
                     "type_label": event["type_label"],
                     "description": event["description"],
-                    "amount": event["amount"],
-                    "debit": event["debit"],
-                    "credit": event["credit"],
+                    "amount": _to_statement_currency(event["amount"], inv.currency_id, event_date),
+                    "debit": _to_statement_currency(event["debit"], inv.currency_id, event_date),
+                    "credit": _to_statement_currency(event["credit"], inv.currency_id, event_date),
                     "record": event["record"],
                     "accrual_state": event.get("accrual_state"),
                 })
@@ -119,9 +138,8 @@ class ReportInvestorStatement(models.AbstractModel):
         )
 
         # ── Build ledger lines ────────────────────────────────────────────────
-        currency = investor.currency_id or self.env.company.currency_id
+        currency = statement_currency
         account_number = investor.investor_number or ""
-        company = investor.company_id or self.env.company
         _logger.debug(
             "Investor %s company=%s logo=%s logo_web=%s",
             investor.investor_name, bool(company.logo), bool(company.logo_web),

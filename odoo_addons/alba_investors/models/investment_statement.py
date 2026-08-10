@@ -165,6 +165,19 @@ class AlbaInvestmentStatement(models.Model):
         readonly=True,
     )
 
+    # ── Preview tracking ──────────────────────────────────────────────────────
+    is_preview_only = fields.Boolean(
+        string="Preview Only",
+        default=False,
+        copy=False,
+        help="Set when this record was created purely to render a one-off "
+             "PDF preview (Investor form > Preview Statement, 'PDF (Download)' "
+             "output), not explicitly saved by the user. A cron purges these "
+             "after they've had time to render, so ad-hoc previews for "
+             "different date ranges don't accumulate as permanent draft "
+             "statement records.",
+    )
+
     # ── Notes ─────────────────────────────────────────────────────────────────
     notes = fields.Text(string="Notes / Remarks")
 
@@ -172,6 +185,13 @@ class AlbaInvestmentStatement(models.Model):
     _reference_unique = models.Constraint(
         "UNIQUE(reference)",
         "A statement with this reference already exists.",
+    )
+    _period_unique = models.Constraint(
+        "UNIQUE(investment_id, period_start, period_end)",
+        "A statement for this investment and period already exists — all "
+        "four generation paths (cron, wizard, preview) rely on an app-level "
+        "search-then-create check, which is not race-safe if two run "
+        "concurrently. This is the database-level backstop.",
     )
 
     # =========================================================================
@@ -590,3 +610,25 @@ class AlbaInvestmentStatement(models.Model):
         """Ensure company consistency for multi-company setup."""
         if company_id:
             self.company_id = company_id
+
+    @api.model
+    def _cron_purge_preview_statements(self):
+        """
+        Delete draft, preview-only statements older than a day.
+
+        These exist only because the report engine needs a real persisted
+        record to render a PDF from — the preview wizard's "PDF (Download)"
+        output creates one purely to render, without the user asking to save
+        it. By the time this cron runs, the PDF has long since been
+        generated/downloaded, so it's safe to delete. Never touches
+        confirmed/sent statements or ones explicitly saved (is_preview_only
+        is only set on the download-only path).
+        """
+        cutoff = fields.Datetime.now() - timedelta(days=1)
+        stale = self.search([
+            ("is_preview_only", "=", True),
+            ("state", "=", "draft"),
+            ("create_date", "<", cutoff),
+        ])
+        if stale:
+            stale.unlink()

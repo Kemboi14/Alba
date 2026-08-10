@@ -40,61 +40,69 @@ class AlbaCurrencyRateSync(models.TransientModel):
         }
 
     def action_sync_rates(self):
-        """Sync currency rates from accounting module"""
+        """
+        Check FX rate coverage for the selected period.
+
+        NOTE: this does NOT fetch or create any rates — it only reports
+        which currencies already have a res.currency.rate row in range,
+        and which are missing one. Actually refreshing rates from an
+        external provider is a separate feature (Accounting > Configuration
+        > Currencies > "Automatic Currency Rates") and is out of scope here;
+        this method previously reported "Synced N rate records" as a success
+        message while writing nothing, which gave false confidence that FX
+        data had been refreshed.
+        """
         self.ensure_one()
-        
-        # Get currencies to sync
+
         currencies = self.currency_ids or self.env["res.currency"].search([
             ("active", "=", True),
             ("id", "!=", self.company_id.currency_id.id)  # Exclude company's base currency
         ])
-        
+
         if not currencies:
-            raise UserError(_("No currencies selected or available to sync."))
-        
-        synced_count = 0
-        errors = []
-        
+            raise UserError(_("No currencies selected or available to check."))
+
+        covered = []
+        missing = []
+
         for currency in currencies:
-            try:
-                # Get rates from Odoo's accounting module
-                rates = self.env["res.currency.rate"].search([
-                    ("currency_id", "=", currency.id),
-                    ("name", ">=", self.date_from),
-                    ("name", "<=", self.date_to),
-                ], order="name desc")
-                
-                if not rates:
-                    _logger.warning(f"No rates found for {currency.name}")
-                    continue
-                
-                # Update or create rates in your investment module if needed
-                # Or just log that they exist
-                synced_count += len(rates)
-                
-            except Exception as e:
-                errors.append(f"{currency.name}: {str(e)}")
-                _logger.error(f"Failed to sync {currency.name}: {e}")
-        
-        # Log results
+            rates = self.env["res.currency.rate"].search([
+                ("currency_id", "=", currency.id),
+                ("name", ">=", self.date_from),
+                ("name", "<=", self.date_to),
+            ])
+            if rates:
+                covered.append("%s (%d rate(s))" % (currency.name, len(rates)))
+            else:
+                missing.append(currency.name)
+                _logger.warning(
+                    "Currency rate coverage check: no rate found for %s "
+                    "between %s and %s.",
+                    currency.name, self.date_from, self.date_to,
+                )
+
         message = _(
-            "Currency rate sync completed.\n"
-            "Synced %(count)d rate records for %(currencies)d currencies.\n"
-            "%(errors)s"
+            "Rate coverage for %(date_from)s to %(date_to)s:\n"
+            "Covered: %(covered)s\n"
+            "Missing: %(missing)s\n\n"
+            "This check does not fetch new rates. Configure automatic "
+            "rate updates under Accounting > Configuration > Currencies, "
+            "or enter missing rates manually, then re-run this check."
         ) % {
-            "count": synced_count,
-            "currencies": len(currencies),
-            "errors": "\n".join(errors) if errors else _("No errors."),
+            "date_from": self.date_from,
+            "date_to": self.date_to,
+            "covered": ", ".join(covered) if covered else _("none"),
+            "missing": ", ".join(missing) if missing else _("none"),
         }
-        
+
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
-                "title": _("Sync Completed"),
+                "title": _("Rate Coverage Check"),
                 "message": message,
-                "type": "success",
-                "sticky": False,
+                "type": "warning" if missing else "success",
+                "sticky": bool(missing),
             },
         }
 

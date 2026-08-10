@@ -12,6 +12,8 @@
                         <button name="action_view_investors" string="View Investors" type="object" class="btn-secondary"/>
                         <button name="action_view_transactions" string="View Transactions" type="object" class="btn-secondary"/>
                         <button name="action_view_withdrawals" string="View Withdrawals" type="object" class="btn-secondary"/>
+                        <button name="action_view_maturing_soon" string="View Maturing Soon" type="object" class="btn-secondary"/>
+                        <button name="action_view_kyc_pending" string="View KYC Pending" type="object" class="btn-secondary"/>
                     </header>
                     <sheet>
                         <div class="row">
@@ -107,6 +109,46 @@
                             </div>
                         </div>
 
+                        <!-- Risk &amp; Attention KPIs -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="card border-warning">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Outstanding Interest Payable</h5>
+                                        <h2 class="card-text text-warning"><field name="outstanding_interest_payable" widget="monetary"/></h2>
+                                        <small class="text-muted">Accrued but not yet paid out</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card border-danger">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Maturing Within 30 Days</h5>
+                                        <h2 class="card-text text-danger"><field name="maturing_soon_count"/></h2>
+                                        <small class="text-muted"><field name="maturing_soon_amount" widget="monetary"/></small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card border-info">
+                                    <div class="card-body">
+                                        <h5 class="card-title">KYC Pending</h5>
+                                        <h2 class="card-text text-info"><field name="kyc_pending_count"/></h2>
+                                        <small class="text-muted">Investors not yet verified</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card border-secondary">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Pending Withdrawal Notices</h5>
+                                        <h2 class="card-text"><field name="pending_withdrawals"/></h2>
+                                        <small class="text-muted">Active investments under notice</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Charts Section -->
                         <div class="row mb-4">
                             <div class="col-md-6">
@@ -195,6 +237,19 @@
                                     </div>
                                     <div class="card-body">
                                         <field name="tenure_distribution_data" widget="investor_dashboard_charts" nolabel="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Investor Concentration (Top 5 vs Rest)</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <field name="investor_concentration_data" widget="investor_dashboard_charts" nolabel="1"/>
                                     </div>
                                 </div>
                             </div>

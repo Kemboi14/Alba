@@ -94,13 +94,16 @@ class AlbaInvestment(models.Model):
     compounding_frequency = fields.Selection(
         selection=[
             ("monthly", "Monthly"),
-            ("quarterly", "Quarterly"),
-            ("annually", "Annually"),
         ],
         string="Compounding Frequency",
         required=True,
         default="monthly",
         tracking=True,
+        help="Monthly is the only supported cadence — interest is accrued "
+             "and compounded once per 29th-to-28th cycle. Quarterly/annual "
+             "options were previously offered but had no effect (every "
+             "investment compounded monthly regardless of this setting), "
+             "so they were removed rather than left silently non-functional.",
     )
 
     # ── Dates ─────────────────────────────────────────────────────────────────
@@ -263,6 +266,14 @@ class AlbaInvestment(models.Model):
         domain="[('account_type', '=', 'liability_non_current')]",
         help="Account used for investments with tenure > 1 year.",
     )
+    is_long_term_reclassified = fields.Boolean(
+        string="Reclassified to Long-term",
+        default=False,
+        copy=False,
+        readonly=True,
+        help="Set once action_move_to_long_term has posted the reclassification "
+             "entry, to prevent posting it twice.",
+    )
     journal_id = fields.Many2one(
         "account.journal",
         string="Accrual Journal",
@@ -382,6 +393,15 @@ class AlbaInvestment(models.Model):
         string="Days to Maturity",
         compute="_compute_maturity",
     )
+    days_overdue_maturity = fields.Integer(
+        string="Days Overdue (Maturity)",
+        compute="_compute_maturity",
+        help="Days past maturity_date while still active — i.e. the maturity "
+             "cron hasn't processed this investment yet. 0 when not overdue. "
+             "Unlike days_to_maturity (clamped to 0), this makes severity "
+             "visible: a 1-day-overdue investment and a 60-day-overdue one "
+             "no longer look identical.",
+    )
 
     # ── Notes ─────────────────────────────────────────────────────────────────
     notes = fields.Text(string="Notes")
@@ -494,23 +514,34 @@ class AlbaInvestment(models.Model):
         for rec in self:
             rec.is_high_yield = rec.interest_rate >= 15.0
 
-    @api.depends("start_date", "maturity_date", "investment_type")
+    @api.depends("start_date", "maturity_date", "investment_type", "state")
     def _compute_maturity(self):
         today = fields.Date.today()
         for rec in self:
             if rec.investment_type == "fixed_term" and rec.start_date and rec.maturity_date:
                 total_days = (rec.maturity_date - rec.start_date).days
                 elapsed_days = (today - rec.start_date).days
-                
+
                 if total_days > 0:
                     rec.maturity_progress = min(100, max(0, int((elapsed_days / total_days) * 100)))
                     rec.days_to_maturity = max(0, (rec.maturity_date - today).days)
                 else:
                     rec.maturity_progress = 0
                     rec.days_to_maturity = 0
+
+                # Unclamped: still "active" past its own maturity_date means
+                # the maturity cron hasn't caught this one yet — surface how
+                # long, rather than reporting the same "0" as a fresh, on-time
+                # investment (see days_to_maturity's clamp above).
+                rec.days_overdue_maturity = (
+                    max(0, (today - rec.maturity_date).days)
+                    if rec.state == "active"
+                    else 0
+                )
             else:
                 rec.maturity_progress = 0
                 rec.days_to_maturity = 0
+                rec.days_overdue_maturity = 0
 
     @api.depends("withdrawal_notice_date", "investment_product_id.early_withdrawal_notice_days")
     def _compute_earliest_withdrawal_date(self):
@@ -620,38 +651,6 @@ class AlbaInvestment(models.Model):
                 raise ValidationError(_("Interest rate cannot be negative."))
             if rec.interest_rate > 1200:
                 raise ValidationError(_("Interest rate cannot exceed 1200%."))
-
-    # =========================================================================
-    # Compound Interest Engine
-    # =========================================================================
-
-    def _get_periods_per_year(self):
-        """Return the number of compounding periods per year."""
-        self.ensure_one()
-        return {
-            "monthly": 12,
-            "quarterly": 4,
-            "annually": 1,
-        }.get(self.compounding_frequency, 12)
-
-    def compute_compound_interest_for_period(self, opening_balance=None):
-        """
-        Calculate compound interest for one compounding period.
-
-        Formula: I = P_current × ( (1 + r/n) - 1 )
-        Where:
-            P_current = current investment value (principal + previously accrued interest)
-            r         = annual interest rate / 100
-            n         = compounding periods per year
-        Returns:
-            float: interest amount for one period
-        """
-        self.ensure_one()
-        n = self._get_periods_per_year()
-        r = self.interest_rate / 100.0
-        current = opening_balance if opening_balance is not None else self.current_value
-        period_interest = current * ((1 + r / n) - 1)
-        return round(period_interest, 2)
 
     def action_accrue_monthly_interest(self, accrual_date=None, opening_balance=None,
                                        period_start=None, period_end=None):
@@ -808,6 +807,32 @@ class AlbaInvestment(models.Model):
                 "default_investment_id": self.id,
             },
         }
+
+    def invalidate_accruals_from_date(self, from_date):
+        """
+        Delete posted accruals whose period is affected by a change to the
+        compounding base on/after `from_date` (a top-up posted or reversed).
+
+        This is the SAME logic previously duplicated inline in
+        investment_topup_wizard.py's action_confirm — it existed there but
+        NOT in investment_topup.py's own action_post/action_reset_to_draft,
+        so posting or resetting a top-up through the model directly (list/
+        form button, not the wizard) skipped invalidation and left
+        subsequent accruals computed on a stale base. Only 'posted' accruals
+        are touched — 'paid' and 'reversed' are immutable; the next backfill
+        (action_backfill_missing_accruals) regenerates whatever is deleted
+        using the correct running balance.
+        """
+        self.ensure_one()
+        subsequent_posted = self.accrual_ids.filtered(
+            lambda a: a.state == "posted" and a.period_end >= from_date
+        )
+        if subsequent_posted:
+            for accrual in subsequent_posted:
+                if accrual.move_id and accrual.move_id.state == "posted":
+                    accrual.move_id.button_cancel()
+                    accrual.move_id.unlink()
+            subsequent_posted.unlink()
 
     def action_view_accruals(self):
         self.ensure_one()
@@ -974,12 +999,16 @@ class AlbaInvestment(models.Model):
     def action_suspend(self):
         """Suspend the investment."""
         self.ensure_one()
+        if self.state != "active":
+            raise UserError(_("Only active investments can be suspended."))
         self.write({"state": "suspended"})
         self.message_post(body=_("Investment <b>suspended</b>."))
 
     def action_reactivate(self):
         """Reactivate a suspended investment."""
         self.ensure_one()
+        if self.state != "suspended":
+            raise UserError(_("Only suspended investments can be reactivated."))
         self.write({"state": "active"})
         self.message_post(body=_("Investment <b>reactivated</b>."))
 
@@ -1059,15 +1088,19 @@ class AlbaInvestment(models.Model):
         long-term liability if tenure is > 1 year.
         """
         self.ensure_one()
+        if self.is_long_term_reclassified:
+            raise UserError(_("This investment has already been reclassified to Long-term."))
         if not self.account_long_term_liability_id:
             raise UserError(_("Please configure a Long-term Investment Liability Account on the product first."))
-        
+        if not self.account_investment_liability_id:
+            raise UserError(_("Please configure the Investment Liability Account on the product first."))
+
         # Check if tenure is > 1 year (approx 365 days)
         if self.start_date and self.maturity_date:
             tenure_days = (self.maturity_date - self.start_date).days
             if tenure_days <= 365:
                 raise UserError(_("This investment tenure is not greater than one year."))
-        
+
         # Create a journal entry to move the principal
         move_vals = {
             'journal_id': self.journal_id.id,
@@ -1092,7 +1125,16 @@ class AlbaInvestment(models.Model):
         }
         move = self.env['account.move'].create(move_vals)
         move.action_post()
-        
+
+        # Point future postings (top-ups, withdrawal principal repayment, etc.)
+        # at the long-term account too — otherwise the GL shows the balance
+        # as long-term while this model keeps booking against the original
+        # current-liability account, permanently desyncing the two.
+        self.write({
+            "account_investment_liability_id": self.account_long_term_liability_id.id,
+            "is_long_term_reclassified": True,
+        })
+
         self.message_post(
             body=_("Investment principal reclassified to Long-term Liability account: %s") % move.name
         )
@@ -1355,18 +1397,25 @@ class AlbaInvestment(models.Model):
                 inv.investment_number, inv.start_date, cutoff_day,
             )
 
-            try:
-                # Re-derive the true opening balance for each period from first principles.
-                # This uses: principal + all posted top-ups up to period_start +
-                # sum(interest_amount of prior accruals that are still 'posted').
-                # Paid accruals are excluded so their interest does not compound.
-
-                for accrual_date, period_start, period_end in iter_missing_accrual_periods(
-                    start_date, as_of_date, target_day,
-                    investment_start=inv.start_date,
-                    cutoff_day=cutoff_day,
-                    env=self.env,
-                ):
+            # Re-derive the true opening balance for each period from first principles.
+            # This uses: principal + all posted top-ups up to period_start +
+            # sum(interest_amount of prior accruals that are still 'posted').
+            # Paid accruals are excluded so their interest does not compound.
+            #
+            # Each period gets its own try/except (not one try around the whole
+            # investment): a single period that fails to compute (e.g. a
+            # transient zero/negative-interest opening balance) must not
+            # silently abort every later month for this investment — backfill
+            # always restarts from start_date on the next run, so an
+            # unrecovered per-investment abort here would permanently stop
+            # this investment from ever catching up again.
+            for accrual_date, period_start, period_end in iter_missing_accrual_periods(
+                start_date, as_of_date, target_day,
+                investment_start=inv.start_date,
+                cutoff_day=cutoff_day,
+                env=self.env,
+            ):
+                try:
                     existing = self.env["alba.interest.accrual"].search(
                         [
                             ("investment_id", "=", inv.id),
@@ -1439,13 +1488,19 @@ class AlbaInvestment(models.Model):
                         # existing accruals; running_balance is re-derived each
                         # iteration above when needed.
 
-            except Exception as exc:
-                _logger.error(
-                    "Backfill: failed for investment %s — %s",
-                    inv.investment_number, exc,
-                    exc_info=True,
-                )
-                errors.append("%s: %s" % (inv.investment_number, exc))
+                except Exception as exc:
+                    _logger.error(
+                        "Backfill: failed for investment %s period %s-%s — %s",
+                        inv.investment_number, period_start, period_end, exc,
+                        exc_info=True,
+                    )
+                    errors.append(
+                        "%s (period %s–%s): %s"
+                        % (inv.investment_number, period_start, period_end, exc)
+                    )
+                    # Continue to the next period for this investment rather
+                    # than aborting every later month it hasn't caught up on.
+                    continue
 
         if errors:
             raise UserError(
@@ -1523,27 +1578,54 @@ class AlbaInvestment(models.Model):
             ).sorted(key=lambda a: a.period_start)
 
             for acc in subsequent_accruals:
-                topups = self.env["alba.investment.topup"].search([
+                # Base = principal + top-ups strictly BEFORE this period (matches
+                # the canonical derivation in action_backfill_missing_accruals).
+                # Top-ups falling inside [period_start, period_end] are passed to
+                # split_period_by_topups below instead, so they earn interest only
+                # from their own date (Day-0 exclusion), not from period_start.
+                topups_prior = self.env["alba.investment.topup"].search([
                     ("investment_id", "=", inv.id),
                     ("state", "=", "posted"),
-                    ("date", "<=", acc.period_start),
+                    ("date", "<", acc.period_start),
                 ])
-                base = inv.principal_amount + sum(topups.mapped("amount"))
+                base = inv.principal_amount + sum(topups_prior.mapped("amount"))
+
+                in_period_topups = self.env["alba.investment.topup"].search([
+                    ("investment_id", "=", inv.id),
+                    ("state", "=", "posted"),
+                    ("date", ">=", acc.period_start),
+                    ("date", "<=", acc.period_end),
+                ])
 
                 prior_posted = inv.accrual_ids.filtered(
                     lambda a, ps=acc.period_start, fes=first_eligible_start: (
                         a.state == "posted" and fes <= a.period_start < ps
                     )
                 )
-                expected_opening = base + sum(prior_posted.mapped("interest_amount"))
-                monthly_rate = inv.interest_rate / 100.0 / 12.0
+                # Same "Bug 4 fix" rule as action_backfill_missing_accruals: a
+                # partially-paid prior accrual only contributes its still-unpaid
+                # (deferred) portion to the compounding base, not its full
+                # original interest_amount.
+                prior_unpaid_sum = sum(
+                    (a.interest_amount_deferred
+                     if (a.interest_payout_id and a.interest_amount_deferred > 0)
+                     else a.interest_amount)
+                    for a in prior_posted
+                )
+                expected_opening = base + prior_unpaid_sum
 
-                total_days = 30
-                actual_days = (acc.period_end - acc.period_start).days + 1
-                if actual_days < total_days:
-                    expected_interest = round(expected_opening * monthly_rate * actual_days / total_days, 2)
-                else:
-                    expected_interest = round(expected_opening * monthly_rate, 2)
+                # Route through the SAME canonical function used at creation
+                # time and in interest_accrual.py's action_post — not a
+                # separately hardcoded flat day/30 formula, which both
+                # contradicts compute_accrual_interest's full-month treatment
+                # of 28/29-day periods and ignores mid-period top-ups.
+                expected_interest = split_period_by_topups(
+                    opening_balance=expected_opening,
+                    annual_rate=inv.interest_rate,
+                    period_start=acc.period_start,
+                    period_end=acc.period_end,
+                    topups=in_period_topups,
+                )
 
                 if round(acc.opening_balance, 2) != round(expected_opening, 2) or round(acc.interest_amount, 2) != round(expected_interest, 2):
                     inv_log.append("  → Recalculated %s: opening %.2f -> %.2f, interest %.2f -> %.2f" % (

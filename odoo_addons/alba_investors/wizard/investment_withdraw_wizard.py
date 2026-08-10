@@ -154,6 +154,15 @@ class InvestmentWithdrawWizard(models.TransientModel):
     def action_confirm_withdrawal(self):
         self.ensure_one()
         investment = self.investment_id
+
+        # Lock the investment row for the rest of this transaction so two
+        # near-simultaneous withdrawal confirmations can't both read the
+        # same pre-withdrawal state before either commits.
+        self.env.cr.execute(
+            "SELECT id FROM alba_investment WHERE id = %s FOR UPDATE",
+            (investment.id,),
+        )
+
         if investment.state not in ("active", "matured"):
             raise UserError(_("Only active or matured investments can be withdrawn."))
 

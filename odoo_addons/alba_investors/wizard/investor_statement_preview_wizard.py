@@ -254,6 +254,17 @@ class InvestorStatementPreviewWizard(models.TransientModel):
             ])
             total_deposits = sum(topups.mapped("amount"))
 
+            # ── Principal withdrawal (payoff) in the period ───────────────────
+            # Same derivation as generate_statement_wizard.py — without this,
+            # closing_balance (opening + deposits - withdrawals + interest -
+            # payouts) is too high by the full withdrawal amount whenever a
+            # payoff happened inside the statement period.
+            total_withdrawals = 0.0
+            if inv.state == "withdrawn" and inv.withdrawal_payment_id:
+                pay_date = inv.withdrawal_payment_id.date
+                if pay_date and self.period_start <= pay_date <= self.period_end:
+                    total_withdrawals = inv.principal_amount + inv.total_topup_amount
+
             # ── Opening balance: principal + all prior activity ───────────────
             # Use the shared helper from the mixin so the logic stays in sync.
             report_model = self.env["alba.account.statement.report.mixin"]
@@ -268,8 +279,13 @@ class InvestorStatementPreviewWizard(models.TransientModel):
                 "period_end": self.period_end,
                 "opening_balance": opening_balance,
                 "deposits": total_deposits,
+                "withdrawals": total_withdrawals,
                 "interest_accrued": total_interest,
                 "accrual_ids": [(6, 0, accruals.ids)],
+                # Not explicitly saved by the user — flagged so the daily
+                # cron purges it once its PDF has had time to render,
+                # instead of it sitting around as a permanent draft record.
+                "is_preview_only": self.output_format != "save",
             })
 
             if self.output_format == "save":

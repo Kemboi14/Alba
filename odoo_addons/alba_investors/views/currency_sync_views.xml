@@ -4,7 +4,7 @@
         <field name="name">alba.currency.rate.sync.form</field>
         <field name="model">alba.currency.rate.sync</field>
         <field name="arch" type="xml">
-            <form string="Sync Currency Rates">
+            <form string="Check Currency Rate Coverage">
                 <sheet>
                     <group>
                         <group>
@@ -18,7 +18,7 @@
                         </group>
                     </group>
                     <footer>
-                        <button name="action_sync_rates" string="Sync Now" 
+                        <button name="action_sync_rates" string="Check Coverage"
                                 type="object" class="btn-primary"/>
                         <button string="Cancel" class="btn-secondary" 
                                 special="cancel"/>
@@ -29,7 +29,7 @@
     </record>
 
     <record id="action_alba_currency_rate_sync" model="ir.actions.act_window">
-        <field name="name">Sync Currency Rates</field>
+        <field name="name">Check Currency Rate Coverage</field>
         <field name="res_model">alba.currency.rate.sync</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>

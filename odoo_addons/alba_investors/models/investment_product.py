@@ -53,12 +53,12 @@ class AlbaInvestmentProduct(models.Model):
     compounding_frequency = fields.Selection(
         [
             ("monthly", "Monthly"),
-            ("quarterly", "Quarterly"),
-            ("annually", "Annually"),
         ],
         required=True,
         default="monthly",
         tracking=True,
+        help="Monthly is the only supported cadence — see alba.investment."
+             "compounding_frequency for why quarterly/annual were removed.",
     )
     default_principal = fields.Monetary(
         string="Default Principal",

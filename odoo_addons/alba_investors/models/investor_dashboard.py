@@ -56,6 +56,29 @@ class AlbaInvestorDashboard(models.TransientModel):
     pending_withdrawals = fields.Integer(compute="_compute_metrics")
     transaction_count = fields.Integer(compute="_compute_metrics")
 
+    # Risk / attention KPIs — point-in-time, not scoped to the disbursement
+    # cohort (see _portfolio_domain()) since they answer "what needs
+    # attention right now", not "how did this period's cohort turn out".
+    outstanding_interest_payable = fields.Monetary(
+        currency_field="currency_id",
+        compute="_compute_metrics",
+        help="Interest accrued on active investments but not yet paid out — "
+             "the current interest liability sitting in Interest Payable.",
+    )
+    maturing_soon_count = fields.Integer(
+        compute="_compute_metrics",
+        help="Active fixed-term investments maturing within 30 days.",
+    )
+    maturing_soon_amount = fields.Monetary(
+        currency_field="currency_id",
+        compute="_compute_metrics",
+        help="Current value of investments maturing within 30 days.",
+    )
+    kyc_pending_count = fields.Integer(
+        compute="_compute_metrics",
+        help="Investors whose KYC is not yet verified.",
+    )
+
     # Graph data fields
     investment_composition_data = fields.Text(compute="_compute_graph_data")
     investment_trends_data = fields.Text(compute="_compute_graph_data")
@@ -65,8 +88,10 @@ class AlbaInvestorDashboard(models.TransientModel):
     investor_type_distribution_data = fields.Text(compute="_compute_graph_data")
     investment_amount_distribution_data = fields.Text(compute="_compute_graph_data")
     tenure_distribution_data = fields.Text(compute="_compute_graph_data")
+    investor_concentration_data = fields.Text(compute="_compute_graph_data")
 
     def _investment_domain(self):
+        """Cohort domain: investments *started* within the selected period."""
         self.ensure_one()
         return [
             ("company_id", "=", self.company_id.id),
@@ -74,34 +99,101 @@ class AlbaInvestorDashboard(models.TransientModel):
             ("start_date", "<=", self.date_to),
         ]
 
+    def _portfolio_domain(self):
+        """
+        Point-in-time domain: the full current book of investments, not
+        restricted by when an investment started.
+
+        Portfolio-health metrics (balance, outstanding interest, maturity
+        risk, pending withdrawals) answer "what does the book look like
+        right now" — scoping them to _investment_domain()'s start-date
+        cohort made an investment started last year (and still active
+        today) invisible the moment the dashboard's default "this month"
+        range didn't include its start date.
+        """
+        self.ensure_one()
+        return [("company_id", "=", self.company_id.id)]
+
     def _investor_domain(self):
         self.ensure_one()
         return [
             ("company_id", "=", self.company_id.id),
         ]
 
+    def _sum_in_dashboard_currency(self, records, field_name):
+        """
+        Sum a monetary field across records that may be booked in different
+        currencies, converting each currency's subtotal to this dashboard's
+        currency (company currency) at today's rate before summing.
+
+        Previously these KPIs did a plain sum() across investments
+        regardless of currency_id — a USD investment's amount was added to a
+        KES investment's amount as if 1 USD == 1 KES.
+        """
+        self.ensure_one()
+        target_currency = self.currency_id or self.company_id.currency_id
+        total = 0.0
+        by_currency = {}
+        for rec in records:
+            by_currency.setdefault(rec.currency_id, []).append(rec)
+        for currency, recs in by_currency.items():
+            subtotal = sum(r[field_name] for r in recs)
+            if not currency or currency == target_currency:
+                total += subtotal
+            else:
+                total += currency._convert(
+                    subtotal, target_currency, self.company_id, fields.Date.today()
+                )
+        return total
+
     @api.depends("date_from", "date_to", "company_id")
     def _compute_metrics(self):
         for rec in self:
             Investment = rec.env["alba.investment"]
+            Investor = rec.env["alba.investor"]
             Accrual = rec.env["alba.interest.accrual"]
 
             investments = Investment.search(rec._investment_domain()) if rec.date_from and rec.date_to else Investment.browse()
-            active_investments = investments.filtered(lambda i: i.state == "active")
-            matured_investments = investments.filtered(lambda i: i.state == "matured")
-            withdrawn_investments = investments.filtered(lambda i: i.state == "withdrawn")
 
-            rec.investor_count = len(investments.mapped("investor_id"))
-            rec.active_investor_count = len(active_investments.mapped("investor_id"))
-            rec.matured_investor_count = len(matured_investments.mapped("investor_id"))
+            # Portfolio-health figures use the full current book, not the
+            # start-date cohort (see _portfolio_domain()).
+            portfolio = Investment.search(rec._portfolio_domain())
+            active_portfolio = portfolio.filtered(lambda i: i.state == "active")
+            matured_portfolio = portfolio.filtered(lambda i: i.state == "matured")
+            withdrawn_portfolio = portfolio.filtered(lambda i: i.state == "withdrawn")
 
-            rec.total_invested_amount = sum(active_investments.mapped("principal_amount"))
-            rec.total_interest_earned = sum(active_investments.mapped("total_interest_accrued")) + sum(matured_investments.mapped("total_interest_accrued"))
-            rec.total_balance = sum(active_investments.mapped("current_value"))
+            rec.investor_count = len(portfolio.mapped("investor_id"))
+            rec.active_investor_count = len(active_portfolio.mapped("investor_id"))
+            rec.matured_investor_count = len(matured_portfolio.mapped("investor_id"))
 
-            rec.total_withdrawals = sum(withdrawn_investments.mapped("principal_amount"))
-            rec.pending_withdrawals = len(active_investments.filtered(lambda i: i.withdrawal_notice_date is not False))
+            rec.total_invested_amount = rec._sum_in_dashboard_currency(active_portfolio, "principal_amount")
+            rec.total_interest_earned = (
+                rec._sum_in_dashboard_currency(active_portfolio, "total_interest_accrued")
+                + rec._sum_in_dashboard_currency(matured_portfolio, "total_interest_accrued")
+            )
+            rec.total_balance = rec._sum_in_dashboard_currency(active_portfolio, "current_value")
 
+            rec.total_withdrawals = rec._sum_in_dashboard_currency(withdrawn_portfolio, "principal_amount")
+            rec.pending_withdrawals = len(active_portfolio.filtered(lambda i: i.withdrawal_notice_date))
+
+            rec.outstanding_interest_payable = rec._sum_in_dashboard_currency(
+                active_portfolio, "total_interest_outstanding"
+            )
+
+            maturing_soon = active_portfolio.filtered(
+                lambda i: i.investment_type == "fixed_term"
+                and i.maturity_date
+                and i.days_to_maturity <= 30
+            )
+            rec.maturing_soon_count = len(maturing_soon)
+            rec.maturing_soon_amount = rec._sum_in_dashboard_currency(maturing_soon, "current_value")
+
+            rec.kyc_pending_count = Investor.search_count([
+                ("company_id", "=", rec.company_id.id),
+                ("kyc_status", "!=", "verified"),
+            ])
+
+            # Period activity — how much happened during the selected range.
             accruals_count = Accrual.search_count([
                 ("investment_id.company_id", "=", rec.company_id.id),
                 ("accrual_date", ">=", rec.date_from),
@@ -151,17 +243,42 @@ class AlbaInvestorDashboard(models.TransientModel):
 
     def action_view_withdrawals(self):
         self.ensure_one()
+        # Point-in-time: all currently-withdrawn investments, regardless of
+        # when they started — there is no "withdrawal completed on" date to
+        # scope by, and scoping by start_date excluded withdrawals of
+        # investments that began before the selected period.
         return {
             "type": "ir.actions.act_window",
             "name": _("Withdrawn Investments"),
             "res_model": "alba.investment",
             "view_mode": "list,graph,form",
-            "domain": [
-                ("company_id", "=", self.company_id.id),
-                ("state", "=", "withdrawn"),
-                ("start_date", ">=", self.date_from),
-                ("start_date", "<=", self.date_to),
+            "domain": self._portfolio_domain() + [("state", "=", "withdrawn")],
+        }
+
+    def action_view_maturing_soon(self):
+        self.ensure_one()
+        cutoff = fields.Date.today() + timedelta(days=30)
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Maturing Within 30 Days"),
+            "res_model": "alba.investment",
+            "view_mode": "list,graph,form",
+            "domain": self._portfolio_domain() + [
+                ("state", "=", "active"),
+                ("investment_type", "=", "fixed_term"),
+                ("maturity_date", "!=", False),
+                ("maturity_date", "<=", cutoff),
             ],
+        }
+
+    def action_view_kyc_pending(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Investors Pending KYC"),
+            "res_model": "alba.investor",
+            "view_mode": "list,form",
+            "domain": self._investor_domain() + [("kyc_status", "!=", "verified")],
         }
 
     @api.depends("date_from", "date_to", "company_id")
@@ -175,6 +292,7 @@ class AlbaInvestorDashboard(models.TransientModel):
             rec.investor_type_distribution_data = rec._get_investor_type_distribution()
             rec.investment_amount_distribution_data = rec._get_investment_amount_distribution()
             rec.tenure_distribution_data = rec._get_tenure_distribution()
+            rec.investor_concentration_data = rec._get_investor_concentration()
 
     def _get_investment_composition(self):
         """Get investment composition by product"""
@@ -262,9 +380,9 @@ class AlbaInvestorDashboard(models.TransientModel):
         })
 
     def _get_investor_status(self):
-        """Get investment status distribution"""
+        """Get investment status distribution (point-in-time, not start-date cohort)"""
         self.ensure_one()
-        investments = self.env["alba.investment"].search(self._investment_domain())
+        investments = self.env["alba.investment"].search(self._portfolio_domain())
         
         # Group by status
         status_data = {}
@@ -465,7 +583,7 @@ class AlbaInvestorDashboard(models.TransientModel):
             else:
                 labels.append(f"{tenure} months")
         values = [tenure_data[tenure] for tenure in sorted_tenures]
-        
+
         return json.dumps({
             'labels': labels,
             'datasets': [{
@@ -473,6 +591,42 @@ class AlbaInvestorDashboard(models.TransientModel):
                 'backgroundColor': [
                     '#6366f1', '#8b5cf6', '#ec4899', '#10b981',
                     '#f59e0b', '#ef4444', '#3b82f6', '#14b8a6'
+                ]
+            }]
+        })
+
+    def _get_investor_concentration(self):
+        """
+        Concentration risk: current portfolio value held by the top 5
+        investors vs. everyone else. A book where a handful of investors
+        hold most of the capital is more exposed to a single withdrawal —
+        this was not visible anywhere on the dashboard before.
+        """
+        self.ensure_one()
+        investors = self.env["alba.investor"].search(self._investor_domain())
+        ranked = investors.filtered(lambda i: i.current_portfolio_value > 0).sorted(
+            key=lambda i: i.current_portfolio_value, reverse=True
+        )
+
+        top_n = ranked[:5]
+        others = ranked[5:]
+
+        labels = [inv.investor_name or inv.investor_number for inv in top_n]
+        values = [float(inv.current_portfolio_value) for inv in top_n]
+
+        others_total = sum(others.mapped("current_portfolio_value"))
+        if others_total > 0:
+            labels.append(_("All Other Investors"))
+            values.append(float(others_total))
+
+        return json.dumps({
+            'labels': labels,
+            'datasets': [{
+                'label': 'Portfolio Value',
+                'data': values,
+                'backgroundColor': [
+                    '#6366f1', '#8b5cf6', '#ec4899', '#10b981',
+                    '#f59e0b', '#c9cbcf'
                 ]
             }]
         })

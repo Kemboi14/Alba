@@ -91,22 +91,7 @@ class AlbaInvestmentTopupWizard(models.TransientModel):
             "notes": self.notes or "",
         })
         topup.action_post()
-
-        # ── Invalidate subsequent posted accruals ──────────────────────────────
-        # A top-up increases the investment's compounding base from self.date
-        # onward. Any posted accruals whose period starts AFTER the top-up date
-        # were computed on a base that is too low; delete them so the next
-        # backfill (action_backfill_missing_accruals) regenerates them using
-        # the correct running balance that includes this top-up.
-        # We only touch 'posted' accruals — 'paid' and 'reversed' are immutable.
-        subsequent_posted = investment.accrual_ids.filtered(
-            lambda a: a.state == "posted" and a.period_end >= self.date
-        )
-        if subsequent_posted:
-            for accrual in subsequent_posted:
-                if accrual.move_id and accrual.move_id.state == "posted":
-                    accrual.move_id.button_cancel()
-                    accrual.move_id.unlink()
-            subsequent_posted.unlink()
+        # action_post() already calls investment.invalidate_accruals_from_date()
+        # — no need to duplicate that logic here.
 
         return {"type": "ir.actions.act_window_close"}

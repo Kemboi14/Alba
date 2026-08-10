@@ -73,7 +73,8 @@ export class InvestorDashboardCharts extends Component {
             "investment_composition_data",
             "investor_status_data",
             "investor_type_distribution_data",
-            "tenure_distribution_data"
+            "tenure_distribution_data",
+            "investor_concentration_data"
         ];
 
         if (pieFields.includes(fieldName)) {

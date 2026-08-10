@@ -124,6 +124,7 @@ class AlbaInterestPayout(models.Model):
         selection=[
             ("draft", "Draft"),
             ("posted", "Posted"),
+            ("reversed", "Reversed"),
         ],
         string="Status",
         default="draft",
@@ -140,6 +141,7 @@ class AlbaInterestPayout(models.Model):
         tracking=True,
         help="Editable memo or narration for this payout. Freely editable at any time.",
     )
+    reversal_reason = fields.Text(string="Reversal Reason")
 
     # =========================================================================
     # ORM overrides
@@ -218,3 +220,67 @@ class AlbaInterestPayout(models.Model):
             "view_mode": "form",
             "res_id": self.wht_move_id.id,
         }
+
+    def action_reverse(self):
+        """
+        Reverse a posted payout: reverse its accounting and reopen the
+        accruals it cleared so the interest becomes payable again.
+
+        Without this, a payout reversed by manually cancelling its payment
+        outside this model leaves the accruals it cleared stuck at
+        state='paid' forever — the money becomes invisible to the payout
+        wizard rather than double-paid, but there was no way to reopen them
+        through the model itself.
+        """
+        self.ensure_one()
+        if self.state != "posted":
+            raise UserError(_("Only posted payouts can be reversed."))
+        if not self.reversal_reason:
+            raise UserError(_("Please provide a reason for reversing this payout."))
+
+        if self.payment_id and self.payment_id.state == "posted" and self.payment_id.move_id:
+            reversal = self.payment_id.move_id._reverse_moves([{
+                "date": fields.Date.today(),
+                "journal_id": self.payment_id.move_id.journal_id.id,
+                "ref": "REVERSAL/%s — %s" % (self.payment_id.name, self.reversal_reason),
+            }])
+            reversal.action_post()
+
+        if self.wht_move_id and self.wht_move_id.state == "posted":
+            wht_reversal = self.wht_move_id._reverse_moves([{
+                "date": fields.Date.today(),
+                "journal_id": self.wht_move_id.journal_id.id,
+                "ref": "REVERSAL/%s — %s" % (self.wht_move_id.name or "WHT", self.reversal_reason),
+            }])
+            wht_reversal.action_post()
+
+        # Reopen the accruals this payout fully cleared. cumulative_amount_paid
+        # is reset to 0 rather than precisely decremented — this model doesn't
+        # track a per-payout amount per accrual (the accrual_ids relation
+        # carries no amount of its own), so a fully-reversed accrual is
+        # treated as fully outstanding again. This is exactly right when this
+        # payout was the ONLY one that ever touched the accrual; if the
+        # accrual received earlier partial payments from a DIFFERENT payout
+        # before this one finished it off, resetting to 0 could make the
+        # investor eligible to be paid slightly more than they're actually
+        # still owed — flagged in the chatter below for manual verification
+        # in that (rare) case.
+        reopened = self.accrual_ids.filtered(
+            lambda a: a.interest_payout_id == self and a.state == "paid"
+        )
+        if reopened:
+            reopened.write({
+                "state": "posted",
+                "interest_payout_id": False,
+                "cumulative_amount_paid": 0.0,
+            })
+
+        self.write({"state": "reversed"})
+        self.message_post(body=_(
+            "Payout <b>reversed</b>. Reason: %(reason)s<br/>"
+            "%(count)d accrual(s) reopened to 'Posted'. If any of them received "
+            "partial payments from an earlier, different payout before this one "
+            "settled them, please verify their outstanding balance manually.",
+            reason=self.reversal_reason,
+            count=len(reopened),
+        ))

@@ -117,6 +117,21 @@ class AlbaInterestAccrual(models.Model):
         tracking=True,
         help="Amount of this accrual deferred to a later payout cycle.",
     )
+    cumulative_amount_paid = fields.Monetary(
+        string="Cumulative Amount Paid",
+        currency_field="currency_id",
+        default=0.0,
+        copy=False,
+        tracking=True,
+        help="Running total of gross interest already disbursed for this "
+             "accrual across ALL payouts, including any paid while the "
+             "period was still open (in-progress). interest_amount_deferred/"
+             "interest_payout_id only track a residual once the period is "
+             "complete — for an in-progress period they get reset on every "
+             "payout, so without this separate running total a second "
+             "'pay outstanding' click on the same still-open period would "
+             "recompute and pay the same days' interest again.",
+    )
     closing_balance = fields.Monetary(
         string="Closing Balance",
         currency_field="currency_id",
@@ -204,6 +219,25 @@ class AlbaInterestAccrual(models.Model):
         "CHECK(period_end >= period_start)",
         "Period end date must be on or after period start date.",
     )
+
+    def init(self):
+        # A plain UNIQUE constraint can't express "except reversed rows" (a
+        # reversed accrual for a period is expected to coexist with nothing —
+        # remediation reverses invalid ones outright rather than replacing
+        # them — but excluding 'reversed' keeps this safe against any future
+        # reversal flow that keeps the old row around). Only a partial INDEX
+        # supports the WHERE clause, so it's created directly rather than via
+        # models.Constraint.
+        self.env.cr.execute(
+            "SELECT indexname FROM pg_indexes WHERE indexname = %s",
+            ("alba_interest_accrual_period_unique",),
+        )
+        if not self.env.cr.fetchone():
+            self.env.cr.execute(
+                "CREATE UNIQUE INDEX alba_interest_accrual_period_unique "
+                "ON alba_interest_accrual (investment_id, period_start, period_end) "
+                "WHERE state != 'reversed'"
+            )
 
     # =========================================================================
     # Computed methods
@@ -412,38 +446,34 @@ class AlbaInterestAccrual(models.Model):
                     % (rec.company_id.name, investment.investment_number)
                 )
 
-            # Bug 3 fix (action_post): pro-rata for partial month with top-up awareness
-            # Previously, action_post had an independent flat pro-rata recalculation that
-            # silently overwritten a correctly-computed top-up-aware interest_amount at posting
-            # time when top-ups were involved. When posted top-ups exist within the period,
-            # we delegate to split_period_by_topups (intra-period compounding and Day-0 exclusion).
-            # When NO top-ups exist, we preserve the exact flat formula (rec.opening_balance * monthly_rate * actual_days / 30.0)
-            # without routing through compute_accrual_interest, preventing 27-29 day periods from snapping to a full month.
+            # Recompute at posting time to pick up any top-up posted after the
+            # accrual was created but before it was posted. Always route
+            # through split_period_by_topups — the SAME function creation-time
+            # code uses (action_accrue_monthly_interest / backfill) — which
+            # itself falls back to compute_accrual_interest when there are no
+            # in-period top-ups. Do NOT flat-prorate by actual_days/30 here:
+            # under the 29th-to-28th accrual cycle every regular period is
+            # 28-31 days (Feb/short months included), and compute_accrual_interest
+            # already correctly treats anything within 3 days of a 30-day
+            # multiple as one full month — a separate flat day-count formula
+            # here previously contradicted that and silently understated
+            # interest on every period covering a 28/29-day month.
             if rec.period_start and rec.period_end:
-                total_days = 30
-                actual_days = (rec.period_end - rec.period_start).days + 1
-                if actual_days < total_days:
-                    in_period_topups = self.env["alba.investment.topup"].search([
-                        ("investment_id", "=", investment.id),
-                        ("state", "=", "posted"),
-                        ("date", ">=", rec.period_start),
-                        ("date", "<=", rec.period_end),
-                    ])
-                    if in_period_topups:
-                        pro_rata_interest = split_period_by_topups(
-                            opening_balance=rec.opening_balance,
-                            annual_rate=investment.interest_rate,
-                            period_start=rec.period_start,
-                            period_end=rec.period_end,
-                            topups=in_period_topups,
-                        )
-                    else:
-                        monthly_rate = investment.interest_rate / 100.0 / 12.0
-                        pro_rata_interest = round(
-                            rec.opening_balance * monthly_rate * actual_days / total_days, 2
-                        )
-                    if pro_rata_interest != rec.interest_amount:
-                        rec.write({"interest_amount": pro_rata_interest})
+                in_period_topups = self.env["alba.investment.topup"].search([
+                    ("investment_id", "=", investment.id),
+                    ("state", "=", "posted"),
+                    ("date", ">=", rec.period_start),
+                    ("date", "<=", rec.period_end),
+                ])
+                recomputed_interest = split_period_by_topups(
+                    opening_balance=rec.opening_balance,
+                    annual_rate=investment.interest_rate,
+                    period_start=rec.period_start,
+                    period_end=rec.period_end,
+                    topups=in_period_topups,
+                )
+                if recomputed_interest != rec.interest_amount:
+                    rec.write({"interest_amount": recomputed_interest})
 
             # Convert interest amount to company currency when accrual currency differs
             # FIX: ensure debit/credit in company currency are set using Odoo's conversion
@@ -579,6 +609,22 @@ class AlbaInterestAccrual(models.Model):
         self.ensure_one()
         if self.state not in ("posted",):
             raise UserError(_("Only posted accruals can be reversed."))
+        if self.interest_payout_id and self.interest_amount_deferred > 0 and \
+                self.interest_amount_deferred < self.interest_amount:
+            raise UserError(
+                _(
+                    "Cannot reverse accrual %s: %s of its %s interest has "
+                    "already been paid out via payout %s. Reversing now would "
+                    "cancel the full gross journal entry while leaving that "
+                    "payout in place. Reverse or adjust the payout first."
+                )
+                % (
+                    self.display_name,
+                    self.interest_amount - self.interest_amount_deferred,
+                    self.interest_amount,
+                    self.interest_payout_id.display_name,
+                )
+            )
         if not self.reversal_reason:
             return {
                 "name": _("Reason for Reversal"),

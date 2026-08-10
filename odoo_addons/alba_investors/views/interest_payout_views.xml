@@ -44,8 +44,15 @@
         <field name="arch" type="xml">
             <form string="Interest Payout">
                 <header>
+                    <button type="object"
+                            name="action_reverse"
+                            string="Reverse Payout"
+                            class="btn-secondary"
+                            invisible="state != 'posted'"
+                            confirm="This will reverse the payment and WHT entries and reopen the accruals this payout cleared. Enter a Reversal Reason below first. Are you sure?"
+                            groups="alba_investors.group_investor_manager"/>
                     <field name="state" widget="statusbar"
-                           statusbar_visible="draft,posted"/>
+                           statusbar_visible="draft,posted,reversed"/>
                 </header>
                 <sheet>
 
@@ -131,6 +138,11 @@
                         <page string="Notes" name="notes">
                             <field name="notes" nolabel="1"
                                    placeholder="Internal notes…"/>
+                        </page>
+                        <page string="Reversal" name="reversal" invisible="state == 'draft'">
+                            <field name="reversal_reason"
+                                   placeholder="Required before clicking Reverse Payout above…"
+                                   readonly="state == 'reversed'"/>
                         </page>
                     </notebook>
 

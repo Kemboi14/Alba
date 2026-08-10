@@ -174,6 +174,11 @@ class AlbaInvestmentMaturityWizard(models.TransientModel):
                 raise UserError(_("Please specify a New Maturity Date for the rolled-over investment."))
             if not self.new_interest_rate:
                 raise UserError(_("Please specify the interest rate for the new investment."))
+            if not self.payout_journal_id:
+                raise UserError(_(
+                    "Please select a Payment Journal — the rollover settles the "
+                    "source investment and re-deposits the amount through it."
+                ))
 
         elif self.maturity_action == "rollover_partial":
             if not self.rollover_amount or self.rollover_amount <= 0:
@@ -236,37 +241,31 @@ class AlbaInvestmentMaturityWizard(models.TransientModel):
         }
 
     def _process_full_rollover(self):
-        """Option (b): Reinvest everything into a new investment with the same terms."""
+        """
+        Option (b): Reinvest everything into a new investment with the same terms.
+
+        The source investment is fully SETTLED (not just left 'matured') via
+        the same withdrawal logic used everywhere else, then the rolled-over
+        amount is re-deposited into a brand-new, fully-activated investment.
+        Net cash movement on the payout journal is zero for a full rollover
+        (full payout out, full amount back in) — nothing is paid twice, and
+        the source can never be withdrawn again since it ends in 'withdrawn'.
+        """
         self.ensure_one()
         inv = self.investment_id
 
         if not self.new_maturity_date:
             raise UserError(_("New Maturity Date is required for a rollover."))
+        if not self.payout_journal_id:
+            raise UserError(_("Please select a Payment Journal to process the rollover through."))
 
-        new_inv = self.env["alba.investment"].create({
-            "investor_id": inv.investor_id.id,
-            "investment_product_id": inv.investment_product_id.id,
-            "investment_type": inv.investment_type,
-            "principal_amount": self.total_value,
-            "interest_rate": self.new_interest_rate or inv.interest_rate,
-            "compounding_frequency": inv.compounding_frequency,
-            "start_date": self.payout_date or fields.Date.today(),
-            "maturity_date": self.new_maturity_date,
-            "currency_id": inv.currency_id.id,
-            "account_interest_expense_id": inv.account_interest_expense_id.id,
-            "account_interest_payable_id": inv.account_interest_payable_id.id,
-            "account_investment_liability_id": inv.account_investment_liability_id.id,
-            "account_long_term_liability_id": inv.account_long_term_liability_id.id if inv.account_long_term_liability_id else False,
-            "journal_id": inv.journal_id.id,
-            "payment_journal_id": inv.payment_journal_id.id,
-            "wht_rate": inv.wht_rate,
-            "account_wht_payable_id": inv.account_wht_payable_id.id,
-            "notes": _("Rolled over from %s on maturity.") % inv.investment_number,
-        })
+        self._settle_source_investment()
+        new_inv = self._create_and_activate_rollover_investment(self.total_value)
 
         inv.message_post(body=_(
-            "Investment <b>rolled over</b> in full at maturity. "
-            "New investment: <b><a href='/odoo/alba-investments/%d'>%s</a></b>. "
+            "Investment <b>rolled over</b> in full at maturity and settled "
+            "(state: withdrawn). New investment: "
+            "<b><a href='/odoo/alba-investments/%d'>%s</a></b>. "
             "New principal: <b>%s %.2f</b>."
         ) % (new_inv.id, new_inv.investment_number, inv.currency_id.symbol, self.total_value))
 
@@ -277,18 +276,30 @@ class AlbaInvestmentMaturityWizard(models.TransientModel):
         return new_inv
 
     def _process_partial_rollover(self):
-        """Option (c): Reinvest rollover_amount; pay out the remainder."""
+        """
+        Option (c): Reinvest rollover_amount; pay out the remainder.
+
+        Settling the source in full and then re-depositing only
+        rollover_amount into the new investment nets out to exactly
+        payout_amount actually leaving the bank/cash journal — this
+        replaces the old design, which opened a SEPARATE withdrawal wizard
+        against the still-unreduced source (paying out its full value on
+        top of the newly-created rollover investment).
+        """
         self.ensure_one()
         inv = self.investment_id
         payout_portion = self.payout_amount
 
-        # Create the new (reinvested) investment
-        new_inv = self._process_full_rollover_for_amount(self.rollover_amount)
+        if not self.payout_journal_id:
+            raise UserError(_("Please select a Payment Journal for the cash-out portion."))
+
+        self._settle_source_investment()
+        new_inv = self._create_and_activate_rollover_investment(self.rollover_amount)
 
         inv.message_post(body=_(
             "Partial rollover at maturity: <b>%(sym)s %(rollover).2f</b> reinvested in "
             "<b><a href='/odoo/alba-investments/%(new_id)d'>%(new_num)s</a></b>. "
-            "Cash payout: <b>%(sym)s %(payout).2f</b> — use Withdraw Investment to process.",
+            "Cash paid out: <b>%(sym)s %(payout).2f</b>.",
             sym=inv.currency_id.symbol,
             rollover=self.rollover_amount,
             new_id=new_inv.id,
@@ -296,23 +307,29 @@ class AlbaInvestmentMaturityWizard(models.TransientModel):
             payout=payout_portion,
         ))
 
-        # Open the withdraw wizard for the cash-out portion
-        # (The original investment stays matured until withdrawn)
-        return {
-            "name": _("Partial Maturity Payout — %s") % inv.investment_number,
-            "type": "ir.actions.act_window",
-            "res_model": "alba.investment.withdraw.wizard",
-            "view_mode": "form",
-            "target": "new",
-            "context": {
-                "default_investment_id": inv.id,
-                "default_journal_id": self.payout_journal_id.id if self.payout_journal_id else False,
-                "default_payment_date": str(self.payout_date) if self.payout_date else False,
-            },
-        }
+        return {"type": "ir.actions.act_window_close"}
 
-    def _process_full_rollover_for_amount(self, amount):
-        """Create a new rolled-over investment for the given amount."""
+    def _settle_source_investment(self):
+        """
+        Fully settle the source (matured) investment for its entire current
+        value, via the SAME withdrawal logic used for a normal withdrawal —
+        not a separate, bespoke rollover journal entry. This correctly
+        handles WHT and clears Interest Payable, and — critically — leaves
+        the source in state='withdrawn', so it can never be paid out again.
+        """
+        self.ensure_one()
+        inv = self.investment_id
+        withdraw_wizard = self.env["alba.investment.withdraw.wizard"].create({
+            "investment_id": inv.id,
+            "journal_id": self.payout_journal_id.id,
+            "payment_date": self.payout_date or fields.Date.today(),
+        })
+        withdraw_wizard.action_confirm_withdrawal()
+
+    def _create_and_activate_rollover_investment(self, amount):
+        """Create a new investment for `amount` and fully activate it (posts
+        a real inbound payment — see _settle_source_investment's docstring
+        for why the pair of postings nets out correctly)."""
         self.ensure_one()
         inv = self.investment_id
         new_inv = self.env["alba.investment"].create({
@@ -330,9 +347,17 @@ class AlbaInvestmentMaturityWizard(models.TransientModel):
             "account_investment_liability_id": inv.account_investment_liability_id.id,
             "account_long_term_liability_id": inv.account_long_term_liability_id.id if inv.account_long_term_liability_id else False,
             "journal_id": inv.journal_id.id,
-            "payment_journal_id": inv.payment_journal_id.id,
+            "payment_journal_id": self.payout_journal_id.id or inv.payment_journal_id.id,
             "wht_rate": inv.wht_rate,
             "account_wht_payable_id": inv.account_wht_payable_id.id,
-            "notes": _("Partial rollover from %s on maturity.") % inv.investment_number,
+            "notes": _("Rolled over from %s on maturity.") % inv.investment_number,
         })
+        new_inv.action_activate()
+        # action_activate() -> _prepare_and_validate_for_activation() ->
+        # _copy_product_defaults() unconditionally overwrites interest_rate
+        # (and other terms) from the product's current defaults. Re-assert
+        # the rollover's own chosen rate afterward so a renewal at a
+        # different rate isn't silently reset to the product default.
+        if self.new_interest_rate and new_inv.interest_rate != self.new_interest_rate:
+            new_inv.write({"interest_rate": self.new_interest_rate})
         return new_inv

@@ -72,6 +72,10 @@
                                required="maturity_action == 'rollover_full'"/>
                         <field name="new_maturity_date"
                                required="maturity_action == 'rollover_full'"/>
+                        <field name="payout_journal_id" options="{'no_create': True}"
+                               string="Settlement Journal"
+                               required="maturity_action == 'rollover_full'"
+                               help="The rollover settles the source investment and re-deposits the full amount through this journal — net cash movement is zero for a full rollover."/>
                         <field name="payout_date" string="Rollover Start Date"
                                required="maturity_action == 'rollover_full'"/>
                     </group>

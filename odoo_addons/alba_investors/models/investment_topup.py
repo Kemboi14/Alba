@@ -223,6 +223,12 @@ class AlbaInvestmentTopup(models.Model):
                 "journal_id": journal.id,
             })
 
+            # The top-up raises the compounding base from rec.date onward —
+            # any already-posted accrual on/after that date was computed on
+            # a base that's now too low. Delete it; the next backfill
+            # regenerates it with the correct base.
+            investment.invalidate_accruals_from_date(rec.date)
+
             investment.message_post(
                 body=_(
                     "Top-up <b>%(ref)s</b> posted: "
@@ -246,6 +252,25 @@ class AlbaInvestmentTopup(models.Model):
             if rec.payment_id and rec.payment_id.state == "posted":
                 rec.payment_id.action_cancel()
             rec.write({"state": "draft", "payment_id": False})
+            # Removing the top-up lowers the compounding base again from
+            # rec.date onward — same invalidation as posting, in reverse.
+            rec.investment_id.invalidate_accruals_from_date(rec.date)
+
+    def unlink(self):
+        # total_topup_amount/current_value are computed from posted topup_ids
+        # (see investment.py:_compute_financials); deleting a posted top-up
+        # would silently drop it from those figures and from every statement/
+        # report query while the linked account.payment stays posted in the
+        # books untouched — books and investor-facing reporting would no
+        # longer reconcile. Require action_reset_to_draft() first, which
+        # properly cancels the payment and re-invalidates affected accruals.
+        if any(rec.state == "posted" for rec in self):
+            raise UserError(_(
+                "Cannot delete a posted top-up. Use 'Reset to Draft' first "
+                "to properly cancel its payment and adjust the investment's "
+                "compounding base."
+            ))
+        return super().unlink()
 
     def action_view_payment(self):
         """Open the linked receipt."""

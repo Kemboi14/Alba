@@ -58,11 +58,11 @@
                             string="Move to Long-term"
                             type="object"
                             class="btn-info"
-                            invisible="state != 'active'"
+                            invisible="state != 'active' or is_long_term_reclassified"
                             confirm="This will create a journal entry to reclassify the principal to the long-term liability account. Are you sure?"
                             groups="alba_investors.group_investor_manager"/>
                     <button name="action_sync_currency_rates"
-                            string="Sync Currency Rates"
+                            string="Check Currency Rate Coverage"
                             type="object"
                             class="btn-info"
                             groups="alba_investors.group_investor_manager"/>
@@ -86,6 +86,7 @@
                     <field name="can_withdraw_now" invisible="1"/>
                     <field name="withdrawal_notice_date" invisible="1"/>
                     <field name="initial_accounting_posted" invisible="1"/>
+                    <field name="is_long_term_reclassified" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
                         <button type="object"
                                 name="action_view_accruals"
@@ -193,6 +194,8 @@
                                    invisible="investment_type != 'fixed_term'"
                                    required="investment_type == 'fixed_term'"/>
                             <field name="days_to_maturity" invisible="investment_type != 'fixed_term'"/>
+                            <field name="days_overdue_maturity" invisible="days_overdue_maturity == 0"
+                                   decoration-danger="days_overdue_maturity &gt; 0"/>
                             <field name="maturity_progress" widget="progressbar" string="Maturity Progress"
                                    invisible="investment_type != 'fixed_term'"/>
                             <field name="earliest_withdrawal_date" readonly="1" invisible="not earliest_withdrawal_date"/>

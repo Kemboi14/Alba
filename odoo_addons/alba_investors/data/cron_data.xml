@@ -50,5 +50,21 @@
             <field name="priority">20</field>
         </record>
 
+        <!-- ── 4. Purge Preview-Only Statements ───────────────────────── -->
+        <!-- Deletes draft statements created purely to render a one-off PDF
+             preview (Investor form > Preview Statement, "PDF (Download)"),
+             once they're a day old — long after the PDF has been rendered. -->
+        <record id="ir_cron_alba_purge_preview_statements" model="ir.cron">
+            <field name="name">Alba: Purge Preview-Only Statements (Daily)</field>
+            <field name="model_id" ref="alba_investors.model_alba_investment_statement"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_purge_preview_statements()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active" eval="True"/>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="priority">30</field>
+        </record>
+
     </data>
 </odoo>
