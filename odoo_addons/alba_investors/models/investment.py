@@ -1059,6 +1059,10 @@ class AlbaInvestment(models.Model):
         self._check_required_accounting()
 
     def _copy_product_defaults(self):
+        """Backfill accounting fields left blank on the investment from the
+        product. Fields the user already set (e.g. a payment journal chosen
+        at creation, overriding the product default) are left untouched —
+        this only fills gaps, it never overwrites an existing value."""
         self.ensure_one()
         product = self.investment_product_id
         vals = {}
@@ -1076,6 +1080,8 @@ class AlbaInvestment(models.Model):
             "wht_rate",
             "account_wht_payable_id",
         ]:
+            if self[field_name]:
+                continue
             value = product[field_name]
             if value is not False and value is not None:
                 vals[field_name] = value.id if hasattr(value, "id") else value

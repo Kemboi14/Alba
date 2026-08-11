@@ -228,7 +228,7 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="Accounting" name="accounting" groups="account.group_account_manager">
+                        <page string="Accounting" name="accounting" groups="account.group_account_manager,alba_investors.group_investor_manager">
                             <group>
                                 <group string="Ledger Accounts">
                                     <field name="account_interest_expense_id" options="{'no_create': True}"/>
