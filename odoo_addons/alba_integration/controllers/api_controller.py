@@ -16,6 +16,13 @@ POST /alba/api/v1/customers/<customer_id>/kyc     — update KYC status
 POST /alba/api/v1/applications                    — create loan application
 PATCH /alba/api/v1/applications/<application_id>/status  — update app status
 POST /alba/api/v1/payments                        — record a repayment
+POST /alba/api/v1/applications/<application_id>/guarantors — create guarantor
+GET  /alba/api/v1/applications/<application_id>/guarantors — list guarantors
+GET  /alba/api/v1/loan-guarantors/<loan_guarantor_id>/status — guarantor status
+POST /alba/api/v1/loan-guarantors/<loan_guarantor_id>/documents — guarantor doc
+POST /alba/api/v1/applications/<application_id>/collateral — create collateral
+GET  /alba/api/v1/applications/<application_id>/collateral — list collateral
+POST /alba/api/v1/collateral/<collateral_id>/documents      — collateral doc
 
 Authentication
 --------------
@@ -2344,5 +2351,773 @@ class AlbaApiController(http.Controller):
                 "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
                 int((time.monotonic() - start_time) * 1000), "Payment",
                 event_type="payment.matched",
+            )
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 11. Create a guarantor for a loan application
+    # -------------------------------------------------------------------------
+
+    # Django document_type values -> alba.guarantor.document selection values
+    _GUARANTOR_DTYPE_MAP = {
+        "ID_CARD": "id_front",
+        "ID_FRONT": "id_front",
+        "ID_BACK": "id_back",
+        "PHOTO": "photo",
+        "PAYSLIP": "payslip",
+        "BANK_STATEMENT": "bank_statement",
+        "EMPLOYMENT_LETTER": "employment_letter",
+        "UTILITY_BILL": "utility_bill",
+        "OTHER": "other",
+        # Odoo-native values pass through unchanged
+        "id_front": "id_front",
+        "id_back": "id_back",
+        "photo": "photo",
+        "payslip": "payslip",
+        "bank_statement": "bank_statement",
+        "employment_letter": "employment_letter",
+        "utility_bill": "utility_bill",
+    }
+
+    @http.route(
+        "/alba/api/v1/applications/<int:application_id>/guarantors",
+        type="http",
+        auth="public",
+        methods=["POST"],
+        csrf=False,
+    )
+    def create_guarantor(self, application_id, **kwargs):
+        """
+        Create (or reuse) an ``alba.guarantor`` and attach it to a loan
+        application as an ``alba.loan.guarantor`` assignment.
+
+        The guarantor confirmation SMS/email is deliberately NOT sent as a
+        side effect of this call — the new assignment is left in the model's
+        default ``pending`` status. Sending the confirmation stays a manual
+        Odoo back-office action (``action_send_confirmation``).
+
+        Authentication
+        --------------
+        Requires ``X-Alba-API-Key`` header.
+
+        Idempotency
+        -----------
+        Idempotent on ``django_guarantor_id`` (the Django
+        ``GuarantorVerification`` primary key) — a second call with the same
+        value returns the existing assignment with ``status: "exists"``.
+
+        Request body (JSON)
+        -------------------
+        Required: ``django_guarantor_id``, ``full_name``, ``id_number``,
+        ``phone``, ``relationship``, ``guarantee_amount``
+
+        Optional: ``email``, ``address``, ``employer_name``,
+        ``monthly_income``, ``guarantee_type`` (default ``full``),
+        ``relationship_notes``
+
+        Response 201 / 409
+        ------------------
+        .. code-block:: json
+
+            {
+                "odoo_guarantor_id": 12,
+                "odoo_loan_guarantor_id": 34,
+                "status": "created"
+            }
+        """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        data = {}
+        django_guarantor_id = 0
+
+        try:
+            api_key = self._authenticate()
+            data = self._parse_json_body()
+
+            missing = self._validate_required(
+                data,
+                [
+                    "django_guarantor_id",
+                    "full_name",
+                    "id_number",
+                    "phone",
+                    "relationship",
+                    "guarantee_amount",
+                ],
+            )
+            if missing:
+                http_status = 400
+                detail = f"Missing required fields: {', '.join(missing)}"
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.guarantor", 0, 0,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+                )
+                return self._error_response(detail, http_status)
+
+            django_guarantor_id = self._safe_int(data.get("django_guarantor_id"), 0)
+
+            application = request.env["alba.loan.application"].sudo().browse(application_id)
+            if not application.exists():
+                http_status = 404
+                detail = f"Application with id={application_id} not found."
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.guarantor", django_guarantor_id, 0,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+                )
+                return self._error_response(detail, http_status)
+
+            LoanGuarantor = request.env["alba.loan.guarantor"].sudo()
+
+            # --- Idempotency: check for an existing assignment ---------------
+            existing = LoanGuarantor.search(
+                [("django_loan_guarantor_id", "=", django_guarantor_id)], limit=1
+            )
+            if existing:
+                duration_ms = int((time.monotonic() - start_time) * 1000)
+                response_data = {
+                    "odoo_guarantor_id": existing.guarantor_id.id,
+                    "odoo_loan_guarantor_id": existing.id,
+                    "status": "exists",
+                }
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.guarantor", django_guarantor_id, existing.id,
+                    "skipped", "Duplicate guarantor assignment (idempotency)", data,
+                    response_data, 409, remote_ip, user_agent, duration_ms, "GuarantorVerification",
+                )
+                return self._json_response(response_data, status=409)
+
+            # --- Find or create the guarantor master record ------------------
+            id_number = str(data["id_number"]).strip()
+            Guarantor = request.env["alba.guarantor"].sudo()
+            guarantor = Guarantor.search([("id_number", "=", id_number)], limit=1)
+            if guarantor:
+                if not guarantor.django_guarantor_id:
+                    guarantor.write({"django_guarantor_id": django_guarantor_id})
+            else:
+                guarantor = Guarantor.create({
+                    "name": str(data["full_name"]).strip(),
+                    "id_number": id_number,
+                    "phone": str(data["phone"]).strip(),
+                    "email": (data.get("email") or "").strip(),
+                    "address": (data.get("address") or "").strip(),
+                    "job_title": (data.get("employer_name") or "").strip() or False,
+                    "monthly_income": self._safe_float(data.get("monthly_income"), 0.0) or False,
+                    "django_guarantor_id": django_guarantor_id,
+                })
+
+            if guarantor.blacklisted:
+                http_status = 400
+                detail = "This guarantor is blacklisted and cannot be assigned to a loan."
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.guarantor", django_guarantor_id, guarantor.id,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+                )
+                return self._error_response(detail, http_status)
+
+            guarantee_amount = self._safe_float(data["guarantee_amount"], 0.0)
+            if guarantee_amount <= 0:
+                http_status = 400
+                detail = "guarantee_amount must be greater than 0."
+                _log_inbound_sync(
+                    api_key, "create", "alba.loan.guarantor", django_guarantor_id, guarantor.id,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+                )
+                return self._error_response(detail, http_status)
+
+            guarantee_type = (data.get("guarantee_type") or "full").strip().lower()
+            if guarantee_type not in ("full", "partial", "secured"):
+                guarantee_type = "full"
+
+            relationship = str(data["relationship"]).strip().lower()
+            valid_relationships = (
+                "spouse", "parent", "child", "sibling", "relative",
+                "friend", "colleague", "employer", "other",
+            )
+            if relationship not in valid_relationships:
+                relationship = "other"
+
+            loan_guarantor = LoanGuarantor.create({
+                "loan_application_id": application.id,
+                "guarantor_id": guarantor.id,
+                "guarantee_amount": guarantee_amount,
+                "guarantee_type": guarantee_type,
+                "relationship": relationship,
+                "relationship_notes": (data.get("relationship_notes") or "").strip(),
+                "django_loan_guarantor_id": django_guarantor_id,
+            })
+
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            response_data = {
+                "odoo_guarantor_id": guarantor.id,
+                "odoo_loan_guarantor_id": loan_guarantor.id,
+                "status": "created",
+            }
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.guarantor", django_guarantor_id, loan_guarantor.id,
+                "success", "", data, response_data, 201, remote_ip, user_agent,
+                duration_ms, "GuarantorVerification",
+            )
+            return self._json_response(response_data, status=201)
+
+        except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.guarantor", django_guarantor_id, 0,
+                "failure", str(exc), data, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+            )
+            return self._error_response(str(exc), 403)
+        except odoo_exceptions.UserError as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.guarantor", django_guarantor_id, 0,
+                "failure", str(exc), data, None, 400, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+            )
+            return self._error_response(str(exc), 400)
+        except Exception as exc:
+            _logger.exception("create_guarantor: unexpected error — %s", exc)
+            _log_inbound_sync(
+                api_key, "create", "alba.loan.guarantor", django_guarantor_id, 0,
+                "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+            )
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 12. List guarantors for a loan application
+    # -------------------------------------------------------------------------
+
+    @http.route(
+        "/alba/api/v1/applications/<int:application_id>/guarantors",
+        type="http",
+        auth="public",
+        methods=["GET"],
+        csrf=False,
+    )
+    def list_guarantors(self, application_id, **kwargs):
+        """List all guarantor assignments for a loan application."""
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        try:
+            api_key = self._authenticate()
+            application = request.env["alba.loan.application"].sudo().browse(application_id)
+            if not application.exists():
+                return self._error_response(f"Application with id={application_id} not found.", 404)
+
+            records = request.env["alba.loan.guarantor"].sudo().search(
+                [("loan_application_id", "=", application.id)]
+            )
+            results = [
+                {
+                    "odoo_loan_guarantor_id": rec.id,
+                    "odoo_guarantor_id": rec.guarantor_id.id,
+                    "django_loan_guarantor_id": rec.django_loan_guarantor_id or 0,
+                    "full_name": rec.guarantor_id.name or "",
+                    "id_number": rec.guarantor_id.id_number or "",
+                    "phone": rec.guarantor_id.phone or "",
+                    "relationship": rec.relationship or "",
+                    "guarantee_amount": rec.guarantee_amount,
+                    "guarantee_type": rec.guarantee_type or "",
+                    "status": rec.status or "",
+                    "confirmation_sent_date": str(rec.confirmation_sent_date or ""),
+                    "confirmed_date": str(rec.confirmed_date or ""),
+                    "confirmed_method": rec.confirmed_method or "",
+                    "rejection_reason": rec.rejection_reason or "",
+                }
+                for rec in records
+            ]
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            _log_inbound_sync(
+                api_key, "read", "alba.loan.guarantor", 0, application.id,
+                "success", "", {}, {"count": len(results)}, 200, remote_ip, user_agent,
+                duration_ms, "GuarantorVerification",
+            )
+            return self._json_response({"guarantors": results})
+        except odoo_exceptions.AccessDenied as exc:
+            return self._error_response(str(exc), 403)
+        except Exception as exc:
+            _logger.exception("list_guarantors: unexpected error — %s", exc)
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 13. Single guarantor-assignment status (polling fallback)
+    # -------------------------------------------------------------------------
+
+    @http.route(
+        "/alba/api/v1/loan-guarantors/<int:loan_guarantor_id>/status",
+        type="http",
+        auth="public",
+        methods=["GET"],
+        csrf=False,
+    )
+    def get_guarantor_status(self, loan_guarantor_id, **kwargs):
+        """Read the current status of a single loan-guarantor assignment."""
+        try:
+            self._authenticate()
+            rec = request.env["alba.loan.guarantor"].sudo().browse(loan_guarantor_id)
+            if not rec.exists():
+                return self._error_response(
+                    f"Loan guarantor with id={loan_guarantor_id} not found.", 404
+                )
+            return self._json_response({
+                "odoo_loan_guarantor_id": rec.id,
+                "status": rec.status or "",
+                "confirmed_date": str(rec.confirmed_date or ""),
+                "confirmed_method": rec.confirmed_method or "",
+                "rejection_reason": rec.rejection_reason or "",
+            })
+        except odoo_exceptions.AccessDenied as exc:
+            return self._error_response(str(exc), 403)
+        except Exception as exc:
+            _logger.exception("get_guarantor_status: unexpected error — %s", exc)
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 14. Upload a document for a specific guarantor
+    # -------------------------------------------------------------------------
+
+    @http.route(
+        "/alba/api/v1/loan-guarantors/<int:loan_guarantor_id>/documents",
+        type="http",
+        auth="public",
+        methods=["POST"],
+        csrf=False,
+    )
+    def sync_guarantor_document(self, loan_guarantor_id, **kwargs):
+        """
+        Attach a document to a guarantor's master record
+        (``alba.guarantor.document`` — a raw ``Binary`` field, not the
+        ``ir.attachment`` proxy ``alba.loan.document`` uses).
+
+        Request body (JSON)
+        -------------------
+        Required: ``name``, ``document_type``, ``file_content`` (base64),
+        ``file_name``
+        """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        data = {}
+        try:
+            api_key = self._authenticate()
+            data = self._parse_json_body()
+
+            missing = self._validate_required(
+                data, ["name", "document_type", "file_content", "file_name"]
+            )
+            if missing:
+                http_status = 400
+                detail = f"Missing required fields: {', '.join(missing)}"
+                _log_inbound_sync(
+                    api_key, "create", "alba.guarantor.document", 0, 0,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+                )
+                return self._error_response(detail, http_status)
+
+            loan_guarantor = request.env["alba.loan.guarantor"].sudo().browse(loan_guarantor_id)
+            if not loan_guarantor.exists():
+                http_status = 404
+                detail = f"Loan guarantor with id={loan_guarantor_id} not found."
+                _log_inbound_sync(
+                    api_key, "create", "alba.guarantor.document", 0, 0,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+                )
+                return self._error_response(detail, http_status)
+
+            odoo_dtype = self._GUARANTOR_DTYPE_MAP.get(data["document_type"], "other")
+
+            doc = request.env["alba.guarantor.document"].sudo().create({
+                "guarantor_id": loan_guarantor.guarantor_id.id,
+                "document_type": odoo_dtype,
+                "name": data["name"],
+                "attachment": data["file_content"],
+                "file_name": data["file_name"],
+            })
+
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            response_data = {"odoo_guarantor_document_id": doc.id, "status": "created"}
+            _log_inbound_sync(
+                api_key, "create", "alba.guarantor.document", 0, doc.id,
+                "success", "", data, response_data, 201, remote_ip, user_agent,
+                duration_ms, "GuarantorVerification",
+            )
+            return self._json_response(response_data, status=201)
+
+        except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.guarantor.document", 0, 0,
+                "failure", str(exc), data, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+            )
+            return self._error_response(str(exc), 403)
+        except odoo_exceptions.UserError as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.guarantor.document", 0, 0,
+                "failure", str(exc), data, None, 400, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+            )
+            return self._error_response(str(exc), 400)
+        except Exception as exc:
+            _logger.exception("sync_guarantor_document: unexpected error — %s", exc)
+            _log_inbound_sync(
+                api_key, "create", "alba.guarantor.document", 0, 0,
+                "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "GuarantorVerification",
+            )
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 15. Create a collateral asset record for a loan application
+    # -------------------------------------------------------------------------
+
+    # Optional type-specific fields passed straight through to alba.collateral
+    # (only written when present in the request body, matching the
+    # optional-field pattern used by create_or_update_customer).
+    _COLLATERAL_OPTIONAL_FIELDS = (
+        "registration_number",
+        "land_title_deed", "land_reference", "land_size", "land_use", "land_encumbrances",
+        "vehicle_make", "vehicle_model", "vehicle_year", "vehicle_color",
+        "vehicle_chassis", "vehicle_engine", "vehicle_logbook_held",
+        "vehicle_insurance_expiry", "vehicle_condition",
+        "equipment_manufacturer", "equipment_serial", "equipment_year", "equipment_depreciation",
+        "shares_cds_account", "shares_company", "shares_quantity", "shares_current_value",
+        "location_county", "location_subcounty", "location_ward", "location_description",
+        "valued_by",
+    )
+
+    # Django document_type values -> alba.collateral.document selection values
+    _COLLATERAL_DTYPE_MAP = {
+        "TITLE_DEED": "title_deed",
+        "LOGBOOK": "logbook",
+        "VALUATION": "valuation",
+        "VALUATION_REPORT": "valuation",
+        "INSURANCE": "insurance",
+        "PHOTO": "photo",
+        "SURVEY": "survey",
+        "ID_CARD": "id",
+        "POWER_OF_ATTORNEY": "power_attorney",
+        "OTHER": "other",
+        # Odoo-native values pass through unchanged
+        "title_deed": "title_deed",
+        "logbook": "logbook",
+        "valuation": "valuation",
+        "insurance": "insurance",
+        "photo": "photo",
+        "survey": "survey",
+        "id": "id",
+        "power_attorney": "power_attorney",
+    }
+
+    @http.route(
+        "/alba/api/v1/applications/<int:application_id>/collateral",
+        type="http",
+        auth="public",
+        methods=["POST"],
+        csrf=False,
+    )
+    def create_collateral(self, application_id, **kwargs):
+        """
+        Create a standalone ``alba.collateral`` asset-registry record from a
+        Django portal submission.
+
+        Note: this creates the collateral asset only — it does NOT pledge it
+        to a loan (``alba.loan.collateral``), because that junction requires
+        an ``alba.loan`` record, which only exists after disbursement.
+        Pledging happens as a manual Odoo back-office step at disbursement
+        time.
+
+        Authentication
+        --------------
+        Requires ``X-Alba-API-Key`` header.
+
+        Idempotency
+        -----------
+        Idempotent on ``django_collateral_id`` (checked via ``alba.sync.log``,
+        since ``alba.collateral`` has no field of its own to correlate against).
+
+        Request body (JSON)
+        -------------------
+        Required: ``django_collateral_id``, ``name``, ``collateral_type``,
+        ``valuation_amount``, ``valuation_date``
+
+        Optional: type-specific fields (see ``_COLLATERAL_OPTIONAL_FIELDS``)
+
+        Response 201 / 409
+        ------------------
+        .. code-block:: json
+
+            {
+                "odoo_collateral_id": 5,
+                "status": "created"
+            }
+        """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        data = {}
+        django_collateral_id = 0
+
+        try:
+            api_key = self._authenticate()
+            data = self._parse_json_body()
+
+            missing = self._validate_required(
+                data,
+                ["django_collateral_id", "name", "collateral_type", "valuation_amount", "valuation_date"],
+            )
+            if missing:
+                http_status = 400
+                detail = f"Missing required fields: {', '.join(missing)}"
+                _log_inbound_sync(
+                    api_key, "create", "alba.collateral", 0, 0,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Collateral",
+                )
+                return self._error_response(detail, http_status)
+
+            django_collateral_id = self._safe_int(data.get("django_collateral_id"), 0)
+
+            application = request.env["alba.loan.application"].sudo().browse(application_id)
+            if not application.exists():
+                http_status = 404
+                detail = f"Application with id={application_id} not found."
+                _log_inbound_sync(
+                    api_key, "create", "alba.collateral", django_collateral_id, 0,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Collateral",
+                )
+                return self._error_response(detail, http_status)
+
+            # --- Idempotency: correlate via alba.sync.log (no field on the
+            # off-limits alba.collateral model itself to check directly) -----
+            SyncLog = request.env["alba.sync.log"].sudo()
+            existing_log = SyncLog.search(
+                [
+                    ("odoo_model", "=", "alba.collateral"),
+                    ("django_record_id", "=", django_collateral_id),
+                    ("operation", "=", "create"),
+                    ("status", "=", "success"),
+                ],
+                limit=1,
+            )
+            if existing_log and existing_log.odoo_record_id:
+                existing = request.env["alba.collateral"].sudo().browse(existing_log.odoo_record_id)
+                if existing.exists():
+                    duration_ms = int((time.monotonic() - start_time) * 1000)
+                    response_data = {"odoo_collateral_id": existing.id, "status": "exists"}
+                    _log_inbound_sync(
+                        api_key, "create", "alba.collateral", django_collateral_id, existing.id,
+                        "skipped", "Duplicate collateral (idempotency)", data, response_data, 409,
+                        remote_ip, user_agent, duration_ms, "Collateral",
+                    )
+                    return self._json_response(response_data, status=409)
+
+            collateral_type = str(data["collateral_type"]).strip().lower()
+            valid_types = ("land", "vehicle", "equipment", "shares", "deposit", "guarantee", "other")
+            if collateral_type not in valid_types:
+                collateral_type = "other"
+
+            valuation_amount = self._safe_float(data["valuation_amount"], 0.0)
+            if valuation_amount <= 0:
+                http_status = 400
+                detail = "valuation_amount must be greater than 0."
+                _log_inbound_sync(
+                    api_key, "create", "alba.collateral", django_collateral_id, 0,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Collateral",
+                )
+                return self._error_response(detail, http_status)
+
+            collateral_vals = {
+                "name": str(data["name"]).strip(),
+                "collateral_type": collateral_type,
+                "valuation_amount": valuation_amount,
+                "valuation_date": data["valuation_date"],
+                "owner_id": application.customer_id.partner_id.id,
+            }
+            for field in self._COLLATERAL_OPTIONAL_FIELDS:
+                val = data.get(field)
+                if val is not None and val != "":
+                    collateral_vals[field] = val
+
+            collateral = request.env["alba.collateral"].sudo().create(collateral_vals)
+
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            response_data = {"odoo_collateral_id": collateral.id, "status": "created"}
+            _log_inbound_sync(
+                api_key, "create", "alba.collateral", django_collateral_id, collateral.id,
+                "success", "", data, response_data, 201, remote_ip, user_agent,
+                duration_ms, "Collateral",
+            )
+            return self._json_response(response_data, status=201)
+
+        except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.collateral", django_collateral_id, 0,
+                "failure", str(exc), data, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Collateral",
+            )
+            return self._error_response(str(exc), 403)
+        except odoo_exceptions.UserError as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.collateral", django_collateral_id, 0,
+                "failure", str(exc), data, None, 400, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Collateral",
+            )
+            return self._error_response(str(exc), 400)
+        except Exception as exc:
+            _logger.exception("create_collateral: unexpected error — %s", exc)
+            _log_inbound_sync(
+                api_key, "create", "alba.collateral", django_collateral_id, 0,
+                "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Collateral",
+            )
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 16. List collateral for a loan application
+    # -------------------------------------------------------------------------
+
+    @http.route(
+        "/alba/api/v1/applications/<int:application_id>/collateral",
+        type="http",
+        auth="public",
+        methods=["GET"],
+        csrf=False,
+    )
+    def list_collateral(self, application_id, **kwargs):
+        """
+        List collateral asset records owned by a loan application's
+        customer. ``alba.collateral`` has no direct FK to
+        ``alba.loan.application`` (it's customer-level asset master data,
+        pledged to a specific loan only at disbursement) — records are
+        matched by the application's customer's partner.
+        """
+        try:
+            self._authenticate()
+            application = request.env["alba.loan.application"].sudo().browse(application_id)
+            if not application.exists():
+                return self._error_response(f"Application with id={application_id} not found.", 404)
+
+            records = request.env["alba.collateral"].sudo().search(
+                [("owner_id", "=", application.customer_id.partner_id.id)]
+            )
+            results = [
+                {
+                    "odoo_collateral_id": rec.id,
+                    "name": rec.name or "",
+                    "collateral_type": rec.collateral_type or "",
+                    "valuation_amount": rec.valuation_amount,
+                    "status": rec.status or "",
+                }
+                for rec in records
+            ]
+            return self._json_response({"collateral": results})
+        except odoo_exceptions.AccessDenied as exc:
+            return self._error_response(str(exc), 403)
+        except Exception as exc:
+            _logger.exception("list_collateral: unexpected error — %s", exc)
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 17. Upload a document for a specific collateral asset
+    # -------------------------------------------------------------------------
+
+    @http.route(
+        "/alba/api/v1/collateral/<int:collateral_id>/documents",
+        type="http",
+        auth="public",
+        methods=["POST"],
+        csrf=False,
+    )
+    def sync_collateral_document(self, collateral_id, **kwargs):
+        """
+        Attach a document to a collateral asset's record
+        (``alba.collateral.document`` — a raw ``Binary`` field, same idiom
+        as ``alba.guarantor.document``).
+
+        Request body (JSON)
+        -------------------
+        Required: ``name``, ``document_type``, ``file_content`` (base64),
+        ``file_name``
+        """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        data = {}
+        try:
+            api_key = self._authenticate()
+            data = self._parse_json_body()
+
+            missing = self._validate_required(
+                data, ["name", "document_type", "file_content", "file_name"]
+            )
+            if missing:
+                http_status = 400
+                detail = f"Missing required fields: {', '.join(missing)}"
+                _log_inbound_sync(
+                    api_key, "create", "alba.collateral.document", 0, 0,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Collateral",
+                )
+                return self._error_response(detail, http_status)
+
+            collateral = request.env["alba.collateral"].sudo().browse(collateral_id)
+            if not collateral.exists():
+                http_status = 404
+                detail = f"Collateral with id={collateral_id} not found."
+                _log_inbound_sync(
+                    api_key, "create", "alba.collateral.document", 0, 0,
+                    "failure", detail, data, None, http_status, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "Collateral",
+                )
+                return self._error_response(detail, http_status)
+
+            odoo_dtype = self._COLLATERAL_DTYPE_MAP.get(data["document_type"], "other")
+
+            doc = request.env["alba.collateral.document"].sudo().create({
+                "collateral_id": collateral.id,
+                "document_type": odoo_dtype,
+                "name": data["name"],
+                "attachment": data["file_content"],
+                "file_name": data["file_name"],
+            })
+
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            response_data = {"odoo_collateral_document_id": doc.id, "status": "created"}
+            _log_inbound_sync(
+                api_key, "create", "alba.collateral.document", 0, doc.id,
+                "success", "", data, response_data, 201, remote_ip, user_agent,
+                duration_ms, "Collateral",
+            )
+            return self._json_response(response_data, status=201)
+
+        except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.collateral.document", 0, 0,
+                "failure", str(exc), data, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Collateral",
+            )
+            return self._error_response(str(exc), 403)
+        except odoo_exceptions.UserError as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.collateral.document", 0, 0,
+                "failure", str(exc), data, None, 400, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Collateral",
+            )
+            return self._error_response(str(exc), 400)
+        except Exception as exc:
+            _logger.exception("sync_collateral_document: unexpected error — %s", exc)
+            _log_inbound_sync(
+                api_key, "create", "alba.collateral.document", 0, 0,
+                "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "Collateral",
             )
             return self._error_response("Internal server error.", 500)

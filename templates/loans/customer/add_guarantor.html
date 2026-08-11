@@ -195,6 +195,28 @@
                                 placeholder="e.g. 2.5"
                             />
                         </div>
+
+                        <div class="form-field">
+                            <label for="liability_amount" class="form-label"
+                                >Guarantee Amount (KES)
+                                <span class="required-star" aria-hidden="true"
+                                    >*</span
+                                ></label
+                            >
+                            <input
+                                type="number"
+                                name="liability_amount"
+                                id="liability_amount"
+                                required
+                                min="1"
+                                step="0.01"
+                                class="form-input"
+                                placeholder="Maximum amount this guarantor is willing to guarantee"
+                            />
+                            <p class="text-xs text-gray-500 mt-1">
+                                This is the amount your guarantor is agreeing to be liable for.
+                            </p>
+                        </div>
                     </div>
                 </div>
 

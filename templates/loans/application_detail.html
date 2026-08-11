@@ -1406,6 +1406,122 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <!-- Guarantors -->
+                {% if application.loan_product.requires_guarantor %}
+                <div
+                    class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden"
+                >
+                    <div
+                        class="px-6 py-4 border-b border-gray-200 flex justify-between items-center"
+                    >
+                        <h3 class="text-lg font-semibold text-gray-900">
+                            Guarantors
+                            {% if application.loan_product.min_guarantors %}
+                            <span class="text-sm font-normal text-gray-500">({{ guarantors|length }} of {{ application.loan_product.min_guarantors }} required)</span>
+                            {% endif %}
+                        </h3>
+                        {% if is_customer_owner %}
+                        <a
+                            href="{% url 'loans:add_guarantor' application.pk %}"
+                            class="text-sm font-medium text-alba-orange hover:text-alba-navy"
+                        >
+                            + Add Guarantor
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="divide-y divide-gray-200">
+                        {% if guarantors %} {% for g in guarantors %}
+                        <div class="px-6 py-4 flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">{{ g.full_name }}</p>
+                                <p class="text-xs text-gray-500">{{ g.relationship }} &middot; {{ g.phone }}</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                {% if g.status == 'CONFIRMED' %}
+                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-800" title="{{ g.odoo_guarantor_status }}">Confirmed</span>
+                                {% elif g.status == 'DECLINED' %}
+                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800" title="{{ g.odoo_guarantor_status }}">Declined</span>
+                                {% elif g.status == 'WAIVED' %}
+                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-800">Waived</span>
+                                {% else %}
+                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-yellow-100 text-yellow-800" title="{{ g.odoo_guarantor_status }}">Pending Confirmation</span>
+                                {% endif %}
+                                {% if g.odoo_sync_status == 'FAILED' %}
+                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800" title="{{ g.odoo_sync_error }}">Sync Failed</span>
+                                {% elif g.odoo_sync_status == 'PENDING' %}
+                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-800">Pending Sync</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %} {% else %}
+                        <div class="px-6 py-8 text-center">
+                            <p class="mt-2 text-sm text-gray-600">No guarantors added yet</p>
+                            {% if is_customer_owner %}
+                            <a
+                                href="{% url 'loans:add_guarantor' application.pk %}"
+                                class="mt-3 inline-block px-4 py-2 text-sm font-medium text-white bg-alba-orange rounded-md hover:bg-opacity-90 transition"
+                            >
+                                Add Guarantor
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Collateral -->
+                {% if application.loan_product.requires_collateral %}
+                <div
+                    class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden"
+                >
+                    <div
+                        class="px-6 py-4 border-b border-gray-200 flex justify-between items-center"
+                    >
+                        <h3 class="text-lg font-semibold text-gray-900">Collateral</h3>
+                        {% if is_customer_owner %}
+                        <a
+                            href="{% url 'loans:add_collateral' application.pk %}"
+                            class="text-sm font-medium text-alba-orange hover:text-alba-navy"
+                        >
+                            + Add Collateral
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="divide-y divide-gray-200">
+                        {% if collaterals %} {% for c in collaterals %}
+                        <div class="px-6 py-4 flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">{{ c.get_collateral_type_display }}</p>
+                                <p class="text-xs text-gray-500">{{ c.description|truncatechars:60 }}</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                {% if c.odoo_sync_status == 'SUCCESS' %}
+                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-800">Registered in Odoo</span>
+                                {% elif c.odoo_sync_status == 'FAILED' %}
+                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800" title="{{ c.odoo_sync_error }}">Sync Failed</span>
+                                {% else %}
+                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-800">Pending Sync</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %} {% else %}
+                        <div class="px-6 py-8 text-center">
+                            <p class="mt-2 text-sm text-gray-600">No collateral added yet</p>
+                            {% if is_customer_owner %}
+                            <a
+                                href="{% url 'loans:add_collateral' application.pk %}"
+                                class="mt-3 inline-block px-4 py-2 text-sm font-medium text-white bg-alba-orange rounded-md hover:bg-opacity-90 transition"
+                            >
+                                Add Collateral
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Sidebar -->
@@ -1703,6 +1819,13 @@
                             class="block w-full px-4 py-2 text-center border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition"
                         >
                             Add Guarantor
+                        </a>
+                        {% endif %} {% if application.loan_product.requires_collateral %}
+                        <a
+                            href="{% url 'loans:add_collateral' application.pk %}"
+                            class="block w-full px-4 py-2 text-center border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition"
+                        >
+                            Add Collateral
                         </a>
                         {% endif %} {% endif %} {% if is_staff %}
                         <!-- Staff Approval Actions -->

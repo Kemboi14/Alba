@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block title %}Add Collateral - Alba Capital{% endblock %}
+{% block body %}
+<div class="page-wrapper">
+    {% include 'partials/navbar.html' with active_page='applications' %}
+
+    <!-- Main Content -->
+    <main id="main-content" class="page-content">
+        <!-- Page Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">
+                        Add Collateral
+                    </h1>
+                    <p class="mt-2 text-sm text-gray-600">
+                        Pledge collateral for application {{ application.application_number }}
+                    </p>
+                </div>
+                <a
+                    href="{% url 'loans:application_detail' application.pk %}"
+                    class="btn btn-secondary btn-sm"
+                >
+                    Back to Application
+                </a>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="card-header">
+                <h3 class="section-title">Collateral Information</h3>
+                <p class="section-subtitle">
+                    Provide details about the asset you are pledging as security for this loan.
+                    Odoo will use these details for valuation and pledging once your loan is approved.
+                </p>
+            </div>
+
+            <form method="POST" enctype="multipart/form-data" class="card-body" data-loading>
+                {% csrf_token %}
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <h4 class="text-md font-medium text-gray-900 border-b pb-2">
+                            Asset Details
+                        </h4>
+
+                        <div class="form-field">
+                            <label for="{{ form.collateral_type.id_for_label }}" class="form-label"
+                                >Collateral Type
+                                <span class="required-star" aria-hidden="true">*</span></label
+                            >
+                            {{ form.collateral_type }}
+                            {% if form.collateral_type.errors %}
+                            <p class="form-error">{{ form.collateral_type.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-field">
+                            <label for="{{ form.description.id_for_label }}" class="form-label"
+                                >Description
+                                <span class="required-star" aria-hidden="true">*</span></label
+                            >
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                            <p class="form-error">{{ form.description.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-field">
+                            <label for="{{ form.location.id_for_label }}" class="form-label"
+                                >Physical Location</label
+                            >
+                            {{ form.location }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h4 class="text-md font-medium text-gray-900 border-b pb-2">
+                            Valuation
+                        </h4>
+
+                        <div class="form-field">
+                            <label for="{{ form.estimated_value.id_for_label }}" class="form-label"
+                                >Estimated Value (KES)
+                                <span class="required-star" aria-hidden="true">*</span></label
+                            >
+                            {{ form.estimated_value }}
+                            {% if form.estimated_value.errors %}
+                            <p class="form-error">{{ form.estimated_value.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-field">
+                            <label for="{{ form.valuation_date.id_for_label }}" class="form-label"
+                                >Valuation Date
+                                <span class="required-star" aria-hidden="true">*</span></label
+                            >
+                            {{ form.valuation_date }}
+                            {% if form.valuation_date.errors %}
+                            <p class="form-error">{{ form.valuation_date.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Supporting Documents -->
+                <div class="mt-6 space-y-4">
+                    <h4 class="text-md font-medium text-gray-900 border-b pb-2">
+                        Supporting Documents
+                    </h4>
+                    <p class="text-xs text-gray-500">
+                        Upload whichever of these apply to your collateral. You can add more later
+                        from the application page.
+                    </p>
+
+                    <div class="form-field">
+                        <label for="{{ form.title_deed_file.id_for_label }}" class="form-label"
+                            >Title Deed / Logbook</label
+                        >
+                        {{ form.title_deed_file }}
+                    </div>
+
+                    <div class="form-field">
+                        <label for="{{ form.insurance_certificate_file.id_for_label }}" class="form-label"
+                            >Insurance Certificate</label
+                        >
+                        {{ form.insurance_certificate_file }}
+                    </div>
+
+                    <div class="form-field">
+                        <label for="{{ form.valuation_report_file.id_for_label }}" class="form-label"
+                            >Valuation Report</label
+                        >
+                        {{ form.valuation_report_file }}
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="mt-8 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                    <a
+                        href="{% url 'loans:application_detail' application.pk %}"
+                        class="btn btn-secondary"
+                        >Cancel</a
+                    >
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        data-loading-text="Saving…"
+                    >
+                        Add Collateral
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+</div>
+{% endblock %}

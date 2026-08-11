@@ -751,105 +751,6 @@ class FeeLine(models.Model):
 
 
 # =============================================================================
-# Guarantor Model (Odoo Alignment)
-# =============================================================================
-
-class Guarantor(models.Model):
-    """
-    Guarantor Model - For guarantor management and verification
-    Odoo Alignment: alba.loan.guarantor
-    """
-    
-    GUARANTOR_STATUS_PENDING = "PENDING"
-    GUARANTOR_STATUS_CONFIRMED = "CONFIRMED"
-    GUARANTOR_STATUS_REJECTED = "REJECTED"
-    
-    GUARANTOR_STATUS_CHOICES = [
-        (GUARANTOR_STATUS_PENDING, "Pending"),
-        (GUARANTOR_STATUS_CONFIRMED, "Confirmed"),
-        (GUARANTOR_STATUS_REJECTED, "Rejected"),
-    ]
-    
-    loan_application = models.ForeignKey(
-        "LoanApplication",
-        on_delete=models.CASCADE,
-        related_name="guarantors",
-        verbose_name="Loan Application"
-    )
-    full_name = models.CharField("Full Name", max_length=200)
-    id_number = models.CharField("ID/Passport Number", max_length=50)
-    phone = models.CharField("Phone Number", max_length=15)
-    email = models.EmailField("Email Address", blank=True)
-    relationship = models.CharField(
-        "Relationship to Borrower",
-        max_length=50,
-        help_text="e.g., Spouse, Parent, Sibling, Friend"
-    )
-    employer = models.CharField("Employer", max_length=200, blank=True)
-    monthly_income = models.DecimalField(
-        "Monthly Income",
-        max_digits=12,
-        decimal_places=2,
-        blank=True,
-        null=True,
-        validators=[MinValueValidator(Decimal("0"))]
-    )
-    address = models.TextField("Physical Address", blank=True)
-    
-    # Verification
-    confirmation_code = models.CharField(
-        "Confirmation Code",
-        max_length=50,
-        blank=True,
-        unique=True,
-        help_text="Unique code sent to guarantor for confirmation"
-    )
-    status = models.CharField(
-        "Status",
-        max_length=20,
-        choices=GUARANTOR_STATUS_CHOICES,
-        default=GUARANTOR_STATUS_PENDING
-    )
-    confirmed_at = models.DateTimeField("Confirmed At", null=True, blank=True)
-    confirmed_via = models.CharField(
-        "Confirmed Via",
-        max_length=20,
-        blank=True,
-        help_text="Method of confirmation (SMS, Email, In-Person)"
-    )
-    rejection_reason = models.TextField("Rejection Reason", blank=True)
-    
-    # Documents
-    id_document_file = models.FileField(
-        "ID Document",
-        upload_to="guarantor_documents/id/%Y/%m/%d/",
-        blank=True
-    )
-    payslip_file = models.FileField(
-        "Payslip",
-        upload_to="guarantor_documents/payslips/%Y/%m/%d/",
-        blank=True
-    )
-    
-    created_at = models.DateTimeField("Created At", auto_now_add=True)
-    updated_at = models.DateTimeField("Updated At", auto_now=True)
-    
-    class Meta:
-        db_table = "guarantors"
-        verbose_name = "Guarantor"
-        verbose_name_plural = "Guarantors"
-        ordering = ["-created_at"]
-        indexes = [
-            models.Index(fields=["loan_application", "status"]),
-            models.Index(fields=["status"]),
-            models.Index(fields=["id_number"]),
-        ]
-    
-    def __str__(self):
-        return f"{self.full_name} - {self.get_status_display()}"
-
-
-# =============================================================================
 # Collateral Model (Odoo Alignment)
 # =============================================================================
 
@@ -948,10 +849,67 @@ class Collateral(models.Model):
     
     pledged_at = models.DateTimeField("Pledged At", auto_now_add=True)
     released_at = models.DateTimeField("Released At", null=True, blank=True)
-    
+
     created_at = models.DateTimeField("Created At", auto_now_add=True)
     updated_at = models.DateTimeField("Updated At", auto_now=True)
-    
+
+    # Odoo Integration
+    odoo_collateral_id = models.PositiveIntegerField(
+        "Odoo Collateral ID",
+        null=True,
+        blank=True,
+        help_text="ID of the corresponding alba.collateral record in Odoo",
+    )
+
+    ODOO_SYNC_PENDING = "PENDING"
+    ODOO_SYNC_SUCCESS = "SUCCESS"
+    ODOO_SYNC_FAILED = "FAILED"
+    ODOO_SYNC_RETRY = "RETRY"
+
+    ODOO_SYNC_STATUS_CHOICES = [
+        (ODOO_SYNC_PENDING, "Pending"),
+        (ODOO_SYNC_SUCCESS, "Success"),
+        (ODOO_SYNC_FAILED, "Failed"),
+        (ODOO_SYNC_RETRY, "Retry"),
+    ]
+
+    odoo_sync_status = models.CharField(
+        "Odoo Sync Status",
+        max_length=20,
+        choices=ODOO_SYNC_STATUS_CHOICES,
+        default=ODOO_SYNC_PENDING,
+        help_text="Status of this collateral's sync to Odoo",
+    )
+    odoo_sync_error = models.TextField(
+        "Odoo Sync Error", blank=True, help_text="Error message if sync to Odoo failed"
+    )
+    odoo_sync_attempts = models.IntegerField(
+        "Odoo Sync Attempts", default=0, help_text="Number of sync attempts made to Odoo"
+    )
+    odoo_last_sync_at = models.DateTimeField(
+        "Last Odoo Sync Attempt", null=True, blank=True
+    )
+
+    def get_odoo_sync_label(self):
+        """Return a customer-friendly label for Odoo sync state (matches LoanApplication)."""
+        mapping = {
+            self.ODOO_SYNC_PENDING: "Pending sync",
+            self.ODOO_SYNC_SUCCESS: "Synced to Odoo",
+            self.ODOO_SYNC_FAILED: "Sync failed",
+            self.ODOO_SYNC_RETRY: "Retrying sync",
+        }
+        return mapping.get(self.odoo_sync_status, self.odoo_sync_status or "Pending sync")
+
+    def get_odoo_sync_badge_class(self):
+        """Return Tailwind classes for the Odoo sync badge (matches LoanApplication)."""
+        mapping = {
+            self.ODOO_SYNC_PENDING: "bg-gray-100 text-gray-700",
+            self.ODOO_SYNC_SUCCESS: "bg-green-100 text-green-700",
+            self.ODOO_SYNC_FAILED: "bg-red-100 text-red-700",
+            self.ODOO_SYNC_RETRY: "bg-yellow-100 text-yellow-700",
+        }
+        return mapping.get(self.odoo_sync_status, "bg-gray-100 text-gray-700")
+
     class Meta:
         db_table = "collaterals"
         verbose_name = "Collateral"
@@ -1480,10 +1438,6 @@ class Customer(models.Model):
     face_recognition_verified = models.BooleanField(
         "Face Recognition Verified", default=False
     )
-
-    # Face Recognition Data
-    face_encoding_data = models.TextField("Face Encoding Data", null=True, blank=True)
-    face_scan_date = models.DateTimeField("Face Scan Date", null=True, blank=True)
 
     # ID back photo (verification wizard sends front and back separately)
     id_back_file = models.FileField(
@@ -2479,7 +2433,7 @@ class LoanApplication(models.Model):
             self.save(update_fields=['has_guarantor_block'])
             return True
         
-        confirmed_count = self.guarantors.filter(status=Guarantor.GUARANTOR_STATUS_CONFIRMED).count()
+        confirmed_count = self.guarantor_verifications.filter(status=GuarantorVerification.CONFIRMED).count()
         required_count = self.loan_product.min_guarantors
         
         if confirmed_count >= required_count:
@@ -3203,9 +3157,82 @@ class GuarantorVerification(models.Model):
     guarantor_notes = models.TextField("Guarantor Notes", blank=True)
     internal_notes = models.TextField("Internal Notes", blank=True)
 
+    # Odoo Integration (sync tracking)
+    odoo_loan_guarantor_id = models.PositiveIntegerField(
+        "Odoo Loan Guarantor ID",
+        null=True,
+        blank=True,
+        help_text="ID of the corresponding alba.loan.guarantor record in Odoo",
+    )
+    odoo_guarantor_id = models.PositiveIntegerField(
+        "Odoo Guarantor (Master) ID",
+        null=True,
+        blank=True,
+        help_text="ID of the corresponding alba.guarantor record in Odoo",
+    )
+    odoo_guarantor_status = models.CharField(
+        "Odoo Guarantor Status",
+        max_length=30,
+        blank=True,
+        help_text=(
+            "Raw alba.loan.guarantor.status value from Odoo (e.g. confirmation_sent, "
+            "pledged, liability) — Odoo's workflow has more states than this model's "
+            "coarse status field can represent."
+        ),
+    )
+
+    ODOO_SYNC_PENDING = "PENDING"
+    ODOO_SYNC_SUCCESS = "SUCCESS"
+    ODOO_SYNC_FAILED = "FAILED"
+    ODOO_SYNC_RETRY = "RETRY"
+
+    ODOO_SYNC_STATUS_CHOICES = [
+        (ODOO_SYNC_PENDING, "Pending"),
+        (ODOO_SYNC_SUCCESS, "Success"),
+        (ODOO_SYNC_FAILED, "Failed"),
+        (ODOO_SYNC_RETRY, "Retry"),
+    ]
+
+    odoo_sync_status = models.CharField(
+        "Odoo Sync Status",
+        max_length=20,
+        choices=ODOO_SYNC_STATUS_CHOICES,
+        default=ODOO_SYNC_PENDING,
+        help_text="Status of this guarantor's sync to Odoo",
+    )
+    odoo_sync_error = models.TextField(
+        "Odoo Sync Error", blank=True, help_text="Error message if sync to Odoo failed"
+    )
+    odoo_sync_attempts = models.IntegerField(
+        "Odoo Sync Attempts", default=0, help_text="Number of sync attempts made to Odoo"
+    )
+    odoo_last_sync_at = models.DateTimeField(
+        "Last Odoo Sync Attempt", null=True, blank=True
+    )
+
     # Timestamps
     created_at = models.DateTimeField("Created At", auto_now_add=True)
     updated_at = models.DateTimeField("Updated At", auto_now=True)
+
+    def get_odoo_sync_label(self):
+        """Return a customer-friendly label for Odoo sync state (matches LoanApplication)."""
+        mapping = {
+            self.ODOO_SYNC_PENDING: "Pending sync",
+            self.ODOO_SYNC_SUCCESS: "Synced to Odoo",
+            self.ODOO_SYNC_FAILED: "Sync failed",
+            self.ODOO_SYNC_RETRY: "Retrying sync",
+        }
+        return mapping.get(self.odoo_sync_status, self.odoo_sync_status or "Pending sync")
+
+    def get_odoo_sync_badge_class(self):
+        """Return Tailwind classes for the Odoo sync badge (matches LoanApplication)."""
+        mapping = {
+            self.ODOO_SYNC_PENDING: "bg-gray-100 text-gray-700",
+            self.ODOO_SYNC_SUCCESS: "bg-green-100 text-green-700",
+            self.ODOO_SYNC_FAILED: "bg-red-100 text-red-700",
+            self.ODOO_SYNC_RETRY: "bg-yellow-100 text-yellow-700",
+        }
+        return mapping.get(self.odoo_sync_status, "bg-gray-100 text-gray-700")
 
     class Meta:
         db_table = "guarantor_verifications"

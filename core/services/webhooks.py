@@ -1193,6 +1193,85 @@ def _handle_document_status_changed(data: dict, delivery_id: str):
         )
 
 
+# Odoo's alba.loan.guarantor.status has 8 states; GuarantorVerification's
+# `status` field only has 4. Collapse onto the coarse field for any existing
+# logic that depends on it, while keeping the raw Odoo value in
+# `odoo_guarantor_status` for display.
+_GUARANTOR_STATUS_MAP = {
+    "pending": "PENDING",
+    "confirmation_sent": "PENDING",
+    "confirmed": "CONFIRMED",
+    "pledged": "CONFIRMED",
+    "liability": "CONFIRMED",
+    "recovered": "CONFIRMED",
+    "released": "CONFIRMED",
+    "rejected": "DECLINED",
+}
+
+
+def _handle_guarantor_status_changed(data: dict, delivery_id: str):
+    """
+    guarantor.status_changed
+    -------------------------
+    A guarantor assignment changed status in Odoo (confirmed, rejected,
+    pledged, etc.), either via the API or the Odoo back-office. Update the
+    Django GuarantorVerification record to reflect it.
+
+    Expected data keys:
+        odoo_loan_guarantor_id, new_status, rejection_reason (optional),
+        confirmed_method (optional), confirmed_date (optional)
+    """
+    from loans.models import GuarantorVerification
+
+    odoo_lg_id = _safe_int(data.get("odoo_loan_guarantor_id"), "odoo_loan_guarantor_id")
+    new_status = (data.get("new_status") or "").strip()
+    rejection_reason = (data.get("rejection_reason") or "").strip()
+
+    if odoo_lg_id <= 0:
+        logger.warning("guarantor.status_changed: invalid odoo_loan_guarantor_id — skipping.")
+        return
+
+    gv = GuarantorVerification.objects.filter(odoo_loan_guarantor_id=odoo_lg_id).first()
+    if not gv:
+        logger.warning(
+            "guarantor.status_changed: no GuarantorVerification found (odoo_loan_guarantor_id=%d).",
+            odoo_lg_id,
+        )
+        return
+
+    update_fields = []
+    if gv.odoo_guarantor_status != new_status:
+        gv.odoo_guarantor_status = new_status
+        update_fields.append("odoo_guarantor_status")
+
+    mapped_status = _GUARANTOR_STATUS_MAP.get(new_status)
+    if mapped_status and gv.status != mapped_status:
+        gv.status = mapped_status
+        update_fields.append("status")
+
+    if mapped_status == "CONFIRMED" and not gv.confirmed_at:
+        gv.confirmed_at = dj_timezone.now()
+        update_fields.append("confirmed_at")
+
+    if new_status == "rejected":
+        gv.internal_notes = (
+            f"{gv.internal_notes}\nRejected in Odoo: {rejection_reason}".strip()
+            if rejection_reason
+            else gv.internal_notes
+        )
+        if rejection_reason:
+            update_fields.append("internal_notes")
+
+    if update_fields:
+        gv.save(update_fields=update_fields)
+        logger.info(
+            "GuarantorVerification %d updated: odoo_status=%s, status=%s",
+            gv.pk,
+            new_status,
+            gv.status,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Event handler registry
 # ---------------------------------------------------------------------------
@@ -1211,4 +1290,5 @@ _EVENT_HANDLERS = {
     "integration.health_check": _handle_integration_health_check,
     "integration.dead_webhooks_alert": _handle_integration_dead_webhooks_alert,
     "document.status_changed": _handle_document_status_changed,
+    "guarantor.status_changed": _handle_guarantor_status_changed,
 }

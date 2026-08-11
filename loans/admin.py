@@ -199,8 +199,6 @@ class CustomerAdmin(admin.ModelAdmin):
                 'bank_statement_verified',
                 'face_recognition_photo',
                 'face_recognition_verified',
-                'face_encoding_data',
-                'face_scan_date',
             )
         }),
         ('KYC Status', {

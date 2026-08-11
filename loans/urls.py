@@ -34,6 +34,11 @@ urlpatterns = [
         views.add_guarantor,
         name="add_guarantor",
     ),
+    path(
+        "application/<int:application_pk>/add-collateral/",
+        views.add_collateral,
+        name="add_collateral",
+    ),
     # Active loans
     path("my-loans/", views.my_loans, name="my_loans"),
     path("loan/<int:pk>/", views.loan_detail, name="loan_detail"),

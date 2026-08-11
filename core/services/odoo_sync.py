@@ -52,6 +52,7 @@ one service instance per thread and reusing the session.
 import json
 import logging
 import time
+from datetime import date
 from typing import Any
 
 import requests
@@ -1054,6 +1055,195 @@ class OdooSyncService:
 
         return {}
 
+    def sync_guarantor(self, application, guarantor_verification) -> dict:
+        """
+        Create a guarantor assignment in Odoo from a Django GuarantorVerification.
+
+        The guarantor confirmation SMS/email is NOT sent as a side effect —
+        the assignment is created in Odoo's default ``pending`` status;
+        sending the confirmation stays a manual Odoo back-office action.
+
+        Args:
+            application: Django LoanApplication instance. Must already have
+                         a valid ``odoo_application_id``.
+            guarantor_verification: Django GuarantorVerification instance.
+
+        Returns:
+            dict: Response body containing ``odoo_guarantor_id``,
+                  ``odoo_loan_guarantor_id``, and ``status``.
+
+        Raises:
+            OdooSyncError: If the application has no odoo_application_id yet,
+                           or on any API failure.
+        """
+        odoo_application_id = getattr(application, "odoo_application_id", None)
+        if not odoo_application_id:
+            raise OdooSyncError(
+                "Cannot sync guarantor: application has no odoo_application_id",
+                detail="The loan application must be synced to Odoo before its guarantors.",
+            )
+
+        payload = _build_guarantor_payload(guarantor_verification)
+        logger.info(
+            "Syncing guarantor to Odoo: django_guarantor_id=%s app_odoo_id=%d",
+            guarantor_verification.pk,
+            odoo_application_id,
+        )
+        return self._post(
+            f"/alba/api/v1/applications/{odoo_application_id}/guarantors",
+            payload,
+        )
+
+    def get_guarantor_status(self, odoo_loan_guarantor_id: int) -> dict:
+        """
+        Poll the current status of a guarantor assignment from Odoo — a
+        fallback for when a ``guarantor.status_changed`` webhook hasn't
+        landed yet.
+
+        Args:
+            odoo_loan_guarantor_id: Odoo ID of the ``alba.loan.guarantor`` record.
+
+        Returns:
+            dict: Response body containing ``status``, ``confirmed_date``,
+                  ``confirmed_method``, ``rejection_reason``.
+        """
+        logger.info(
+            "Fetching guarantor status from Odoo: odoo_loan_guarantor_id=%d",
+            odoo_loan_guarantor_id,
+        )
+        return self._get(f"/alba/api/v1/loan-guarantors/{odoo_loan_guarantor_id}/status")
+
+    def sync_guarantor_document(
+        self,
+        odoo_loan_guarantor_id: int,
+        file_field,
+        document_type: str,
+        name: str,
+    ) -> dict:
+        """
+        Sync a guarantor's document (ID, payslip, etc.) to Odoo as an
+        ``alba.guarantor.document`` record.
+
+        Args:
+            odoo_loan_guarantor_id: Odoo ID of the ``alba.loan.guarantor`` record.
+            file_field: Django FileField/FieldFile instance.
+            document_type: Document type string (id_front/id_back/photo/
+                           payslip/bank_statement/employment_letter/
+                           utility_bill/other).
+            name: The document display name.
+
+        Returns:
+            dict: Response body containing ``odoo_guarantor_document_id``
+                  and ``status``, or empty dict if file_field is empty.
+        """
+        import base64 as _b64
+
+        if not file_field:
+            logger.debug("Skipping guarantor document sync: no file provided for %s", name)
+            return {}
+
+        file_field.open("rb")
+        try:
+            file_bytes = file_field.read()
+        finally:
+            file_field.close()
+
+        payload: dict = {
+            "name": name,
+            "document_type": document_type,
+            "file_content": _b64.b64encode(file_bytes).decode("utf-8"),
+            "file_name": file_field.name.split("/")[-1],
+        }
+        return self._post(
+            f"/alba/api/v1/loan-guarantors/{odoo_loan_guarantor_id}/documents",
+            payload,
+        )
+
+    def sync_collateral(self, application, collateral) -> dict:
+        """
+        Create a collateral asset record in Odoo from a Django Collateral.
+
+        This creates the asset-registry record only (``alba.collateral``) —
+        it does not pledge it to a loan, since the pledge junction
+        (``alba.loan.collateral``) requires a disbursed ``alba.loan``, which
+        doesn't exist yet at application time. Pledging remains a manual
+        Odoo back-office step at disbursement.
+
+        Args:
+            application: Django LoanApplication instance. Must already have
+                         a valid ``odoo_application_id``.
+            collateral: Django Collateral instance.
+
+        Returns:
+            dict: Response body containing ``odoo_collateral_id`` and ``status``.
+
+        Raises:
+            OdooSyncError: If the application has no odoo_application_id yet,
+                           or on any API failure.
+        """
+        odoo_application_id = getattr(application, "odoo_application_id", None)
+        if not odoo_application_id:
+            raise OdooSyncError(
+                "Cannot sync collateral: application has no odoo_application_id",
+                detail="The loan application must be synced to Odoo before its collateral.",
+            )
+
+        payload = _build_collateral_payload(collateral)
+        logger.info(
+            "Syncing collateral to Odoo: django_collateral_id=%s app_odoo_id=%d",
+            collateral.pk,
+            odoo_application_id,
+        )
+        return self._post(
+            f"/alba/api/v1/applications/{odoo_application_id}/collateral",
+            payload,
+        )
+
+    def sync_collateral_document(
+        self,
+        odoo_collateral_id: int,
+        file_field,
+        document_type: str,
+        name: str,
+    ) -> dict:
+        """
+        Sync a collateral document (title deed, insurance, valuation report)
+        to Odoo as an ``alba.collateral.document`` record.
+
+        Args:
+            odoo_collateral_id: Odoo ID of the ``alba.collateral`` record.
+            file_field: Django FileField/FieldFile instance.
+            document_type: Document type string (title_deed/logbook/
+                           valuation/insurance/photo/survey/id/
+                           power_attorney/other).
+            name: The document display name.
+
+        Returns:
+            dict: Response body containing ``odoo_collateral_document_id``
+                  and ``status``, or empty dict if file_field is empty.
+        """
+        import base64 as _b64
+
+        if not file_field:
+            logger.debug("Skipping collateral document sync: no file provided for %s", name)
+            return {}
+
+        file_field.open("rb")
+        try:
+            file_bytes = file_field.read()
+        finally:
+            file_field.close()
+
+        payload: dict = {
+            "name": name,
+            "document_type": document_type,
+            "file_content": _b64.b64encode(file_bytes).decode("utf-8"),
+            "file_name": file_field.name.split("/")[-1],
+        }
+        return self._post(
+            f"/alba/api/v1/collateral/{odoo_collateral_id}/documents",
+            payload,
+        )
 
     def update_application_status(
         self,
@@ -1613,9 +1803,13 @@ def _build_customer_payload(user) -> dict:
             "address": getattr(profile, "address", None),
             "city": getattr(profile, "city", None),
             "county": getattr(profile, "county", None),  # Legacy text field
-            "county_id": getattr(profile, "county_id", None),  # Hierarchical FK
-            "sub_county_id": getattr(profile, "sub_county_id", None),
-            "ward_id": getattr(profile, "ward_id", None),
+            # Hierarchical FK fields are themselves named *_id (see loans.models.Customer),
+            # so Django's raw-int accessor is the double-suffixed *_id_id attribute --
+            # plain getattr(profile, "county_id") returns the related County instance,
+            # which is not JSON serializable.
+            "county_id": getattr(profile, "county_id_id", None),
+            "sub_county_id": getattr(profile, "sub_county_id_id", None),
+            "ward_id": getattr(profile, "ward_id_id", None),
             # Employment
             "employment_status": _map_choice(
                 getattr(profile, "employment_status", None),
@@ -1772,4 +1966,65 @@ def _build_application_payload(application) -> dict:
                     else:
                         payload[cust_field] = value
 
+    return payload
+
+
+def _build_guarantor_payload(guarantor_verification) -> dict:
+    """
+    Build the JSON payload for POST
+    /alba/api/v1/applications/<id>/guarantors from a Django
+    GuarantorVerification instance.
+    """
+    payload: dict[str, Any] = {
+        "django_guarantor_id": guarantor_verification.pk,
+        "full_name": guarantor_verification.full_name,
+        "id_number": guarantor_verification.id_number,
+        "phone": guarantor_verification.phone,
+        "relationship": (guarantor_verification.relationship or "").strip().lower(),
+        "guarantee_amount": float(guarantor_verification.liability_amount or 0),
+    }
+    if guarantor_verification.email:
+        payload["email"] = guarantor_verification.email
+    if guarantor_verification.address:
+        payload["address"] = guarantor_verification.address
+    if guarantor_verification.employer:
+        payload["employer_name"] = guarantor_verification.employer
+    if guarantor_verification.monthly_income is not None:
+        payload["monthly_income"] = float(guarantor_verification.monthly_income)
+    return payload
+
+
+# Django Collateral.collateral_type choices -> Odoo alba.collateral.collateral_type
+# selection values. Django's set (LAND/BUILDING/VEHICLE/EQUIPMENT/INVENTORY/
+# RECEIVABLES/OTHER) doesn't line up 1:1 with Odoo's (land/vehicle/equipment/
+# shares/deposit/guarantee/other) — BUILDING maps to land (the closest Odoo
+# concept for real-property collateral), INVENTORY/RECEIVABLES have no close
+# Odoo analog and map to "other".
+_COLLATERAL_TYPE_MAP = {
+    "LAND": "land",
+    "BUILDING": "land",
+    "VEHICLE": "vehicle",
+    "EQUIPMENT": "equipment",
+    "INVENTORY": "other",
+    "RECEIVABLES": "other",
+    "OTHER": "other",
+}
+
+
+def _build_collateral_payload(collateral) -> dict:
+    """
+    Build the JSON payload for POST /alba/api/v1/applications/<id>/collateral
+    from a Django Collateral instance.
+    """
+    payload: dict[str, Any] = {
+        "django_collateral_id": collateral.pk,
+        "name": collateral.description[:200] if collateral.description else "Collateral",
+        "collateral_type": _COLLATERAL_TYPE_MAP.get(collateral.collateral_type, "other"),
+        "valuation_amount": float(collateral.estimated_value or 0),
+        "valuation_date": (
+            collateral.valuation_date.isoformat() if collateral.valuation_date else date.today().isoformat()
+        ),
+    }
+    if collateral.location:
+        payload["location_description"] = collateral.location
     return payload

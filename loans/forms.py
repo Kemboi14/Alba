@@ -8,6 +8,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from .models import (
+    Collateral,
     Customer,
     CustomerTag,
     Employer,
@@ -728,6 +729,114 @@ class GuarantorForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class CollateralForm(forms.ModelForm):
+    """Form for pledging collateral to a loan application (Odoo Alignment)."""
+
+    class Meta:
+        model = Collateral
+        fields = [
+            "collateral_type",
+            "description",
+            "estimated_value",
+            "valuation_date",
+            "location",
+            "title_deed_file",
+            "insurance_certificate_file",
+            "valuation_report_file",
+        ]
+        widgets = {
+            "collateral_type": forms.Select(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                    "placeholder": "Describe the collateral (e.g. Toyota Probox KDA 123X, or Title No. Nairobi/Block 1/234)",
+                }
+            ),
+            "estimated_value": forms.NumberInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                    "placeholder": "Market value",
+                    "step": "0.01",
+                }
+            ),
+            "valuation_date": forms.DateInput(
+                attrs={
+                    "type": "date",
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                }
+            ),
+            "location": forms.TextInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full rounded-md border-gray-300 shadow-sm "
+                        "focus:border-alba-orange focus:ring-alba-orange sm:text-sm"
+                    ),
+                    "placeholder": "Physical location",
+                }
+            ),
+            "title_deed_file": forms.FileInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full text-sm text-gray-500 "
+                        "file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 "
+                        "file:text-sm file:font-semibold file:bg-alba-orange file:text-white "
+                        "hover:file:bg-opacity-90"
+                    ),
+                    "accept": ".pdf,.jpg,.jpeg,.png",
+                }
+            ),
+            "insurance_certificate_file": forms.FileInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full text-sm text-gray-500 "
+                        "file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 "
+                        "file:text-sm file:font-semibold file:bg-alba-orange file:text-white "
+                        "hover:file:bg-opacity-90"
+                    ),
+                    "accept": ".pdf,.jpg,.jpeg,.png",
+                }
+            ),
+            "valuation_report_file": forms.FileInput(
+                attrs={
+                    "class": (
+                        "mt-1 block w-full text-sm text-gray-500 "
+                        "file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 "
+                        "file:text-sm file:font-semibold file:bg-alba-orange file:text-white "
+                        "hover:file:bg-opacity-90"
+                    ),
+                    "accept": ".pdf,.jpg,.jpeg,.png",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["valuation_date"].required = True
+
+    def clean_estimated_value(self):
+        value = self.cleaned_data.get("estimated_value")
+        if value is not None and value <= 0:
+            raise ValidationError("Estimated value must be greater than 0.")
+        return value
 
 
 class LoanDocumentForm(forms.ModelForm):

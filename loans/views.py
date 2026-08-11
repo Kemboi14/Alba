@@ -23,12 +23,14 @@ from core.views import create_audit_log  # noqa: PLC0415
 logger = logging.getLogger(__name__)
 
 from .forms import (
+    CollateralForm,
     CustomerProfileForm,
     GuarantorForm,
     LoanApplicationForm,
     LoanDocumentForm,
 )
 from .models import (
+    Collateral,
     Customer,
     GuarantorVerification,
     Loan,
@@ -124,6 +126,7 @@ def customer_profile(request):
         return redirect("customer_dashboard")
 
     if request.method == "POST":
+        was_fully_uploaded = customer.is_kyc_fully_uploaded()
         form = CustomerProfileForm(request.POST, request.FILES, instance=customer)
         if form.is_valid():
             customer = form.save(commit=False)
@@ -144,6 +147,49 @@ def customer_profile(request):
                 customer.pk,
                 "Updated customer profile",
             )
+
+            # Notify Odoo that documents are ready for KYC review, the
+            # moment all three become present. Best-effort — the sync
+            # status/error is recorded so a failure here is picked up by
+            # the existing `sync_odoo customers` retry path, and this only
+            # fires on the pending->uploaded transition, not on every
+            # subsequent unrelated profile edit.
+            if customer.is_kyc_fully_uploaded() and not was_fully_uploaded:
+                customer.odoo_sync_status = Customer.ODOO_SYNC_PENDING
+                customer.odoo_sync_attempts += 1
+                customer.odoo_last_sync_at = timezone.now()
+                customer.save(update_fields=["odoo_sync_status", "odoo_sync_attempts", "odoo_last_sync_at"])
+                try:
+                    svc = OdooSyncService()
+                    if not svc.is_reachable():
+                        raise OdooSyncError("Odoo instance unreachable")
+                    odoo_id = customer.odoo_customer_id
+                    if not odoo_id:
+                        result = svc.create_or_update_customer(request.user)
+                        odoo_id = result.get("odoo_customer_id")
+                        if odoo_id:
+                            customer.odoo_customer_id = odoo_id
+                    if not odoo_id:
+                        raise OdooSyncError("Failed to sync customer to Odoo — no Odoo ID returned")
+                    svc.update_kyc_status(
+                        odoo_customer_id=odoo_id,
+                        kyc_status="submitted",
+                        notes="Documents uploaded via portal. Awaiting manual KYC review.",
+                        document_type="national_id",
+                        document_number=customer.id_number or "",
+                    )
+                    customer.odoo_sync_status = Customer.ODOO_SYNC_SUCCESS
+                    customer.odoo_sync_error = ""
+                    customer.save(update_fields=["odoo_customer_id", "odoo_sync_status", "odoo_sync_error"])
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to notify Odoo of KYC document submission: customer_id=%s error=%s",
+                        customer.pk, exc,
+                    )
+                    customer.odoo_sync_status = Customer.ODOO_SYNC_FAILED
+                    customer.odoo_sync_error = str(exc)[:500]
+                    customer.save(update_fields=["odoo_sync_status", "odoo_sync_error"])
+
             return redirect("loans:customer_dashboard")
     else:
         form = CustomerProfileForm(instance=customer)
@@ -152,8 +198,6 @@ def customer_profile(request):
     odoo_kyc = None
     if customer.odoo_customer_id:
         try:
-            from core.services.odoo_sync import OdooSyncService
-
             svc = OdooSyncService()
             if svc.is_reachable():
                 odoo_kyc = svc.get_kyc_status(customer.odoo_customer_id)
@@ -181,32 +225,6 @@ def customer_profile(request):
         except Exception as exc:
             logger.debug("Could not fetch Odoo KYC status: %s", exc)
 
-    # Build verification wizard context for the React component
-    payslip_urls = []
-    try:
-        payslip_urls = json.loads(customer.additional_payslip_files or "[]")
-    except (json.JSONDecodeError, ValueError):
-        payslip_urls = []
-
-    def _safe_url(field):
-        try:
-            return field.url if field else ""
-        except Exception:
-            return ""
-
-    verification_context_json = json.dumps({
-        "csrfToken": request.META.get("CSRF_COOKIE", ""),
-        "apiBaseUrl": "/api/verify",
-        "existingDocuments": {
-            "idFront": _safe_url(customer.national_id_file),
-            "idBack": _safe_url(getattr(customer, "id_back_file", None)),
-            "payslips": payslip_urls,
-            "selfie": _safe_url(customer.face_recognition_photo),
-        },
-        "verificationStatus": getattr(customer, "verification_status", "pending"),
-        "confidence": getattr(customer, "verification_confidence", 0),
-    })
-
     # Parse verification results for display
     verification_details = {}
     try:
@@ -225,7 +243,6 @@ def customer_profile(request):
             "customer": customer,
             "kyc_completion": kyc_completion,
             "kyc_verified": customer.kyc_verified,
-            "verification_context_json": verification_context_json,
             "verification_status": customer.verification_status,
             "verification_confidence": customer.verification_confidence,
             "verification_details": verification_details,
@@ -465,6 +482,7 @@ def application_detail(request, pk):
 
     documents = LoanDocument.objects.filter(application=application)
     guarantors = GuarantorVerification.objects.filter(application=application)
+    collaterals = Collateral.objects.filter(loan_application=application)
 
     return render(
         request,
@@ -473,6 +491,7 @@ def application_detail(request, pk):
             "application": application,
             "documents": documents,
             "guarantors": guarantors,
+            "collaterals": collaterals,
         },
     )
 
@@ -997,6 +1016,46 @@ def add_guarantor(request, application_pk):
                 guarantor.pk,
                 f"Added guarantor for application {application.application_number}",
             )
+
+            # Sync to Odoo opportunistically — the guarantor record already
+            # exists locally regardless of sync outcome, matching upload_document's
+            # "save locally first, sync best-effort" pattern.
+            if application.odoo_application_id:
+                from core.services.odoo_sync import OdooSyncService
+                from django.utils import timezone
+
+                guarantor.odoo_sync_status = GuarantorVerification.ODOO_SYNC_PENDING
+                guarantor.odoo_sync_attempts += 1
+                guarantor.odoo_last_sync_at = timezone.now()
+                guarantor.save(update_fields=["odoo_sync_status", "odoo_sync_attempts", "odoo_last_sync_at"])
+                try:
+                    sync = OdooSyncService()
+                    result = sync.sync_guarantor(application, guarantor)
+                    guarantor.odoo_loan_guarantor_id = result.get("odoo_loan_guarantor_id")
+                    guarantor.odoo_guarantor_id = result.get("odoo_guarantor_id")
+                    guarantor.odoo_sync_status = GuarantorVerification.ODOO_SYNC_SUCCESS
+                    guarantor.odoo_sync_error = ""
+                    guarantor.save(update_fields=[
+                        "odoo_loan_guarantor_id", "odoo_guarantor_id",
+                        "odoo_sync_status", "odoo_sync_error",
+                    ])
+                except Exception as exc:
+                    logger.warning(
+                        "Guarantor sync to Odoo failed: guarantor_id=%s app_id=%s error=%s",
+                        guarantor.pk, application.pk, exc,
+                    )
+                    guarantor.odoo_sync_status = GuarantorVerification.ODOO_SYNC_FAILED
+                    guarantor.odoo_sync_error = str(exc)[:500]
+                    guarantor.save(update_fields=["odoo_sync_status", "odoo_sync_error"])
+                    messages.warning(
+                        request,
+                        "Guarantor was saved but could not be synced to Odoo yet. It will be retried automatically.",
+                    )
+            else:
+                guarantor.odoo_sync_status = GuarantorVerification.ODOO_SYNC_PENDING
+                guarantor.odoo_sync_error = "Application not yet synced to Odoo."
+                guarantor.save(update_fields=["odoo_sync_status", "odoo_sync_error"])
+
             return redirect("loans:application_detail", pk=application_pk)
     else:
         form = GuarantorForm()
@@ -1004,6 +1063,94 @@ def add_guarantor(request, application_pk):
     return render(
         request,
         "loans/customer/add_guarantor.html",
+        {"form": form, "application": application},
+    )
+
+
+@login_required
+def add_collateral(request, application_pk):
+    """Pledge collateral to a loan application (only for products that require it)."""
+    customer, _ = Customer.objects.get_or_create(user=request.user)
+    application = get_object_or_404(
+        LoanApplication, pk=application_pk, customer=customer
+    )
+
+    if not application.loan_product.requires_collateral:
+        messages.info(request, "This loan product does not require collateral.")
+        return redirect("loans:application_detail", pk=application_pk)
+
+    if request.method == "POST":
+        form = CollateralForm(request.POST, request.FILES)
+        if form.is_valid():
+            collateral = form.save(commit=False)
+            collateral.loan_application = application
+            collateral.save()
+            messages.success(request, "Collateral added successfully.")
+            create_audit_log(
+                request.user,
+                "CREATE",
+                "Collateral",
+                collateral.pk,
+                f"Added collateral for application {application.application_number}",
+            )
+
+            # Sync to Odoo opportunistically — same "save locally first,
+            # sync best-effort" pattern as add_guarantor/upload_document.
+            if application.odoo_application_id:
+                from core.services.odoo_sync import OdooSyncService
+                from django.utils import timezone
+
+                collateral.odoo_sync_status = Collateral.ODOO_SYNC_PENDING
+                collateral.odoo_sync_attempts += 1
+                collateral.odoo_last_sync_at = timezone.now()
+                collateral.save(update_fields=["odoo_sync_status", "odoo_sync_attempts", "odoo_last_sync_at"])
+                try:
+                    sync = OdooSyncService()
+                    result = sync.sync_collateral(application, collateral)
+                    collateral.odoo_collateral_id = result.get("odoo_collateral_id")
+                    collateral.odoo_sync_status = Collateral.ODOO_SYNC_SUCCESS
+                    collateral.odoo_sync_error = ""
+                    collateral.save(update_fields=["odoo_collateral_id", "odoo_sync_status", "odoo_sync_error"])
+
+                    for file_field, doc_type, doc_name in (
+                        (collateral.title_deed_file, "title_deed", "Title Deed"),
+                        (collateral.insurance_certificate_file, "insurance", "Insurance Certificate"),
+                        (collateral.valuation_report_file, "valuation", "Valuation Report"),
+                    ):
+                        if file_field:
+                            try:
+                                sync.sync_collateral_document(
+                                    collateral.odoo_collateral_id, file_field, doc_type, doc_name
+                                )
+                            except Exception as doc_exc:
+                                logger.warning(
+                                    "Collateral document sync failed: collateral_id=%s type=%s error=%s",
+                                    collateral.pk, doc_type, doc_exc,
+                                )
+                except Exception as exc:
+                    logger.warning(
+                        "Collateral sync to Odoo failed: collateral_id=%s app_id=%s error=%s",
+                        collateral.pk, application.pk, exc,
+                    )
+                    collateral.odoo_sync_status = Collateral.ODOO_SYNC_FAILED
+                    collateral.odoo_sync_error = str(exc)[:500]
+                    collateral.save(update_fields=["odoo_sync_status", "odoo_sync_error"])
+                    messages.warning(
+                        request,
+                        "Collateral was saved but could not be synced to Odoo yet. It will be retried automatically.",
+                    )
+            else:
+                collateral.odoo_sync_status = Collateral.ODOO_SYNC_PENDING
+                collateral.odoo_sync_error = "Application not yet synced to Odoo."
+                collateral.save(update_fields=["odoo_sync_status", "odoo_sync_error"])
+
+            return redirect("loans:application_detail", pk=application_pk)
+    else:
+        form = CollateralForm()
+
+    return render(
+        request,
+        "loans/customer/add_collateral.html",
         {"form": form, "application": application},
     )
 
