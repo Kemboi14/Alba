@@ -125,46 +125,56 @@
                     <!-- Customer Info -->
                     <table width="100%" style="margin-bottom: 20px; border-collapse: collapse;">
                         <tr>
-                            <td width="48%" style="padding: 12px 0; vertical-align: top; background-color: #ffffff;">
-                                <div style="margin-bottom: 12px;">
-                                    <div style="font-weight: 700; color: #0d2d5e; font-size: 12px; margin-bottom: 4px;">Customer Name</div>
-                                    <div style="color: #111827; font-size: 13px;">
-                                        <t t-esc="customer_name"/>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style="font-weight: 700; color: #0d2d5e; font-size: 12px; margin-bottom: 4px;">Address</div>
-                                    <div style="color: #111827; font-size: 13px;">
-                                        <t t-esc="customer_address"/>
+                            <td width="48%" style="padding: 0; vertical-align: top;">
+                                <div style="border: 1.5px solid #0d2d5e; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
+                                    <div style="background-color: #0d2d5e; color: #ffffff; padding: 7px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Customer Details</div>
+                                    <div style="background-color: #ffffff; padding: 14px 16px;">
+                                        <div style="margin-bottom: 12px;">
+                                            <div style="font-weight: 700; color: #0d2d5e; font-size: 12px; margin-bottom: 4px;">Customer Name</div>
+                                            <div style="color: #111827; font-size: 13px;">
+                                                <t t-esc="customer_name"/>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 700; color: #0d2d5e; font-size: 12px; margin-bottom: 4px;">Address</div>
+                                            <div style="color: #111827; font-size: 13px;">
+                                                <t t-esc="customer_address"/>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </td>
                             <td width="4%"/>
-                            <td width="48%" style="padding: 12px 0; vertical-align: top; background-color: #ffffff;">
-                                <table width="100%" style="border-collapse: collapse;">
-                                    <tr>
-                                        <td style="font-weight: 700; color: #0d2d5e; font-size: 12px; padding-bottom: 10px; vertical-align: top; width: 60%;">Account No.</td>
-                                        <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 10px; vertical-align: top; width: 8%;">:</td>
-                                        <td style="color: #111827; font-size: 13px; padding-bottom: 10px; vertical-align: top;"><t t-esc="account_number"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="font-weight: 700; color: #0d2d5e; font-size: 12px; padding-bottom: 10px; vertical-align: top;">Product</td>
-                                        <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 10px; vertical-align: top;">:</td>
-                                        <td style="color: #111827; font-size: 13px; padding-bottom: 10px; vertical-align: top;"><t t-esc="product_name"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="font-weight: 700; color: #0d2d5e; font-size: 12px; padding-bottom: 10px; vertical-align: top;">Period</td>
-                                        <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 10px; vertical-align: top;">:</td>
-                                        <td style="color: #111827; font-size: 13px; padding-bottom: 10px; vertical-align: top;">
-                                            <t t-esc="date_from"/> to <t t-esc="date_to"/>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="font-weight: 700; color: #0d2d5e; font-size: 12px; vertical-align: top;">Statement Date</td>
-                                        <td style="font-weight: 700; color: #0d2d5e; vertical-align: top;">:</td>
-                                        <td style="color: #111827; font-size: 13px; vertical-align: top;"><t t-esc="statement_date"/></td>
-                                    </tr>
-                                </table>
+                            <td width="48%" style="padding: 0; vertical-align: top;">
+                                <div style="border: 1.5px solid #0d2d5e; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
+                                    <div style="background-color: #0d2d5e; color: #ffffff; padding: 7px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Account Details</div>
+                                    <div style="background-color: #ffffff; padding: 14px 16px;">
+                                        <table width="100%" style="border-collapse: collapse;">
+                                            <tr>
+                                                <td style="font-weight: 700; color: #0d2d5e; font-size: 12px; padding-bottom: 10px; vertical-align: top; width: 60%;">Account No.</td>
+                                                <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 10px; vertical-align: top; width: 8%;">:</td>
+                                                <td style="color: #111827; font-size: 13px; padding-bottom: 10px; vertical-align: top;"><t t-esc="account_number"/></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-weight: 700; color: #0d2d5e; font-size: 12px; padding-bottom: 10px; vertical-align: top;">Product</td>
+                                                <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 10px; vertical-align: top;">:</td>
+                                                <td style="color: #111827; font-size: 13px; padding-bottom: 10px; vertical-align: top;"><t t-esc="product_name"/></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-weight: 700; color: #0d2d5e; font-size: 12px; padding-bottom: 10px; vertical-align: top;">Period</td>
+                                                <td style="font-weight: 700; color: #0d2d5e; padding-bottom: 10px; vertical-align: top;">:</td>
+                                                <td style="color: #111827; font-size: 13px; padding-bottom: 10px; vertical-align: top;">
+                                                    <t t-esc="date_from"/> to <t t-esc="date_to"/>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-weight: 700; color: #0d2d5e; font-size: 12px; vertical-align: top;">Statement Date</td>
+                                                <td style="font-weight: 700; color: #0d2d5e; vertical-align: top;">:</td>
+                                                <td style="color: #111827; font-size: 13px; vertical-align: top;"><t t-esc="statement_date"/></td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                     </table>
