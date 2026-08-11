@@ -30,6 +30,9 @@ Manages the full investor lifecycle:
         "alba_loans",
         "hr",
     ],
+    "external_dependencies": {
+        "python": ["xlsxwriter"],
+    },
     "data": [
         # Security — always first
         "security/security.xml",

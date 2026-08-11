@@ -3,9 +3,11 @@
 Investor Statement Preview Wizard
 ===================================
 Light-weight wizard launched from the Investor form that lets staff
-select a date range and immediately preview / download the PDF statement
-for that specific investor.  No need to navigate to the Statements menu.
+select a date range and immediately preview / download the PDF, CSV, or
+Excel statement for that specific investor.  No need to navigate to the
+Statements menu.
 """
+import base64
 from datetime import date, timedelta
 
 from odoo import _, api, fields, models
@@ -149,6 +151,20 @@ class InvestorStatementPreviewWizard(models.TransientModel):
 
         return report.report_action(stmt)
 
+    def action_download_csv(self):
+        """Generate (or retrieve) the statement and download it as CSV."""
+        self.ensure_one()
+        self._validate()
+        stmt = self._get_or_create_statement()
+        return self._download_export(stmt, "csv")
+
+    def action_download_xlsx(self):
+        """Generate (or retrieve) the statement and download it as Excel."""
+        self.ensure_one()
+        self._validate()
+        stmt = self._get_or_create_statement()
+        return self._download_export(stmt, "xlsx")
+
     def action_view_dynamic(self):
         """Open the interactive dynamic statement view (OWL client action)."""
         self.ensure_one()
@@ -186,6 +202,37 @@ class InvestorStatementPreviewWizard(models.TransientModel):
     # =========================================================================
     # Helpers
     # =========================================================================
+
+    def _download_export(self, statements, fmt):
+        """
+        Build a CSV/XLSX export for *statements* and return an act_url
+        action pointing at a freshly-created personal attachment (no
+        res_model/res_id, so it stays downloadable via the current user's
+        own-attachment access rule even after this transient wizard record
+        is later vacuumed).
+        """
+        mixin = self.env["alba.account.statement.report.mixin"]
+        if fmt == "csv":
+            content = mixin._generate_statement_csv(statements)
+            mimetype = "text/csv"
+        else:
+            content = mixin._generate_statement_xlsx(statements)
+            mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+        filename = mixin._statement_export_filename(
+            self.investor_id.investor_name, self.period_start, self.period_end, fmt
+        )
+        attachment = self.env["ir.attachment"].create({
+            "name": filename,
+            "type": "binary",
+            "datas": base64.b64encode(content),
+            "mimetype": mimetype,
+        })
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s?download=true" % attachment.id,
+            "target": "self",
+        }
 
     def _validate(self):
         if self.period_end < self.period_start:

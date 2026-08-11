@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import base64
 import logging
 from datetime import timedelta
 
@@ -316,6 +317,51 @@ class AlbaInvestmentStatement(models.Model):
             rec.write({"state": "draft"})
             rec.message_post(body=_("Statement reset to <b>Draft</b>."))
         return True
+
+    def action_download_statement_csv(self):
+        """Download the selected statement(s) as CSV."""
+        return self._download_statement_export("csv")
+
+    def action_download_statement_xlsx(self):
+        """Download the selected statement(s) as Excel."""
+        return self._download_statement_export("xlsx")
+
+    def _download_statement_export(self, fmt):
+        """
+        Build a CSV/XLSX export for `self` (one or more alba.investment.statement
+        records, e.g. multi-selected from the list view) and return an act_url
+        action pointing at a personal attachment — same mechanism as the
+        preview wizard's export buttons.
+        """
+        if not self:
+            raise UserError(_("Select at least one statement to export."))
+
+        mixin = self.env["alba.account.statement.report.mixin"]
+        if fmt == "csv":
+            content = mixin._generate_statement_csv(self)
+            mimetype = "text/csv"
+        else:
+            content = mixin._generate_statement_xlsx(self)
+            mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+        if len(self) == 1:
+            filename = mixin._statement_export_filename(
+                self.investor_id.investor_name, self.period_start, self.period_end, fmt
+            )
+        else:
+            filename = "Investment_Statements_%s.%s" % (fields.Date.today(), fmt)
+
+        attachment = self.env["ir.attachment"].create({
+            "name": filename,
+            "type": "binary",
+            "datas": base64.b64encode(content),
+            "mimetype": mimetype,
+        })
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s?download=true" % attachment.id,
+            "target": "self",
+        }
 
     # =========================================================================
     # Scheduled action (cron) — generate monthly statements for all investments

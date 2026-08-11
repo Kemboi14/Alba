@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
+import csv
+import io
+import re
 from datetime import date
+
+import xlsxwriter
 
 from odoo import api, models
 from odoo.tools import formatLang
@@ -608,6 +613,180 @@ class AccountStatementReportMixin(models.AbstractModel):
             "topup_lines": topup_lines,
             "withdrawal_lines": withdrawal_lines,
         }
+
+    # =========================================================================
+    # Spreadsheet export (CSV / XLSX) — same data as the PDF, different rendering
+    # =========================================================================
+
+    @api.model
+    def _safe_sheet_name(self, label, used_names):
+        """
+        Sanitize *label* into a valid, unique Excel worksheet name.
+
+        Excel forbids [ ] : * ? / \\ in sheet names and caps them at 31
+        characters. *used_names* is a set this method both reads and
+        mutates, so repeated calls across a batch never collide.
+        """
+        name = re.sub(r"[\[\]:\*\?/\\]", "-", self._clean_string(label) or "Statement")
+        name = name.strip() or "Statement"
+        name = name[:31]
+        base = name
+        suffix = 1
+        while name in used_names:
+            suffix += 1
+            tail = "-%d" % suffix
+            name = base[: 31 - len(tail)] + tail
+        used_names.add(name)
+        return name
+
+    @api.model
+    def _statement_export_filename(self, label, period_start, period_end, ext):
+        """Build a filesystem-safe export filename, e.g. Statement_Jane_Doe_2026-06-29_2026-07-28.xlsx"""
+        safe_label = re.sub(r"[^\w\-]+", "_", self._clean_string(label) or "Statement").strip("_")
+        return "Statement_%s_%s_%s.%s" % (
+            safe_label or "Statement",
+            period_start or "",
+            period_end or "",
+            ext,
+        )
+
+    @api.model
+    def _generate_statement_csv(self, statements):
+        """
+        Build a CSV export covering one or more alba.investment.statement
+        records — the exact same header/ledger/totals data as the PDF,
+        just as plain rows instead of a QWeb layout.
+
+        Returns UTF-8 (with BOM, for correct Excel auto-detection) bytes.
+        """
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+
+        for stmt in statements:
+            payload = self._report_payload_from_statement(stmt)
+            currency_name = payload["currency"].name if payload["currency"] else ""
+
+            writer.writerow(["Alba Capital — Investment Account Statement"])
+            writer.writerow(["Investor", payload["customer_name"]])
+            writer.writerow(["Account / Investment No.", payload["account_number"]])
+            writer.writerow(["Product", payload["product_name"]])
+            writer.writerow(["Period", "%s to %s" % (payload["date_from"], payload["date_to"])])
+            writer.writerow(["Statement Date", payload["statement_date"]])
+            writer.writerow(["Currency", currency_name])
+            writer.writerow([])
+
+            writer.writerow(["Date", "Description", "Type", "Debit", "Credit", "Balance"])
+            for line in payload["lines"]:
+                writer.writerow([
+                    line["date"],
+                    line["description"],
+                    line["type_label"],
+                    round(line["debit"], 2) if line["debit"] else "",
+                    round(line["credit"], 2) if line["credit"] else "",
+                    round(line["balance"], 2),
+                ])
+            writer.writerow([])
+
+            writer.writerow(["Total Debit", round(payload["total_debit"], 2)])
+            writer.writerow(["Total Credit", round(payload["total_credit"], 2)])
+            writer.writerow(["Closing Balance", round(stmt.closing_balance, 2)])
+            writer.writerow(["WHT Rate (%)", stmt.wht_rate])
+            writer.writerow(["WHT Deducted", round(stmt.wht_amount, 2)])
+            writer.writerow(["Net Interest", round(stmt.net_interest, 2)])
+            writer.writerow([])
+            writer.writerow([])
+
+        return buffer.getvalue().encode("utf-8-sig")
+
+    @api.model
+    def _generate_statement_xlsx(self, statements):
+        """
+        Build an XLSX export covering one or more alba.investment.statement
+        records — one worksheet per statement, same data as the PDF/CSV.
+
+        Returns the workbook's raw bytes.
+        """
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {"in_memory": True})
+
+        fmt_title = workbook.add_format({"bold": True, "font_size": 14, "font_color": "#0d2d5e"})
+        fmt_label = workbook.add_format({"bold": True, "font_color": "#374151"})
+        fmt_value = workbook.add_format({"font_color": "#111827"})
+        fmt_header = workbook.add_format({
+            "bold": True,
+            "bg_color": "#0d2d5e",
+            "font_color": "#ffffff",
+            "border": 1,
+            "align": "center",
+            "valign": "vcenter",
+        })
+        fmt_cell = workbook.add_format({"border": 1})
+        fmt_number = workbook.add_format({"border": 1, "num_format": "#,##0.00"})
+        fmt_total_label = workbook.add_format({"bold": True, "border": 1})
+        fmt_total_number = workbook.add_format({"bold": True, "border": 1, "num_format": "#,##0.00"})
+
+        used_names = set()
+        for stmt in statements:
+            payload = self._report_payload_from_statement(stmt)
+            currency_name = payload["currency"].name if payload["currency"] else ""
+            sheet_name = self._safe_sheet_name(payload["account_number"] or stmt.reference, used_names)
+            ws = workbook.add_worksheet(sheet_name)
+
+            ws.set_column(0, 0, 14)
+            ws.set_column(1, 1, 44)
+            ws.set_column(2, 2, 16)
+            ws.set_column(3, 5, 16)
+
+            row = 0
+            ws.merge_range(row, 0, row, 5, "Alba Capital — Investment Account Statement", fmt_title)
+            row += 1
+
+            header_rows = [
+                ("Investor", payload["customer_name"]),
+                ("Account / Investment No.", payload["account_number"]),
+                ("Product", payload["product_name"]),
+                ("Period", "%s to %s" % (payload["date_from"], payload["date_to"])),
+                ("Statement Date", payload["statement_date"]),
+                ("Currency", currency_name),
+            ]
+            for label, value in header_rows:
+                ws.write(row, 0, label, fmt_label)
+                ws.write(row, 1, value, fmt_value)
+                row += 1
+            row += 1
+
+            table_header_row = row
+            for col, title in enumerate(["Date", "Description", "Type", "Debit", "Credit", "Balance"]):
+                ws.write(row, col, title, fmt_header)
+            row += 1
+            ws.freeze_panes(row, 0)
+
+            for line in payload["lines"]:
+                ws.write(row, 0, line["date"], fmt_cell)
+                ws.write(row, 1, line["description"], fmt_cell)
+                ws.write(row, 2, line["type_label"], fmt_cell)
+                ws.write_number(row, 3, round(line["debit"], 2) if line["debit"] else 0.0, fmt_number)
+                ws.write_number(row, 4, round(line["credit"], 2) if line["credit"] else 0.0, fmt_number)
+                ws.write_number(row, 5, round(line["balance"], 2), fmt_number)
+                row += 1
+
+            row += 1
+            summary_rows = [
+                ("Total Debit", payload["total_debit"]),
+                ("Total Credit", payload["total_credit"]),
+                ("Closing Balance", stmt.closing_balance),
+                ("WHT Deducted", stmt.wht_amount),
+                ("Net Interest", stmt.net_interest),
+            ]
+            for label, value in summary_rows:
+                ws.write(row, 0, label, fmt_total_label)
+                ws.write_number(row, 1, round(value, 2), fmt_total_number)
+                row += 1
+
+            ws.autofilter(table_header_row, 0, row - len(summary_rows) - 2, 5)
+
+        workbook.close()
+        return output.getvalue()
 
 
 class ReportInvestmentStatement(models.AbstractModel):

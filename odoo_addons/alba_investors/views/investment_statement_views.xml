@@ -52,6 +52,20 @@
                             icon="fa-file-pdf-o"
                             invisible="state == 'draft'"
                         />
+                    <button
+                            name="action_download_statement_csv"
+                            string="Download CSV"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-file-text-o"
+                        />
+                    <button
+                            name="action_download_statement_xlsx"
+                            string="Download Excel"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-file-excel-o"
+                        />
                     <field
                             name="state"
                             widget="statusbar"
@@ -187,6 +201,18 @@
                         icon="fa-file-pdf-o"
                         title="Print / Download PDF"
                     />
+                <button
+                        name="action_download_statement_csv"
+                        type="object"
+                        icon="fa-file-text-o"
+                        title="Download CSV"
+                    />
+                <button
+                        name="action_download_statement_xlsx"
+                        type="object"
+                        icon="fa-file-excel-o"
+                        title="Download Excel"
+                    />
             </list>
         </field>
     </record>
@@ -235,6 +261,28 @@
                 />
             </search>
         </field>
+    </record>
+
+    <!-- ================================================================
+         alba.investment.statement — Bulk export server actions
+         (appear in the list view's Action/gear menu, single or multi-select)
+         ================================================================ -->
+    <record id="action_server_export_statements_csv" model="ir.actions.server">
+        <field name="name">Export to CSV</field>
+        <field name="model_id" ref="model_alba_investment_statement" />
+        <field name="binding_model_id" ref="model_alba_investment_statement" />
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_download_statement_csv()</field>
+    </record>
+
+    <record id="action_server_export_statements_xlsx" model="ir.actions.server">
+        <field name="name">Export to Excel</field>
+        <field name="model_id" ref="model_alba_investment_statement" />
+        <field name="binding_model_id" ref="model_alba_investment_statement" />
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_download_statement_xlsx()</field>
     </record>
 
     <!-- ================================================================

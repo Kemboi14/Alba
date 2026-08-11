@@ -86,6 +86,16 @@
                             type="object"
                             class="btn-secondary"
                             icon="fa-file-pdf-o"/>
+                    <button name="action_download_csv"
+                            string="Download CSV"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-file-text-o"/>
+                    <button name="action_download_xlsx"
+                            string="Download Excel"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-file-excel-o"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
