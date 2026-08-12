@@ -131,7 +131,6 @@ class AlbaInvestment(models.Model):
         string="Status",
         default="draft",
         required=True,
-        tracking=True,
         index=True,
     )
 

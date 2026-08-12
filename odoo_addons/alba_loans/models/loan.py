@@ -156,7 +156,6 @@ class AlbaLoan(models.Model):
         store=True,
         required=True,
         index=True,
-        tracking=True,
     )
     provision_rate = fields.Float(
         string="Provision Rate (%)",

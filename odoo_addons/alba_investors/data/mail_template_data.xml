@@ -12,16 +12,16 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.investor_id.investor_name }}</strong>,<br/><br/>
-                        Your investment account <strong>{{ object.investment_number }}</strong> has been successfully activated.<br/><br/>
+                        Dear <strong t-out="object.investor_id.investor_name"/>,<br/><br/>
+                        Your investment account <strong t-out="object.investment_number"/> has been successfully activated.<br/><br/>
                         <strong>Investment Details:</strong><br/>
-                        - Principal Amount: {{ object.currency_id.symbol }} {{ object.principal_amount }}<br/>
-                        - Interest Rate: {{ object.interest_rate }}% per annum<br/>
-                        - Compounding: {{ object.compounding_frequency }}<br/>
-                        - Start Date: {{ object.start_date }}<br/><br/>
+                        - Principal Amount: <t t-out="object.currency_id.symbol"/> <t t-out="object.principal_amount"/><br/>
+                        - Interest Rate: <t t-out="object.interest_rate"/>% per annum<br/>
+                        - Compounding: <t t-out="object.compounding_frequency"/><br/>
+                        - Start Date: <t t-out="object.start_date"/><br/><br/>
                         Thank you for investing with us.<br/><br/>
                         Best regards,<br/>
-                        <strong>{{ object.company_id.name }}</strong>
+                        <strong t-out="object.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -37,15 +37,15 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.investment_id.investor_id.investor_name }}</strong>,<br/><br/>
-                        Interest has been credited to your investment account <strong>{{ object.investment_id.investment_number }}</strong>.<br/><br/>
+                        Dear <strong t-out="object.investment_id.investor_id.investor_name"/>,<br/><br/>
+                        Interest has been credited to your investment account <strong t-out="object.investment_id.investment_number"/>.<br/><br/>
                         <strong>Accrual Details:</strong><br/>
-                        - Amount: {{ object.currency_id.symbol }} {{ object.interest_amount }}<br/>
-                        - Period: {{ object.period_start }} to {{ object.period_end }}<br/>
-                        - New Portfolio Value: {{ object.currency_id.symbol }} {{ object.investment_id.current_value }}<br/><br/>
+                        - Amount: <t t-out="object.currency_id.symbol"/> <t t-out="object.interest_amount"/><br/>
+                        - Period: <t t-out="object.period_start"/> to <t t-out="object.period_end"/><br/>
+                        - New Portfolio Value: <t t-out="object.currency_id.symbol"/> <t t-out="object.investment_id.current_value"/><br/><br/>
                         Thank you for your continued partnership.<br/><br/>
                         Best regards,<br/>
-                        <strong>{{ object.investment_id.company_id.name }}</strong>
+                        <strong t-out="object.investment_id.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -61,17 +61,17 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.investor_id.investor_name }}</strong>,<br/><br/>
-                        Please find below your investment statement for the period <strong>{{ object.period_start }}</strong> to <strong>{{ object.period_end }}</strong>.<br/><br/>
+                        Dear <strong t-out="object.investor_id.investor_name"/>,<br/><br/>
+                        Please find below your investment statement for the period <strong t-out="object.period_start"/> to <strong t-out="object.period_end"/>.<br/><br/>
                         <strong>Summary:</strong><br/>
-                        - Opening Balance: {{ object.currency_id.symbol }} {{ object.opening_balance }}<br/>
-                        - Interest Accrued: {{ object.currency_id.symbol }} {{ object.interest_accrued }}<br/>
-                        - Deposits: {{ object.currency_id.symbol }} {{ object.deposits }}<br/>
-                        - Withdrawals: {{ object.currency_id.symbol }} {{ object.withdrawals }}<br/>
-                        - Closing Balance: {{ object.currency_id.symbol }} {{ object.closing_balance }}<br/><br/>
+                        - Opening Balance: <t t-out="object.currency_id.symbol"/> <t t-out="object.opening_balance"/><br/>
+                        - Interest Accrued: <t t-out="object.currency_id.symbol"/> <t t-out="object.interest_accrued"/><br/>
+                        - Deposits: <t t-out="object.currency_id.symbol"/> <t t-out="object.deposits"/><br/>
+                        - Withdrawals: <t t-out="object.currency_id.symbol"/> <t t-out="object.withdrawals"/><br/>
+                        - Closing Balance: <t t-out="object.currency_id.symbol"/> <t t-out="object.closing_balance"/><br/><br/>
                         The full details are available on your online portal.<br/><br/>
                         Thank you,<br/>
-                        <strong>{{ object.company_id.name }}</strong>
+                        <strong t-out="object.company_id.name"/>
                     </p>
                 </div>
             </field>

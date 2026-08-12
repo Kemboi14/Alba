@@ -12,18 +12,18 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.customer_id.employer_id.name }}</strong>,<br/><br/>
+                        Dear <strong t-out="object.customer_id.employer_id.name"/>,<br/><br/>
                         We have received a loan application from your employee,
-                        <strong>{{ object.customer_id.display_name }}</strong>,
+                        <strong t-out="object.customer_id.display_name"/>,
                         who has listed your organization as their current employer.<br/><br/>
                         Please confirm the following details for our credit assessment:<br/>
-                        - Job Title: {{ object.customer_id.job_title or 'N/A' }}<br/>
-                        - Employment Type: {{ object.customer_id.employment_type or 'N/A' }}<br/>
-                        - Monthly Net Income: {{ object.currency_id.symbol }} {{ object.customer_id.monthly_income or '0.00' }}<br/><br/>
+                        - Job Title: <t t-out="object.customer_id.job_title">N/A</t><br/>
+                        - Employment Type: <t t-out="object.customer_id.employment_type">N/A</t><br/>
+                        - Monthly Net Income: <t t-out="object.currency_id.symbol"/> <t t-out="object.customer_id.monthly_income">0.00</t><br/><br/>
                         You can reply to this email to confirm or provide further details.<br/><br/>
                         Thank you,<br/>
                         The Credit Team<br/>
-                        <strong>{{ object.company_id.name }}</strong>
+                        <strong t-out="object.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -39,16 +39,16 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.guarantor_id.name }}</strong>,<br/><br/>
+                        Dear <strong t-out="object.guarantor_id.name"/>,<br/><br/>
                         You have been listed as a guarantor for a loan application by
-                        <strong>{{ object.customer_id.display_name }}</strong>
+                        <strong t-out="object.customer_id.display_name"/>
                         for the amount of
-                        <strong>{{ object.currency_id.symbol }} {{ object.guarantee_amount }}</strong>.<br/><br/>
+                        <strong><t t-out="object.currency_id.symbol"/> <t t-out="object.guarantee_amount"/></strong>.<br/><br/>
                         Please confirm your willingness to act as a guarantor for this loan.<br/><br/>
                         Your confirmation code is:
-                        <strong style="font-size: 18px; color: #004a99;">{{ object.confirmation_code }}</strong><br/><br/>
+                        <strong style="font-size: 18px; color: #004a99;" t-out="object.confirmation_code"/><br/><br/>
                         Thank you,<br/>
-                        <strong>{{ object.loan_application_id.company_id.name }}</strong>
+                        <strong t-out="object.loan_application_id.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -64,16 +64,16 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
-                        Your loan application <strong>{{ object.application_number }}</strong> has been successfully
+                        Dear <strong t-out="object.customer_id.display_name"/>,<br/><br/>
+                        Your loan application <strong t-out="object.application_number"/> has been successfully
                         submitted and is now under review by our credit team.<br/><br/>
                         <strong>Application Details:</strong><br/>
-                        - Product: {{ object.loan_product_id.name }}<br/>
-                        - Amount: {{ object.currency_id.symbol }} {{ object.requested_amount }}<br/>
-                        - Tenure: {{ object.tenure_months }} Months<br/><br/>
+                        - Product: <t t-out="object.loan_product_id.name"/><br/>
+                        - Amount: <t t-out="object.currency_id.symbol"/> <t t-out="object.requested_amount"/><br/>
+                        - Tenure: <t t-out="object.tenure_months"/> Months<br/><br/>
                         We will notify you once the review is complete.<br/><br/>
                         Thank you,<br/>
-                        <strong>{{ object.company_id.name }}</strong>
+                        <strong t-out="object.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -89,20 +89,19 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
-                        Great news! Your loan application <strong>{{ object.application_number }}</strong> has been
+                        Dear <strong t-out="object.customer_id.display_name"/>,<br/><br/>
+                        Great news! Your loan application <strong t-out="object.application_number"/> has been
                         <strong>APPROVED</strong> for the amount of
-                        <strong>{{ object.currency_id.symbol }} {{ object.approved_amount }}</strong>.<br/><br/>
+                        <strong><t t-out="object.currency_id.symbol"/> <t t-out="object.approved_amount"/></strong>.<br/><br/>
                         Our team will contact you shortly regarding the next steps for disbursement.<br/><br/>
                         Thank you,<br/>
-                        <strong>{{ object.company_id.name }}</strong>
+                        <strong t-out="object.company_id.name"/>
                     </p>
                 </div>
             </field>
         </record>
 
         <!-- ── Application Rejected ────────────────────────────── -->
-        <!-- FIX: '% if' / '% endif' replaced with proper Jinja2 '{% if %}' / '{% endif %}' blocks -->
         <record id="email_template_application_rejected" model="mail.template">
             <field name="name">Loan Application: Rejected</field>
             <field name="model_id" ref="alba_loans.model_alba_loan_application"/>
@@ -112,16 +111,16 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        Dear <strong t-out="object.customer_id.display_name"/>,<br/><br/>
                         We regret to inform you that your loan application
-                        <strong>{{ object.application_number }}</strong>
+                        <strong t-out="object.application_number"/>
                         has not been approved at this time.<br/><br/>
-                        {% if object.rejection_reason %}
-                        <strong>Reason:</strong> {{ object.rejection_reason }}<br/><br/>
-                        {% endif %}
+                        <t t-if="object.rejection_reason">
+                        <strong>Reason:</strong> <t t-out="object.rejection_reason"/><br/><br/>
+                        </t>
                         Thank you for considering us for your financial needs.<br/><br/>
                         Best regards,<br/>
-                        <strong>{{ object.company_id.name }}</strong>
+                        <strong t-out="object.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -137,13 +136,13 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
-                        Your loan <strong>{{ object.application_number }}</strong> has been
+                        Dear <strong t-out="object.customer_id.display_name"/>,<br/><br/>
+                        Your loan <strong t-out="object.application_number"/> has been
                         <strong>DISBURSED</strong>. The funds should be available in your account shortly.<br/><br/>
                         Your first repayment is due on
-                        {{ object.loan_id.next_payment_date or 'the scheduled date' }}.<br/><br/>
+                        <t t-out="object.loan_id.next_payment_date">the scheduled date</t>.<br/><br/>
                         Thank you,<br/>
-                        <strong>{{ object.company_id.name }}</strong>
+                        <strong t-out="object.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -159,21 +158,20 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.partner_id.name }}</strong>,<br/><br/>
-                        Your loan top-up request <strong>{{ object.name }}</strong> has been disbursed.<br/><br/>
+                        Dear <strong t-out="object.partner_id.name"/>,<br/><br/>
+                        Your loan top-up request <strong t-out="object.name"/> has been disbursed.<br/><br/>
                         <strong>Details:</strong><br/>
-                        - Top-Up Amount: {{ object.currency_id.symbol }} {{ object.topup_amount }}<br/>
-                        - New Principal: {{ object.currency_id.symbol }} {{ object.new_principal }}<br/><br/>
+                        - Top-Up Amount: <t t-out="object.currency_id.symbol"/> <t t-out="object.topup_amount"/><br/>
+                        - New Principal: <t t-out="object.currency_id.symbol"/> <t t-out="object.new_principal"/><br/><br/>
                         Thank you for choosing us.<br/><br/>
                         Best regards,<br/>
-                        <strong>{{ object.loan_id.company_id.name }}</strong>
+                        <strong t-out="object.loan_id.company_id.name"/>
                     </p>
                 </div>
             </field>
         </record>
 
         <!-- ── Partial Payoff ─────────────────────────────────── -->
-        <!-- FIX: inline str() ternary replaced with {% if %} / {% else %} / {% endif %} block -->
         <record id="email_template_partial_payoff" model="mail.template">
             <field name="name">Loan: Partial Payoff Applied</field>
             <field name="model_id" ref="alba_loans.model_alba_loan_partial_payoff"/>
@@ -183,22 +181,23 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.partner_id.name }}</strong>,<br/><br/>
+                        Dear <strong t-out="object.partner_id.name"/>,<br/><br/>
                         We have successfully applied your partial payoff of
-                        <strong>{{ object.currency_id.symbol }} {{ object.payoff_amount }}</strong>
+                        <strong><t t-out="object.currency_id.symbol"/> <t t-out="object.payoff_amount"/></strong>
                         to your loan.<br/><br/>
                         <strong>Impact:</strong><br/>
-                        - Interest Saved: {{ object.currency_id.symbol }} {{ object.interest_saved }}<br/>
-                        - New Outstanding: {{ object.currency_id.symbol }} {{ object.new_outstanding }}<br/>
-                        {% if object.reduction_mode == 'reduce_emi' %}
-                        - New EMI: {{ object.currency_id.symbol }} {{ object.new_emi }}<br/>
-                        {% else %}
-                        - New Tenure: {{ object.new_tenure }} months<br/>
-                        {% endif %}
+                        - Interest Saved: <t t-out="object.currency_id.symbol"/> <t t-out="object.interest_saved"/><br/>
+                        - New Outstanding: <t t-out="object.currency_id.symbol"/> <t t-out="object.new_outstanding"/><br/>
+                        <t t-if="object.reduction_mode == 'reduce_emi'">
+                        - New EMI: <t t-out="object.currency_id.symbol"/> <t t-out="object.new_emi"/><br/>
+                        </t>
+                        <t t-else="">
+                        - New Tenure: <t t-out="object.new_tenure"/> months<br/>
+                        </t>
                         <br/>
                         Thank you for your timely payment.<br/><br/>
                         Best regards,<br/>
-                        <strong>{{ object.loan_id.company_id.name }}</strong>
+                        <strong t-out="object.loan_id.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -214,15 +213,15 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.partner_id.name }}</strong>,<br/><br/>
+                        Dear <strong t-out="object.partner_id.name"/>,<br/><br/>
                         Your payment holiday request has been <strong>ACTIVATED</strong>.<br/><br/>
                         <strong>Period:</strong><br/>
-                        - Start Date: {{ object.start_date }}<br/>
-                        - End Date: {{ object.end_date }}<br/>
-                        - Duration: {{ object.holiday_months }} Months<br/><br/>
+                        - Start Date: <t t-out="object.start_date"/><br/>
+                        - End Date: <t t-out="object.end_date"/><br/>
+                        - Duration: <t t-out="object.holiday_months"/> Months<br/><br/>
                         Your repayments will resume after the holiday period ends.<br/><br/>
                         Best regards,<br/>
-                        <strong>{{ object.loan_id.company_id.name }}</strong>
+                        <strong t-out="object.loan_id.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -238,16 +237,16 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.partner_id.name }}</strong>,<br/><br/>
+                        Dear <strong t-out="object.partner_id.name"/>,<br/><br/>
                         Your loan refinance process is now <strong>COMPLETE</strong>.<br/><br/>
                         <strong>Summary:</strong><br/>
-                        - Old Loan: {{ object.original_loan_id.loan_number }} (Settled)<br/>
-                        - New Loan: {{ object.new_loan_id.loan_number }} (Active)<br/>
-                        - New Principal: {{ object.currency_id.symbol }} {{ object.new_principal }}<br/>
-                        - Monthly Savings: {{ object.currency_id.symbol }} {{ object.monthly_savings }}<br/><br/>
+                        - Old Loan: <t t-out="object.original_loan_id.loan_number"/> (Settled)<br/>
+                        - New Loan: <t t-out="object.new_loan_id.loan_number"/> (Active)<br/>
+                        - New Principal: <t t-out="object.currency_id.symbol"/> <t t-out="object.new_principal"/><br/>
+                        - Monthly Savings: <t t-out="object.currency_id.symbol"/> <t t-out="object.monthly_savings"/><br/><br/>
                         Thank you for your continued trust in us.<br/><br/>
                         Best regards,<br/>
-                        <strong>{{ object.original_loan_id.company_id.name }}</strong>
+                        <strong t-out="object.original_loan_id.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -265,23 +264,22 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.partner_id.name }}</strong>,<br/><br/>
+                        Dear <strong t-out="object.partner_id.name"/>,<br/><br/>
                         We have successfully consolidated your loans into a single account.<br/><br/>
                         <strong>Summary:</strong><br/>
-                        - Loans Merged: {{ object.loan_count }}<br/>
-                        - New Loan Account: {{ object.new_loan_id.loan_number }}<br/>
-                        - New Monthly EMI: {{ object.currency_id.symbol }} {{ object.new_emi }}<br/>
-                        - Monthly Savings: {{ object.currency_id.symbol }} {{ object.monthly_savings }}<br/><br/>
+                        - Loans Merged: <t t-out="object.loan_count"/><br/>
+                        - New Loan Account: <t t-out="object.new_loan_id.loan_number"/><br/>
+                        - New Monthly EMI: <t t-out="object.currency_id.symbol"/> <t t-out="object.new_emi"/><br/>
+                        - Monthly Savings: <t t-out="object.currency_id.symbol"/> <t t-out="object.monthly_savings"/><br/><br/>
                         Please refer to the attached schedule for your new repayment plan.<br/><br/>
                         Best regards,<br/>
-                        <strong>{{ object.new_loan_id.company_id.name }}</strong>
+                        <strong t-out="object.new_loan_id.company_id.name"/>
                     </p>
                 </div>
             </field>
         </record>
 
         <!-- ── Loan Closed / Fully Repaid ──────────────────────────── -->
-        <!-- FIX: object.write_date formatted with strftime for a human-readable date -->
         <record id="email_template_loan_closed" model="mail.template">
             <field name="name">Loan: Fully Repaid / Closed</field>
             <field name="model_id" ref="alba_loans.model_alba_loan"/>
@@ -291,17 +289,17 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
-                        Congratulations! Your loan <strong>{{ object.loan_number }}</strong> has been
+                        Dear <strong t-out="object.customer_id.display_name"/>,<br/><br/>
+                        Congratulations! Your loan <strong t-out="object.loan_number"/> has been
                         <strong>FULLY REPAID</strong> and is now closed.<br/><br/>
                         <strong>Summary:</strong><br/>
-                        - Loan Number: {{ object.loan_number }}<br/>
-                        - Total Repaid: {{ object.currency_id.symbol }} {{ object.total_paid }}<br/>
-                        - Closed On: {{ object.write_date.strftime('%d %B %Y') }}<br/><br/>
+                        - Loan Number: <t t-out="object.loan_number"/><br/>
+                        - Total Repaid: <t t-out="object.currency_id.symbol"/> <t t-out="object.total_paid"/><br/>
+                        - Closed On: <t t-out="object.write_date.strftime('%d %B %Y')"/><br/><br/>
                         Thank you for your commitment to repaying your loan on time.
                         We look forward to serving you again.<br/><br/>
                         Best regards,<br/>
-                        <strong>{{ object.company_id.name }}</strong>
+                        <strong t-out="object.company_id.name"/>
                     </p>
                 </div>
             </field>
@@ -317,21 +315,21 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        Dear <strong t-out="object.customer_id.display_name"/>,<br/><br/>
                         This is an urgent notice regarding your loan
-                        <strong>{{ object.loan_number }}</strong>.<br/><br/>
+                        <strong t-out="object.loan_number"/>.<br/><br/>
                         Your loan is currently
-                        <strong>{{ object.days_in_arrears }} days overdue</strong> with an
+                        <strong><t t-out="object.days_in_arrears"/> days overdue</strong> with an
                         outstanding arrears amount of
-                        <strong>{{ object.currency_id.symbol }} {{ object.arrears_amount }}</strong>.<br/><br/>
+                        <strong><t t-out="object.currency_id.symbol"/> <t t-out="object.arrears_amount"/></strong>.<br/><br/>
                         <strong>Immediate action is required</strong> to avoid further penalties
                         and legal proceedings.<br/><br/>
                         Please contact us immediately:<br/>
-                        - Outstanding Balance: {{ object.currency_id.symbol }} {{ object.outstanding_balance }}<br/>
-                        - Days Overdue: {{ object.days_in_arrears }}<br/><br/>
+                        - Outstanding Balance: <t t-out="object.currency_id.symbol"/> <t t-out="object.outstanding_balance"/><br/>
+                        - Days Overdue: <t t-out="object.days_in_arrears"/><br/><br/>
                         Failure to respond may result in legal action and credit bureau reporting.<br/><br/>
                         Regards,<br/>
-                        <strong>{{ object.company_id.name }} — Collections Team</strong>
+                        <strong><t t-out="object.company_id.name"/> — Collections Team</strong>
                     </p>
                 </div>
             </field>
@@ -347,19 +345,19 @@
             <field name="body_html" type="html">
                 <div style="margin: 0px; padding: 0px;">
                     <p style="margin: 0px; padding: 0px; font-size: 13px;">
-                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        Dear <strong t-out="object.customer_id.display_name"/>,<br/><br/>
                         We have received your payment of
-                        <strong>{{ object.currency_id.symbol }} {{ object.amount_paid }}</strong>
-                        towards loan <strong>{{ object.loan_id.loan_number }}</strong>.<br/><br/>
+                        <strong><t t-out="object.currency_id.symbol"/> <t t-out="object.amount_paid"/></strong>
+                        towards loan <strong t-out="object.loan_id.loan_number"/>.<br/><br/>
                         <strong>Payment Details:</strong><br/>
-                        - Reference: {{ object.payment_reference }}<br/>
-                        - Date: {{ object.payment_date }}<br/>
-                        - Principal: {{ object.currency_id.symbol }} {{ object.principal_component }}<br/>
-                        - Interest: {{ object.currency_id.symbol }} {{ object.interest_component }}<br/>
-                        - Outstanding Balance: {{ object.currency_id.symbol }} {{ object.loan_id.outstanding_balance }}<br/><br/>
+                        - Reference: <t t-out="object.payment_reference"/><br/>
+                        - Date: <t t-out="object.payment_date"/><br/>
+                        - Principal: <t t-out="object.currency_id.symbol"/> <t t-out="object.principal_component"/><br/>
+                        - Interest: <t t-out="object.currency_id.symbol"/> <t t-out="object.interest_component"/><br/>
+                        - Outstanding Balance: <t t-out="object.currency_id.symbol"/> <t t-out="object.loan_id.outstanding_balance"/><br/><br/>
                         Thank you for your payment.<br/><br/>
                         Best regards,<br/>
-                        <strong>{{ object.company_id.name }}</strong>
+                        <strong t-out="object.company_id.name"/>
                     </p>
                 </div>
             </field>
