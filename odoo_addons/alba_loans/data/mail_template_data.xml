@@ -345,4 +345,25 @@
             <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
             <field name="email_to">{{ object.customer_id.email }}</field>
             <field name="body_html" type="html">
-                <div style="margin: 0px; padding: 0px;
+                <div style="margin: 0px; padding: 0px;">
+                    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                        Dear <strong>{{ object.customer_id.display_name }}</strong>,<br/><br/>
+                        We have received your payment of
+                        <strong>{{ object.currency_id.symbol }} {{ object.amount_paid }}</strong>
+                        towards loan <strong>{{ object.loan_id.loan_number }}</strong>.<br/><br/>
+                        <strong>Payment Details:</strong><br/>
+                        - Reference: {{ object.payment_reference }}<br/>
+                        - Date: {{ object.payment_date }}<br/>
+                        - Principal: {{ object.currency_id.symbol }} {{ object.principal_component }}<br/>
+                        - Interest: {{ object.currency_id.symbol }} {{ object.interest_component }}<br/>
+                        - Outstanding Balance: {{ object.currency_id.symbol }} {{ object.loan_id.outstanding_balance }}<br/><br/>
+                        Thank you for your payment.<br/><br/>
+                        Best regards,<br/>
+                        <strong>{{ object.company_id.name }}</strong>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+    </data>
+</odoo>
