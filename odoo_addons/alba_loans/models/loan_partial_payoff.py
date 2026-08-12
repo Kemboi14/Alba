@@ -502,10 +502,22 @@ class AlbaLoanPartialPayoff(models.Model):
                 else:
                     pay_method = 'bank_transfer'
 
+            # Force the full payoff amount to principal — a partial payoff is
+            # a voluntary extra principal reduction (see _compute_reduction:
+            # "Principal reduction = payoff amount"), not a regular
+            # instalment payment. Without an explicit principal_component,
+            # action_post()'s auto-allocation would divert part of it to any
+            # outstanding penalty/interest first, leaving the schedule and
+            # loan.principal_amount (reduced by the full payoff_amount below)
+            # out of sync with what the repayment actually recorded.
             repayment = self.env["alba.loan.repayment"].create({
                 "loan_id": loan.id,
                 "payment_date": rec.payment_date or fields.Date.today(),
                 "amount_paid": rec.payoff_amount,
+                "principal_component": rec.payoff_amount,
+                "interest_component": 0.0,
+                "fees_component": 0.0,
+                "penalty_component": 0.0,
                 "payment_method": pay_method,
                 "payment_reference": rec.payment_reference or rec.name,
                 "journal_id": rec.journal_id.id,

@@ -13,6 +13,7 @@
                   decoration-success="state == 'completed'"
                   decoration-info="state == 'quoted'">
                 <field name="name"/>
+                <field name="currency_id" column_invisible="1"/>
                 <field name="customer_id"/>
                 <field name="journal_id"/>
                 <field name="loan_count"/>

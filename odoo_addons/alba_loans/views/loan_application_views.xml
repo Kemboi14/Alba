@@ -214,6 +214,7 @@
                   decoration-danger="state in ('rejected','declined')"
                   decoration-warning="state in ('pending_approval','deferred')">
                 <field name="application_number"/>
+                <field name="currency_id" column_invisible="1"/>
                 <field name="application_date" optional="show"/>
                 <field name="customer_id"/>
                 <field name="journal_id" optional="hide"/>

@@ -339,12 +339,12 @@
                 <filter
                     string="Today"
                     name="today"
-                    domain="[('create_date','&gt;=','2026-03-24')]"
+                    domain="[('create_date','&gt;=', context_today().strftime('%Y-%m-%d'))]"
                 />
                 <filter
                     string="This Month"
                     name="this_month"
-                    domain="[('create_date','&gt;=','2026-03-01')]"
+                    domain="[('create_date','&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d'))]"
                 />
             </search>
         </field>

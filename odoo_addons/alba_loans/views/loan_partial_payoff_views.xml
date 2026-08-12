@@ -17,6 +17,7 @@
                   decoration-info="state == 'quoted'"
                   decoration-warning="state == 'expired'">
                 <field name="name"/>
+                <field name="currency_id" column_invisible="1"/>
                 <field name="loan_id"/>
                 <field name="customer_id"/>
                 <field name="payoff_amount"/>

@@ -11,6 +11,7 @@
         <field name="arch" type="xml">
             <list decoration-muted="state=='cancelled'" decoration-success="state=='disbursed'" decoration-info="state=='pending'" decoration-danger="state=='rejected'">
                 <field name="name"/>
+                <field name="currency_id" column_invisible="1"/>
                 <field name="loan_id"/>
                 <field name="customer_id"/>
                 <field name="topup_amount"/>

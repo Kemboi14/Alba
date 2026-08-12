@@ -452,52 +452,136 @@ class AlbaLoanConsolidation(models.Model):
             rec.message_post(body=_("Consolidation approved."))
     
     def action_settle_loans(self):
-        """Settle all old loans"""
+        """
+        Settle all old loans.
+
+        Neither the settlement nor the fee is real customer cash — both are
+        funded by the new consolidated loan's proceeds (booked in
+        action_create_consolidated_loan()). Both post against the Loan
+        Clearing account; only the true net difference between
+        consolidated_amount and (total_outstanding + fee) — a top-up paid to
+        the customer, or a shortfall collected from them — touches real cash,
+        posted once the new loan actually exists. Each settlement uses the
+        loan's own live `outstanding_balance`, so unlike refinance there is
+        no manual-override shortfall risk here.
+        """
         for rec in self:
             if rec.state != "approved":
                 raise UserError(_("Must be approved first."))
-            
-            # Auto-select journal if not set
-            if not rec.journal_id:
-                rec.journal_id = self.env["account.journal"].search([
-                    ("type", "=", "bank"),
-                ], limit=1)
-            
-            if not rec.journal_id:
-                raise UserError(_("Please select a Settlement Journal before settling the loans."))
-            rec._ensure_payment_method_line()
-            
+
+            product = rec.loan_ids[0].loan_product_id
+            if not product.account_clearing_id:
+                raise UserError(_(
+                    "Please configure the Loan Clearing account on product '%s'."
+                ) % product.name)
+
             for loan in rec.loan_ids:
-                # Create repayment to settle
+                # Create repayment to settle — internal transfer, funded by
+                # the new consolidated loan, not fresh cash.
                 repayment = self.env["alba.loan.repayment"].create({
                     "loan_id": loan.id,
                     "payment_date": fields.Date.today(),
                     "amount_paid": loan.outstanding_balance,
                     "payment_method": "bank_transfer",
                     "payment_reference": _("Consolidation settlement - %s") % rec.name,
-                    "journal_id": rec.journal_id.id,
-                    "payment_method_line_id": rec.payment_method_line_id.id,
+                    "is_internal_transfer": True,
                     "notes": _("Loan consolidated into %s") % rec.name,
                 })
                 repayment.action_post()
-                
+
                 # Close loan
                 loan.write({"state": "closed"})
                 loan.message_post(body=Markup(_("<b>CONSOLIDATED</b>: Settlement Ref: %s")) % rec.name)
-            
+
+            # ── Post the consolidation fee (also internal — netted against
+            #    the new loan's proceeds, not collected in cash) ────────────
+            if rec.consolidation_fee_amount and rec.consolidation_fee_amount > 0:
+                fee_account = product.account_fees_income_id if product else False
+                if not fee_account:
+                    raise UserError(_(
+                        "Please configure the Fee Income account on loan product '%s' "
+                        "before settling this consolidation."
+                    ) % (product.name if product else "Unknown"))
+
+                fee_journal = self.env["account.journal"].search(
+                    [("type", "=", "general"), ("company_id", "=", rec.loan_ids[0].company_id.id)],
+                    limit=1,
+                )
+                if not fee_journal:
+                    raise UserError(_(
+                        "No General journal found for company '%s'. "
+                        "Please create one under Accounting > Configuration > Journals."
+                    ) % rec.loan_ids[0].company_id.name)
+
+                fee_move_vals = {
+                    "journal_id": fee_journal.id,
+                    "date": fields.Date.today(),
+                    "ref": _("Consolidation Fee — %s") % rec.name,
+                    "narration": _(
+                        "Consolidation fee @ %.2f%% on total outstanding %s %s"
+                    ) % (rec.consolidation_fee_rate, rec.currency_id.symbol, rec.total_outstanding),
+                    "currency_id": rec.currency_id.id,
+                    "line_ids": [
+                        # DR Loan Clearing — funded by the new loan's proceeds
+                        (0, 0, {
+                            "account_id": product.account_clearing_id.id,
+                            "name": _("Consolidation Fee — %s") % rec.name,
+                            "debit": rec.consolidation_fee_amount,
+                            "credit": 0.0,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                        # CR Fee Income — recognised as income
+                        (0, 0, {
+                            "account_id": fee_account.id,
+                            "name": _("Consolidation Fee income — %s") % rec.name,
+                            "debit": 0.0,
+                            "credit": rec.consolidation_fee_amount,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                    ],
+                }
+                fee_move = self.env["account.move"].create(fee_move_vals)
+                fee_move.action_post()
+                rec.message_post(body=_(
+                    "<b>CONSOLIDATION FEE POSTED</b>: %s %s → Journal Entry: %s"
+                ) % (rec.currency_id.symbol, rec.consolidation_fee_amount, fee_move.name))
+
             rec.write({"state": "settled"})
             rec.message_post(body=_("All %s loans settled.") % len(rec.loan_ids))
     
     def action_create_consolidated_loan(self):
-        """Create and disburse new consolidated loan"""
+        """
+        Create and disburse new consolidated loan.
+
+        Only ENTRY 1 (DR New Loan Receivable / CR Loan Clearing) is posted
+        for the new loan — not a gross cash disbursement of the full
+        consolidated_amount. The Clearing account was already debited for
+        each old loan's settlement and the consolidation fee in
+        action_settle_loans(); crediting it here for the full
+        consolidated_amount leaves exactly the true net difference (a
+        top-up paid out, or a shortfall collected) outstanding in Clearing,
+        settled against real Bank/Cash in one final entry — the only real
+        cash movement in the whole consolidation.
+        """
         for rec in self:
             if rec.state != "settled":
                 raise UserError(_("Old loans must be settled first."))
-            
+            if not rec.journal_id:
+                raise UserError(_(
+                    "Please select a Settlement Journal — it is used for any "
+                    "net top-up/shortfall cash movement."
+                ))
+
+            product = rec.loan_ids[0].loan_product_id
+            if not product.account_clearing_id:
+                raise UserError(_(
+                    "Please configure the Loan Clearing account on product '%s'."
+                ) % product.name)
+
             # Create application
             application = self.env["alba.loan.application"].create({
                 "customer_id": rec.customer_id.id,
-                "loan_product_id": rec.loan_ids[0].loan_product_id.id,  # Use first loan's product
+                "loan_product_id": product.id,
                 "requested_amount": rec.consolidated_amount,
                 "approved_amount": rec.consolidated_amount,
                 "tenure_months": rec.new_tenure_months,
@@ -507,9 +591,9 @@ class AlbaLoanConsolidation(models.Model):
                 "approved_date": fields.Datetime.now(),
                 "approved_by": self.env.uid,
             })
-            
+
             rec.write({"new_loan_application_id": application.id})
-            
+
             # Create loan
             loan = self.env["alba.loan"].create({
                 "application_id": application.id,
@@ -526,15 +610,93 @@ class AlbaLoanConsolidation(models.Model):
                 "state": "normal",
                 "journal_id": rec.journal_id.id,
             })
-            
+
             loan.action_generate_schedule()
-            loan.action_post_disbursement_entry()
-            
+
+            # ENTRY 1 only — DR New Loan Receivable / CR Loan Clearing.
+            general_journal = self.env["account.journal"].search(
+                [("type", "=", "general"), ("company_id", "=", loan.company_id.id)],
+                limit=1,
+            )
+            if not general_journal:
+                raise UserError(_(
+                    "No General journal found for company '%s'. "
+                    "Please create one under Accounting > Configuration > Journals."
+                ) % loan.company_id.name)
+            application.action_post_approval_entry(journal=general_journal)
+            loan.disbursement_move_id = application.approval_move_id
+
+            # ── Final entry: the true net difference, and ONLY this touches
+            #    real cash ──────────────────────────────────────────────────
+            net_cash = rec.consolidated_amount - rec.total_outstanding - (rec.consolidation_fee_amount or 0.0)
+            if abs(net_cash) > 0.01:
+                rec._ensure_payment_method_line()
+                outstanding_account = (
+                    rec.payment_method_line_id.payment_account_id
+                    or rec.journal_id.default_account_id
+                )
+                if not outstanding_account:
+                    raise UserError(
+                        _(
+                            'Journal "%s" has no bank/cash account configured. '
+                            'Please set the journal default account or the payment method account.'
+                        ) % rec.journal_id.name
+                    )
+
+                if net_cash > 0:
+                    # Top-up paid to customer: DR Clearing, CR Bank (cash out)
+                    net_lines = [
+                        (0, 0, {
+                            "account_id": product.account_clearing_id.id,
+                            "name": _("Consolidation top-up — %s") % rec.name,
+                            "debit": net_cash, "credit": 0.0,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                        (0, 0, {
+                            "account_id": outstanding_account.id,
+                            "name": _("Consolidation top-up paid — %s") % rec.name,
+                            "debit": 0.0, "credit": net_cash,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                    ]
+                    net_label = _("top-up paid to customer")
+                else:
+                    # Shortfall from customer: DR Bank (cash in), CR Clearing
+                    amount = -net_cash
+                    net_lines = [
+                        (0, 0, {
+                            "account_id": outstanding_account.id,
+                            "name": _("Consolidation shortfall received — %s") % rec.name,
+                            "debit": amount, "credit": 0.0,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                        (0, 0, {
+                            "account_id": product.account_clearing_id.id,
+                            "name": _("Consolidation shortfall — %s") % rec.name,
+                            "debit": 0.0, "credit": amount,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                    ]
+                    net_label = _("collected from customer")
+
+                net_move = self.env["account.move"].create({
+                    "journal_id": rec.journal_id.id,
+                    "date": fields.Date.today(),
+                    "ref": _("Consolidation Net Settlement — %s") % rec.name,
+                    "alba_loan_id": loan.id,
+                    "currency_id": rec.currency_id.id,
+                    "line_ids": net_lines,
+                })
+                net_move.action_post()
+                rec.message_post(body=_(
+                    "<b>CONSOLIDATION NET SETTLEMENT</b>: %s %s %s → Journal Entry: %s"
+                ) % (rec.currency_id.symbol, f"{abs(net_cash):,.2f}", net_label, net_move.name))
+
             rec.write({
                 "state": "disbursed",
                 "new_loan_id": loan.id,
             })
-            
+
             rec.message_post(body=_(
                 "<b>CONSOLIDATED LOAN DISBURSED</b>: %s (Principal: %s %s)"
             ) % (loan.loan_number, rec.currency_id.symbol, rec.consolidated_amount))

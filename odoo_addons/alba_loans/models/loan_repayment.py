@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from markupsafe import Markup
@@ -244,6 +243,19 @@ class AlbaLoanRepayment(models.Model):
         domain="[('payment_type', '=', 'inbound'), ('journal_id', '=', journal_id)]",
         help="Specific payment method (e.g. Manual, M-Pesa) for this journal.",
     )
+    is_internal_transfer = fields.Boolean(
+        string="Internal Transfer (No Cash Movement)",
+        default=False,
+        copy=False,
+        help=(
+            "Set for a settlement funded internally by another loan's "
+            "proceeds (refinance/consolidation) rather than fresh customer "
+            "cash. Posts against the product's Loan Clearing account "
+            "instead of a real bank/cash account, and does not require a "
+            "Bank/Cash journal or payment method — only the net difference "
+            "(cashback/shortfall) should ever touch real cash."
+        ),
+    )
 
     # ── Currency / Company ────────────────────────────────────────────────────
     company_id = fields.Many2one(
@@ -337,6 +349,10 @@ class AlbaLoanRepayment(models.Model):
         """Repayments above 500,000 must be done via Bank journal."""
         THRESHOLD = 500000.0
         for rec in self:
+            if rec.is_internal_transfer:
+                # No cash movement — the Bank-journal compliance policy
+                # exists to control physical cash handling and doesn't apply.
+                continue
             if rec.amount_paid > THRESHOLD:
                 if rec.journal_id and rec.journal_id.type != "bank":
                     raise ValidationError(_(
@@ -466,21 +482,33 @@ class AlbaLoanRepayment(models.Model):
                 all_lines = batch_lines
 
         # Filter for unpaid lines in Python memory — never rely on stored
-        # `balance_due` which may be stale across transaction boundaries
+        # `balance_due` which may be stale across transaction boundaries.
+        # Must also check penalty: an instalment can have its principal and
+        # interest fully settled yet still carry an unpaid penalty accrued
+        # after the fact (e.g. paid late) — excluding it here would make
+        # that outstanding penalty invisible to allocation forever.
         unpaid = all_lines.filtered(
             lambda l: (l.principal_due - l.principal_paid) > 0.001
             or (l.interest_due - l.interest_paid) > 0.001
+            or (l.penalty_due - l.penalty_paid) > 0.001
         )
         return unpaid
 
     def _auto_allocate_components(self):
         """
         Auto-allocate payment amount to components in priority order:
-        1. Penalties (Daily Compounding on arrears)
+        1. Penalties (accrued daily by alba.loan.interest.cron onto penalty_due)
         2. Fees / Other Charges
         3. Interest
         4. Principal
         Uses the linked repayment schedule to drive allocation.
+
+        Penalty is allocated against `entry.penalty_due` — the amount already
+        accrued to the GL by the daily penalty cron — never recomputed here.
+        Recomputing the compounding formula again at payment time would both
+        double-count penalty income already booked by the cron and leave
+        `penalty_due`/`penalty_paid` disconnected from what was actually
+        charged, since the two calculations aren't guaranteed to agree.
         """
         self.ensure_one()
         remaining = self.amount_paid
@@ -492,43 +520,16 @@ class AlbaLoanRepayment(models.Model):
         # SAFE: use in-memory filtering — never depends on stale stored balance_due
         schedule = self._get_schedule_lines()
 
-        # 1. Allocate to penalties first (Daily Compounding)
-        # Penalty accrues based on how late the payment actually was
-        # (payment_date), not on when it happens to get posted in Odoo —
-        # otherwise a delay in recording an on-time payment gets billed as
-        # a late one.
-        today = self.payment_date or fields.Date.today()
+        # 1. Allocate to penalties first, against what has actually been
+        # accrued (entry.penalty_due), oldest instalment first.
         for entry in schedule:
             if remaining <= 0:
                 break
-            if entry.due_date and entry.due_date < today:
-                loan_product = self.loan_id.loan_product_id
-                if loan_product and loan_product.penalty_rate > 0:
-                    # Respect grace period before calculating penalties
-                    grace_days = loan_product.grace_period_days or 0
-                    effective_due_date = entry.due_date + timedelta(days=grace_days)
-                    
-                    if effective_due_date < today:
-                        days_overdue = (today - effective_due_date).days
-                        
-                        # Add collection stage additional penalty rate if applicable
-                        collection_stage = self.loan_id.collection_stage_id
-                        additional_penalty = collection_stage.additional_penalty_rate if collection_stage else 0.0
-                        total_daily_rate = loan_product.penalty_rate + additional_penalty
-                        
-                        # Use raw fields — not stored balance_due
-                        overdue_amount = max(
-                            (entry.principal_due - entry.principal_paid)
-                            + (entry.interest_due - entry.interest_paid),
-                            0.0,
-                        )
-                        if overdue_amount > 0:
-                            # Daily compounding: A = P(1+r)^n - P
-                            daily_rate = total_daily_rate / 100
-                            penalty_owed = overdue_amount * ((1 + daily_rate) ** days_overdue - 1)
-                            pay_penalty = min(remaining, penalty_owed)
-                            penalty += pay_penalty
-                            remaining -= pay_penalty
+            penalty_owed = entry.penalty_due - entry.penalty_paid
+            if penalty_owed > 0:
+                pay_penalty = min(remaining, penalty_owed)
+                penalty += pay_penalty
+                remaining -= pay_penalty
 
         # 2. Allocate to fees / other charges (loan-level, not per instalment)
         # Application fees are recognised at disbursement only and are not
@@ -610,42 +611,64 @@ class AlbaLoanRepayment(models.Model):
             if total_comp == 0.0:
                 rec._auto_allocate_components()
 
-            # Auto-select journal if not set
-            if not rec.journal_id:
-                rec.journal_id = self.env["account.journal"].search([
-                    ("type", "=", "bank"),
-                ], limit=1) or self.env["account.journal"].search([
-                    ("type", "=", "cash"),
-                ], limit=1)
-
-            # Validate journal
-            if not rec.journal_id:
-                raise UserError(
-                    _("Please select a Payment Journal (Bank or Cash) before posting.")
-                )
-            if rec.journal_id.type not in ("bank", "cash"):
-                raise UserError(
-                    _(
-                        "Payment journal '%s' must be a Bank or Cash journal."
-                    ) % rec.journal_id.display_name
-                )
-
-            rec._ensure_payment_method_line()
-
-            outstanding_account = (
-                rec.payment_method_line_id.payment_account_id
-                or rec.journal_id.default_account_id
-            )
-            if not outstanding_account:
-                raise UserError(
-                    _(
-                        'Journal "%s" has no bank/cash account configured for receipts. '
-                        'Please set the journal default account or the inbound payment method account '
-                        'before posting repayments.'
-                    ) % rec.journal_id.name
-                )
-
             product = rec.loan_product_id
+
+            if rec.is_internal_transfer:
+                # Non-cash settlement (refinance/consolidation): post against
+                # the Loan Clearing account on a General journal — no real
+                # bank/cash account or payment method is involved.
+                if not product.account_clearing_id:
+                    raise UserError(
+                        _("Please configure the Loan Clearing account on product '%s'.")
+                        % product.name
+                    )
+                outstanding_account = product.account_clearing_id
+                if not rec.journal_id or rec.journal_id.type != "general":
+                    rec.journal_id = self.env["account.journal"].search(
+                        [("type", "=", "general"), ("company_id", "=", rec.company_id.id)],
+                        limit=1,
+                    )
+                if not rec.journal_id:
+                    raise UserError(_(
+                        "No General journal found for company '%s'. "
+                        "Please create one under Accounting > Configuration > Journals."
+                    ) % rec.company_id.name)
+            else:
+                # Auto-select journal if not set
+                if not rec.journal_id:
+                    rec.journal_id = self.env["account.journal"].search([
+                        ("type", "=", "bank"),
+                    ], limit=1) or self.env["account.journal"].search([
+                        ("type", "=", "cash"),
+                    ], limit=1)
+
+                # Validate journal
+                if not rec.journal_id:
+                    raise UserError(
+                        _("Please select a Payment Journal (Bank or Cash) before posting.")
+                    )
+                if rec.journal_id.type not in ("bank", "cash"):
+                    raise UserError(
+                        _(
+                            "Payment journal '%s' must be a Bank or Cash journal."
+                        ) % rec.journal_id.display_name
+                    )
+
+                rec._ensure_payment_method_line()
+
+                outstanding_account = (
+                    rec.payment_method_line_id.payment_account_id
+                    or rec.journal_id.default_account_id
+                )
+                if not outstanding_account:
+                    raise UserError(
+                        _(
+                            'Journal "%s" has no bank/cash account configured for receipts. '
+                            'Please set the journal default account or the inbound payment method account '
+                            'before posting repayments.'
+                        ) % rec.journal_id.name
+                    )
+
             if not product.account_loan_receivable_id:
                 raise UserError(
                     _("Please configure the Loan Receivable account on product '%s'.")
@@ -659,17 +682,31 @@ class AlbaLoanRepayment(models.Model):
             move_vals = {
                 "journal_id": rec.journal_id.id,
                 "date": rec.payment_date,
-                "ref": f"RPMT/{rec.loan_id.loan_number}/{rec.payment_reference or rec.id}",
+                "ref": (
+                    f"XFER/{rec.loan_id.loan_number}/{rec.payment_reference or rec.id}"
+                    if rec.is_internal_transfer
+                    else f"RPMT/{rec.loan_id.loan_number}/{rec.payment_reference or rec.id}"
+                ),
                 "currency_id": rec.currency_id.id,
                 "alba_loan_id": rec.loan_id.id,
-                "narration": _("Loan repayment — %s — %s")
-                % (rec.loan_id.loan_number, rec.customer_id.display_name),
+                "narration": (
+                    _("Internal settlement (no cash movement) — %s — %s")
+                    % (rec.loan_id.loan_number, rec.customer_id.display_name)
+                    if rec.is_internal_transfer
+                    else _("Loan repayment — %s — %s")
+                    % (rec.loan_id.loan_number, rec.customer_id.display_name)
+                ),
                 "preferred_payment_method_line_id": rec.payment_method_line_id.id if rec.payment_method_line_id else False,
                 "line_ids": [
-                    # DR Actual bank/cash account used for the receipt
+                    # DR Actual bank/cash account used for the receipt — or,
+                    # for an internal transfer, the Loan Clearing account
                     (0, 0, {
                         "account_id": outstanding_account.id,
-                        "name": _("Repayment — %s") % (rec.payment_reference or rec.loan_id.loan_number),
+                        "name": (
+                            _("Internal settlement — %s") % (rec.payment_reference or rec.loan_id.loan_number)
+                            if rec.is_internal_transfer
+                            else _("Repayment — %s") % (rec.payment_reference or rec.loan_id.loan_number)
+                        ),
                         "debit": rec.amount_paid if rec.currency_id == rec.company_id.currency_id else 0.0,
                         "credit": 0.0,
                         "amount_currency": rec.amount_paid,

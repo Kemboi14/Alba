@@ -40,12 +40,20 @@ class AlbaLoanInterestCron(models.Model):
 
         Logic:
           For each overdue schedule line on an active/NPL loan:
-            penalty_owed = balance_due * ((1 + daily_rate)^days_overdue - 1)
+            penalty_owed_to_date = balance_due * ((1 + daily_rate)^days_overdue - 1)
 
-          We post a chatter note per loan summarising total accrued penalty
-          and fire a Django webhook so the portal stays up-to-date.
-          (Actual booking to a journal entry is handled when the repayment
-          is posted via _auto_allocate_components in loan_repayment.py.)
+          `penalty_owed_to_date` is the cumulative penalty accrued on that
+          instalment as of today and is stored on `penalty_due`. Only the
+          INCREMENTAL amount since the last run (penalty_owed_to_date minus
+          the previously stored penalty_due) is posted to the GL — posting
+          the full cumulative total on every run would re-book penalty
+          income already recognised on prior runs.
+
+          `penalty_due` is the single source of truth for accrued-but-unpaid
+          penalty on an instalment; loan_repayment.py's
+          _auto_allocate_components() collects against it (never
+          recalculating penalty independently) so the schedule's
+          penalty_paid stays reconciled with what was actually accrued here.
         """
         today = fields.Date.today()
 
@@ -68,7 +76,8 @@ class AlbaLoanInterestCron(models.Model):
             total_daily_rate = product.penalty_rate + additional_penalty
             
             daily_rate = total_daily_rate / 100.0
-            total_penalty = 0.0
+            total_penalty_delta = 0.0
+            lines_to_update = []
 
             overdue_lines = (loan.current_repayment_schedule_ids or loan.repayment_schedule_ids).filtered(
                 lambda s: s.due_date and s.due_date < today and s.balance_due > 0
@@ -76,16 +85,24 @@ class AlbaLoanInterestCron(models.Model):
             for line in overdue_lines:
                 # Calculate effective due date respecting grace period
                 effective_due_date = line.due_date + timedelta(days=grace_days)
-                
+
                 # Only calculate penalty if grace period has passed
                 if effective_due_date < today:
                     days_overdue = (today - effective_due_date).days
-                    penalty = line.balance_due * ((1 + daily_rate) ** days_overdue - 1)
-                    total_penalty += penalty
+                    penalty_owed_to_date = line.balance_due * ((1 + daily_rate) ** days_overdue - 1)
+                    # Only the incremental amount since the last accrual run
+                    # is new income — penalty_due already holds what was
+                    # booked on prior runs.
+                    delta = penalty_owed_to_date - line.penalty_due
+                    if delta > 0.0:
+                        total_penalty_delta += delta
+                        lines_to_update.append((line, penalty_owed_to_date))
 
-            if total_penalty > 0.01:
-                # ENTRY 3b — Penalty Accrual (Default/Penalty)
-                loan.action_post_penalty_accrual_entry(amount=total_penalty)
+            if total_penalty_delta > 0.01:
+                for line, penalty_owed_to_date in lines_to_update:
+                    line.penalty_due = round(penalty_owed_to_date, 2)
+                # ENTRY 3b — Penalty Accrual (Default/Penalty) — incremental only
+                loan.action_post_penalty_accrual_entry(amount=total_penalty_delta)
 
                 loan.message_post(
                     body=Markup(
@@ -97,8 +114,8 @@ class AlbaLoanInterestCron(models.Model):
                     )
                     % {
                         "currency": loan.currency_id.name,
-                        "amount": total_penalty,
-                        "count": len(overdue_lines),
+                        "amount": total_penalty_delta,
+                        "count": len(lines_to_update),
                         "rate": daily_rate * 100,
                     },
                     subtype_xmlid="mail.mt_note",

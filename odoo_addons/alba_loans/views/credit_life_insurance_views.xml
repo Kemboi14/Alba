@@ -7,6 +7,7 @@
         <field name="arch" type="xml">
             <list string="Insurance Events">
                 <field name="insurance_number"/>
+                <field name="currency_id" column_invisible="1"/>
                 <field name="loan_number"/>
                 <field name="customer_id"/>
                 <field name="event_type"/>

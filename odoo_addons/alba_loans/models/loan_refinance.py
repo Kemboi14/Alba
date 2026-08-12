@@ -555,51 +555,44 @@ class AlbaLoanRefinance(models.Model):
             rec.message_post(body=_("Refinance approved."))
     
     def action_settle_original_loan(self):
-        """Create repayment to settle original loan and post the refinance fee"""
+        """
+        Settle the original loan and post the refinance fee.
+
+        Neither leg here is real customer cash — both are funded by the new
+        loan's proceeds (booked in action_create_new_loan()). Both post
+        against the Loan Clearing account instead of a bank/cash account;
+        only the true net difference (cashback_to_customer or
+        customer_to_pay) touches real cash, posted once the new loan actually
+        exists. Booking the full settlement_amount and refinance_fee_amount
+        as if real cash moved (the old behaviour) created two large journal
+        entries with no matching bank transaction — a reconciliation break.
+        """
         for rec in self:
             if rec.state != "approved":
                 raise UserError(_("Refinance must be approved first."))
 
-            # Auto-select journal if not set
-            if not rec.journal_id:
-                rec.journal_id = self.env["account.journal"].search([
-                    ("type", "=", "bank"),
-                ], limit=1)
+            product = rec.original_loan_id.loan_product_id
+            if not product.account_clearing_id:
+                raise UserError(_(
+                    "Please configure the Loan Clearing account on product '%s'."
+                ) % product.name)
 
-            if not rec.journal_id:
-                raise UserError(_("Please select a Settlement Journal before settling the loan."))
-            
-            rec._ensure_payment_method_line()
-            
-            outstanding_account = (
-                rec.payment_method_line_id.payment_account_id
-                or rec.journal_id.default_account_id
-            )
-            if not outstanding_account:
-                raise UserError(
-                    _(
-                        'Journal "%s" has no bank/cash account configured for receipts. '
-                        'Please set the journal default account or the inbound payment method account '
-                        'before settling the loan.'
-                    ) % rec.journal_id.name
-                )
-
-            # ── 1. Create final repayment for the original loan ───────────────
+            # ── 1. Create final repayment for the original loan — internal
+            #      transfer, funded by the new loan, not fresh cash ─────────
             repayment = self.env["alba.loan.repayment"].create({
                 "loan_id": rec.original_loan_id.id,
                 "payment_date": fields.Date.today(),
                 "amount_paid": rec.settlement_amount,
                 "payment_method": "bank_transfer",
                 "payment_reference": _("Refinance settlement - %s") % rec.name,
-                "journal_id": rec.journal_id.id,
-                "payment_method_line_id": rec.payment_method_line_id.id,
+                "is_internal_transfer": True,
                 "notes": _("Loan refinanced - settlement via %s") % rec.name,
             })
             repayment.action_post()
 
-            # ── 2. Post refinance fee journal entry ───────────────────────────
+            # ── 2. Post refinance fee journal entry (also internal — netted
+            #      against the new loan's proceeds, not collected in cash) ──
             if rec.refinance_fee_amount and rec.refinance_fee_amount > 0:
-                product = rec.original_loan_id.loan_product_id
                 fee_account = product.account_fees_income_id if product else False
 
                 if not fee_account:
@@ -608,14 +601,22 @@ class AlbaLoanRefinance(models.Model):
                         "before settling this refinance."
                     ) % (product.name if product else "Unknown"))
 
-                # DR Outstanding Receipts transit (fee collected from customer — bank-matchable)
+                fee_journal = self.env["account.journal"].search(
+                    [("type", "=", "general"), ("company_id", "=", rec.original_loan_id.company_id.id)],
+                    limit=1,
+                )
+                if not fee_journal:
+                    raise UserError(_(
+                        "No General journal found for company '%s'. "
+                        "Please create one under Accounting > Configuration > Journals."
+                    ) % rec.original_loan_id.company_id.name)
+
+                # DR Loan Clearing (funded by the new loan's proceeds)
                 # CR Fee Income  (income recognised for the refinance)
-                # outstanding_account already computed above from payment_method_line_id
                 fee_move_vals = {
-                    "journal_id": rec.journal_id.id,
+                    "journal_id": fee_journal.id,
                     "date": fields.Date.today(),
                     "ref": _("Refinance Fee — %s") % rec.name,
-                    "preferred_payment_method_line_id": rec.payment_method_line_id.id if rec.payment_method_line_id else False,
                     "alba_loan_id": rec.original_loan_id.id,
                     "narration": _(
                         "Refinance fee @ %.2f%% on new principal %s %s"
@@ -626,10 +627,10 @@ class AlbaLoanRefinance(models.Model):
                     ),
                     "currency_id": rec.currency_id.id,
                     "line_ids": [
-                        # DR Outstanding Receipts transit — fee collected from customer (bank feed will match this)
+                        # DR Loan Clearing — funded by the new loan's proceeds
                         (0, 0, {
-                            "account_id": outstanding_account.id,  # FIX: use Outstanding Receipts transit, not direct bank
-                            "name": _("Refinance Fee received — %s") % rec.name,
+                            "account_id": product.account_clearing_id.id,
+                            "name": _("Refinance Fee — %s") % rec.name,
                             "debit": rec.refinance_fee_amount if rec.currency_id == rec.original_loan_id.company_id.currency_id else 0.0,
                             "credit": 0.0,
                             "amount_currency": rec.refinance_fee_amount,
@@ -654,13 +655,32 @@ class AlbaLoanRefinance(models.Model):
                     "<b>REFINANCE FEE POSTED</b>: %s %s → Journal Entry: %s"
                 ) % (rec.currency_id.symbol, rec.refinance_fee_amount, fee_move.name))
 
-            # ── 3. Close original loan & forgive future interest/principal ───
-            rec.original_loan_id.write({"state": "closed"})
-            
+            # ── 3. Write off any shortfall, close original loan, forgive
+            #      the (now written-off) remaining schedule ─────────────────
+            # settlement_amount can be a manual override lower than the
+            # loan's true payoff. If it under-collects, book a real
+            # write-off entry for the gap BEFORE forgiving the schedule —
+            # otherwise the Loan/Interest/Penalty Receivable accounts would
+            # carry the uncollected balance forever while the schedule
+            # silently shows 0, with no accounting trail for the loss.
+            original_loan = rec.original_loan_id
+            shortfall = original_loan.outstanding_balance
+            if shortfall > 0.01:
+                original_loan.action_post_write_off_entry()
+                original_loan.message_post(body=_(
+                    "<b>REFINANCE SHORTFALL WRITTEN OFF</b>: settlement of %s %s did not cover "
+                    "the full payoff — %s %s written off against the Provision account."
+                ) % (
+                    rec.currency_id.symbol, rec.settlement_amount,
+                    rec.currency_id.symbol, f"{shortfall:,.2f}",
+                ))
+
+            original_loan.write({"state": "closed"})
+
             # Set unpaid future schedule lines due amounts to 0 (forgive future interest, principal, and
             # penalty since they are settled) — penalty_due must be forgiven too, otherwise a line with
             # any unpaid penalty keeps balance_due > 0 forever on a loan that's supposedly "closed".
-            schedule_to_adjust = rec.original_loan_id.repayment_schedule_ids.filtered(lambda s: s.balance_due > 0)
+            schedule_to_adjust = original_loan.repayment_schedule_ids.filtered(lambda s: s.balance_due > 0)
             for line in schedule_to_adjust:
                 line.write({
                     "principal_due": line.principal_paid,
@@ -668,9 +688,9 @@ class AlbaLoanRefinance(models.Model):
                     "penalty_due": line.penalty_paid,
                 })
             # Force compute of financial totals on the loan to update outstanding_balance to 0
-            rec.original_loan_id._compute_financial_totals()
-            
-            rec.original_loan_id.message_post(body=_(
+            original_loan._compute_financial_totals()
+
+            original_loan.message_post(body=_(
                 "<b>SETTLED VIA REFINANCE</b>: %s %s settled. Future schedule adjusted."
             ) % (rec.currency_id.symbol, rec.settlement_amount))
 
@@ -678,11 +698,31 @@ class AlbaLoanRefinance(models.Model):
             rec.message_post(body=_("Original loan settled."))
     
     def action_create_new_loan(self):
-        """Create new loan application and disburse"""
+        """
+        Create the new loan application and disburse.
+
+        Only ENTRY 1 (DR New Loan Receivable / CR Loan Clearing) is posted
+        here — not a full cash disbursement of the gross new_principal.
+        The Clearing account was already debited for settlement_amount and
+        refinance_fee_amount in action_settle_original_loan(); crediting it
+        here for the full new_principal leaves exactly the true net
+        difference (cashback_to_customer or customer_to_pay) outstanding in
+        Clearing, which is then settled against real Bank/Cash in one final
+        entry below — the only leg of this whole refinance that is real
+        cash. Posting the gross new_principal as a bank disbursement (the
+        old behaviour) created a bank-statement mismatch: most of that
+        amount never actually left the bank, it was consumed internally by
+        the settlement and fee.
+        """
         for rec in self:
             if rec.state != "settled":
                 raise UserError(_("Original loan must be settled first."))
-            
+            if not rec.journal_id:
+                raise UserError(_(
+                    "Please select a Settlement Journal — it is used for the "
+                    "net cashback/top-up payment to the customer, if any."
+                ))
+
             # Create new loan application
             application = self.env["alba.loan.application"].create({
                 "customer_id": rec.customer_id.id,
@@ -696,12 +736,12 @@ class AlbaLoanRefinance(models.Model):
                 "approved_date": fields.Datetime.now(),
                 "approved_by": self.env.uid,
             })
-            
+
             rec.write({
                 "new_loan_application_id": application.id,
             })
-            
-            # Disburse new loan
+
+            # Create new loan
             loan = self.env["alba.loan"].create({
                 "application_id": application.id,
                 "loan_number": self.env["ir.sequence"].next_by_code("alba.loan.seq"),
@@ -717,18 +757,101 @@ class AlbaLoanRefinance(models.Model):
                 "state": "normal",
                 "journal_id": rec.journal_id.id,
             })
-            
+
             # Generate schedule
             loan.action_generate_schedule()
-            
-            # Post disbursement accounting for the new loan
-            loan.action_post_disbursement_entry()  # FIX: create the new refinance loan disbursement move
+
+            # ENTRY 1 only — DR New Loan Receivable / CR Loan Clearing.
+            # No ENTRY 2 (no gross cash disbursement) — see docstring.
+            general_journal = self.env["account.journal"].search(
+                [("type", "=", "general"), ("company_id", "=", loan.company_id.id)],
+                limit=1,
+            )
+            if not general_journal:
+                raise UserError(_(
+                    "No General journal found for company '%s'. "
+                    "Please create one under Accounting > Configuration > Journals."
+                ) % loan.company_id.name)
+            application.action_post_approval_entry(journal=general_journal)
+            loan.disbursement_move_id = application.approval_move_id
+
+            # ── Final entry: the true net difference, and ONLY this touches
+            #    real cash ──────────────────────────────────────────────────
+            product = rec.new_product_id
+            if not product.account_clearing_id:
+                raise UserError(_(
+                    "Please configure the Loan Clearing account on product '%s'."
+                ) % product.name)
+
+            net_cash = rec.new_principal - rec.settlement_amount - (rec.refinance_fee_amount or 0.0)
+            if abs(net_cash) > 0.01:
+                rec._ensure_payment_method_line()
+                outstanding_account = (
+                    rec.payment_method_line_id.payment_account_id
+                    or rec.journal_id.default_account_id
+                )
+                if not outstanding_account:
+                    raise UserError(
+                        _(
+                            'Journal "%s" has no bank/cash account configured. '
+                            'Please set the journal default account or the payment method account.'
+                        ) % rec.journal_id.name
+                    )
+
+                if net_cash > 0:
+                    # Cashback to customer: DR Clearing, CR Bank (cash out)
+                    net_lines = [
+                        (0, 0, {
+                            "account_id": product.account_clearing_id.id,
+                            "name": _("Refinance cashback — %s") % rec.name,
+                            "debit": net_cash, "credit": 0.0,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                        (0, 0, {
+                            "account_id": outstanding_account.id,
+                            "name": _("Refinance cashback paid — %s") % rec.name,
+                            "debit": 0.0, "credit": net_cash,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                    ]
+                    net_label = _("cashback to customer")
+                else:
+                    # Shortfall from customer: DR Bank (cash in), CR Clearing
+                    amount = -net_cash
+                    net_lines = [
+                        (0, 0, {
+                            "account_id": outstanding_account.id,
+                            "name": _("Refinance top-up received — %s") % rec.name,
+                            "debit": amount, "credit": 0.0,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                        (0, 0, {
+                            "account_id": product.account_clearing_id.id,
+                            "name": _("Refinance top-up — %s") % rec.name,
+                            "debit": 0.0, "credit": amount,
+                            "partner_id": rec.partner_id.id,
+                        }),
+                    ]
+                    net_label = _("collected from customer")
+
+                net_move = self.env["account.move"].create({
+                    "journal_id": rec.journal_id.id,
+                    "date": fields.Date.today(),
+                    "ref": _("Refinance Net Settlement — %s") % rec.name,
+                    "alba_loan_id": loan.id,
+                    "currency_id": rec.currency_id.id,
+                    "line_ids": net_lines,
+                })
+                net_move.action_post()
+                rec.message_post(body=_(
+                    "<b>REFINANCE NET SETTLEMENT</b>: %s %s %s → Journal Entry: %s"
+                ) % (rec.currency_id.symbol, f"{abs(net_cash):,.2f}", net_label, net_move.name))
 
             rec.write({
                 "state": "disbursed",
                 "new_loan_id": loan.id,
             })
-            
+
             rec.message_post(body=_(
                 "<b>NEW LOAN DISBURSED</b>: %s (Principal: %s %s)"
             ) % (loan.loan_number, rec.currency_id.symbol, rec.new_principal))

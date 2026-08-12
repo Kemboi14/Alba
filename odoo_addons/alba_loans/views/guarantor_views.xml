@@ -12,6 +12,7 @@
         <field name="arch" type="xml">
             <list decoration-danger="blacklisted==True" decoration-success="kyc_status=='verified' and not blacklisted">
                 <field name="name"/>
+                <field name="currency_id" column_invisible="1"/>
                 <field name="id_number"/>
                 <field name="phone"/>
                 <field name="employer_name"/>
@@ -137,6 +138,7 @@
         <field name="arch" type="xml">
             <list decoration-success="status=='confirmed'" decoration-muted="status=='released'" decoration-danger="status=='liability'">
                 <field name="loan_application_id"/>
+                <field name="currency_id" column_invisible="1"/>
                 <field name="guarantor_id"/>
                 <field name="customer_id"/>
                 <field name="relationship"/>

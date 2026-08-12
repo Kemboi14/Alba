@@ -18,14 +18,15 @@
                     <button name="action_post_interest_accrual_entry" string="Post Interest Accrual" type="object" class="btn-secondary" invisible="is_accrual_pending" groups="account.group_account_manager"/>
                     <button name="action_close" string="Close Loan" type="object" class="btn-success" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')" groups="alba_loans.group_loan_manager"/>
                     <button name="action_write_off" string="Write Off" type="object" class="btn-danger" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')" groups="alba_loans.group_loan_manager"/>
-                    <button name="action_full_repayment" string="Full Repayment" type="object" class="btn-success" invisible="1" groups="alba_loans.group_loan_officer"/>
-                    <button name="action_request_topup" string="Refinance / Top-Up" type="object" class="btn-primary" invisible="1" groups="alba_loans.group_loan_officer"/>
+                    <button name="action_full_repayment" string="Full Repayment" type="object" class="btn-success" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss') or outstanding_balance &lt;= 0" groups="alba_loans.group_loan_officer"/>
+                    <button name="action_request_topup" string="Refinance / Top-Up" type="object" class="btn-primary" invisible="not can_request_topup" groups="alba_loans.group_loan_officer"/>
                     <button name="action_calculate_partial_payoff" string="Calculate Partial Payoff" type="object" class="btn-primary" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')" groups="alba_loans.group_loan_officer"/>
                     <button name="action_sync_loan_currency_to_accounting" string="Sync Currency" type="object" class="btn-info" groups="alba_loans.group_loan_manager"/>
                     <field name="state" widget="statusbar" statusbar_visible="normal,watch,substandard,doubtful,loss,closed,written_off"/>
                 </header>
 
                 <field name="is_accrual_pending" invisible="1"/>
+                <field name="can_request_topup" invisible="1"/>
 
                 <div class="alert alert-warning" role="alert" invisible="not is_accrual_pending or state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')">
                     ⚠ Interest accrual has not been posted for this period. Please click 'Post Interest Accrual' before proceeding.
@@ -191,7 +192,7 @@
                                     <field name="principal_due"/>
                                     <field name="interest_due"/>
                                     <field name="penalty_due" optional="show"/>
-                                    <field name="total_due" fw_bold="1"/>
+                                    <field name="total_due" class="fw-bold"/>
                                     <field name="total_paid" string="Paid"/>
                                     <field name="balance_due" string="Balance" decoration-danger="balance_due > 0"/>
                                     <field name="paid_late" optional="show"/>
@@ -292,6 +293,7 @@
                   decoration-warning="state in ('watch', 'substandard', 'doubtful')"
                   decoration-info="state == 'normal'">
                 <field name="loan_number"/>
+                <field name="currency_id" column_invisible="1"/>
                 <field name="application_id" optional="hide"/>
                 <field name="loan_date" optional="show"/>
                 <field name="customer_id"/>

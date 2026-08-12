@@ -32,20 +32,18 @@
                                 <field name="registration_number" invisible="company_type != 'company'"/>
                             </group>
                         </group>
-                        <group>
-                            <group string="Physical Address">
-                                <span class="o_form_label o_td_label" name="address_name">
-                                    <b>Address</b>
-                                </span>
-                                <div class="o_address_format">
-                                    <field name="street" placeholder="Street..." class="o_address_street"/>
-                                    <field name="street2" placeholder="Street 2..." class="o_address_street"/>
-                                    <field name="city" placeholder="City" class="o_address_city"/>
-                                    <field name="state_id" class="o_address_state" placeholder="State" options="{'no_open': True, 'no_quick_create': True}"/>
-                                    <field name="zip" placeholder="ZIP" class="o_address_zip"/>
-                                    <field name="country_id" placeholder="Country" class="o_address_country" options="{'no_open': True, 'no_create': True}"/>
-                                </div>
-                            </group>
+                        <group string="Physical Address">
+                            <span class="o_form_label o_td_label" name="address_name">
+                                <b>Address</b>
+                            </span>
+                            <div class="o_address_format">
+                                <field name="street" placeholder="Street..." class="o_address_street"/>
+                                <field name="street2" placeholder="Street 2..." class="o_address_street"/>
+                                <field name="city" placeholder="City" class="o_address_city"/>
+                                <field name="state_id" class="o_address_state" placeholder="State" options="{'no_open': True, 'no_quick_create': True}"/>
+                                <field name="zip" placeholder="ZIP" class="o_address_zip"/>
+                                <field name="country_id" placeholder="Country" class="o_address_country" options="{'no_open': True, 'no_create': True}"/>
+                            </div>
                         </group>
                         <notebook>
                             <page string="Bank Accounts" name="bank_accounts">
@@ -162,6 +160,7 @@
                                                context="{'form_view_ref': 'alba_loans.view_res_partner_customer_form'}"
                                                placeholder="Select or create a contact…"/>
                                     </h1>
+                                    <field name="tag_ids" widget="many2many_tags" placeholder="Add a tag…" options="{'color_field': 'color'}"/>
                                 </div>
                             </div>
                         </div>
@@ -228,10 +227,8 @@
                                     </group>
                                 </group>
                                 <group>
-                                    <group>
-                                        <field name="sector_id" options="{'no_create_edit': True}"/>
-                                        <field name="subsector_id" options="{'no_create_edit': True}"/>
-                                    </group>
+                                    <field name="sector_id" options="{'no_create_edit': True}"/>
+                                    <field name="subsector_id" options="{'no_create_edit': True}"/>
                                 </group>
                             </page>
 
@@ -357,6 +354,7 @@
                       decoration-danger="blacklisted == True"
                       decoration-muted="active == False">
                     <field name="partner_id" string="Name"/>
+                    <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}" optional="show"/>
                     <field name="id_type" optional="hide"/>
                     <field name="id_number"/>
                     <field name="date_of_birth" optional="show"/>
@@ -405,6 +403,7 @@
                     <field name="outstanding_balance"/>
                     <field name="blacklisted"/>
                     <field name="currency_id"/>
+                    <field name="tag_ids"/>
                     <templates>
                         <t t-name="card">
                             <div t-attf-class="oe_kanban_card oe_kanban_global_click #{record.blacklisted.raw_value ? 'border-danger' : ''}">
@@ -419,6 +418,7 @@
                                     <div>Credit Score: <strong><field name="credit_score"/></strong></div>
                                     <div>Active Loans: <field name="active_loan_count"/></div>
                                     <div>Outstanding: <field name="outstanding_balance" widget="monetary"/></div>
+                                    <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
                                 </div>
                                 <div class="o_kanban_record_bottom" t-if="record.blacklisted.raw_value">
                                     <span class="badge text-bg-danger">Blacklisted</span>
@@ -447,6 +447,7 @@
                     <field name="referral_name" string="Referred By"/>
                     <field name="sector_id"/>
                     <field name="subsector_id"/>
+                    <field name="tag_ids" string="Tag"/>
                     <separator/>
                     <filter name="kyc_pending" string="KYC Pending" domain="[('kyc_status','=','pending')]"/>
                     <filter name="kyc_partial" string="KYC Partial" domain="[('kyc_status','=','partial')]"/>
@@ -463,6 +464,7 @@
                         <field name="referral_source"/>
                         <field name="sector_id"/>
                         <field name="subsector_id"/>
+                        <field name="tag_ids" string="Tag"/>
                     </group>
                 </search>
             </field>

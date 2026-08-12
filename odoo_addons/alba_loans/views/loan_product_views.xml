@@ -92,7 +92,7 @@
 
                             <!-- ── Requirements ──────────────────────────── -->
                             <page string="Requirements &amp; Automation" name="requirements" groups="alba_loans.group_operations_manager,alba_loans.group_director">
-                                <group>
+                                <group col="3">
                                     <group>
                                         <field name="auto_approve_score_threshold"/>
                                         <field name="auto_disburse"/>

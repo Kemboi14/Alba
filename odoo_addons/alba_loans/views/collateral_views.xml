@@ -8,6 +8,7 @@
         <field name="arch" type="xml">
             <list decoration-success="status=='pledged'" decoration-muted="status=='released'">
                 <field name="name"/>
+                <field name="currency_id" column_invisible="1"/>
                 <field name="collateral_type"/>
                 <field name="registration_number"/>
                 <field name="valuation_amount"/>
@@ -113,6 +114,7 @@
         <field name="arch" type="xml">
             <list decoration-danger="ltv_status=='exceeded'" decoration-warning="ltv_status=='caution'" decoration-success="ltv_status=='good'">
                 <field name="loan_id"/>
+                <field name="currency_id" column_invisible="1"/>
                 <field name="collateral_id"/>
                 <field name="loan_amount"/>
                 <field name="collateral_value"/>

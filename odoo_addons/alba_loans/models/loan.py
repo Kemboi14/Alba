@@ -732,9 +732,19 @@ class AlbaLoan(models.Model):
         """
         today = fields.Date.today()
         for rec in self:
+            if rec.state in ("written_off", "closed"):
+                # Mirror _compute_financial_totals' written_off short-circuit:
+                # a written-off/closed loan must not keep showing stale
+                # arrears from schedule lines that were never settled on the
+                # schedule itself (only credited via the write-off GL entry).
+                rec.arrears_amount = 0.0
+                rec.days_in_arrears = 0
+                rec.par_bucket = "current"
+                continue
             schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
-            # CORRECT: Only count as overdue if due date is strictly in the past (< today) AND balance is outstanding (> 0)
-            overdue = schedule.filtered(lambda s: s.due_date and s.due_date < today and s.balance_due > 0)
+            # CORRECT: Only count as overdue if due date is strictly in the past (< today) AND balance is outstanding
+            # (1-cent tolerance, matching every other balance-vs-zero comparison in this file)
+            overdue = schedule.filtered(lambda s: s.due_date and s.due_date < today and s.balance_due > 0.01)
             if not overdue:
                 rec.arrears_amount = 0.0
                 rec.days_in_arrears = 0
@@ -908,10 +918,14 @@ class AlbaLoan(models.Model):
             rec.total_interest = sum(schedule.mapped("interest_due"))
             rec.interest_amount = rec.total_interest
 
+            # Only nets against fees_component — penalty_component is a
+            # separate charge (tracked via the schedule's penalty_due/paid)
+            # and must not be counted as if it were paying down the
+            # origination fee. Mixing the two understated this balance
+            # whenever a customer paid a penalty, and fed a wrong default
+            # into loan_refinance.py's settlement_amount suggestion.
             posted_repayments = rec.repayment_ids.filtered(lambda r: r.state == "posted")
-            paid_charges = sum(posted_repayments.mapped("fees_component")) + sum(
-                posted_repayments.mapped("penalty_component")
-            )
+            paid_charges = sum(posted_repayments.mapped("fees_component"))
             product_fees = (
                 rec.loan_product_id.calculate_total_fees(rec.principal_amount)
                 if rec.loan_product_id
@@ -1042,7 +1056,19 @@ class AlbaLoan(models.Model):
             repayment._update_schedule_entries()
 
     def action_generate_schedule(self):
-        """Generate the repayment schedule based on the loan product's method."""
+        """
+        Generate the repayment schedule based on the loan product's method.
+
+        When called on a loan that already has repayment/accrual history
+        (top-up, partial payoff, any future modification that changes
+        principal/tenure on the SAME loan rather than creating a new one),
+        already-elapsed installments are preserved untouched and only the
+        remaining future installments are (re)built over the remaining
+        tenure. Rebuilding history too — the old behaviour — retroactively
+        restated past due amounts under the new principal, then replayed the
+        old (smaller/larger) actual payments against those restated amounts,
+        making settled installments look wrongly under/over-paid.
+        """
         for rec in self:
             if rec.schedule_generated:
                 raise UserError(
@@ -1061,20 +1087,57 @@ class AlbaLoan(models.Model):
             if not product:
                 raise UserError(_("No loan product linked to this loan."))
 
+            Schedule = self.env["alba.repayment.schedule"]
+            Batch = self.env["alba.repayment.schedule.batch"]
+
+            existing_lines = Schedule.search([("loan_id", "=", rec.id)])
+            # A line carries real history if anything has ever been paid or
+            # accrued against it — those facts must never be rewritten.
+            history_lines = existing_lines.filtered(
+                lambda l: l.principal_paid > 0
+                or l.interest_paid > 0
+                or l.penalty_paid > 0
+                or l.penalty_due > 0
+            )
+            lines_to_replace = existing_lines - history_lines
+
+            if history_lines:
+                start_installment_number = max(history_lines.mapped("installment_number")) + 1
+                remaining_principal = max(
+                    rec.principal_amount - sum(history_lines.mapped("principal_paid")), 0.0
+                )
+                future_count = rec.tenure_months - len(history_lines)
+                if future_count <= 0:
+                    raise UserError(
+                        _(
+                            "New tenure (%(tenure)d months) must be greater than the "
+                            "%(settled)d instalment(s) already settled on loan %(loan)s."
+                        )
+                        % {
+                            "tenure": rec.tenure_months,
+                            "settled": len(history_lines),
+                            "loan": rec.loan_number,
+                        }
+                    )
+            else:
+                start_installment_number = 1
+                remaining_principal = rec.principal_amount
+                future_count = rec.tenure_months
+
             schedule_data = []
             if rec.interest_method == "flat_rate":
-                monthly_interest = rec.principal_amount * (rec.interest_rate / 100)
-                equal_principal = round(rec.principal_amount / rec.tenure_months, 2)
-                balance = rec.principal_amount
-                for i in range(rec.tenure_months):
+                monthly_interest = remaining_principal * (rec.interest_rate / 100)
+                equal_principal = round(remaining_principal / future_count, 2)
+                balance = remaining_principal
+                for i in range(future_count):
                     principal = (
                         equal_principal
-                        if i < rec.tenure_months - 1
+                        if i < future_count - 1
                         else round(balance, 2)
                     )
                     schedule_data.append(
                         {
-                            "installment_number": i + 1,
+                            "installment_number": start_installment_number + i,
                             "opening_balance": round(balance, 2),
                             "principal_due": principal,
                             "interest_due": round(monthly_interest, 2),
@@ -1084,10 +1147,18 @@ class AlbaLoan(models.Model):
                     balance -= principal
             else:
                 schedule_data = product.calculate_reducing_schedule(
-                    rec.principal_amount, rec.tenure_months
+                    remaining_principal, future_count
                 )
+                for row in schedule_data:
+                    row["installment_number"] = (
+                        start_installment_number
+                        + row.get("installment_number", row.get("installment")) - 1
+                    )
 
-            # Build due dates
+            # Build due dates — installment numbering continues from the
+            # existing cadence (anchored at the original disbursement_date),
+            # so a regenerated future instalment lands on the same due date
+            # it always would have, rather than being back-dated to "today".
             schedule_vals = []
             for row in schedule_data:
                 installment_number = row.get("installment_number", row.get("installment"))
@@ -1121,25 +1192,40 @@ class AlbaLoan(models.Model):
             # Use transaction context to ensure atomicity
             # If any operation fails, all changes are rolled back
             with self.env.cr.savepoint():
-                # Archive any existing active batches for this loan
-                Batch = self.env["alba.repayment.schedule.batch"]
-                existing = Batch.search([("loan_id", "=", rec.id), ("state", "=", "active")])
-                if existing:
-                    existing.write({"state": "archived"})
-                # Unlink existing schedule records to avoid unique constraint violations
-                self.env["alba.repayment.schedule"].search([("loan_id", "=", rec.id)]).unlink()
+                if history_lines:
+                    # Regeneration on a loan with history: keep the current
+                    # active batch (history and future instalments must stay
+                    # in the same batch so _get_schedule_lines() sees both),
+                    # only replace the untouched future lines.
+                    batch = Batch.search(
+                        [("loan_id", "=", rec.id), ("state", "=", "active")],
+                        limit=1,
+                        order="generated_on desc",
+                    )
+                    if not batch:
+                        batch = Batch.create({
+                            "loan_id": rec.id,
+                            "notes": "Generated by action_generate_schedule (history preserved)",
+                        })
+                        history_lines.write({"batch_id": batch.id})
+                    lines_to_replace.unlink()
+                else:
+                    # Fresh loan (or a loan with no repayment/accrual history
+                    # yet): archive any existing active batch and rebuild
+                    # the whole schedule from scratch, as before.
+                    existing_batch = Batch.search([("loan_id", "=", rec.id), ("state", "=", "active")])
+                    if existing_batch:
+                        existing_batch.write({"state": "archived"})
+                    existing_lines.unlink()
+                    batch = Batch.create({
+                        "loan_id": rec.id,
+                        "notes": "Generated by action_generate_schedule",
+                    })
 
-                # Create new batch
-                batch = Batch.create({
-                    "loan_id": rec.id,
-                    "notes": "Generated by action_generate_schedule",
-                })
-
-                # Attach batch_id to each schedule line
                 for v in schedule_vals:
                     v["batch_id"] = batch.id
 
-                self.env["alba.repayment.schedule"].create(schedule_vals)
+                Schedule.create(schedule_vals)
                 rec.write({"schedule_generated": True})
                 rec.message_post(
                     body=Markup(_(
@@ -1250,6 +1336,16 @@ class AlbaLoan(models.Model):
         NOTE: This entry must use a General journal (type='general'), NOT the
         disbursement bank/cash journal, because it is a P&L accrual with no
         cash movement.
+
+        `amount`, when not explicitly given, is NOT the loan's full lifetime
+        interest (`total_interest`) — posting that in one shot would
+        recognise interest for periods that haven't happened yet, and
+        posting it again on every click/every month would re-book income
+        already recognised. Instead we net against what's already been
+        posted, same pattern as action_post_provisioning_entry(): compute
+        interest earned to date (`accrued_interest`), subtract what's
+        already posted to the Interest Receivable account for this loan,
+        and post only the difference.
         """
         self.ensure_one()
         product = self.loan_product_id
@@ -1258,8 +1354,22 @@ class AlbaLoan(models.Model):
         if not product.account_interest_income_id:
             raise UserError(_("Please configure Interest Income account on product '%s'.") % product.name)
 
-        interest_amount = amount if amount is not None else self.total_interest
-        if interest_amount <= 0:
+        if amount is not None:
+            interest_amount = amount
+        else:
+            posted_interest = 0.0
+            moves = self.env["account.move"].search([
+                ("alba_loan_id", "=", self.id),
+                ("state", "=", "posted"),
+            ])
+            for move in moves:
+                for line in move.line_ids:
+                    if line.account_id == product.account_interest_receivable_id:
+                        posted_interest += (line.debit - line.credit)
+            interest_amount = self.accrued_interest - posted_interest
+
+        if interest_amount <= 0.01:
+            self.is_accrual_pending = False
             return False
 
         # Resolve a General journal — never use the bank/cash disbursement journal
@@ -1637,6 +1747,20 @@ class AlbaLoan(models.Model):
         self.write({"state": "written_off"})
         self.action_post_write_off_entry()
         self.action_post_provisioning_entry()
+
+        # action_post_write_off_entry() only posts the GL entry — it never
+        # touches the schedule lines themselves. Settle them here (due =
+        # paid) so repayment_schedule_ids.balance_due reads 0 too; anything
+        # that reads the schedule directly (reports, other modules) would
+        # otherwise still see stale unpaid balances on a written-off loan.
+        schedule_to_settle = self.repayment_schedule_ids.filtered(lambda s: s.balance_due > 0)
+        for line in schedule_to_settle:
+            line.write({
+                "principal_due": line.principal_paid,
+                "interest_due": line.interest_paid,
+                "penalty_due": line.penalty_paid,
+            })
+
         self.message_post(body=Markup(_("Loan has been <b>Written Off</b> as per policy (Loss classification).")))
 
     def action_close(self):
@@ -2115,134 +2239,124 @@ class AlbaLoan(models.Model):
             self.company_id = company_id
     
     def action_sync_loan_currency_to_accounting(self):
-        """Sync loan currency configuration with accounting using native Odoo 19 accounting"""
+        """
+        Revalue a foreign-currency loan's outstanding receivable against the
+        company currency and book the unrealised FX gain/loss.
+
+        Previously this computed a real conversion rate but never used it —
+        it posted a single-line entry with hardcoded debit=credit=0.0, so it
+        claimed success while moving nothing. This compares the outstanding
+        balance's value at its original disbursement-date rate against
+        today's rate and books the difference, using the company's standard
+        Exchange Gain/Loss accounts and Exchange Rate journal.
+        """
         for loan in self:
             if not loan.currency_id:
                 raise UserError(_("Loan must have a currency configured"))
-            
-            if loan.currency_id == loan.company_id.currency_id:
+
+            company = loan.company_id
+            company_currency = company.currency_id
+
+            if loan.currency_id == company_currency:
                 loan.message_post(body=_("Loan currency matches company currency - no sync needed"))
                 continue
-            
-            # Create currency difference journal entry if needed
-            if loan.disbursement_date and loan.state in ('normal', 'watch', 'substandard', 'doubtful', 'loss'):
-                # Calculate currency difference at current rate
-                company_currency = loan.company_id.currency_id
-                loan_currency = loan.currency_id
-                
-                # Get currency rate
-                rate = company_currency._get_conversion_rate(loan_currency, company_currency, loan.disbursement_date)
-                
-                # Create journal entry for currency valuation
-                move_vals = {
-                    'journal_id': loan.company_id.currency_exchange_journal_id.id if loan.company_id.currency_exchange_journal_id else False,
-                    'date': fields.Date.context_today(self),
-                    'ref': f"Currency Sync/{loan.loan_number}",
-                    'currency_id': loan_currency.id,
-                    'narration': _("Currency sync for loan %s") % loan.loan_number,
-                    'line_ids': [
-                        (0, 0, {
-                            'account_id': loan.company_id.currency_exchange_journal_id.default_account_id.id if loan.company_id.currency_exchange_journal_id and loan.company_id.currency_exchange_journal_id.default_account_id else False,
-                            'name': _("Currency difference - %s") % loan.loan_number,
-                            'debit': 0.0,
-                            'credit': 0.0,
-                            'amount_currency': 0.0,
-                            'currency_id': loan_currency.id,
-                        }),
-                    ],
-                }
-                
-                if move_vals['journal_id'] and move_vals['line_ids'][0][2]['account_id']:
-                    self.env['account.move'].create(move_vals)
-                    loan.message_post(body=_("Currency sync completed - journal entry created"))
-                else:
-                    loan.message_post(body=_("Currency sync skipped - no currency exchange journal configured"))
-            else:
+
+            if not (loan.disbursement_date and loan.state in ('normal', 'watch', 'substandard', 'doubtful', 'loss')):
                 loan.message_post(body=_("Currency sync skipped - loan not yet disbursed"))
-    
-    def action_create_loan_accounting_move(self):
-        """Create accounting move for loan disbursement with currency integration"""
-        for loan in self:
-            if loan.state in ('closed', 'written_off'):
-                raise UserError(_("Only open/disbursed loans can create accounting moves"))
-            
-            if not loan.journal_id:
-                raise UserError(_("Loan must have a journal configured"))
-            loan._ensure_disbursement_payment_method_line()
-            
-            # Get loan product for account configuration
-            product = loan.loan_product_id
-            if not product:
-                raise UserError(_("Loan must have a loan product configured"))
-            
-            if not product.account_loan_receivable_id:
-                raise UserError(_("Please configure the Loan Receivable account on product '%s'.") % product.name)
-            
-            outstanding_account = (
-                loan.payment_method_line_id.payment_account_id
-                or loan.journal_id.default_account_id
+                continue
+
+            outstanding = loan.outstanding_balance
+            if outstanding <= 0.0:
+                loan.message_post(body=_("Currency sync skipped - no outstanding balance to revalue"))
+                continue
+
+            loan_currency = loan.currency_id
+            today = fields.Date.context_today(self)
+            value_at_disbursement_rate = loan_currency._convert(
+                outstanding, company_currency, company, loan.disbursement_date
             )
-            if not outstanding_account:
+            value_at_today_rate = loan_currency._convert(
+                outstanding, company_currency, company, today
+            )
+            difference = value_at_today_rate - value_at_disbursement_rate
+            if abs(difference) < 0.01:
+                loan.message_post(body=_("Currency sync: no material FX movement to book."))
+                continue
+
+            product = loan.loan_product_id
+            if not product or not product.account_loan_receivable_id:
                 raise UserError(
-                    _(
-                        'Journal "%s" has no Outstanding Payments account configured. '
-                        'Please set it under Accounting > Configuration > Journals > '
-                        'Outgoing Payments tab before creating loan accounting moves.'
-                    ) % loan.journal_id.name
+                    _("Please configure the Loan Receivable account on product '%s'.")
+                    % (product.name if product else "Unknown")
                 )
 
-            company_currency = loan.company_id.currency_id
-            loan_currency = loan.currency_id
+            exch_journal = company.currency_exchange_journal_id
+            if not exch_journal:
+                raise UserError(_(
+                    "Please configure the Exchange Rate journal on company '%s' "
+                    "(Accounting > Configuration > Settings)."
+                ) % company.name)
 
-            move_vals = {
-                'journal_id': loan.journal_id.id,
-                'date': loan.disbursement_date or fields.Date.context_today(self),
-                'ref': f"LOAN/{loan.loan_number}",
-                'currency_id': loan_currency.id,
-                'narration': _("Loan disbursement — %s — %s") % (loan.loan_number, loan.customer_id.display_name),
-                'preferred_payment_method_line_id': loan.payment_method_line_id.id if loan.payment_method_line_id else False,
-                'line_ids': [
-                    # DR Loan Receivable
+            amount = abs(difference)
+            if difference > 0:
+                # Receivable is worth more in company currency: DR Receivable, CR Exchange Gain
+                gain_account = company.income_currency_exchange_account_id
+                if not gain_account:
+                    raise UserError(_(
+                        "Please configure the Exchange Gain account on company '%s' "
+                        "(Accounting > Configuration > Settings)."
+                    ) % company.name)
+                line_ids = [
                     (0, 0, {
-                        'account_id': product.account_loan_receivable_id.id,
-                        'name': _("Loan disbursement — %s") % loan.loan_number,
-                        'debit': loan.principal_amount if loan_currency == company_currency else 0.0,
-                        'credit': 0.0,
-                        'amount_currency': loan.principal_amount,
-                        'currency_id': loan_currency.id,
-                        'partner_id': loan.customer_id.partner_id.id,
+                        "account_id": product.account_loan_receivable_id.id,
+                        "name": _("FX revaluation — %s") % loan.loan_number,
+                        "debit": amount, "credit": 0.0,
+                        "partner_id": loan.customer_id.partner_id.id,
                     }),
-                    # CR Outstanding Payments transit account
                     (0, 0, {
-                        'account_id': outstanding_account.id,  # FIX: use Outstanding Payments transit account
-                        'name': _("Disbursement — %s") % loan.loan_number,
-                        'debit': 0.0,
-                        'credit': loan.principal_amount if loan_currency == company_currency else 0.0,
-                        'amount_currency': -loan.principal_amount,
-                        'currency_id': loan_currency.id,
-                        'partner_id': loan.customer_id.partner_id.id,
+                        "account_id": gain_account.id,
+                        "name": _("FX gain — %s") % loan.loan_number,
+                        "debit": 0.0, "credit": amount,
+                        "partner_id": loan.customer_id.partner_id.id,
                     }),
-                ],
-            }
+                ]
+            else:
+                # Receivable is worth less in company currency: DR Exchange Loss, CR Receivable
+                loss_account = company.expense_currency_exchange_account_id
+                if not loss_account:
+                    raise UserError(_(
+                        "Please configure the Exchange Loss account on company '%s' "
+                        "(Accounting > Configuration > Settings)."
+                    ) % company.name)
+                line_ids = [
+                    (0, 0, {
+                        "account_id": loss_account.id,
+                        "name": _("FX loss — %s") % loan.loan_number,
+                        "debit": amount, "credit": 0.0,
+                        "partner_id": loan.customer_id.partner_id.id,
+                    }),
+                    (0, 0, {
+                        "account_id": product.account_loan_receivable_id.id,
+                        "name": _("FX revaluation — %s") % loan.loan_number,
+                        "debit": 0.0, "credit": amount,
+                        "partner_id": loan.customer_id.partner_id.id,
+                    }),
+                ]
 
-            move = self.env['account.move'].create(move_vals)
-            move.action_post()
-            move.write({
-                'ref': move.ref,
-                'is_move_sent': False,
+            move = self.env["account.move"].create({
+                "journal_id": exch_journal.id,
+                "date": today,
+                "ref": f"FXREV/{loan.loan_number}",
+                "alba_loan_id": loan.id,
+                "narration": _("Currency revaluation for loan %s") % loan.loan_number,
+                "line_ids": line_ids,
             })
-            loan.message_post(body=_("Accounting move created: %s") % move.name)
-            return {
-                'type': 'ir.actions.act_window',
-                'name': _('Accounting Move'),
-                'res_model': 'account.move',
-                'res_id': move.id,
-                'view_mode': 'form',
-            }
-            return {
-                'type': 'ir.actions.act_window',
-                'name': _('Accounting Move'),
-                'res_model': 'account.move',
-                'res_id': move.id,
-                'view_mode': 'form',
-            }
+            move.action_post()
+            loan.message_post(body=_(
+                "Currency sync: %(kind)s of %(currency)s %(amount).2f booked — Journal Entry: %(move)s."
+            ) % {
+                "kind": _("FX gain") if difference > 0 else _("FX loss"),
+                "currency": company_currency.name,
+                "amount": amount,
+                "move": move.name,
+            })
