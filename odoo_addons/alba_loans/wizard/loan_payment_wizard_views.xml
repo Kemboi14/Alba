@@ -14,7 +14,7 @@
             <field name="payment_method"/>
             <field name="mpesa_transaction_id"/>
             <field name="bank_transaction_id"/>
-            <field name="journal_id" options="{'no_create': True}"/>
+            <field name="journal_id" options="{'no_create': True}" required="1"/>
             <field name="payment_method_line_id" options="{'no_create': True}" invisible="not journal_id" required="journal_id"/>
             <field name="payment_reference"/>
           </group>

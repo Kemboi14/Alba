@@ -949,15 +949,39 @@ class AlbaLoan(models.Model):
                 line.interest_due for line in schedule if line.due_date <= today
             )
 
-    @api.depends("state")
+    def _get_posted_interest_accrual(self):
+        """Sum of debit-credit already posted to the Interest Receivable
+        account for this loan — the same query action_post_interest_accrual_entry()
+        uses to compute the delta still owed. Shared so the "pending" flag
+        and the "how much to post" logic can never disagree with each other."""
+        self.ensure_one()
+        product = self.loan_product_id
+        if not product or not product.account_interest_receivable_id:
+            return None
+        posted_interest = 0.0
+        moves = self.env["account.move"].search([
+            ("alba_loan_id", "=", self.id),
+            ("state", "=", "posted"),
+        ])
+        for move in moves:
+            for line in move.line_ids:
+                if line.account_id == product.account_interest_receivable_id:
+                    posted_interest += (line.debit - line.credit)
+        return posted_interest
+
+    @api.depends("state", "accrued_interest")
     def _compute_is_accrual_pending(self):
-        today = fields.Date.context_today(self)
-        month_start = today.replace(day=1)
-        if today.month == 12:
-            next_month = date(today.year + 1, 1, 1)
-        else:
-            next_month = date(today.year, today.month + 1, 1)
-        month_end = next_month - timedelta(days=1)
+        """
+        True only when there is a real, uncollected interest delta to post —
+        i.e. exactly the condition action_post_interest_accrual_entry() itself
+        checks before posting. Previously this just checked "has any INT/
+        entry been posted this calendar month", which could disagree with the
+        delta check: a loan already over-posted in a prior run (from the old
+        bug that booked the full lifetime total every click) would show the
+        amber "accrual pending, please click" banner while the button itself
+        correctly found nothing left to post and did nothing — a confusing,
+        contradictory state.
+        """
         active_states = ("normal", "watch", "substandard", "doubtful", "loss")
 
         for rec in self:
@@ -966,13 +990,7 @@ class AlbaLoan(models.Model):
                 continue
 
             try:
-                posted_count = self.env["account.move"].search_count([
-                    ("alba_loan_id", "=", rec.id),
-                    ("state", "=", "posted"),
-                    ("date", ">=", month_start),
-                    ("date", "<=", month_end),
-                    ("ref", "ilike", "INT/"),
-                ])
+                posted_interest = rec._get_posted_interest_accrual()
             except Exception:
                 _logger.exception(
                     "is_accrual_pending: failed checking accrual for loan %s",
@@ -981,7 +999,13 @@ class AlbaLoan(models.Model):
                 rec.is_accrual_pending = True
                 continue
 
-            rec.is_accrual_pending = posted_count == 0
+            if posted_interest is None:
+                # Interest Receivable account not configured on the product —
+                # nothing actionable to nag about.
+                rec.is_accrual_pending = False
+                continue
+
+            rec.is_accrual_pending = (rec.accrued_interest - posted_interest) > 0.01
 
     # =========================================================================
     # IMPORT-EXPORT FIX: no-op inverse methods for all computed+stored fields
@@ -1357,19 +1381,15 @@ class AlbaLoan(models.Model):
         if amount is not None:
             interest_amount = amount
         else:
-            posted_interest = 0.0
-            moves = self.env["account.move"].search([
-                ("alba_loan_id", "=", self.id),
-                ("state", "=", "posted"),
-            ])
-            for move in moves:
-                for line in move.line_ids:
-                    if line.account_id == product.account_interest_receivable_id:
-                        posted_interest += (line.debit - line.credit)
+            posted_interest = self._get_posted_interest_accrual() or 0.0
             interest_amount = self.accrued_interest - posted_interest
 
         if interest_amount <= 0.01:
             self.is_accrual_pending = False
+            self.message_post(body=_(
+                "Interest accrual check: no new interest to post — "
+                "KES %.2f already posted covers accrual to date."
+            ) % (self._get_posted_interest_accrual() or 0.0))
             return False
 
         # Resolve a General journal — never use the bank/cash disbursement journal

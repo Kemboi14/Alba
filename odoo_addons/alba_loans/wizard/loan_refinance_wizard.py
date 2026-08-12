@@ -123,12 +123,25 @@ class AlbaLoanRefinanceWizard(models.TransientModel):
                     "(minimum 50%% repayment required)."
                 ) % (repaid_pct, loan.loan_number))
 
+        loan = self.original_loan_id
+        # alba.loan.refinance's own form auto-fills settlement_amount via
+        # _onchange_original_loan_id() as soon as a user picks the loan —
+        # but onchange never fires on a programmatic create(), so without
+        # this the wizard-created record would settle_amount=0, making
+        # every dependent preview (cashback_to_customer/customer_to_pay)
+        # wrong and failing action_settle_original_loan() later against the
+        # amount_paid > 0 constraint.
+        settlement_amount = (
+            loan.outstanding_principal + (loan.accrued_interest or 0.0) + (loan.outstanding_charges or 0.0)
+        )
+
         vals = {
             "original_loan_id": self.original_loan_id.id,
             "new_product_id": self.new_product_id.id,
             "new_principal": self.new_principal,
             "new_interest_rate": self.new_interest_rate,
             "new_tenure_months": self.new_tenure_months,
+            "settlement_amount": settlement_amount,
         }
         if self.is_topup:
             vals.update({"is_topup": True, "topup_amount": self.topup_amount})
