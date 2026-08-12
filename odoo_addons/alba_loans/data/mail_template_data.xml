@@ -18,7 +18,6 @@
                         who has listed your organization as their current employer.<br/><br/>
                         Please confirm the following details for our credit assessment:<br/>
                         - Job Title: <t t-out="object.customer_id.job_title">N/A</t><br/>
-                        - Employment Type: <t t-out="object.customer_id.employment_type">N/A</t><br/>
                         - Monthly Net Income: <t t-out="object.currency_id.symbol"/> <t t-out="object.customer_id.monthly_income">0.00</t><br/><br/>
                         You can reply to this email to confirm or provide further details.<br/><br/>
                         Thank you,<br/>
@@ -140,7 +139,7 @@
                         Your loan <strong t-out="object.application_number"/> has been
                         <strong>DISBURSED</strong>. The funds should be available in your account shortly.<br/><br/>
                         Your first repayment is due on
-                        <t t-out="object.loan_id.next_payment_date">the scheduled date</t>.<br/><br/>
+                        <t t-out="object.loan_id.next_payment_due_date">the scheduled date</t>.<br/><br/>
                         Thank you,<br/>
                         <strong t-out="object.company_id.name"/>
                     </p>

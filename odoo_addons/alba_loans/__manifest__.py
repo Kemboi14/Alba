@@ -74,6 +74,8 @@ Accounting
         "data/business_sector_data.xml",
         "data/business_subsector_data.xml",
         "data/loan_status_reason_data.xml",
+        # ── Email templates ─────────────────────────────────────────────────
+        "data/mail_template_data.xml",
         # ── Scheduled actions (crons) ────────────────────────────────────────
         "data/cron_data.xml",
         # ── Paperformat ─────────────────────────────────────────────────────
