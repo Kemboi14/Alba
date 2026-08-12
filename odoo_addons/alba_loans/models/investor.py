@@ -28,7 +28,7 @@ class AlbaInvestor(models.Model):
     )
     name = fields.Char(related="partner_id.name", store=True, readonly=False)
     investor_name = fields.Char(
-        string="Display Name",
+        string="Investor Full Name",  # must NOT be 'Display Name' — Odoo's built-in field already has that label
         compute="_compute_investor_name",
         store=True,
         index=True,

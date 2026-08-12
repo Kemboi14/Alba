@@ -165,7 +165,7 @@ class AlbaInterestAccrual(models.Model):
             ("paid", "Paid Out"),
             ("reversed", "Reversed"),
         ],
-        string="Status",
+        string="Payment Status",
         compute="_compute_payment_status",
         help="Display status of the accrual (Posted, Partially Paid, Paid Out, Draft, Reversed).",
     )

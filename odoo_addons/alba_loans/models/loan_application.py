@@ -296,11 +296,11 @@ class AlbaLoanApplication(models.Model):
     )
     has_guarantor_block = fields.Boolean(
         string="Guarantor Block",
-        compute="_compute_ux_helpers",
+        compute="_compute_block_indicators",
     )
     has_collateral_block = fields.Boolean(
         string="Collateral Block",
-        compute="_compute_ux_helpers",
+        compute="_compute_block_indicators",
     )
     risk_score = fields.Float(
         string="Credit Risk Score",
@@ -487,6 +487,7 @@ class AlbaLoanApplication(models.Model):
     # Computed methods
     # =========================================================================
 
+    @api.depends("state")
     def _compute_ux_helpers(self):
         state_map = {
             "draft": 10, "submitted": 25, "under_review": 40,
@@ -498,8 +499,17 @@ class AlbaLoanApplication(models.Model):
         }
         for rec in self:
             rec.application_progress = state_map.get(rec.state, 0)
-            
-            # Block indicators
+
+    # Kept separate from _compute_ux_helpers (distinct store=True/False) —
+    # sharing one compute method across stored and non-stored fields makes
+    # reading either of these silently trigger a recompute+write of
+    # application_progress as a side effect.
+    @api.depends(
+        "product_requires_guarantor", "confirmed_guarantor_count", "product_min_guarantors",
+        "product_requires_collateral", "loan_collateral_ids",
+    )
+    def _compute_block_indicators(self):
+        for rec in self:
             rec.has_guarantor_block = rec.product_requires_guarantor and rec.confirmed_guarantor_count < (rec.product_min_guarantors or 1)
             rec.has_collateral_block = rec.product_requires_collateral and not rec.loan_collateral_ids
 

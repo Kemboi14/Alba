@@ -483,11 +483,11 @@ class AlbaLoan(models.Model):
     next_payment_amount = fields.Monetary(
         string="Next Payment Amount",
         currency_field="currency_id",
-        compute="_compute_ux_helpers",
+        compute="_compute_next_payment_amount",
     )
     days_until_due = fields.Integer(
         string="Days Until Due",
-        compute="_compute_ux_helpers",
+        compute="_compute_next_payment_amount",
     )
     remaining_tenure = fields.Integer(
         string="Remaining Tenure (Months)",
@@ -804,7 +804,7 @@ class AlbaLoan(models.Model):
         else:
             return [("id", "not in", candidate_ids)]
 
-    @api.depends("repayment_ids", "repayment_schedule_ids.paid_late", "current_repayment_schedule_ids.paid_late")
+    @api.depends("repayment_ids", "repayment_schedule_ids.paid_late")
     def _compute_repayment_count(self):
         for rec in self:
             rec.repayment_count = len(rec.repayment_ids)
@@ -815,25 +815,35 @@ class AlbaLoan(models.Model):
         for rec in self:
             rec.credit_life_insurance_count = len(rec.credit_life_insurance_ids)
 
+    @api.depends("total_paid", "total_repayable", "repayment_schedule_ids.status", "repayment_schedule_ids.due_date")
     def _compute_ux_helpers(self):
-        today = fields.Date.today()
         for rec in self:
             # Repayment Progress
             if rec.total_repayable > 0:
                 rec.repayment_progress = min(100, int((rec.total_paid / rec.total_repayable) * 100))
             else:
                 rec.repayment_progress = 0
-            
-            # Next Payment Info
+
+            # Next Payment Due Date
+            schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
+            unpaid_schedule = schedule.filtered(lambda s: s.status != "paid").sorted("due_date")
+            rec.next_payment_due_date = unpaid_schedule[0].due_date if unpaid_schedule else False
+
+    # Kept separate from _compute_ux_helpers (distinct store=True/False) —
+    # sharing one compute method across stored and non-stored fields makes
+    # reading either of these silently trigger a recompute+write of the
+    # stored fields above as a side effect.
+    @api.depends("repayment_schedule_ids.status", "repayment_schedule_ids.due_date", "repayment_schedule_ids.balance_due")
+    def _compute_next_payment_amount(self):
+        today = fields.Date.today()
+        for rec in self:
             schedule = rec.current_repayment_schedule_ids or rec.repayment_schedule_ids
             unpaid_schedule = schedule.filtered(lambda s: s.status != "paid").sorted("due_date")
             if unpaid_schedule:
                 next_item = unpaid_schedule[0]
-                rec.next_payment_due_date = next_item.due_date
                 rec.next_payment_amount = next_item.balance_due
                 rec.days_until_due = (next_item.due_date - today).days
             else:
-                rec.next_payment_due_date = False
                 rec.next_payment_amount = 0.0
                 rec.days_until_due = 0
 

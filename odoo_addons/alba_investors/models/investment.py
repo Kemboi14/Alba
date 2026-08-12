@@ -228,12 +228,12 @@ class AlbaInvestment(models.Model):
     topup_ids = fields.One2many(
         "alba.investment.topup",
         "investment_id",
-        string="Top-Ups",
+        string="Top-Up Records",
     )
     payout_ids = fields.One2many(
         "alba.interest.payout",
         "investment_id",
-        string="Interest Payouts",
+        string="Interest Payout Records",
     )
 
     # ── Accounting ────────────────────────────────────────────────────────────
