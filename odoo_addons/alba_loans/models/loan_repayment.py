@@ -951,7 +951,39 @@ class AlbaLoanRepayment(models.Model):
                 ], limit=1)
                 if method_line:
                     vals["payment_method_line_id"] = method_line.id
-        return super().create(vals_list)
+        records = super().create(vals_list)
+
+        # Every normal flow (wizards, refinance/consolidation/partial-payoff,
+        # M-Pesa reconciliation) creates a repayment as 'draft' and reaches
+        # 'posted' only through action_post(), which allocates components
+        # and syncs the instalment schedule. A record created with state
+        # already set to 'posted' (bulk import, direct ORM write, a fixture)
+        # skips both steps — the loan-level total_paid still adds it up
+        # correctly, but every instalment stays "pending" forever and PAR /
+        # days-in-arrears keep counting from the original due date as if
+        # nothing had been paid. Catch that bypass here so the schedule can
+        # never silently drift from what was actually received.
+        for rec, vals in zip(records, vals_list):
+            if vals.get("state") != "posted":
+                continue
+            total_comp = (
+                rec.principal_component
+                + rec.interest_component
+                + rec.fees_component
+                + rec.penalty_component
+            )
+            if total_comp == 0.0 and rec.amount_paid:
+                rec._auto_allocate_components()
+            rec._update_schedule_entries()
+            loan = rec.loan_id
+            if loan:
+                loan.repayment_schedule_ids.invalidate_recordset(
+                    ["balance_due", "total_paid", "status", "days_overdue"]
+                )
+                loan._compute_financial_totals()
+                loan._compute_par()
+                loan._compute_state()
+        return records
 
     def name_get(self):
         return [
