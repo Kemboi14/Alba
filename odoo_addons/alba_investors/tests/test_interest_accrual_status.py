@@ -11,7 +11,9 @@ class TestInterestAccrualStatus(TransactionCase):
         self.partner = self.env["res.partner"].create({"name": "Test Investor Partner"})
         self.investor = self.env["alba.investor"].create({
             "partner_id": self.partner.id,
-            "status": "active",
+            "id_number": "12345678",
+            "date_of_birth": date(1990, 1, 1),
+            "payment_details": "Test Bank Account 0000000000",
         })
         self.currency = self.env.ref("base.KES") if self.env.ref("base.KES", raise_if_not_found=False) else self.env.company.currency_id
         
@@ -29,9 +31,10 @@ class TestInterestAccrualStatus(TransactionCase):
         self.investment = self.env["alba.investment"].create({
             "investor_id": self.investor.id,
             "investment_product_id": self.product.id,
-            "initial_deposit": 100000.0,
-            "current_balance": 100000.0,
+            "investment_type": "open_ended",
+            "principal_amount": 100000.0,
             "interest_rate": 12.0,
+            "currency_id": self.currency.id,
             "start_date": date(2026, 1, 1),
             "state": "active",
         })

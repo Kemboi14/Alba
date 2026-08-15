@@ -6,10 +6,13 @@ from odoo.exceptions import UserError, ValidationError
 
 from .accrual_backfill import (
     iter_missing_accrual_periods,
+    iter_missing_annual_periods,
     _period_start_from_accrual_date,
     get_effective_period_start,
+    get_first_eligible_accrual_start,
     split_period_for_payout_cutoff,
     compute_accrual_interest,
+    compute_annual_accrual_interest,
     split_period_by_topups,
 )
 
@@ -94,16 +97,18 @@ class AlbaInvestment(models.Model):
     compounding_frequency = fields.Selection(
         selection=[
             ("monthly", "Monthly"),
+            ("annual", "Annual"),
         ],
         string="Compounding Frequency",
         required=True,
         default="monthly",
         tracking=True,
-        help="Monthly is the only supported cadence — interest is accrued "
-             "and compounded once per 29th-to-28th cycle. Quarterly/annual "
-             "options were previously offered but had no effect (every "
-             "investment compounded monthly regardless of this setting), "
-             "so they were removed rather than left silently non-functional.",
+        help="Monthly: interest is accrued and compounded once per "
+             "29th-to-28th calendar cycle. Annual: interest is accrued and "
+             "compounded once per year, on this investment's own start-date "
+             "anniversary — Rule 3 (after-cutoff-day deferral) and the "
+             "15th-cutoff payout split do not apply, since those exist only "
+             "to smooth a partial first MONTH.",
     )
 
     # ── Dates ─────────────────────────────────────────────────────────────────
@@ -654,7 +659,8 @@ class AlbaInvestment(models.Model):
     def action_accrue_monthly_interest(self, accrual_date=None, opening_balance=None,
                                        period_start=None, period_end=None):
         """
-        Accrue one month's compound interest on this investment.
+        Accrue one compounding period's interest on this investment — monthly
+        or annual, per compounding_frequency — and post its journal entry.
         Creates an alba.interest.accrual record and posts its journal entry.
         Returns the new accrual record.
 
@@ -673,11 +679,21 @@ class AlbaInvestment(models.Model):
                 % (self.investment_number, self.state)
             )
 
+        is_annual = self.compounding_frequency == "annual"
+        interest_fn = compute_annual_accrual_interest if is_annual else compute_accrual_interest
+
         today = fields.Date.to_date(accrual_date) if accrual_date else fields.Date.today()
 
         # Determine period start/end: prefer explicit args (backfill passes these so
-        # that pro-rata first-month clamping is preserved), otherwise derive from today.
+        # that pro-rata first-period clamping is preserved), otherwise derive from today.
         if period_start is None or period_end is None:
+            if is_annual:
+                # Annual periods are always supplied explicitly by the backfill
+                # loop (iter_missing_annual_periods) — there is no "today's
+                # cycle" to derive the way the monthly 29th-28th rule does.
+                raise UserError(
+                    _("Annual accrual periods must be generated via the backfill process.")
+                )
             from datetime import date as _date
             month = today.month
             year = today.year
@@ -730,6 +746,7 @@ class AlbaInvestment(models.Model):
             period_start=period_start,
             period_end=period_end,
             topups=topups_in_period,
+            interest_fn=interest_fn,
         )
 
         if period_interest <= 0:
@@ -738,7 +755,11 @@ class AlbaInvestment(models.Model):
                 % self.investment_number
             )
 
-        if is_first_period:
+        if is_first_period and not is_annual:
+            # The 15th-cutoff payout split only smooths a partial first
+            # MONTH — annual cycles have no monthly-cutoff analogue (see
+            # compounding_frequency's help text), so the full period is
+            # payable now.
             payable_now, deferred_amount = split_period_for_payout_cutoff(
                 period_start,
                 period_end,
@@ -762,8 +783,9 @@ class AlbaInvestment(models.Model):
 
         self.message_post(
             body=_(
-                "Monthly interest accrual posted: <b>%(currency)s %(amount).2f</b> "
+                "%(cadence)s interest accrual posted: <b>%(currency)s %(amount).2f</b> "
                 "for period %(start)s – %(end)s. New portfolio value: %(currency)s %(value).2f.",
+                cadence=_("Annual") if is_annual else _("Monthly"),
                 currency=self.currency_id.name,
                 amount=period_interest,
                 start=period_start,
@@ -1374,7 +1396,8 @@ class AlbaInvestment(models.Model):
 
     @api.model
     def action_backfill_missing_accruals(self, as_of_date=None):
-        """Generate any missing monthly accruals for active investments.
+        """Generate any missing accruals for active investments — monthly or
+        annual per each investment's compounding_frequency.
 
         Each investment is processed inside its own database savepoint so that
         a failure on one investment does not roll back accruals already posted
@@ -1393,14 +1416,28 @@ class AlbaInvestment(models.Model):
             if not product:
                 continue
 
-            target_day = product.auto_accrual_day or 28
-            cutoff_day = product.after_cutoff_day if product.after_cutoff_day else 15
             start_date = inv.start_date or as_of_date
+            is_annual = inv.compounding_frequency == "annual"
 
-            _logger.info(
-                "Backfill: processing %s (start=%s, cutoff_day=%d)",
-                inv.investment_number, inv.start_date, cutoff_day,
-            )
+            if is_annual:
+                periods_iter = iter_missing_annual_periods(inv.start_date, as_of_date)
+                _logger.info(
+                    "Backfill: processing %s (start=%s, cadence=annual)",
+                    inv.investment_number, inv.start_date,
+                )
+            else:
+                target_day = product.auto_accrual_day or 28
+                cutoff_day = product.after_cutoff_day if product.after_cutoff_day else 15
+                periods_iter = iter_missing_accrual_periods(
+                    start_date, as_of_date, target_day,
+                    investment_start=inv.start_date,
+                    cutoff_day=cutoff_day,
+                    env=self.env,
+                )
+                _logger.info(
+                    "Backfill: processing %s (start=%s, cutoff_day=%d)",
+                    inv.investment_number, inv.start_date, cutoff_day,
+                )
 
             # Re-derive the true opening balance for each period from first principles.
             # This uses: principal + all posted top-ups up to period_start +
@@ -1414,12 +1451,7 @@ class AlbaInvestment(models.Model):
             # always restarts from start_date on the next run, so an
             # unrecovered per-investment abort here would permanently stop
             # this investment from ever catching up again.
-            for accrual_date, period_start, period_end in iter_missing_accrual_periods(
-                start_date, as_of_date, target_day,
-                investment_start=inv.start_date,
-                cutoff_day=cutoff_day,
-                env=self.env,
-            ):
+            for accrual_date, period_start, period_end in periods_iter:
                 try:
                     existing = self.env["alba.interest.accrual"].search(
                         [
@@ -1537,6 +1569,12 @@ class AlbaInvestment(models.Model):
 
         for inv in target_investments:
             if not inv.start_date:
+                continue
+            if inv.compounding_frequency == "annual":
+                # Rule 3 (after-cutoff-day deferral) only smooths a partial
+                # first MONTH into the monthly cycle — annual investments
+                # have no monthly-cutoff analogue (see compounding_frequency's
+                # help text), so there is nothing to remediate here.
                 continue
 
             cutoff_day = (

@@ -1,5 +1,7 @@
 from datetime import date, timedelta
 
+from dateutil.relativedelta import relativedelta
+
 
 def _period_start_from_accrual_date(accrual_date):
     """
@@ -140,7 +142,68 @@ def compute_accrual_interest(opening_balance, annual_rate, period_start, period_
         return round(full_month_interest * actual_days / 30.0, 2)
 
 
-def split_period_by_topups(opening_balance, annual_rate, period_start, period_end, topups=None):
+def compute_annual_accrual_interest(opening_balance, annual_rate, period_start, period_end):
+    """
+    Compute interest amount for an annually-compounding accrual period.
+
+    Full cycle: opening_balance × (annual_rate / 100).
+    Partial cycle (only ever the Day-0-excluded first period — see
+    get_annual_period_bounds): prorated by actual_days / 365.
+
+    A full annual cycle is 365 or 366 days (leap year) — anything within 3
+    days of either is treated as exactly one year, mirroring the ±3-day
+    tolerance compute_accrual_interest uses to treat 28-31 day periods as
+    one full month.
+    """
+    if not opening_balance or not annual_rate or not period_start or not period_end:
+        return 0.00
+
+    full_year_interest = opening_balance * (annual_rate / 100.0)
+    actual_days = (period_end - period_start).days + 1
+
+    if abs(actual_days - 365) <= 3 or abs(actual_days - 366) <= 3:
+        return round(full_year_interest, 2)
+    return round(full_year_interest * actual_days / 365.0, 2)
+
+
+def get_annual_period_bounds(investment_start, cycle_index):
+    """
+    Return (period_start, period_end) for annual cycle `cycle_index` (0-based)
+    of an annually-compounding investment, anchored to its own start_date
+    anniversary — not a fixed calendar date, unlike the monthly 29th-28th rule.
+
+    cycle_index 0: period_start = start_date + 1 day  (Day-0 exclusion),
+                   period_end   = start_date + 1 year.
+    cycle_index N: period_start = start_date + N years + 1 day,
+                   period_end   = start_date + (N + 1) years.
+    """
+    period_end = investment_start + relativedelta(years=cycle_index + 1)
+    period_start = investment_start + relativedelta(years=cycle_index) + timedelta(days=1)
+    return period_start, period_end
+
+
+def iter_missing_annual_periods(investment_start, as_of_date):
+    """
+    Yield (accrual_date, period_start, period_end) for every completed annual
+    cycle of an annually-compounding investment, oldest first, up to as_of_date.
+
+    Unlike the monthly cycle, a cycle is only ever yielded once it has fully
+    elapsed — annual compounding has nothing to post mid-year. accrual_date
+    equals period_end: the cycle is recorded on its own closing anniversary
+    rather than a fixed day-of-month.
+    """
+    if not investment_start:
+        return
+    cycle_index = 0
+    while True:
+        period_start, period_end = get_annual_period_bounds(investment_start, cycle_index)
+        if period_end > as_of_date:
+            break
+        yield (period_end, period_start, period_end)
+        cycle_index += 1
+
+
+def split_period_by_topups(opening_balance, annual_rate, period_start, period_end, topups=None, interest_fn=None):
     """
     Compute total period interest when top-ups occur mid-period.
 
@@ -156,12 +219,20 @@ def split_period_by_topups(opening_balance, annual_rate, period_start, period_en
         period_end (date): End of overall accrual period.
         topups (iterable): Objects or dicts with date and amount for posted top-ups
                            occurring within [period_start, period_end].
+        interest_fn: sub-period interest function to use, defaults to
+                     compute_accrual_interest (monthly convention). Pass
+                     compute_annual_accrual_interest for annually-compounding
+                     investments — the top-up-splitting logic itself (Day-0
+                     exclusion per top-up, no intra-period compounding) is
+                     identical regardless of cadence.
 
     Returns:
         float: Total rounded interest for the period.
     """
     if not opening_balance or not annual_rate or not period_start or not period_end:
         return 0.00
+
+    interest_fn = interest_fn or compute_accrual_interest
 
     topups_by_date = {}
     for t in (topups or []):
@@ -171,7 +242,7 @@ def split_period_by_topups(opening_balance, annual_rate, period_start, period_en
             topups_by_date[t_date] = topups_by_date.get(t_date, 0.0) + t_amount
 
     if not topups_by_date:
-        return compute_accrual_interest(opening_balance, annual_rate, period_start, period_end)
+        return interest_fn(opening_balance, annual_rate, period_start, period_end)
 
     sorted_dates = sorted(topups_by_date.keys())
     current_start = period_start
@@ -180,13 +251,13 @@ def split_period_by_topups(opening_balance, annual_rate, period_start, period_en
 
     for topup_date in sorted_dates:
         sub_end = topup_date
-        sub_interest = compute_accrual_interest(current_balance, annual_rate, current_start, sub_end)
+        sub_interest = interest_fn(current_balance, annual_rate, current_start, sub_end)
         total_interest += sub_interest
         current_balance += topups_by_date[topup_date]  # Only topup principal, no interest compounding
         current_start = topup_date + timedelta(days=1)
 
     if current_start <= period_end:
-        sub_interest = compute_accrual_interest(current_balance, annual_rate, current_start, period_end)
+        sub_interest = interest_fn(current_balance, annual_rate, current_start, period_end)
         total_interest += sub_interest
 
     return round(total_interest, 2)

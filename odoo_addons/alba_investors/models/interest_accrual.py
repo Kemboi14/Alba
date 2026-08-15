@@ -8,7 +8,9 @@ from .accrual_backfill import (
     _period_start_from_accrual_date,
     get_first_eligible_accrual_start,
     get_first_eligible_accrual_date,
+    get_annual_period_bounds,
     compute_accrual_interest,
+    compute_annual_accrual_interest,
     split_period_by_topups,
 )
 
@@ -297,37 +299,7 @@ class AlbaInterestAccrual(models.Model):
         today = fields.Date.context_today(self)
 
         self.accrual_date = today
-        # 29th-to-28th rule: period_end = 28th of current month,
-        # period_start = 29th of previous month (handles leap years via timedelta)
-        self.period_end = date(today.year, today.month, 28)
-        natural_start = _period_start_from_accrual_date(self.period_end)
-
-        cutoff_day = (
-            inv.investment_product_id.after_cutoff_day
-            if inv.investment_product_id and inv.investment_product_id.after_cutoff_day
-            else 15
-        )
-        first_eligible_date = (
-            get_first_eligible_accrual_date(inv.start_date, cutoff_day=cutoff_day)
-            if inv.start_date and inv.start_date.day > cutoff_day
-            else None
-        )
-        first_eligible_start = (
-            get_first_eligible_accrual_start(inv.start_date, cutoff_day=cutoff_day)
-            if inv.start_date
-            else None
-        )
-
-        if first_eligible_date and today < first_eligible_date:
-            self.period_start = first_eligible_start or natural_start
-            m = first_eligible_date.month
-            y = first_eligible_date.year
-            self.period_end = date(y, m, 28)
-        elif inv.start_date and inv.start_date >= natural_start:
-            interest_start = inv.start_date + timedelta(days=1)
-            self.period_start = max(natural_start, interest_start)
-        else:
-            self.period_start = natural_start
+        is_annual = inv.compounding_frequency == "annual"
 
         # Opening balance = closing balance of last posted accrual, or principal if none
         last_accrual = self.env['alba.interest.accrual'].search([
@@ -340,8 +312,68 @@ class AlbaInterestAccrual(models.Model):
         else:
             self.opening_balance = inv.principal_amount
 
-        if inv.interest_rate:
+        if is_annual:
+            # Annual cycles are anchored to the investment's own start_date
+            # anniversary, not a fixed calendar day — the cycle index is
+            # simply how many cycles have already been posted or paid.
+            cycle_index = self.env['alba.interest.accrual'].search_count([
+                ('investment_id', '=', inv.id),
+                ('state', 'in', ['posted', 'paid']),
+            ])
+            first_eligible_date = None
+            if inv.start_date:
+                self.period_start, self.period_end = get_annual_period_bounds(
+                    inv.start_date, cycle_index
+                )
+            else:
+                self.period_start = False
+                self.period_end = False
+        else:
+            # 29th-to-28th rule: period_end = 28th of current month,
+            # period_start = 29th of previous month (handles leap years via timedelta)
+            self.period_end = date(today.year, today.month, 28)
+            natural_start = _period_start_from_accrual_date(self.period_end)
+
+            cutoff_day = (
+                inv.investment_product_id.after_cutoff_day
+                if inv.investment_product_id and inv.investment_product_id.after_cutoff_day
+                else 15
+            )
+            first_eligible_date = (
+                get_first_eligible_accrual_date(inv.start_date, cutoff_day=cutoff_day)
+                if inv.start_date and inv.start_date.day > cutoff_day
+                else None
+            )
+            first_eligible_start = (
+                get_first_eligible_accrual_start(inv.start_date, cutoff_day=cutoff_day)
+                if inv.start_date
+                else None
+            )
+
             if first_eligible_date and today < first_eligible_date:
+                self.period_start = first_eligible_start or natural_start
+                m = first_eligible_date.month
+                y = first_eligible_date.year
+                self.period_end = date(y, m, 28)
+            elif inv.start_date and inv.start_date >= natural_start:
+                interest_start = inv.start_date + timedelta(days=1)
+                self.period_start = max(natural_start, interest_start)
+            else:
+                self.period_start = natural_start
+
+        if inv.interest_rate:
+            if is_annual:
+                self.interest_amount = (
+                    compute_annual_accrual_interest(
+                        opening_balance=self.opening_balance,
+                        annual_rate=inv.interest_rate,
+                        period_start=self.period_start,
+                        period_end=self.period_end,
+                    )
+                    if self.period_start and self.period_end
+                    else 0.00
+                )
+            elif first_eligible_date and today < first_eligible_date:
                 self.interest_amount = 0.00
             else:
                 self.interest_amount = compute_accrual_interest(
@@ -356,7 +388,12 @@ class AlbaInterestAccrual(models.Model):
     def _onchange_opening_balance(self):
         """Recalculate interest amount when opening balance is changed manually."""
         if self.investment_id and self.investment_id.interest_rate:
-            self.interest_amount = compute_accrual_interest(
+            interest_fn = (
+                compute_annual_accrual_interest
+                if self.investment_id.compounding_frequency == "annual"
+                else compute_accrual_interest
+            )
+            self.interest_amount = interest_fn(
                 opening_balance=self.opening_balance,
                 annual_rate=self.investment_id.interest_rate,
                 period_start=self.period_start,
@@ -458,6 +495,9 @@ class AlbaInterestAccrual(models.Model):
             # multiple as one full month — a separate flat day-count formula
             # here previously contradicted that and silently understated
             # interest on every period covering a 28/29-day month.
+            is_annual = investment.compounding_frequency == "annual"
+            interest_fn = compute_annual_accrual_interest if is_annual else compute_accrual_interest
+
             if rec.period_start and rec.period_end:
                 in_period_topups = self.env["alba.investment.topup"].search([
                     ("investment_id", "=", investment.id),
@@ -471,6 +511,7 @@ class AlbaInterestAccrual(models.Model):
                     period_start=rec.period_start,
                     period_end=rec.period_end,
                     topups=in_period_topups,
+                    interest_fn=interest_fn,
                 )
                 if recomputed_interest != rec.interest_amount:
                     rec.write({"interest_amount": recomputed_interest})
@@ -504,7 +545,15 @@ class AlbaInterestAccrual(models.Model):
             net_interest_company = amount_in_company - wht_amount_company
 
             # ── Build journal lines ───────────────────────────────────────────
-            period_label = rec.period_start.strftime("%b %Y") if rec.period_start else ""
+            if not rec.period_start:
+                period_label = ""
+            elif is_annual:
+                period_label = "%s – %s" % (
+                    rec.period_start.strftime("%b %Y"),
+                    rec.period_end.strftime("%b %Y"),
+                )
+            else:
+                period_label = rec.period_start.strftime("%b %Y")
 
             credit_lines = []
             if use_wht_split:
@@ -561,7 +610,8 @@ class AlbaInterestAccrual(models.Model):
                 "date": rec.accrual_date,
                 "ref": ref,
                 "narration": _(
-                    "Monthly compound interest accrual — %(investment)s — %(period)s",
+                    "%(cadence)s compound interest accrual — %(investment)s — %(period)s",
+                    cadence=_("Annual") if is_annual else _("Monthly"),
                     investment=investment.investment_number,
                     period="%s to %s" % (rec.period_start, rec.period_end),
                 ),

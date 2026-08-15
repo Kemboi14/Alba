@@ -53,12 +53,16 @@ class AlbaInvestmentProduct(models.Model):
     compounding_frequency = fields.Selection(
         [
             ("monthly", "Monthly"),
+            ("annual", "Annual"),
         ],
         required=True,
         default="monthly",
         tracking=True,
-        help="Monthly is the only supported cadence — see alba.investment."
-             "compounding_frequency for why quarterly/annual were removed.",
+        help="Monthly compounds on the 29th-28th calendar cycle (auto_accrual_day). "
+             "Annual compounds once per year on the investment's own start-date "
+             "anniversary — auto_accrual_day/after_cutoff_day (Rule 3, the 15th-"
+             "cutoff payout split) are monthly-cycle-specific and do not apply "
+             "to annually-compounding investments.",
     )
     default_principal = fields.Monetary(
         string="Default Principal",
