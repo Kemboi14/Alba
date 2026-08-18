@@ -4,8 +4,11 @@ Handles: customer profile/KYC, loan application, guarantors, document uploads.
 Staff-side forms (review, credit score override, disbursement) are handled in Odoo.
 """
 
+import os
+
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 
 from .models import (
     Collateral,
@@ -16,7 +19,28 @@ from .models import (
     LoanApplication,
     LoanDocument,
     LoanProduct,
-    LoanStatusReason,
+)
+
+ALLOWED_DOCUMENT_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def validate_uploaded_document(uploaded_file, allowed_extensions=ALLOWED_DOCUMENT_EXTENSIONS):
+    if uploaded_file is None:
+        return
+    ext = os.path.splitext(uploaded_file.name)[1].lower()
+    if ext not in allowed_extensions:
+        raise ValidationError(
+            f"Unsupported file type '{ext}'. Allowed: {', '.join(sorted(allowed_extensions))}."
+        )
+    if uploaded_file.size > MAX_UPLOAD_SIZE_BYTES:
+        raise ValidationError("File is too large. Maximum size is 10MB.")
+
+
+kenyan_phone_validator = RegexValidator(
+    regex=r"^254[17]\d{8}$",
+    message="Enter a valid phone number starting with 254 (e.g. 254712345678).",
 )
 
 
@@ -430,6 +454,39 @@ class CustomerProfileForm(forms.ModelForm):
         tag_choices = [(tag.pk, tag.name) for tag in CustomerTag.objects.filter(is_active=True)]
         self.fields["tag_ids"].choices = tag_choices
 
+    def clean_national_id_file(self):
+        f = self.cleaned_data.get("national_id_file")
+        validate_uploaded_document(f)
+        return f
+
+    def clean_bank_statement_file(self):
+        f = self.cleaned_data.get("bank_statement_file")
+        validate_uploaded_document(f)
+        return f
+
+    def clean_face_recognition_photo(self):
+        f = self.cleaned_data.get("face_recognition_photo")
+        validate_uploaded_document(f, allowed_extensions=ALLOWED_IMAGE_EXTENSIONS)
+        return f
+
+    def clean_employer_contact(self):
+        value = self.cleaned_data.get("employer_contact")
+        if value:
+            kenyan_phone_validator(value)
+        return value
+
+    def clean_next_of_kin_phone(self):
+        value = self.cleaned_data.get("next_of_kin_phone")
+        if value:
+            kenyan_phone_validator(value)
+        return value
+
+    def clean_mpesa_number(self):
+        value = self.cleaned_data.get("mpesa_number")
+        if value:
+            kenyan_phone_validator(value)
+        return value
+
 
 class LoanApplicationForm(forms.ModelForm):
     """
@@ -456,8 +513,6 @@ class LoanApplicationForm(forms.ModelForm):
             "employer_id",
             "monthly_income",
             "job_title",
-            # Status reason (Odoo Alignment)
-            "status_reason_id",
         ]
         widgets = {
             "loan_product": forms.Select(
@@ -542,15 +597,6 @@ class LoanApplicationForm(forms.ModelForm):
                     ),
                 }
             ),
-            "status_reason_id": forms.Select(
-                attrs={
-                    "class": (
-                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3"
-                    ),
-                }
-            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -571,12 +617,6 @@ class LoanApplicationForm(forms.ModelForm):
         for employer in Employer.objects.filter(is_active=True):
             employer_choices.append((employer.pk, employer.name))
         self.fields["employer_id"].choices = employer_choices
-        
-        # Populate status reason choices (Odoo Alignment)
-        status_reason_choices = [("", "Select Reason (if applicable)")]
-        for reason in LoanStatusReason.objects.filter(is_active=True):
-            status_reason_choices.append((reason.pk, f"{reason.category}: {reason.reason}"))
-        self.fields["status_reason_id"].choices = status_reason_choices
 
     def clean(self):
         cleaned_data = super().clean()
@@ -604,7 +644,7 @@ class LoanApplicationForm(forms.ModelForm):
                     }
                 )
 
-        if product and tenure:
+        if product and tenure is not None:
             if tenure < product.min_tenure_months:
                 raise ValidationError(
                     {
@@ -730,6 +770,31 @@ class GuarantorForm(forms.ModelForm):
             ),
         }
 
+    def __init__(self, *args, customer=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._customer = customer
+
+    def clean_phone(self):
+        value = self.cleaned_data.get("phone")
+        if value:
+            kenyan_phone_validator(value)
+        return value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self._customer is not None:
+            id_number = cleaned_data.get("id_number")
+            phone = cleaned_data.get("phone")
+            if id_number and self._customer.id_number and id_number == self._customer.id_number:
+                raise ValidationError(
+                    {"id_number": "You cannot name yourself as your own guarantor."}
+                )
+            if phone and self._customer.mpesa_number and phone == self._customer.mpesa_number:
+                raise ValidationError(
+                    {"phone": "You cannot name yourself as your own guarantor."}
+                )
+        return cleaned_data
+
 
 class CollateralForm(forms.ModelForm):
     """Form for pledging collateral to a loan application (Odoo Alignment)."""
@@ -838,6 +903,21 @@ class CollateralForm(forms.ModelForm):
             raise ValidationError("Estimated value must be greater than 0.")
         return value
 
+    def clean_title_deed_file(self):
+        f = self.cleaned_data.get("title_deed_file")
+        validate_uploaded_document(f)
+        return f
+
+    def clean_insurance_certificate_file(self):
+        f = self.cleaned_data.get("insurance_certificate_file")
+        validate_uploaded_document(f)
+        return f
+
+    def clean_valuation_report_file(self):
+        f = self.cleaned_data.get("valuation_report_file")
+        validate_uploaded_document(f)
+        return f
+
 
 class LoanDocumentForm(forms.ModelForm):
     """Form for uploading a supporting document to a loan application (Odoo Alignment)."""
@@ -875,3 +955,8 @@ class LoanDocumentForm(forms.ModelForm):
                 }
             ),
         }
+
+    def clean_document_file(self):
+        f = self.cleaned_data.get("document_file")
+        validate_uploaded_document(f)
+        return f

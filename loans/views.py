@@ -14,7 +14,8 @@ from io import BytesIO
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse, JsonResponse
+from django.db import transaction
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -52,22 +53,6 @@ from core.services.odoo_sync import OdooSyncService, OdooSyncError
 def customer_loan_dashboard(request):
     """Main customer loan dashboard"""
     customer, _ = Customer.objects.get_or_create(user=request.user)
-
-    # Authorization check - ensure user can only access their own data
-    if customer.user != request.user:
-        logger.warning(
-            "User %s attempted to access customer data for user %s",
-            request.user.id,
-            customer.user.id,
-        )
-        create_audit_log(
-            request.user,
-            "UNAUTHORIZED_ACCESS",
-            "LoanDashboard",
-            None,
-            f"Attempted access to customer {customer.pk} data",
-        )
-        return redirect("customer_dashboard")
 
     applications = LoanApplication.objects.filter(customer=customer)
     active_loans = Loan.objects.filter(customer=customer, status="ACTIVE")
@@ -108,22 +93,6 @@ def customer_loan_dashboard(request):
 def customer_profile(request):
     """View and update customer profile / KYC documents"""
     customer, _ = Customer.objects.get_or_create(user=request.user)
-
-    # Authorization check - ensure user can only access their own data
-    if customer.user != request.user:
-        logger.warning(
-            "User %s attempted to access profile for user %s",
-            request.user.id,
-            customer.user.id,
-        )
-        create_audit_log(
-            request.user,
-            "UNAUTHORIZED_ACCESS",
-            "Customer",
-            customer.pk,
-            f"Attempted access to customer {customer.pk} profile",
-        )
-        return redirect("customer_dashboard")
 
     if request.method == "POST":
         was_fully_uploaded = customer.is_kyc_fully_uploaded()
@@ -520,7 +489,10 @@ def submit_application(request, pk):
     to ensure seamless integration with Odoo 19 Alba loan module.
     """
     from .models import LoanDocument  # Ensure local import
-    
+
+    if request.method != "POST":
+        return redirect("loans:application_detail", pk=pk)
+
     customer, _ = Customer.objects.get_or_create(user=request.user)
     application = get_object_or_404(LoanApplication, pk=pk, customer=customer)
 
@@ -541,7 +513,15 @@ def submit_application(request, pk):
             "letter) before submitting your application.",
         )
         return redirect("loans:upload_document", application_pk=pk)
-    
+
+    with transaction.atomic():
+        application = LoanApplication.objects.select_for_update().get(pk=application.pk)
+        if application.status != LoanApplication.DRAFT:
+            messages.info(request, "This application has already been submitted.")
+            return redirect("loans:application_detail", pk=pk)
+        application.status = LoanApplication.SUBMITTED
+        application.save(update_fields=["status"])
+
     # Enhanced sync to Odoo with comprehensive error handling before locking Django status
     sync_success = False
     sync_error_message = ""
@@ -730,7 +710,8 @@ def submit_application(request, pk):
         # Non-transient / Validation / API payload error: Keep status as DRAFT so they can edit profile and fix data
         sync_error_message = f"Validation or setup error: {str(general_exc)}"
         logger.exception("Odoo validation/API sync error: app_id=%s error=%s", application.pk, general_exc)
-        
+
+        application.status = LoanApplication.DRAFT
         application.odoo_sync_status = LoanApplication.ODOO_SYNC_FAILED
         application.odoo_sync_error = sync_error_message[:500]
         application.odoo_last_sync_at = timezone.now()
@@ -757,6 +738,9 @@ def submit_application(request, pk):
 @login_required
 def retry_application_sync(request, pk):
     """Manually retry Odoo sync for a submitted application that failed to sync."""
+    if request.method != "POST":
+        return redirect("loans:application_detail", pk=pk)
+
     customer, _ = Customer.objects.get_or_create(user=request.user)
     application = get_object_or_404(LoanApplication, pk=pk, customer=customer)
 
@@ -890,6 +874,10 @@ def upload_document(request, application_pk):
         LoanApplication, pk=application_pk, customer=customer
     )
 
+    if application.status != LoanApplication.DRAFT:
+        messages.error(request, "This application can no longer be modified.")
+        return redirect("loans:application_detail", pk=application_pk)
+
     if request.method == "POST":
         files = request.FILES.getlist("document_files") or request.FILES.getlist("document_file")
         if not files:
@@ -1002,8 +990,12 @@ def add_guarantor(request, application_pk):
         LoanApplication, pk=application_pk, customer=customer
     )
 
+    if application.status != LoanApplication.DRAFT:
+        messages.error(request, "This application can no longer be modified.")
+        return redirect("loans:application_detail", pk=application_pk)
+
     if request.method == "POST":
-        form = GuarantorForm(request.POST)
+        form = GuarantorForm(request.POST, customer=customer)
         if form.is_valid():
             guarantor = form.save(commit=False)
             guarantor.application = application
@@ -1058,7 +1050,7 @@ def add_guarantor(request, application_pk):
 
             return redirect("loans:application_detail", pk=application_pk)
     else:
-        form = GuarantorForm()
+        form = GuarantorForm(customer=customer)
 
     return render(
         request,
@@ -1074,6 +1066,10 @@ def add_collateral(request, application_pk):
     application = get_object_or_404(
         LoanApplication, pk=application_pk, customer=customer
     )
+
+    if application.status != LoanApplication.DRAFT:
+        messages.error(request, "This application can no longer be modified.")
+        return redirect("loans:application_detail", pk=application_pk)
 
     if not application.loan_product.requires_collateral:
         messages.info(request, "This loan product does not require collateral.")
@@ -1590,25 +1586,36 @@ def download_official_report(request, report_type, res_id):
     if not xml_id:
         return redirect("dashboard")
 
-    # Access control
-    # For now, we allow the customer to download if the res_id matches their record
-    # or if they are staff. In a production system, this would be more granular.
+    # Access control — verify the requesting customer owns the record before
+    # forwarding any request to Odoo, and resolve the Odoo-side id to use
+    # (Django pk and Odoo record id are different id spaces).
     customer, _ = Customer.objects.get_or_create(user=request.user)
 
     if report_type == "application":
-        get_object_or_404(LoanApplication, pk=res_id, customer=customer)
-    elif report_type == "statement":
-        # Check if they have an investment (if we add the model) or if staff
-        pass
+        application = get_object_or_404(LoanApplication, pk=res_id, customer=customer)
+        odoo_res_id = application.odoo_application_id
+    elif report_type == "guarantor":
+        guarantor = get_object_or_404(
+            GuarantorVerification, pk=res_id, application__customer=customer
+        )
+        odoo_res_id = guarantor.odoo_loan_guarantor_id
+    else:  # "statement" — no Django model here to verify ownership against, fail closed
+        raise Http404()
+
+    if not odoo_res_id:
+        messages.error(
+            request, "Official document is not yet available for this record."
+        )
+        return redirect("dashboard")
 
     sync = OdooSyncService()
     try:
-        pdf_base64 = sync.download_report(xml_id, res_id)
+        pdf_base64 = sync.download_report(xml_id, odoo_res_id)
         if not pdf_base64:
             messages.error(
                 request, "Official document is not yet available for this record."
             )
-            return redirect(request.META.get("HTTP_REFERER", "dashboard"))
+            return redirect("dashboard")
 
         pdf_content = base64.b64decode(pdf_base64)
         response = HttpResponse(pdf_content, content_type="application/pdf")
@@ -1621,7 +1628,7 @@ def download_official_report(request, report_type, res_id):
         logger.error(f"Failed to download report {xml_id}/{res_id}: {str(e)}")
         messages.error(request, "An error occurred while generating your document.")
 
-    return redirect(request.META.get("HTTP_REFERER", "dashboard"))
+    return redirect("dashboard")
 
 
 def _build_projected_schedule(loan):

@@ -462,11 +462,20 @@ class LoanApplicationAdmin(admin.ModelAdmin):
         result = cls.__new__(cls)
         result.__dict__.update(self.__dict__)
         return result
-    
+
+    def save_model(self, request, obj, form, change):
+        if change and 'status' in form.changed_data:
+            old_obj = self.model.objects.get(pk=obj.pk)
+            if not old_obj.can_transition_to(obj.status):
+                from django.contrib import messages as django_messages
+                django_messages.error(request, f"Cannot transition from {old_obj.status} to {obj.status}.")
+                obj.status = old_obj.status
+        super().save_model(request, obj, form, change)
+
     def customer_name(self, obj):
         return obj.customer.user.get_full_name()
     customer_name.short_description = 'Customer'
-    
+
     def status_badge(self, obj):
         colors = {
             'DRAFT': '#6c757d',
@@ -585,6 +594,10 @@ class LoanAdmin(admin.ModelAdmin):
     readonly_fields = [
         'loan_number',
         'application',
+        'status',
+        'principal_amount',
+        'total_amount',
+        'outstanding_balance',
         'created_at',
         'updated_at',
         'get_payment_progress_percentage',
@@ -716,6 +729,12 @@ class LoanRepaymentAdmin(admin.ModelAdmin):
         url = reverse('admin:loans_loan_change', args=[obj.loan.pk])
         return format_html('<a href="{}">{}</a>', url, obj.loan.loan_number)
     loan_link.short_description = 'Loan'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(EmployerVerification)

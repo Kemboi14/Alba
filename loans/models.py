@@ -309,21 +309,12 @@ class LoanProduct(models.Model):
             # Flat rate: simple interest on principal
             total_interest = principal * rate * tenure_months
         else:
-            # Reducing balance: proper calculation using monthly compounding
-            # Formula: Total Interest = Principal * Monthly Rate * Tenure * (Tenure + 1) / (2 * 12)
-            # This is an approximation for equal monthly installments
+            # Reducing balance: equal-principal amortization
+            # Formula: Total Interest = Principal * Monthly Rate * (Tenure + 1) / 2
             if tenure_months <= 0:
                 total_interest = Decimal("0")
             else:
-                monthly_rate = rate / Decimal("12")
-                # More accurate reducing balance calculation
-                total_interest = (
-                    principal
-                    * monthly_rate
-                    * tenure_months
-                    * (tenure_months + Decimal("1"))
-                    / (Decimal("2") * Decimal("12"))
-                )
+                total_interest = principal * rate * (tenure_months + Decimal("1")) / Decimal("2")
 
         return total_interest.quantize(Decimal("0.01"))
     
@@ -858,6 +849,7 @@ class Collateral(models.Model):
         "Odoo Collateral ID",
         null=True,
         blank=True,
+        unique=True,
         help_text="ID of the corresponding alba.collateral record in Odoo",
     )
 
@@ -1593,7 +1585,7 @@ class Customer(models.Model):
     @property
     def active_loans_count(self):
         """Get count of active loans"""
-        return self.loans.filter(status="ACTIVE").count()
+        return self.loans.filter(status__in=["ACTIVE", "OVERDUE"]).count()
 
     @property
     def is_fully_verified(self):
@@ -1626,7 +1618,7 @@ class Customer(models.Model):
         """Get total outstanding balance on active loans"""
         from django.db.models import Sum
 
-        total = self.loans.filter(status="ACTIVE").aggregate(
+        total = self.loans.filter(status__in=["ACTIVE", "OVERDUE"]).aggregate(
             total=Sum("outstanding_balance")
         )["total"]
         return total or Decimal("0")
@@ -2473,8 +2465,7 @@ class LoanApplication(models.Model):
     def calculate_risk_score(self):
         """
         Calculate risk score for the loan application (Odoo Alignment)
-        Updates: risk_score
-        
+
         Returns:
             float: Risk score (0.0 to 1.0)
         """
@@ -2505,12 +2496,22 @@ class LoanApplication(models.Model):
         
         # Calculate combined risk score
         combined_risk = (customer_risk * 0.6) + (amount_risk * 0.2) + (tenure_risk * 0.2)
-        
-        self.risk_score = combined_risk
-        self.save(update_fields=['risk_score'])
-        
+
         return combined_risk
-    
+
+    def update_risk_score(self):
+        """
+        Calculate and persist the risk score for the loan application.
+        Updates: risk_score
+
+        Returns:
+            float: Risk score (0.0 to 1.0)
+        """
+        self.risk_score = self.calculate_risk_score()
+        self.save(update_fields=['risk_score'])
+
+        return self.risk_score
+
     def can_auto_approve(self):
         """
         Check if application is eligible for auto-approval (Odoo Alignment)
