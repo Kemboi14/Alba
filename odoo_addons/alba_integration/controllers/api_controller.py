@@ -603,10 +603,12 @@ class AlbaApiController(http.Controller):
         remote_ip, user_agent = self._get_request_metadata()
         api_key = None
         odoo_customer_id = 0
+        django_customer_id = 0
+        data = None
         http_status = 200
         sync_status = "success"
         detail = ""
-        
+
         try:
             api_key = self._authenticate()
             data = self._parse_json_body()
@@ -1158,10 +1160,12 @@ class AlbaApiController(http.Controller):
         remote_ip, user_agent = self._get_request_metadata()
         api_key = None
         odoo_application_id = 0
+        django_app_id = 0
+        data = None
         http_status = 200
         sync_status = "success"
         detail = ""
-        
+
         try:
             api_key = self._authenticate()
             data = self._parse_json_body()
