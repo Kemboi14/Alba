@@ -265,9 +265,24 @@ def apply_for_loan(request):
         )
         return redirect("loans:customer_profile")
 
-    # Seed default products if none exist
+    # Try to sync real products from Odoo first; only fall back to the local
+    # fixture products if Odoo is unusable. Fixture codes (QSAL001, BIZ001,
+    # ASSET001) don't exist in Odoo's catalog, so an application against one
+    # of them can never be submitted — sync_loan_product_to_odoo() can only
+    # find a matching product that already exists there, not create one —
+    # and picking a fixture product fails at submission with "Product sync
+    # returned zero ID" no matter how correct the rest of the application is.
     if not LoanProduct.objects.filter(is_active=True).exists():
-        _seed_loan_products()
+        try:
+            from core.services.odoo_sync import OdooSyncService as _OdooSyncServiceForSeed
+
+            seed_odoo_service = _OdooSyncServiceForSeed()
+            if seed_odoo_service.is_configured() and seed_odoo_service.is_reachable():
+                seed_odoo_service.sync_loan_products_from_odoo()
+        except Exception as seed_sync_exc:
+            logger.warning("Pre-apply product sync from Odoo failed: %s", seed_sync_exc)
+        if not LoanProduct.objects.filter(is_active=True).exists():
+            _seed_loan_products()
 
     # Pre-sync validation: Ensure customer is synced to Odoo
     odoo_sync_ready = True
