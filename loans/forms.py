@@ -43,6 +43,15 @@ kenyan_phone_validator = RegexValidator(
     message="Enter a valid phone number starting with 254 (e.g. 254712345678).",
 )
 
+# For contact-only phone numbers (not used for M-Pesa API calls), accept the
+# local 0-prefixed format too — several of these fields' own widgets show a
+# "0712345678"-style placeholder, so requiring the 254-prefixed form here
+# would reject exactly what the form tells the user to type.
+kenyan_contact_phone_validator = RegexValidator(
+    regex=r"^(?:0[17]\d{8}|254[17]\d{8})$",
+    message="Enter a valid Kenyan phone number (e.g. 0712345678 or 254712345678).",
+)
+
 
 class CustomerProfileForm(forms.ModelForm):
     """
@@ -472,13 +481,13 @@ class CustomerProfileForm(forms.ModelForm):
     def clean_employer_contact(self):
         value = self.cleaned_data.get("employer_contact")
         if value:
-            kenyan_phone_validator(value)
+            kenyan_contact_phone_validator(value)
         return value
 
     def clean_next_of_kin_phone(self):
         value = self.cleaned_data.get("next_of_kin_phone")
         if value:
-            kenyan_phone_validator(value)
+            kenyan_contact_phone_validator(value)
         return value
 
     def clean_mpesa_number(self):
@@ -777,7 +786,7 @@ class GuarantorForm(forms.ModelForm):
     def clean_phone(self):
         value = self.cleaned_data.get("phone")
         if value:
-            kenyan_phone_validator(value)
+            kenyan_contact_phone_validator(value)
         return value
 
     def clean(self):
