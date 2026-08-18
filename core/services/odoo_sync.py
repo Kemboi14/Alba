@@ -283,6 +283,26 @@ class OdooSyncService:
             "failed": 0,
         }
 
+        category_map = {
+            "salary_advance": LoanProduct.SALARY_ADVANCE,
+            "business_loan": LoanProduct.BUSINESS_LOAN,
+            "personal_loan": LoanProduct.PERSONAL_LOAN,
+            "ipf_loan": LoanProduct.IPF_LOAN,
+            "bid_bond": LoanProduct.BID_BOND,
+            "performance_bond": LoanProduct.PERFORMANCE_BOND,
+            "staff_loan": LoanProduct.STAFF_LOAN,
+            "asset_financing": LoanProduct.ASSET_FINANCING,
+        }
+        interest_method_map = {
+            "flat_rate": LoanProduct.FLAT_RATE,
+            "reducing_balance": LoanProduct.REDUCING_BALANCE,
+        }
+        frequency_map = {
+            "weekly": LoanProduct.WEEKLY,
+            "fortnightly": LoanProduct.FORTNIGHTLY,
+            "monthly": LoanProduct.MONTHLY,
+        }
+
         for product_data in odoo_products:
             try:
                 odoo_id = product_data.get("id")
@@ -292,6 +312,12 @@ class OdooSyncService:
                 if not odoo_id or not code:
                     logger.warning("Skipping product with missing id or code: %s", product_data)
                     summary["failed"] += 1
+                    continue
+
+                # Investor loans are managed in Odoo only — never mirrored
+                # into the Django client portal's LoanProduct table.
+                if product_data.get("category") == "investor_loan":
+                    logger.info("Skipping investor-only product: code=%s odoo_id=%s", code, odoo_id)
                     continue
 
                 # Try to find existing product by Odoo ID or code
@@ -304,45 +330,34 @@ class OdooSyncService:
                     existing.odoo_product_id = odoo_id
                     existing.name = name or existing.name
                     existing.code = code
-                    existing.category = product_data.get("category", existing.category)
+                    raw_category = product_data.get("category")
+                    if raw_category is not None:
+                        existing.category = category_map.get(raw_category, existing.category)
                     existing.min_amount = product_data.get("min_amount", existing.min_amount)
                     existing.max_amount = product_data.get("max_amount", existing.max_amount)
                     existing.interest_rate = product_data.get("interest_rate", existing.interest_rate)
-                    existing.interest_method = product_data.get("interest_method", existing.interest_method)
+                    raw_interest_method = product_data.get("interest_method")
+                    if raw_interest_method is not None:
+                        existing.interest_method = interest_method_map.get(
+                            raw_interest_method, existing.interest_method
+                        )
                     existing.min_tenure_months = product_data.get("min_tenure_months", existing.min_tenure_months)
                     existing.max_tenure_months = product_data.get("max_tenure_months", existing.max_tenure_months)
-                    existing.repayment_frequency = product_data.get("repayment_frequency", existing.repayment_frequency)
+                    raw_frequency = product_data.get("repayment_frequency")
+                    if raw_frequency is not None:
+                        existing.default_repayment_frequency = frequency_map.get(
+                            raw_frequency, existing.default_repayment_frequency
+                        )
                     existing.origination_fee_percentage = product_data.get("origination_fee_percentage", existing.origination_fee_percentage)
                     existing.save()
                     summary["updated"] += 1
                     logger.info("Updated loan product: code=%s odoo_id=%s", code, odoo_id)
                 else:
                     # Create new product
-                    category_map = {
-                        "salary_advance": LoanProduct.SALARY_ADVANCE,
-                        "business_loan": LoanProduct.BUSINESS_LOAN,
-                        "personal_loan": LoanProduct.PERSONAL_LOAN,
-                        "ipf_loan": LoanProduct.IPF_LOAN,
-                        "bid_bond": LoanProduct.BID_BOND,
-                        "performance_bond": LoanProduct.PERFORMANCE_BOND,
-                        "staff_loan": LoanProduct.STAFF_LOAN,
-                        "asset_financing": LoanProduct.ASSET_FINANCING,
-                    }
                     category = category_map.get(product_data.get("category"), LoanProduct.BUSINESS_LOAN)
-
-                    interest_method_map = {
-                        "flat_rate": LoanProduct.FLAT_RATE,
-                        "reducing_balance": LoanProduct.REDUCING_BALANCE,
-                    }
                     interest_method = interest_method_map.get(
                         product_data.get("interest_method"), LoanProduct.REDUCING_BALANCE
                     )
-
-                    frequency_map = {
-                        "weekly": LoanProduct.WEEKLY,
-                        "fortnightly": LoanProduct.FORTNIGHTLY,
-                        "monthly": LoanProduct.MONTHLY,
-                    }
                     repayment_frequency = frequency_map.get(
                         product_data.get("repayment_frequency"), LoanProduct.MONTHLY
                     )
