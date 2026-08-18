@@ -1408,29 +1408,21 @@ class AlbaApiController(http.Controller):
                 "state": "draft",  # Ensure applications appear as draft ready for approval
             }
 
-            # Add business fields if provided
-            # Enhanced with Phase 1 Odoo Alignment fields
+            # Add business fields if provided. business_location,
+            # annual_turnover and years_in_business are deliberately excluded:
+            # they only exist on alba.customer, not on alba.loan.application,
+            # and would raise "Invalid field" on create(). employer_id,
+            # monthly_income and job_title are likewise excluded — they're
+            # related(store=True, readonly=True) from customer_id on this
+            # model, so Odoo derives them automatically once customer_id is
+            # set and any explicit value here would be ignored anyway.
             business_fields = {
                 "business_name": "business_name",
-                "business_registration_number": "business_registration_number", 
-                "business_location": "business_location",
-                "annual_turnover": "annual_turnover",
+                "business_registration_number": "business_registration_number",
                 "business_type": "business_type",
-                "years_in_business": "years_in_business",
                 "monthly_business_turnover": "monthly_business_turnover",
             }
             for django_field, odoo_field in business_fields.items():
-                val = data.get(django_field)
-                if val is not None and val != "":
-                    app_vals[odoo_field] = val
-            
-            # Add employment details if provided (Phase 1 Odoo Alignment)
-            employment_fields = {
-                "employer_name": "employer_name",
-                "monthly_income": "monthly_income",
-                "job_title": "job_title",
-            }
-            for django_field, odoo_field in employment_fields.items():
                 val = data.get(django_field)
                 if val is not None and val != "":
                     app_vals[odoo_field] = val
