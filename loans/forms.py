@@ -52,6 +52,15 @@ kenyan_contact_phone_validator = RegexValidator(
     message="Enter a valid Kenyan phone number (e.g. 0712345678 or 254712345678).",
 )
 
+# employer_contact can legitimately be a landline, an international number,
+# or include an extension — unlike a personal mobile number there's no single
+# format to enforce, so this only rejects obvious garbage rather than
+# requiring a specific Kenyan mobile shape.
+general_phone_validator = RegexValidator(
+    regex=r"^\+?[\d\s\-()]{7,20}$",
+    message="Enter a valid phone number.",
+)
+
 
 class CustomerProfileForm(forms.ModelForm):
     """
@@ -481,7 +490,7 @@ class CustomerProfileForm(forms.ModelForm):
     def clean_employer_contact(self):
         value = self.cleaned_data.get("employer_contact")
         if value:
-            kenyan_contact_phone_validator(value)
+            general_phone_validator(value)
         return value
 
     def clean_next_of_kin_phone(self):

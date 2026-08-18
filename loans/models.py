@@ -1127,6 +1127,7 @@ class Customer(models.Model):
         "Nationality",
         max_length=50,
         default="Kenyan",
+        blank=True,
     )
     
     address = models.TextField("Physical Address", blank=True)
@@ -1169,7 +1170,7 @@ class Customer(models.Model):
         default=EMPLOYED,
     )
     employer_name = models.CharField("Employer Name", max_length=200, blank=True)
-    employer_contact = models.CharField("Employer Contact", max_length=15, blank=True)
+    employer_contact = models.CharField("Employer Contact", max_length=30, blank=True)
     employer_email = models.EmailField("Employer Email", blank=True)
     job_title = models.CharField("Job Title", max_length=100, blank=True)
     
