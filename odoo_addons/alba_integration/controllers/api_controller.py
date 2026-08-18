@@ -190,13 +190,21 @@ class AlbaApiController(http.Controller):
 
         # Optional IP allowlist enforcement
         if api_key.allowed_ips:
-            remote_ip = (
-                request.httprequest.environ.get("HTTP_X_FORWARDED_FOR", "")
-                .split(",")[0]
-                .strip()
-                or request.httprequest.remote_addr
-                or ""
+            trust_xff = (
+                request.env["ir.config_parameter"]
+                .sudo()
+                .get_param("alba.integration.trust_x_forwarded_for", "False")
             )
+            if str(trust_xff).strip().lower() == "true":
+                remote_ip = (
+                    request.httprequest.environ.get("HTTP_X_FORWARDED_FOR", "")
+                    .split(",")[0]
+                    .strip()
+                    or request.httprequest.remote_addr
+                    or ""
+                )
+            else:
+                remote_ip = request.httprequest.remote_addr or ""
             allowed_set = {
                 ip.strip() for ip in api_key.allowed_ips.split(",") if ip.strip()
             }
@@ -297,16 +305,19 @@ class AlbaApiController(http.Controller):
             headers=[("Content-Type", "application/json; charset=utf-8")],
         )
 
-    @staticmethod
-    def _get_or_create_partner(customer_data):
+    def _get_or_create_partner(self, customer_data, api_key):
         """
         Find an existing ``res.partner`` by email, or create one from the
         supplied *customer_data* dict.  When a match is found the partner's
-        name, phone, and email are synchronised.
+        name, phone, and email are synchronised — unless that partner is
+        scoped to a different company than *api_key*, in which case it is
+        left untouched and a new, correctly-scoped partner is created
+        instead.
 
         Args:
             customer_data (dict): Django customer payload with at minimum
                 ``email``, ``first_name``, and ``last_name``.
+            api_key (alba.api.key): The authenticated caller's API key.
 
         Returns:
             res.partner: Matched or newly created partner record.
@@ -331,6 +342,12 @@ class AlbaApiController(http.Controller):
         partner = None
         if email:
             partner = Partner.search([("email", "=ilike", email)], limit=1)
+
+        if partner and not self._enforce_partner_company_scope(partner, api_key):
+            # Matched partner belongs to a different company — don't overwrite
+            # it, create a new one scoped to the caller's company instead.
+            partner = None
+            partner_vals["company_id"] = api_key.company_id.id
 
         if partner:
             partner.write(partner_vals)
@@ -365,6 +382,27 @@ class AlbaApiController(http.Controller):
             list[str]: Names of fields that are missing or blank.
         """
         return [f for f in required_fields if not data.get(f) and data.get(f) != 0]
+
+    @staticmethod
+    def _enforce_company_scope(record, api_key):
+        """Return True if record is within api_key's company scope (or api_key is unrestricted)."""
+        if not api_key.company_id:
+            return True
+        company_field = getattr(record, "company_id", False)
+        return bool(company_field) and company_field.id == api_key.company_id.id
+
+    @staticmethod
+    def _enforce_partner_company_scope(partner, api_key):
+        """
+        Like ``_enforce_company_scope``, but for ``res.partner`` — where an
+        unset ``company_id`` means the partner is shared across companies
+        (allowed) rather than out of scope.
+        """
+        if not api_key.company_id:
+            return True
+        if not partner:
+            return False
+        return not partner.company_id or partner.company_id.id == api_key.company_id.id
 
     # =========================================================================
     # Route handlers
@@ -624,18 +662,13 @@ class AlbaApiController(http.Controller):
                     limit=1,
                 )
                 if existing_customer:
+                    # A duplicate CREATE is what idempotency protects against —
+                    # not legitimate field updates on retry — so fall through
+                    # to the normal update path below instead of returning
+                    # stale data.
                     _logger.info(
-                        "Idempotency: Customer already exists for django_id=%s, returning existing",
+                        "Idempotency: Customer already exists for django_id=%s, applying updates",
                         django_customer_id
-                    )
-                    return self._json_response(
-                        {
-                            "odoo_customer_id": existing_customer.id,
-                            "odoo_partner_id": existing_customer.partner_id.id,
-                            "status": "exists",
-                            "existing_id": existing_customer.id,
-                        },
-                        status=409,
                     )
 
             Customer = request.env["alba.customer"].sudo()
@@ -673,7 +706,7 @@ class AlbaApiController(http.Controller):
                     )
 
             # --- Sync res.partner -------------------------------------------
-            partner = self._get_or_create_partner(data)
+            partner = self._get_or_create_partner(data, api_key)
 
             # --- Build customer field dict (with company scoping) -----------
             customer_vals = {
@@ -1202,9 +1235,10 @@ class AlbaApiController(http.Controller):
             Application = request.env["alba.loan.application"].sudo()
 
             # --- Idempotency: check for existing application -----------------
-            existing = Application.search(
-                [("django_application_id", "=", django_app_id)], limit=1
-            )
+            dedupe_domain = [("django_application_id", "=", django_app_id)]
+            if api_key.company_id:
+                dedupe_domain.append(("company_id", "=", api_key.company_id.id))
+            existing = Application.search(dedupe_domain, limit=1)
             if existing:
                 _logger.info(
                     "create_application: duplicate detected django_app_id=%s "
@@ -1233,7 +1267,7 @@ class AlbaApiController(http.Controller):
             customer = None
             if data.get("odoo_customer_id"):
                 customer = Customer.browse(self._safe_int(data["odoo_customer_id"]))
-                if not customer.exists():
+                if not customer.exists() or not self._enforce_company_scope(customer, api_key):
                     customer = None
             if not customer and data.get("django_customer_id"):
                 customer = Customer.search(
@@ -1258,7 +1292,11 @@ class AlbaApiController(http.Controller):
             product = None
             if data.get("odoo_loan_product_id"):
                 product = Product.browse(self._safe_int(data["odoo_loan_product_id"]))
-                if not product.exists() or not product.is_active:
+                if (
+                    not product.exists()
+                    or not product.is_active
+                    or not self._enforce_company_scope(product, api_key)
+                ):
                     product = None
             if not product and data.get("loan_product_code"):
                 product = Product.search(
@@ -1525,7 +1563,7 @@ class AlbaApiController(http.Controller):
             application = (
                 request.env["alba.loan.application"].sudo().browse(application_id)
             )
-            if not application.exists():
+            if not application.exists() or not self._enforce_company_scope(application, api_key):
                 http_status = 404
                 sync_status = "failure"
                 detail = f"Application with id={application_id} not found."
@@ -1727,14 +1765,14 @@ class AlbaApiController(http.Controller):
             
             Application = request.env["alba.loan.application"].sudo()
             application = Application.browse(application_id)
-            
-            if not application.exists():
+
+            if not application.exists() or not self._enforce_company_scope(application, api_key):
                 http_status = 404
                 sync_status = "failure"
                 detail = f"Application with id={application_id} not found."
                 response = self._error_response(detail, http_status)
                 _log_inbound_sync(
-                    api_key, "status_change", "alba.loan.application", 
+                    api_key, "status_change", "alba.loan.application",
                     application.django_application_id, application_id,
                     sync_status, detail, None, None, http_status, remote_ip, user_agent,
                     int((time.monotonic() - start_time) * 1000), "LoanApplication",
@@ -1914,7 +1952,7 @@ class AlbaApiController(http.Controller):
             application = (
                 request.env["alba.loan.application"].sudo().browse(application_id)
             )
-            if not application.exists():
+            if not application.exists() or not self._enforce_company_scope(application, api_key):
                 detail = f"Application with id={application_id} not found."
                 _log_inbound_sync(
                     api_key, "status_change", "alba.loan.application", 0, application_id,
@@ -2459,7 +2497,7 @@ class AlbaApiController(http.Controller):
             django_guarantor_id = self._safe_int(data.get("django_guarantor_id"), 0)
 
             application = request.env["alba.loan.application"].sudo().browse(application_id)
-            if not application.exists():
+            if not application.exists() or not self._enforce_company_scope(application, api_key):
                 http_status = 404
                 detail = f"Application with id={application_id} not found."
                 _log_inbound_sync(
@@ -2472,9 +2510,10 @@ class AlbaApiController(http.Controller):
             LoanGuarantor = request.env["alba.loan.guarantor"].sudo()
 
             # --- Idempotency: check for an existing assignment ---------------
-            existing = LoanGuarantor.search(
-                [("django_loan_guarantor_id", "=", django_guarantor_id)], limit=1
-            )
+            dedupe_domain = [("django_loan_guarantor_id", "=", django_guarantor_id)]
+            if api_key.company_id:
+                dedupe_domain.append(("loan_application_id.company_id", "=", api_key.company_id.id))
+            existing = LoanGuarantor.search(dedupe_domain, limit=1)
             if existing:
                 duration_ms = int((time.monotonic() - start_time) * 1000)
                 response_data = {
@@ -2606,7 +2645,7 @@ class AlbaApiController(http.Controller):
         try:
             api_key = self._authenticate()
             application = request.env["alba.loan.application"].sudo().browse(application_id)
-            if not application.exists():
+            if not application.exists() or not self._enforce_company_scope(application, api_key):
                 return self._error_response(f"Application with id={application_id} not found.", 404)
 
             records = request.env["alba.loan.guarantor"].sudo().search(
@@ -2658,9 +2697,9 @@ class AlbaApiController(http.Controller):
     def get_guarantor_status(self, loan_guarantor_id, **kwargs):
         """Read the current status of a single loan-guarantor assignment."""
         try:
-            self._authenticate()
+            api_key = self._authenticate()
             rec = request.env["alba.loan.guarantor"].sudo().browse(loan_guarantor_id)
-            if not rec.exists():
+            if not rec.exists() or not self._enforce_company_scope(rec.loan_application_id, api_key):
                 return self._error_response(
                     f"Loan guarantor with id={loan_guarantor_id} not found.", 404
                 )
@@ -2721,7 +2760,9 @@ class AlbaApiController(http.Controller):
                 return self._error_response(detail, http_status)
 
             loan_guarantor = request.env["alba.loan.guarantor"].sudo().browse(loan_guarantor_id)
-            if not loan_guarantor.exists():
+            if not loan_guarantor.exists() or not self._enforce_company_scope(
+                loan_guarantor.loan_application_id, api_key
+            ):
                 http_status = 404
                 detail = f"Loan guarantor with id={loan_guarantor_id} not found."
                 _log_inbound_sync(
@@ -2885,7 +2926,7 @@ class AlbaApiController(http.Controller):
             django_collateral_id = self._safe_int(data.get("django_collateral_id"), 0)
 
             application = request.env["alba.loan.application"].sudo().browse(application_id)
-            if not application.exists():
+            if not application.exists() or not self._enforce_company_scope(application, api_key):
                 http_status = 404
                 detail = f"Application with id={application_id} not found."
                 _log_inbound_sync(
@@ -2898,15 +2939,15 @@ class AlbaApiController(http.Controller):
             # --- Idempotency: correlate via alba.sync.log (no field on the
             # off-limits alba.collateral model itself to check directly) -----
             SyncLog = request.env["alba.sync.log"].sudo()
-            existing_log = SyncLog.search(
-                [
-                    ("odoo_model", "=", "alba.collateral"),
-                    ("django_record_id", "=", django_collateral_id),
-                    ("operation", "=", "create"),
-                    ("status", "=", "success"),
-                ],
-                limit=1,
-            )
+            dedupe_domain = [
+                ("odoo_model", "=", "alba.collateral"),
+                ("django_record_id", "=", django_collateral_id),
+                ("operation", "=", "create"),
+                ("status", "=", "success"),
+            ]
+            if api_key.company_id:
+                dedupe_domain.append(("api_key_id.company_id", "=", api_key.company_id.id))
+            existing_log = SyncLog.search(dedupe_domain, limit=1)
             if existing_log and existing_log.odoo_record_id:
                 existing = request.env["alba.collateral"].sudo().browse(existing_log.odoo_record_id)
                 if existing.exists():
@@ -3001,9 +3042,9 @@ class AlbaApiController(http.Controller):
         matched by the application's customer's partner.
         """
         try:
-            self._authenticate()
+            api_key = self._authenticate()
             application = request.env["alba.loan.application"].sudo().browse(application_id)
-            if not application.exists():
+            if not application.exists() or not self._enforce_company_scope(application, api_key):
                 return self._error_response(f"Application with id={application_id} not found.", 404)
 
             records = request.env["alba.collateral"].sudo().search(
@@ -3070,7 +3111,9 @@ class AlbaApiController(http.Controller):
                 return self._error_response(detail, http_status)
 
             collateral = request.env["alba.collateral"].sudo().browse(collateral_id)
-            if not collateral.exists():
+            if not collateral.exists() or not self._enforce_partner_company_scope(
+                collateral.owner_id, api_key
+            ):
                 http_status = 404
                 detail = f"Collateral with id={collateral_id} not found."
                 _log_inbound_sync(

@@ -9,14 +9,17 @@ by a cron job and inspected / manually retried by operators.
 
 Retry strategy
 --------------
-Exponential back-off with jitter:
-  Attempt 1 : 2  minutes after failure
-  Attempt 2 : 5  minutes
-  Attempt 3 : 15 minutes
-  Attempt 4 : 60 minutes
-  Attempt 5+: 240 minutes (4 hours)
+Exponential back-off:
+  Attempt 1 : 1   minute after failure
+  Attempt 2 : 3   minutes
+  Attempt 3 : 10  minutes
+  Attempt 4 : 30  minutes
+  Attempt 5 : 60  minutes
+  Attempt 6 : 120 minutes (2 hours)
+  Attempt 7 : 240 minutes (4 hours)
+  Attempt 8+: 480 minutes (8 hours)
 
-After ``max_attempts`` (default 5) the record is moved to status='dead' and
+After ``max_attempts`` (default 8) the record is moved to status='dead' and
 no further automatic retries occur.  Operators can still click "Retry Now" to
 attempt one more delivery.
 
@@ -274,6 +277,9 @@ class AlbaWebhookRetry(models.Model):
         if self.status == "delivered":
             raise UserError(_("This webhook has already been delivered successfully."))
 
+        if self.status == "processing":
+            raise UserError(_("This webhook is currently being processed, please wait."))
+
         _logger.info(
             "Manual retry triggered for webhook retry id=%d event=%s.",
             self.id,
@@ -345,9 +351,9 @@ class AlbaWebhookRetry(models.Model):
         Process all pending webhook retry records whose next_retry_at has
         passed. Enhanced with better error handling and monitoring for Odoo 19.
 
-        Called every 5 minutes by a scheduled action (increased frequency for
-        better responsiveness). Records are processed in next_retry_at order
-        (oldest first) so the most overdue deliveries are handled first.
+        Called every 15 minutes by a scheduled action. Records are processed
+        in next_retry_at order (oldest first) so the most overdue deliveries
+        are handled first.
 
         Each delivery is attempted synchronously.  On success the record is
         marked 'delivered'.  On failure the attempt_count is incremented and

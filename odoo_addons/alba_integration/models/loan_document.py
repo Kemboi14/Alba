@@ -26,7 +26,14 @@ class LoanDocument(models.Model):
         return res
 
     def _fire_document_webhook(self):
-        api_key = self.env["alba.api.key"].sudo().search([("is_active", "=", True)], limit=1)
+        company = self.loan_application_id.company_id
+        api_key = self.env["alba.api.key"].sudo().search(
+            [("is_active", "=", True), ("company_id", "=", company.id)], limit=1
+        )
+        if not api_key:
+            api_key = self.env["alba.api.key"].sudo().search(
+                [("is_active", "=", True), ("company_id", "=", False)], limit=1
+            )
         if not api_key:
             _logger.warning("No active API key found to fire document webhook")
             return

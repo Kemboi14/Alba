@@ -45,6 +45,9 @@ class AlbaApiKey(models.Model):
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _rec_name = "name"
     _order = "name"
+    _sql_constraints = [
+        ("key_unique", "unique(key)", "This API key already exists. Please generate a new one."),
+    ]
 
     # -------------------------------------------------------------------------
     # Fields
@@ -62,6 +65,7 @@ class AlbaApiKey(models.Model):
         readonly=True,
         copy=False,
         index=True,
+        groups="alba_integration.group_integration_admin",
         help=(
             "Auto-generated UUID4 key. The Django portal must send this value "
             "in the X-Alba-API-Key request header."
@@ -72,7 +76,7 @@ class AlbaApiKey(models.Model):
         string="Webhook Secret",
         readonly=True,
         copy=False,
-        groups="alba_loans.group_loan_manager",
+        groups="alba_integration.group_integration_admin",
         help=(
             "Auto-generated 64-char hex secret used for HMAC-SHA256 signing of "
             "outbound webhook payloads. The X-Alba-Signature header will contain "

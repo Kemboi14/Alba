@@ -57,7 +57,9 @@ env['alba.sync.log'].cron_purge_old_logs()
         <field name="state">code</field>
         <field name="code">
 summary = env['alba.sync.log'].get_sync_health_summary(hours=24)
-api_key = env['alba.api.key'].sudo().search([('is_active', '=', True)], limit=1)
+api_key = env['alba.api.key'].sudo().search([('is_active', '=', True), ('company_id', '=', env.company.id)], limit=1)
+if not api_key:
+    api_key = env['alba.api.key'].sudo().search([('is_active', '=', True), ('company_id', '=', False)], limit=1)
 if api_key:
     api_key.send_webhook('integration.health_check', summary)
         </field>
@@ -111,7 +113,9 @@ old_logs.unlink()
         <field name="code">
 dead_count = env['alba.webhook.retry'].sudo().search_count([('status', '=', 'dead')])
 if dead_count > 0:
-    api_key = env['alba.api.key'].sudo().search([('is_active', '=', True)], limit=1)
+    api_key = env['alba.api.key'].sudo().search([('is_active', '=', True), ('company_id', '=', env.company.id)], limit=1)
+    if not api_key:
+        api_key = env['alba.api.key'].sudo().search([('is_active', '=', True), ('company_id', '=', False)], limit=1)
     if api_key:
         api_key.send_webhook('integration.dead_webhooks_alert', {
             'dead_count': dead_count,
