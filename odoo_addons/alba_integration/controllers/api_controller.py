@@ -2036,24 +2036,12 @@ class AlbaApiController(http.Controller):
             }
             api_key.send_webhook_with_retry("application.status_changed", webhook_payload)
 
-            # Also fire loan.disbursed when the application reaches disbursed state
-            if new_state == "disbursed":
-                loan = getattr(application, "loan_id", None)
-                api_key.send_webhook_with_retry(
-                    "loan.disbursed",
-                    {
-                        "odoo_application_id": application.id,
-                        "application_number": application.application_number or "",
-                        "django_application_id": application.django_application_id
-                        or "",
-                        "loan_number": loan.loan_number if loan else "",
-                        "odoo_loan_id": loan.id if loan else 0,
-                        "disbursed_amount": self._safe_float(
-                            getattr(application, "approved_amount", None)
-                            or getattr(application, "requested_amount", 0)
-                        ),
-                    },
-                )
+            # loan.disbursed is fired from LoanApplication.write() in
+            # models/loan_application.py, which fires on ANY path that
+            # transitions state to "disbursed" — including this endpoint's
+            # own action_method_name() call above — not just this one. Firing
+            # it here too would double-send it for API-initiated
+            # disbursements specifically.
 
             response_data = {
                 "status": "updated",
