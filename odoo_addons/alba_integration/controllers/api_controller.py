@@ -719,6 +719,16 @@ class AlbaApiController(http.Controller):
 
             # Optional KYC / personal fields — only write when supplied
             # Enhanced with Phase 1 Odoo Alignment fields including referral and location
+            #
+            # employer_contact, employer_email, employment_date,
+            # business_industry, annual_turnover, bank_name, bank_account and
+            # bare "county" are deliberately excluded: none of them exist as
+            # fields on alba.customer (verified against
+            # odoo_addons/alba_loans/models/customer.py), and passing any of
+            # them here raises "Invalid field ... in 'alba.customer'",
+            # hard-crashing the entire customer sync — not just dropping that
+            # one field — whenever a customer profile has a truthy value for
+            # any of them.
             optional_map = {
                 "id_number": "id_number",
                 "id_type": "id_type",
@@ -728,36 +738,28 @@ class AlbaApiController(http.Controller):
                 "nationality": "nationality",
                 "employment_status": "employment_status",
                 "employer_name": "employer_name",
-                "employer_contact": "employer_contact",
-                "employer_email": "employer_email",
                 "job_title": "job_title",
                 "months_employed": "months_employed",
                 "other_income": "other_income",
                 "monthly_income": "monthly_income",
-                "employment_date": "employment_date",
                 "business_name": "business_name",
                 "business_registration_number": "business_registration_number",
                 "business_location": "business_location",
-                "business_industry": "business_industry",
                 "business_type": "business_type",
                 "years_in_business": "years_in_business",
                 "monthly_business_turnover": "monthly_business_turnover",
                 "sector_id": "sector_id",
                 "subsector_id": "subsector_id",
-                "annual_turnover": "annual_turnover",
                 "next_of_kin_name": "next_of_kin_name",
                 "next_of_kin_phone": "next_of_kin_phone",
                 "next_of_kin_relationship": "next_of_kin_relationship",
                 "referral_source": "referral_source",  # Odoo Alignment - referral tracking
                 "referral_name": "referral_name",  # Odoo Alignment - referral name
-                "bank_name": "bank_name",
-                "bank_account": "bank_account",
                 "mpesa_number": "mpesa_number",
                 "kyc_status": "kyc_status",
                 "credit_score": "credit_score",
                 "risk_rating": "risk_rating",
                 "notes": "notes",
-                "county": "county",  # Legacy text field
                 "county_id": "county_id",  # Hierarchical FK
                 "sub_county_id": "sub_county_id",
                 "ward_id": "ward_id",
