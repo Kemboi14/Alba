@@ -385,7 +385,10 @@
                             <td class="text-right">
                                 <div class="flex items-center justify-end gap-2">
                                     {% if app.status == 'DRAFT' %}
-                                    <a href="{% url 'loans:submit_application' app.pk %}" class="btn btn-primary btn-sm text-xs">Submit</a>
+                                    <form method="post" action="{% url 'loans:submit_application' app.pk %}" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-primary btn-sm text-xs">Submit</button>
+                                    </form>
                                     {% endif %}
                                     <a href="{% url 'loans:application_detail' app.pk %}" class="btn btn-ghost btn-sm text-alba-orange hover:text-alba-navy">View</a>
                                 </div>

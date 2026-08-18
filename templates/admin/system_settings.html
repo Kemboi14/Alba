@@ -47,7 +47,7 @@
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-gray-800">Odoo Integration</h3>
                 {% if config %}
-                <span class="badge badge-{% if config.connection_status == 'connected' %}success{% elif config.connection_status == 'error' %}error{% else %}neutral{% endif %}">
+                <span class="badge badge-{% if config.connection_status == 'connected' %}success{% elif config.connection_status == 'error' %}danger{% else %}neutral{% endif %}">
                     {{ config.get_connection_status_display }}
                 </span>
                 {% else %}

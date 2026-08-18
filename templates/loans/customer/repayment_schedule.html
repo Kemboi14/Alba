@@ -169,7 +169,7 @@
                                 {% if row.installment_number %}{{ row.installment_number }}{% else %}{{ forloop.counter }}{% endif %}
                             </span>
                             <div>
-                                <p</div> class="text-sm font-medium text-gray-900">Due: {{ row.due_date|date:"d M Y" }}</p>
+                                <p class="text-sm font-medium text-gray-900">Due: {{ row.due_date|date:"d M Y" }}</p>
                                 {% if row.paid_date %}<p class="text-xs text-green-600">Paid: {{ row.paid_date|date:"d M Y" }}</p>{% endif %}
                             </div>
                         </div>

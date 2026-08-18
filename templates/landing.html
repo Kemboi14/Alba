@@ -1318,8 +1318,11 @@
                             <form
                                 class="space-y-6"
                                 id="contact-form"
+                                method="post"
+                                action="{% url 'contact_submit' %}"
                                 onsubmit="handleContactSubmit(event)"
                             >
+                                {% csrf_token %}
                                 <div
                                     class="grid grid-cols-1 md:grid-cols-2 gap-6"
                                 >
@@ -1330,6 +1333,8 @@
                                         >
                                         <input
                                             type="text"
+                                            name="name"
+                                            required
                                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alba-orange focus:border-transparent"
                                             placeholder="John Doe"
                                         />
@@ -1341,6 +1346,8 @@
                                         >
                                         <input
                                             type="email"
+                                            name="email"
+                                            required
                                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alba-orange focus:border-transparent"
                                             placeholder="john@example.com"
                                         />
@@ -1357,6 +1364,7 @@
                                         >
                                         <input
                                             type="tel"
+                                            name="phone"
                                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alba-orange focus:border-transparent"
                                             placeholder="+254 712 345 678"
                                         />
@@ -1367,6 +1375,7 @@
                                             >Subject</label
                                         >
                                         <select
+                                            name="subject"
                                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alba-orange focus:border-transparent"
                                         >
                                             <option>General Inquiry</option>
@@ -1383,6 +1392,8 @@
                                         >Message</label
                                     >
                                     <textarea
+                                        name="message"
+                                        required
                                         rows="5"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alba-orange focus:border-transparent"
                                         placeholder="Tell us how we can help you..."
@@ -1400,29 +1411,68 @@
                                     id="contact-success-msg"
                                     class="hidden text-center text-green-600 font-medium mt-2"
                                 >
-                                    ✓ Thank you! We'll be in touch within one
-                                    business day.
+                                    Thank you! Your message has been sent —
+                                    we'll be in touch shortly.
                                 </p>
+                                <p
+                                    id="contact-error-msg"
+                                    class="hidden text-center text-red-600 font-medium mt-2"
+                                ></p>
                             </form>
                             <script>
                                 function handleContactSubmit(event) {
                                     event.preventDefault();
-                                    var btn =
-                                        document.getElementById(
-                                            "contact-submit-btn",
-                                        );
-                                    var msg = document.getElementById(
-                                        "contact-success-msg",
-                                    );
                                     var form =
                                         document.getElementById("contact-form");
+                                    var btn = document.getElementById(
+                                        "contact-submit-btn",
+                                    );
+                                    var successMsg = document.getElementById(
+                                        "contact-success-msg",
+                                    );
+                                    var errorMsg = document.getElementById(
+                                        "contact-error-msg",
+                                    );
+                                    errorMsg.classList.add("hidden");
                                     btn.disabled = true;
                                     btn.textContent = "Sending…";
-                                    setTimeout(function () {
-                                        form.reset();
-                                        btn.style.display = "none";
-                                        msg.classList.remove("hidden");
-                                    }, 600);
+
+                                    fetch(form.action, {
+                                        method: "POST",
+                                        body: new FormData(form),
+                                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                                    })
+                                        .then(function (response) {
+                                            return response
+                                                .json()
+                                                .then(function (data) {
+                                                    return {
+                                                        ok: response.ok,
+                                                        data: data,
+                                                    };
+                                                });
+                                        })
+                                        .then(function (result) {
+                                            if (result.ok && result.data.success) {
+                                                form.reset();
+                                                btn.style.display = "none";
+                                                successMsg.classList.remove(
+                                                    "hidden",
+                                                );
+                                            } else {
+                                                throw new Error(
+                                                    (result.data &&
+                                                        result.data.error) ||
+                                                        "Something went wrong.",
+                                                );
+                                            }
+                                        })
+                                        .catch(function (err) {
+                                            errorMsg.textContent = err.message;
+                                            errorMsg.classList.remove("hidden");
+                                            btn.disabled = false;
+                                            btn.textContent = "Send Message";
+                                        });
                                 }
                             </script>
                         </div>

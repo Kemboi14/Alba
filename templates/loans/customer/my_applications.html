@@ -125,12 +125,15 @@
                         >
                             <div class="flex items-center justify-end gap-2">
                                 {% if app.status == 'DRAFT' %}
-                                <a
-                                    href="{% url 'loans:submit_application' app.pk %}"
-                                    class="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-xs font-medium text-white bg-alba-orange hover:bg-opacity-90 transition"
-                                >
-                                    Submit
-                                </a>
+                                <form method="post" action="{% url 'loans:submit_application' app.pk %}" class="inline">
+                                    {% csrf_token %}
+                                    <button
+                                        type="submit"
+                                        class="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-xs font-medium text-white bg-alba-orange hover:bg-opacity-90 transition"
+                                    >
+                                        Submit
+                                    </button>
+                                </form>
                                 {% endif %}
                                 <a
                                     href="{% url 'loans:application_detail' app.pk %}"

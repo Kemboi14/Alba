@@ -1776,20 +1776,26 @@
                     </div>
                     <div class="p-6 space-y-3">
                         {% if is_customer_owner %} {% if application.status == 'DRAFT' %}
-                        <a
-                            href="{% url 'loans:submit_application' application.pk %}"
-                            class="block w-full px-4 py-2 text-center border border-transparent rounded-md text-sm font-medium text-white bg-alba-orange hover:bg-opacity-90 transition"
-                        >
-                            Submit Application
-                        </a>
+                        <form method="post" action="{% url 'loans:submit_application' application.pk %}">
+                            {% csrf_token %}
+                            <button
+                                type="submit"
+                                class="block w-full px-4 py-2 text-center border border-transparent rounded-md text-sm font-medium text-white bg-alba-orange hover:bg-opacity-90 transition"
+                            >
+                                Submit Application
+                            </button>
+                        </form>
                         {% endif %}
                         {% if application.status == 'SUBMITTED' and application.odoo_sync_status == 'FAILED' %}
-                        <a
-                            href="{% url 'loans:retry_application_sync' application.pk %}"
-                            class="block w-full px-4 py-2 text-center border border-transparent rounded-md text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 transition"
-                        >
-                            Retry Odoo Sync
-                        </a>
+                        <form method="post" action="{% url 'loans:retry_application_sync' application.pk %}">
+                            {% csrf_token %}
+                            <button
+                                type="submit"
+                                class="block w-full px-4 py-2 text-center border border-transparent rounded-md text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 transition"
+                            >
+                                Retry Odoo Sync
+                            </button>
+                        </form>
                         {% endif %}
 
                         <!-- KYC Actions -->
