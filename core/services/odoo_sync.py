@@ -439,7 +439,8 @@ class OdooSyncService:
         """
         # Idempotency check: if user already has odoo_customer_id, verify it exists in Odoo
         from loans.models import Customer
-        
+
+        customer_exists_in_odoo = False
         try:
             customer = Customer.objects.get(user=user)
             if customer.odoo_customer_id:
@@ -456,10 +457,7 @@ class OdooSyncService:
                         user.pk,
                         customer.odoo_customer_id
                     )
-                    return {
-                        "odoo_customer_id": customer.odoo_customer_id,
-                        "status": "exists"
-                    }
+                    customer_exists_in_odoo = True
                 except OdooNotFoundError:
                     # Customer doesn't exist in Odoo despite having ID, clear and proceed
                     logger.warning(
@@ -480,28 +478,27 @@ class OdooSyncService:
         except Customer.DoesNotExist:
             # No customer record exists, will create one
             logger.info("Idempotency check: No Customer record exists for user_id=%s", user.pk)
-        
+
         payload = _build_customer_payload(user)
         logger.info(
             "Syncing customer to Odoo: user_id=%s email=%s",
             user.pk,
             user.email,
         )
-        
-        # Add idempotency key based on user ID and email
-        idempotency_key = f"customer_{user.id}_{user.email}"
-        
-        try:
+
+        if customer_exists_in_odoo:
+            # Updating an existing record: no idempotency key needed since
+            # this isn't a creation prone to duplication.
+            result = self._post("/alba/api/v1/customers", payload)
+        else:
+            # Add idempotency key based on user ID and email
+            idempotency_key = f"customer_{user.id}_{user.email}"
             result = self._post_with_idempotency(
                 "/alba/api/v1/customers",
                 payload,
                 idempotency_key
             )
-        except Exception as e:
-            # Fallback to regular POST if idempotency fails
-            logger.warning("Idempotency POST failed, falling back to regular POST: error=%s", e)
-            result = self._post("/alba/api/v1/customers", payload)
-        
+
         logger.info(
             "Customer synced: user_id=%s odoo_id=%s status=%s",
             user.pk,
@@ -619,6 +616,11 @@ class OdooSyncService:
                             "Recovered from idempotency conflict: existing_id=%s",
                             error_data["existing_id"]
                         )
+                        error_data["status"] = "exists"
+                        if "/customers" in endpoint:
+                            error_data["odoo_customer_id"] = error_data.get("existing_id")
+                        elif "/applications" in endpoint:
+                            error_data["odoo_application_id"] = error_data.get("existing_id")
                         return error_data
                 except Exception:
                     pass
@@ -803,17 +805,12 @@ class OdooSyncService:
         # primary key, so it has no implicit `id` attribute at all.
         idempotency_key = f"application_{application.pk}_{customer.pk if customer else 'unknown'}"
         
-        try:
-            result = self._post_with_idempotency(
-                "/alba/api/v1/applications",
-                payload,
-                idempotency_key
-            )
-        except Exception as e:
-            # Fallback to regular POST if idempotency fails
-            logger.warning("Idempotency POST failed for application, falling back to regular POST: error=%s", e)
-            result = self._post("/alba/api/v1/applications", payload)
-        
+        result = self._post_with_idempotency(
+            "/alba/api/v1/applications",
+            payload,
+            idempotency_key
+        )
+
         logger.info(
             "Application created in Odoo: django_app_id=%s odoo_id=%s number=%s",
             application.pk,
@@ -905,55 +902,30 @@ class OdooSyncService:
             "description": getattr(doc, "description", "") or "",
         }
 
-        # Retry logic for document sync
-        max_retries = 3
-        retry_delay = 2  # seconds
-
-        for attempt in range(max_retries):
-            try:
-                logger.info(
-                    "Syncing document to Odoo (attempt %d/%d): app_id=%d type=%s file=%s",
-                    attempt + 1,
-                    max_retries,
-                    odoo_application_id,
-                    doc.document_type,
-                    file_name,
-                )
-                result = self._post(
-                    f"/alba/api/v1/applications/{odoo_application_id}/documents",
-                    payload,
-                )
-                logger.info(
-                    "Document synced to Odoo: odoo_doc_id=%s",
-                    result.get("odoo_document_id"),
-                )
-                return result
-
-            except OdooSyncError as exc:
-                if attempt < max_retries - 1:
-                    logger.warning(
-                        "Document sync failed (attempt %d/%d), retrying in %ds: %s",
-                        attempt + 1,
-                        max_retries,
-                        retry_delay,
-                        exc,
-                    )
-                    time.sleep(retry_delay)
-                    retry_delay *= 2  # Exponential backoff
-                else:
-                    logger.error(
-                        "Document sync failed after %d attempts: doc_id=%s error=%s",
-                        max_retries,
-                        doc.pk if hasattr(doc, 'pk') else 'unknown',
-                        exc,
-                    )
-                    raise
-
-        # Should never reach here, but just in case
-        raise OdooSyncError(
-            "Document sync failed after maximum retries",
-            detail=f"Failed after {max_retries} attempts",
+        logger.info(
+            "Syncing document to Odoo: app_id=%d type=%s file=%s",
+            odoo_application_id,
+            doc.document_type,
+            file_name,
         )
+        try:
+            result = self._post(
+                f"/alba/api/v1/applications/{odoo_application_id}/documents",
+                payload,
+                retry=False,
+            )
+            logger.info(
+                "Document synced to Odoo: odoo_doc_id=%s",
+                result.get("odoo_document_id"),
+            )
+            return result
+        except OdooSyncError as exc:
+            logger.error(
+                "Document sync failed: doc_id=%s error=%s",
+                doc.pk if hasattr(doc, 'pk') else 'unknown',
+                exc,
+            )
+            raise
 
     def sync_kyc_file(
         self,
@@ -1006,54 +978,32 @@ class OdooSyncService:
             "description": f"Customer KYC - {name}",
         }
 
-        # Retry logic for KYC file sync
-        max_retries = 3
-        retry_delay = 2  # seconds
-
-        for attempt in range(max_retries):
-            try:
-                logger.info(
-                    "Syncing KYC file to Odoo (attempt %d/%d): app_id=%d type=%s file=%s",
-                    attempt + 1,
-                    max_retries,
-                    odoo_application_id,
-                    document_type,
-                    file_name,
-                )
-                result = self._post(
-                    f"/alba/api/v1/applications/{odoo_application_id}/documents",
-                    payload,
-                )
-                logger.info(
-                    "KYC file synced to Odoo: odoo_doc_id=%s",
-                    result.get("odoo_document_id"),
-                )
-                return result
-
-            except OdooSyncError as exc:
-                if attempt < max_retries - 1:
-                    logger.warning(
-                        "KYC file sync failed (attempt %d/%d), retrying in %ds: type=%s error=%s",
-                        attempt + 1,
-                        max_retries,
-                        retry_delay,
-                        document_type,
-                        exc,
-                    )
-                    time.sleep(retry_delay)
-                    retry_delay *= 2  # Exponential backoff
-                else:
-                    logger.error(
-                        "KYC file sync failed after %d attempts: type=%s name=%s error=%s",
-                        max_retries,
-                        document_type,
-                        name,
-                        exc,
-                    )
-                    # Return empty dict instead of raising to avoid blocking the main flow
-                    return {}
-
-        return {}
+        logger.info(
+            "Syncing KYC file to Odoo: app_id=%d type=%s file=%s",
+            odoo_application_id,
+            document_type,
+            file_name,
+        )
+        try:
+            result = self._post(
+                f"/alba/api/v1/applications/{odoo_application_id}/documents",
+                payload,
+                retry=False,
+            )
+            logger.info(
+                "KYC file synced to Odoo: odoo_doc_id=%s",
+                result.get("odoo_document_id"),
+            )
+            return result
+        except OdooSyncError as exc:
+            logger.error(
+                "KYC file sync failed: type=%s name=%s error=%s",
+                document_type,
+                name,
+                exc,
+            )
+            # Return empty dict instead of raising to avoid blocking the main flow
+            return {}
 
     def sync_guarantor(self, application, guarantor_verification) -> dict:
         """
@@ -1092,6 +1042,7 @@ class OdooSyncService:
         return self._post(
             f"/alba/api/v1/applications/{odoo_application_id}/guarantors",
             payload,
+            retry=False,
         )
 
     def get_guarantor_status(self, odoo_loan_guarantor_id: int) -> dict:
@@ -1157,6 +1108,7 @@ class OdooSyncService:
         return self._post(
             f"/alba/api/v1/loan-guarantors/{odoo_loan_guarantor_id}/documents",
             payload,
+            retry=False,
         )
 
     def sync_collateral(self, application, collateral) -> dict:
@@ -1197,6 +1149,7 @@ class OdooSyncService:
         return self._post(
             f"/alba/api/v1/applications/{odoo_application_id}/collateral",
             payload,
+            retry=False,
         )
 
     def sync_collateral_document(
@@ -1243,6 +1196,7 @@ class OdooSyncService:
         return self._post(
             f"/alba/api/v1/collateral/{odoo_collateral_id}/documents",
             payload,
+            retry=False,
         )
 
     def update_application_status(
@@ -1356,7 +1310,7 @@ class OdooSyncService:
             amount,
             payment_method,
         )
-        result = self._post("/alba/api/v1/payments", payload)
+        result = self._post("/alba/api/v1/payments", payload, retry=False)
         logger.info(
             "Payment recorded: odoo_repayment_id=%s principal=%.2f interest=%.2f",
             result.get("odoo_repayment_id"),
@@ -1440,9 +1394,9 @@ class OdooSyncService:
         """Execute a GET request and return the parsed JSON body."""
         return self._request("GET", path, params=params)
 
-    def _post(self, path: str, payload: dict) -> dict:
+    def _post(self, path: str, payload: dict, retry: bool = True) -> dict:
         """Execute a POST request and return the parsed JSON body."""
-        return self._request("POST", path, json_body=payload)
+        return self._request("POST", path, json_body=payload, retry=retry)
 
     def _handle_response(self, response) -> dict:
         """
@@ -1471,6 +1425,7 @@ class OdooSyncService:
         path: str,
         json_body: dict = None,
         params: dict = None,
+        retry: bool = True,
     ) -> dict:
         """
         Execute an authenticated HTTP request against the Odoo API with
@@ -1481,6 +1436,10 @@ class OdooSyncService:
             path:      URL path relative to ``self.base_url``.
             json_body: Optional request body (serialised to JSON).
             params:    Optional query parameters dict.
+            retry:     Whether to auto-retry on timeout/connection/server
+                       errors. Must be ``False`` for non-idempotent
+                       record-creating calls, where a retry after a timeout
+                       could double-post the record.
 
         Returns:
             dict: Parsed JSON response body.
@@ -1508,15 +1467,16 @@ class OdooSyncService:
 
         url = self.base_url.rstrip("/") + path
         last_exc: Exception | None = None
+        max_attempts = self.max_retries if retry else 1
 
-        for attempt in range(1, self.max_retries + 1):
+        for attempt in range(1, max_attempts + 1):
             try:
                 logger.debug(
                     "Odoo API %s %s (attempt %d/%d)",
                     method,
                     path,
                     attempt,
-                    self.max_retries,
+                    max_attempts,
                 )
                 start = time.monotonic()
                 response = self._session.request(
@@ -1541,7 +1501,7 @@ class OdooSyncService:
             except requests.exceptions.Timeout as exc:
                 last_exc = OdooTimeoutError(
                     f"Request to Odoo timed out after {self.timeout}s "
-                    f"(attempt {attempt}/{self.max_retries}).",
+                    f"(attempt {attempt}/{max_attempts}).",
                     detail=str(exc),
                 )
                 logger.warning(
@@ -1555,7 +1515,7 @@ class OdooSyncService:
             except requests.exceptions.ConnectionError as exc:
                 last_exc = OdooConnectionError(
                     f"Cannot connect to Odoo at {self.base_url} "
-                    f"(attempt {attempt}/{self.max_retries}).",
+                    f"(attempt {attempt}/{max_attempts}).",
                     detail=str(exc),
                 )
                 logger.warning(
@@ -1590,14 +1550,14 @@ class OdooSyncService:
                 ) from exc
 
             # Back off before retrying
-            if attempt < self.max_retries:
+            if attempt < max_attempts:
                 backoff = self.retry_backoff * (2 ** (attempt - 1))
                 logger.debug("Retrying in %.1fs…", backoff)
                 time.sleep(backoff)
 
         # All retries exhausted
         raise last_exc or OdooSyncError(
-            f"All {self.max_retries} attempts to {method} {path} failed."
+            f"All {max_attempts} attempts to {method} {path} failed."
         )
 
 

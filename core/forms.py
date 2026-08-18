@@ -34,6 +34,13 @@ class LoginForm(AuthenticationForm):
         })
     )
 
+    def confirm_login_allowed(self, user):
+        if not user.is_active:
+            raise forms.ValidationError(
+                "Your account has been deactivated. Please contact support.",
+                code="inactive",
+            )
+
 
 class UserRegistrationForm(UserCreationForm):
     """User registration form for customer portal"""

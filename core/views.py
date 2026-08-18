@@ -5,10 +5,15 @@ Handles: landing page, authentication, customer dashboard
 
 import logging
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.mail import send_mail
+from django.core.validators import EmailValidator, ValidationError as CoreValidationError
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
 from .forms import LoginForm, UserRegistrationForm
@@ -23,9 +28,10 @@ logger = logging.getLogger(__name__)
 
 def get_client_ip(request):
     """Extract client IP from request headers"""
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        return x_forwarded_for.split(",")[0].strip()
+    if getattr(settings, "TRUST_X_FORWARDED_FOR", False):
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            return x_forwarded_for.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR")
 
 
@@ -50,6 +56,60 @@ def create_audit_log(user, action, model_name, object_id, description, request=N
 def landing_page(request):
     """Public landing / marketing page — always shown, even when logged in."""
     return render(request, "landing.html")
+
+
+@require_POST
+def contact_submit(request):
+    """Handle the public landing-page 'Send Us a Message' contact form."""
+    name = request.POST.get("name", "").strip()
+    email = request.POST.get("email", "").strip()
+    phone = request.POST.get("phone", "").strip()
+    subject = request.POST.get("subject", "General Inquiry").strip()
+    message = request.POST.get("message", "").strip()
+
+    if not name or not email or not message:
+        return JsonResponse(
+            {"success": False, "error": "Name, email, and message are required."},
+            status=400,
+        )
+
+    try:
+        EmailValidator()(email)
+    except CoreValidationError:
+        return JsonResponse(
+            {"success": False, "error": "Please enter a valid email address."},
+            status=400,
+        )
+
+    body = (
+        f"New contact form submission from the Alba website.\n\n"
+        f"Name: {name}\n"
+        f"Email: {email}\n"
+        f"Phone: {phone or 'Not provided'}\n"
+        f"Subject: {subject}\n\n"
+        f"Message:\n{message}\n"
+    )
+
+    try:
+        send_mail(
+            subject=f"[Alba Contact Form] {subject}",
+            message=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[settings.CONTACT_FORM_RECIPIENT],
+            fail_silently=False,
+        )
+    except Exception:
+        logger.exception("Failed to send contact form email from %s", email)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "We couldn't send your message right now. Please email "
+                "info@albacapital.co.ke or call 0791000481 / 0754000481 directly.",
+            },
+            status=502,
+        )
+
+    return JsonResponse({"success": True})
 
 
 def privacy_policy_view(request):
@@ -114,13 +174,6 @@ class LoginView(TemplateView):
             user = authenticate(request, username=email, password=password)
 
             if user is not None:
-                if not user.is_active:
-                    messages.error(
-                        request,
-                        "Your account has been deactivated. Please contact support.",
-                    )
-                    return render(request, self.template_name, {"form": form})
-
                 login(request, user)
 
                 if not form.cleaned_data.get("remember_me"):

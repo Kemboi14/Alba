@@ -22,9 +22,6 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 ALLOWED_HOSTS = str(
     config("ALLOWED_HOSTS", default="localhost,127.0.0.1,0.0.0.0")
 ).split(",")
-# Ensure 0.0.0.0 is always allowed for local development
-if "0.0.0.0" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append("0.0.0.0")
 
 
 # Application definition
@@ -191,6 +188,8 @@ EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER or "noreply@albacapital.co.ke")
+CONTACT_FORM_RECIPIENT = config("CONTACT_FORM_RECIPIENT", default="info@albacapital.co.ke")
 
 # Security Settings (Development defaults - override in production)
 SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
@@ -200,6 +199,10 @@ SESSION_SAVE_EVERY_REQUEST = True
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+# Only trust the X-Forwarded-For header when sitting behind a proxy that
+# sets it reliably (e.g. a load balancer). Defaults to False.
+TRUST_X_FORWARDED_FOR = config("TRUST_X_FORWARDED_FOR", default=False, cast=bool)
 
 # Content Security Policy
 CSP_DEFAULT_SRC = ("'self'",)

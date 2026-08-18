@@ -161,7 +161,11 @@ def normalise_phone(raw: str) -> str:
         phone = "254" + phone
 
     # Validate: 12 digits, starts with 2547 or 2541 (Safaricom / Airtel)
-    if not phone.isdigit() or len(phone) != 12 or not phone.startswith("254"):
+    if (
+        not phone.isdigit()
+        or len(phone) != 12
+        or not (phone.startswith("2547") or phone.startswith("2541"))
+    ):
         raise MpesaValidationError(
             f"Invalid Kenyan phone number: '{raw}'.  "
             "Use format 0712345678 or 254712345678."
@@ -192,11 +196,15 @@ def to_whole_shillings(amount) -> int:
         to_whole_shillings(99.50)   # → 100
         to_whole_shillings(0.01)    # → 1
     """
-    import math
+    import decimal
 
     try:
-        value = math.ceil(float(amount))
-    except (TypeError, ValueError) as exc:
+        value = int(
+            decimal.Decimal(str(amount)).to_integral_value(
+                rounding=decimal.ROUND_CEILING
+            )
+        )
+    except (TypeError, ValueError, decimal.InvalidOperation) as exc:
         raise MpesaValidationError(f"Invalid amount '{amount}': {exc}") from exc
 
     if value <= 0:
@@ -427,8 +435,8 @@ class MpesaService:
         # Normalise and validate inputs
         phone = normalise_phone(phone_number)
         int_amount = to_whole_shillings(amount)
-        ref = (account_reference or "")[:12].strip()
-        desc = (transaction_desc or "Loan Repayment")[:13].strip()
+        ref = (account_reference or "").strip()[:12]
+        desc = (transaction_desc or "Loan Repayment").strip()[:13]
 
         if not ref:
             raise MpesaValidationError("account_reference must not be empty.")
@@ -572,6 +580,14 @@ class MpesaService:
                 f"Odoo STK Push proxy returned HTTP {resp.status_code}: {error}",
                 response_code=str(resp.status_code),
                 response_desc=str(error),
+            )
+
+        response_code = str(body.get("response_code", "-1"))
+        if response_code != "0":
+            raise MpesaAPIError(
+                f"Odoo rejected STK Push: {body.get('response_desc', '')}",
+                response_code=response_code,
+                response_desc=body.get("response_desc", ""),
             )
 
         result = body
@@ -769,6 +785,17 @@ class MpesaService:
                 },
                 timeout=self._timeout,
             )
+            pending_body = _safe_json(resp)
+            if str(pending_body.get("errorCode", "")) == "500.001.1001":
+                return {
+                    "checkout_request_id": checkout_request_id,
+                    "result_code": "",
+                    "result_desc": pending_body.get(
+                        "errorMessage", "The transaction is being processed."
+                    ),
+                    "status": "pending",
+                    "mode": "standalone",
+                }
             resp.raise_for_status()
         except requests.exceptions.Timeout as exc:
             raise MpesaTimeoutError(
@@ -792,19 +819,21 @@ class MpesaService:
         result_code = str(data.get("ResultCode", "-1"))
 
         # Map Daraja result codes to a status string
+        result_desc = data.get("ResultDesc", "")
         if result_code == "0":
             status = "completed"
         elif result_code in ("1032", "1037"):
             status = "cancelled"
         elif result_code == "1":
-            status = "pending"
+            status = "failed"
+            result_desc = result_desc or "Insufficient balance in the M-Pesa account."
         else:
             status = "failed"
 
         return {
             "checkout_request_id": checkout_request_id,
             "result_code": result_code,
-            "result_desc": data.get("ResultDesc", ""),
+            "result_desc": result_desc,
             "status": status,
             "mode": "standalone",
         }
@@ -822,8 +851,9 @@ def verify_mpesa_callback(raw_body: bytes, ip_address: str = "") -> bool:
     Safaricom does not sign callbacks with a shared secret, so validation
     is limited to:
       1. Ensuring the body is valid JSON.
-      2. Optionally checking the source IP against Safaricom's published
-         IP ranges (when MPESA_ALLOWED_IPS is set in settings).
+      2. Checking the source IP against Safaricom's published IP ranges
+         (MPESA_ALLOWED_IPS must be configured in settings — callbacks are
+         rejected when it is not).
 
     Args:
         raw_body:   Raw bytes of the POST request body.
@@ -839,21 +869,29 @@ def verify_mpesa_callback(raw_body: bytes, ip_address: str = "") -> bool:
         logger.warning("M-Pesa callback body is not valid JSON.")
         return False
 
-    # 2. Optional IP allowlist
+    # 2. Mandatory IP allowlist
     allowed_ips_setting = getattr(settings, "MPESA_ALLOWED_IPS", None)
-    if allowed_ips_setting and ip_address:
-        # Can be a list or comma-separated string
-        if isinstance(allowed_ips_setting, str):
-            allowed_ips = {ip.strip() for ip in allowed_ips_setting.split(",")}
-        else:
-            allowed_ips = set(allowed_ips_setting)
+    if not allowed_ips_setting:
+        logger.warning(
+            "MPESA_ALLOWED_IPS is not configured — rejecting M-Pesa callback "
+            "from %s.  Configure MPESA_ALLOWED_IPS with Safaricom's "
+            "published IP ranges to accept callbacks.",
+            ip_address or "(unknown)",
+        )
+        return False
 
-        if allowed_ips and ip_address not in allowed_ips:
-            logger.warning(
-                "M-Pesa callback from non-whitelisted IP %s — rejecting.",
-                ip_address,
-            )
-            return False
+    # Can be a list or comma-separated string
+    if isinstance(allowed_ips_setting, str):
+        allowed_ips = {ip.strip() for ip in allowed_ips_setting.split(",")}
+    else:
+        allowed_ips = set(allowed_ips_setting)
+
+    if not ip_address or ip_address not in allowed_ips:
+        logger.warning(
+            "M-Pesa callback from non-whitelisted IP %s — rejecting.",
+            ip_address,
+        )
+        return False
 
     return True
 

@@ -32,9 +32,13 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
 
     def save_user(self, request, sociallogin, form=None):
         user = super().save_user(request, sociallogin, form)
+        update_fields = []
         if not user.role:
             user.role = User.CUSTOMER
+            update_fields.append("role")
         if not user.is_approved:
             user.is_approved = True
-            user.save(update_fields=["role", "is_approved"])
+            update_fields.append("is_approved")
+        if update_fields:
+            user.save(update_fields=update_fields)
         return user

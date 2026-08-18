@@ -235,6 +235,21 @@ def odoo_webhook_receiver(request: HttpRequest) -> JsonResponse:
             status=400,
         )
 
+    if not delivery_id:
+        logger.warning("Webhook received with no delivery_id — rejecting.")
+        return JsonResponse(
+            {"status": "error", "detail": "Missing 'delivery_id' field in envelope."},
+            status=400,
+        )
+
+    envelope_ts = _parse_iso_timestamp(timestamp_str)
+    if envelope_ts is None:
+        logger.warning("Webhook received with missing/invalid timestamp — rejecting.")
+        return JsonResponse(
+            {"status": "error", "detail": "Missing or invalid 'timestamp' field in envelope."},
+            status=400,
+        )
+
     logger.info(
         "Webhook received: event=%s delivery_id=%s",
         event_type,
@@ -242,23 +257,21 @@ def odoo_webhook_receiver(request: HttpRequest) -> JsonResponse:
     )
 
     # ── 3b. Replay-freshness check ──────────────────────────────────────────
-    envelope_ts = _parse_iso_timestamp(timestamp_str)
-    if envelope_ts is not None:
-        now = dj_timezone.now()
-        age = now - envelope_ts
-        if age > _MAX_WEBHOOK_AGE or age < -_MAX_WEBHOOK_AGE:
-            logger.warning(
-                "Webhook rejected: envelope timestamp too far from now "
-                "(event=%s delivery_id=%s timestamp=%s age=%s).",
-                event_type,
-                delivery_id or "(none)",
-                timestamp_str,
-                age,
-            )
-            return JsonResponse(
-                {"status": "error", "detail": "Webhook timestamp outside allowed window."},
-                status=401,
-            )
+    now = dj_timezone.now()
+    age = now - envelope_ts
+    if age > _MAX_WEBHOOK_AGE or age < -_MAX_WEBHOOK_AGE:
+        logger.warning(
+            "Webhook rejected: envelope timestamp too far from now "
+            "(event=%s delivery_id=%s timestamp=%s age=%s).",
+            event_type,
+            delivery_id or "(none)",
+            timestamp_str,
+            age,
+        )
+        return JsonResponse(
+            {"status": "error", "detail": "Webhook timestamp outside allowed window."},
+            status=401,
+        )
 
     # ── 4. Idempotency check ────────────────────────────────────────────────
     if delivery_id and _is_duplicate_delivery(delivery_id):
@@ -416,9 +429,12 @@ def _parse_iso_timestamp(ts: str):
     if not ts:
         return None
     try:
-        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
     except (ValueError, TypeError):
         return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def _get_client_ip(request: HttpRequest) -> str:
@@ -717,6 +733,7 @@ def _handle_loan_disbursed(data: dict, delivery_id: str):
         logger.error(
             "Could not create/update Loan from loan.disbursed: %s", exc, exc_info=True
         )
+        raise
 
 
 def _handle_loan_npl_flagged(data: dict, delivery_id: str):

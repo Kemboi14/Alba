@@ -484,8 +484,10 @@ def test_odoo_connection(request):
 
         # Create temporary service to test connection
         from django.conf import settings
-        original_url = getattr(settings, 'ODOO_URL', None)
-        original_key = getattr(settings, 'ODOO_API_KEY', None)
+        _UNSET = object()
+        original_url = getattr(settings, 'ODOO_URL', _UNSET)
+        original_key = getattr(settings, 'ODOO_API_KEY', _UNSET)
+        original_db = getattr(settings, 'ODOO_DB', _UNSET)
 
         try:
             # Temporarily override settings for testing
@@ -546,10 +548,12 @@ def test_odoo_connection(request):
 
         finally:
             # Restore original settings
-            if original_url:
+            if original_url is not _UNSET:
                 settings.ODOO_URL = original_url
-            if original_key:
+            if original_key is not _UNSET:
                 settings.ODOO_API_KEY = original_key
+            if original_db is not _UNSET:
+                settings.ODOO_DB = original_db
 
     except json.JSONDecodeError:
         return JsonResponse({

@@ -302,7 +302,7 @@ class OdooConfig(models.Model):
         """Mask a secret for display - show only last 4 chars."""
         if not secret or len(secret) <= 4:
             return '****'
-        return '*' * (len(secret) - 4) + secret[-4:]
+        return '*' * 8 + secret[-4:]
 
     @property
     def masked_api_key(self):
