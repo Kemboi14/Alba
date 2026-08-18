@@ -940,19 +940,24 @@ class AlbaApiController(http.Controller):
                 )
                 return self._error_response(detail, 404)
 
-            update_vals = {"kyc_status": kyc_status}
+            # alba.customer.kyc_status only has pending/partial/complete/
+            # verified/rejected — "submitted" (this endpoint's own accepted
+            # input vocabulary, kept for backward compatibility with callers)
+            # maps to "complete" ("Complete — Awaiting Verification").
+            odoo_kyc_status = "complete" if kyc_status == "submitted" else kyc_status
+            update_vals = {"kyc_status": odoo_kyc_status}
 
             # Record verification timestamp when marking as verified
             if kyc_status == "verified":
                 from datetime import timezone
 
-                update_vals["kyc_verified_at"] = datetime.now(timezone.utc).strftime(
+                update_vals["kyc_verified_date"] = datetime.now(timezone.utc).strftime(
                     "%Y-%m-%d %H:%M:%S"
                 )
 
             # Persist optional notes
             if data.get("verification_notes"):
-                update_vals["kyc_notes"] = data["verification_notes"]
+                update_vals["notes"] = data["verification_notes"]
 
             customer.write(update_vals)
 
