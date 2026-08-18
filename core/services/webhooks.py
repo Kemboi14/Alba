@@ -612,6 +612,17 @@ def _handle_loan_disbursed(data: dict, delivery_id: str):
         )
         disbursement_date_str = (data.get("disbursement_date") or "").strip()
 
+        # Full financial breakdown, computed by Odoo's own amortization
+        # logic — Django has no equivalent, so these must come from the
+        # webhook rather than being derived locally.
+        principal_from_payload = _safe_float(data.get("principal_amount"), "principal_amount")
+        interest_amount = _safe_float(data.get("interest_amount"), "interest_amount")
+        total_repayable = _safe_float(data.get("total_repayable"), "total_repayable")
+        installment_amount = _safe_float(data.get("installment_amount"), "installment_amount")
+        tenure_months_from_payload = _safe_int(data.get("tenure_months"), "tenure_months")
+        maturity_date_str = (data.get("maturity_date") or "").strip()
+        first_payment_date_str = (data.get("first_payment_date") or "").strip()
+
         if odoo_loan_id <= 0:
             logger.warning("loan.disbursed: invalid odoo_loan_id — skipping Loan sync.")
             return
@@ -665,6 +676,25 @@ def _handle_loan_disbursed(data: dict, delivery_id: str):
             ):
                 existing_loan.outstanding_balance = Decimal(str(outstanding))
                 update_fields.append("outstanding_balance")
+            # Backfill interest/total/installment — these used to be
+            # hardcoded to 0 on creation pending a follow-up sync that was
+            # never built, so any loan created before this payload carried
+            # real figures needs correcting here too.
+            if interest_amount and existing_loan.interest_amount != Decimal(
+                str(interest_amount)
+            ):
+                existing_loan.interest_amount = Decimal(str(interest_amount))
+                update_fields.append("interest_amount")
+            if total_repayable and existing_loan.total_amount != Decimal(
+                str(total_repayable)
+            ):
+                existing_loan.total_amount = Decimal(str(total_repayable))
+                update_fields.append("total_amount")
+            if installment_amount and existing_loan.installment_amount != Decimal(
+                str(installment_amount)
+            ):
+                existing_loan.installment_amount = Decimal(str(installment_amount))
+                update_fields.append("installment_amount")
             if update_fields:
                 existing_loan.save(update_fields=update_fields)
             logger.info(
@@ -675,21 +705,44 @@ def _handle_loan_disbursed(data: dict, delivery_id: str):
         else:
             # Create a new Loan from application data + webhook payload
             principal = (
-                Decimal(str(disbursed_amount))
-                if disbursed_amount
-                else (app.approved_amount or app.requested_amount)
+                Decimal(str(principal_from_payload))
+                if principal_from_payload
+                else (
+                    Decimal(str(disbursed_amount))
+                    if disbursed_amount
+                    else (app.approved_amount or app.requested_amount)
+                )
             )
+            interest = Decimal(str(interest_amount)) if interest_amount else Decimal("0")
+            total = (
+                Decimal(str(total_repayable))
+                if total_repayable
+                else (principal + interest)
+            )
+            installment = (
+                Decimal(str(installment_amount)) if installment_amount else total
+            )
+            tenure = tenure_months_from_payload or app.tenure_months
+
             # Loan number: Odoo-provided or generate locally
             ln_number = loan_number  # will auto-generate if blank via model.save()
 
             import calendar
 
-            # Simple tenure-based maturity
-            m = d_date.month + app.tenure_months
+            def _parse_date(value, fallback):
+                try:
+                    return datetime.date.fromisoformat(value) if value else fallback
+                except ValueError:
+                    return fallback
+
+            # Simple tenure-based maturity, used only if Odoo didn't supply
+            # its own maturity_date/first_payment_date (its schedule may use
+            # a different day-of-month convention than this approximation).
+            m = d_date.month + tenure
             y = d_date.year + (m - 1) // 12
             mo = (m - 1) % 12 + 1
             day = min(d_date.day, calendar.monthrange(y, mo)[1])
-            maturity = datetime.date(y, mo, day)
+            fallback_maturity = datetime.date(y, mo, day)
 
             first_pay_m = d_date.month + 1
             first_pay_y = d_date.year + (first_pay_m - 1) // 12
@@ -697,22 +750,25 @@ def _handle_loan_disbursed(data: dict, delivery_id: str):
             first_pay_day = min(
                 d_date.day, calendar.monthrange(first_pay_y, first_pay_mo)[1]
             )
-            first_payment = datetime.date(first_pay_y, first_pay_mo, first_pay_day)
+            fallback_first_payment = datetime.date(first_pay_y, first_pay_mo, first_pay_day)
+
+            maturity = _parse_date(maturity_date_str, fallback_maturity)
+            first_payment = _parse_date(first_payment_date_str, fallback_first_payment)
 
             loan = Loan(
                 application=app,
                 customer=app.customer,
                 loan_product=app.loan_product,
                 principal_amount=principal,
-                interest_amount=Decimal("0"),  # updated later by Odoo sync
+                interest_amount=interest,
                 fees=Decimal("0"),
-                total_amount=principal,
+                total_amount=total,
                 outstanding_balance=Decimal(str(outstanding))
                 if outstanding
-                else principal,
-                installment_amount=Decimal("0"),  # updated later
+                else total,
+                installment_amount=installment,
                 repayment_frequency=app.repayment_frequency,
-                tenure_months=app.tenure_months,
+                tenure_months=tenure,
                 disbursement_date=d_date,
                 first_payment_date=first_payment,
                 maturity_date=maturity,
