@@ -160,6 +160,11 @@ def customer_profile(request):
                     customer.save(update_fields=["odoo_sync_status", "odoo_sync_error"])
 
             return redirect("loans:customer_dashboard")
+        else:
+            logger.warning(
+                "customer_profile: form invalid for customer_id=%s errors=%s",
+                customer.pk, form.errors.as_json(),
+            )
     else:
         form = CustomerProfileForm(instance=customer)
 
