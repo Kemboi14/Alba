@@ -1,41 +1,13 @@
-{% extends 'base.html' %} {% block title %}Apply for Loan - Alba Capital{% endblock%} {% block extra_css %}
+{% extends 'base.html' %}
+{% block title %}Apply for Loan - Alba Capital{% endblock %}
+{% block extra_css %}
 <style>
-    /* ── Product card selection state ──────────────────────────────────────── */
-    .loan-product-card {
-        transition: all 0.25s ease;
-        cursor: pointer;
-        border: 2px solid transparent;
-        position: relative;
-    }
-    .loan-product-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12);
-        border-color: #fed7aa;
-    }
-    .loan-product-card.selected {
-        border-color: #ff805d;
-        background: linear-gradient(135deg, #fff7f4 0%, #fff0eb 100%);
-        box-shadow: 0 4px 20px rgba(255, 128, 93, 0.25), inset 0 0 0 2px #ff805d;
-        transform: translateY(-4px);
-    }
-    .loan-product-card.selected::after {
-        content: "✓ Selected";
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        background: linear-gradient(135deg, #ff805d 0%, #ff6b3d 100%);
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-        box-shadow: 0 2px 8px rgba(255, 128, 93, 0.4);
-    }
+    /* Everything else on this page reuses base.html's shared design system
+       (.card, .form-input, .btn, .alert, etc.) — only the bits with no
+       existing equivalent are defined here. */
 
-    /* ── Range slider — cross-browser reset ────────────────────────────────── */
-    .calc-range {
+    /* ── Amount range slider ─────────────────────────────────────────────── */
+    .amount-range {
         -webkit-appearance: none;
         appearance: none;
         width: 100%;
@@ -43,171 +15,75 @@
         border-radius: 9999px;
         outline: none;
         cursor: pointer;
+        margin-top: 0.75rem;
     }
-    .calc-range::-webkit-slider-thumb {
+    .amount-range::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
-        width: 22px;
-        height: 22px;
+        width: 20px;
+        height: 20px;
         border-radius: 50%;
-        background: #ff805d;
+        background: var(--orange);
         border: 3px solid #fff;
         box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
         cursor: pointer;
-        transition: transform 0.1s;
     }
-    .calc-range::-webkit-slider-thumb:hover {
-        transform: scale(1.15);
-    }
-    .calc-range::-moz-range-thumb {
-        width: 22px;
-        height: 22px;
+    .amount-range::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
         border-radius: 50%;
-        background: #ff805d;
+        background: var(--orange);
         border: 3px solid #fff;
         box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
         cursor: pointer;
     }
 
-    /* ── Tenure button group ───────────────────────────────────────────────── */
-    .tenure-btn {
-        transition: all 0.15s ease;
+    /* ── Tenure quick-pick chips ──────────────────────────────────────────── */
+    .tenure-chip {
         border: 1.5px solid #d1d5db;
         background: #fff;
         color: #374151;
-        padding: 0.375rem 0.75rem;
-        border-radius: 0.375rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 9999px;
         font-size: 0.8125rem;
         font-weight: 500;
         cursor: pointer;
-        white-space: nowrap;
-        position: relative;
+        transition: all 0.15s ease;
     }
-    .tenure-btn:hover:not(:disabled) {
-        border-color: #ff805d;
-        color: #ff805d;
-        transform: translateY(-1px);
+    .tenure-chip:hover {
+        border-color: var(--orange);
+        color: var(--orange);
     }
-    .tenure-btn.active {
-        background: linear-gradient(135deg, #ff805d 0%, #ff6b3d 100%);
-        border-color: #ff805d;
+    .tenure-chip.active {
+        background: var(--orange);
+        border-color: var(--orange);
         color: #fff;
-        box-shadow: 0 2px 8px rgba(255, 128, 93, 0.4);
-        transform: translateY(-1px);
-    }
-    .tenure-btn.active::after {
-        content: "✓";
-        position: absolute;
-        top: -4px;
-        right: -4px;
-        width: 14px;
-        height: 14px;
-        background: #166534;
-        border-radius: 50%;
-        font-size: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-    }
-    .tenure-btn:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
-        transform: none;
     }
 
-    /* ── Calc product selector buttons ────────────────────────────────────── */
-    .calc-product-btn {
-        transition: all 0.2s ease;
-        position: relative;
+    /* ── Compact product info strip ──────────────────────────────────────── */
+    .stat-chip {
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem;
     }
-    .calc-product-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-    .calc-product-btn.calc-active {
-        border-color: #ff805d !important;
-        background: linear-gradient(135deg, #fff7f4 0%, #fff0eb 100%);
-        box-shadow: 0 4px 16px rgba(255, 128, 93, 0.3), inset 0 0 0 2px #ff805d;
-        transform: translateY(-2px);
-    }
-    .calc-product-btn.calc-active::before {
-        content: "✓ Selected";
-        position: absolute;
-        top: -10px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: linear-gradient(135deg, #ff805d 0%, #ff6b3d 100%);
-        color: white;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.5px;
+    .stat-chip-label {
+        display: block;
+        font-size: 0.6875rem;
         text-transform: uppercase;
-        white-space: nowrap;
-        box-shadow: 0 2px 4px rgba(255, 128, 93, 0.3);
+        letter-spacing: 0.03em;
+        color: #94a3b8;
+        font-weight: 600;
+    }
+    .stat-chip-value {
+        display: block;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--navy);
+        margin-top: 0.125rem;
     }
 
-    /* ── Result breakdown bar ──────────────────────────────────────────────── */
-    .breakdown-bar {
-        height: 12px;
-        border-radius: 9999px;
-        overflow: hidden;
-        background: #e5e7eb;
-        display: flex;
-    }
-    .breakdown-principal {
-        background: #22354e;
-        transition: width 0.4s ease;
-    }
-    .breakdown-interest {
-        background: #ff805d;
-        transition: width 0.4s ease;
-    }
-    .breakdown-fees {
-        background: #f59e0b;
-        transition: width 0.4s ease;
-    }
-
-    /* ── Result figures — fade while updating ──────────────────────────────── */
-    .result-value {
-        transition: opacity 0.2s;
-    }
-    .result-value.updating {
-        opacity: 0.35;
-    }
-
-    /* ── Field highlight on pre-fill ───────────────────────────────────────── */
-    @keyframes highlight-field {
-        0% {
-            box-shadow: 0 0 0 3px rgba(255, 128, 93, 0.6);
-        }
-        100% {
-            box-shadow: none;
-        }
-    }
-    .field-highlighted {
-        animation: highlight-field 1.8s ease forwards;
-    }
-
-    /* ── Apply-now button pulse ────────────────────────────────────────────── */
-    @keyframes btn-ping {
-        0% {
-            box-shadow: 0 0 0 0 rgba(255, 128, 93, 0.5);
-        }
-        70% {
-            box-shadow: 0 0 0 10px rgba(255, 128, 93, 0);
-        }
-        100% {
-            box-shadow: none;
-        }
-    }
-    .btn-apply-now:hover {
-        animation: btn-ping 0.8s ease;
-    }
-
-    /* ── Numeric input — hide browser spin arrows ──────────────────────────── */
+    /* ── Hide native number-input spin arrows ────────────────────────────── */
     input[type="number"].no-spin::-webkit-inner-spin-button,
     input[type="number"].no-spin::-webkit-outer-spin-button {
         -webkit-appearance: none;
@@ -217,1393 +93,360 @@
         -moz-appearance: textfield;
     }
 </style>
-{% endblock %} {% block body %}
+{% endblock %}
+{% block body %}
 <div class="page-wrapper">
-    <!-- ═══════════════════════════ NAVIGATION ═══════════════════════════ -->
     {% include 'partials/navbar.html' with active_page='apply' %}
 
-    <main id="main-content" class="page-content" style="max-width: 64rem">
-        <!-- Page header -->
-        <div class="mb-6">
-            <h1 class="text-3xl font-bold text-gray-900">Apply for a Loan</h1>
-            <p class="mt-1 text-sm text-gray-500">
-                Use the calculator below to explore your options, then fill in
-                the application.
-            </p>
+    <main id="main-content" class="page-content" style="max-width: 52rem">
+        <div class="page-header">
+            <div class="page-header-text">
+                <h1 class="page-title">Apply for a Loan</h1>
+                <p class="page-subtitle">
+                    Choose a product and amount below — you'll see your
+                    estimated repayment as you go.
+                </p>
+            </div>
         </div>
 
-        <!-- ═══════════════ INTERACTIVE LOAN CALCULATOR WIDGET ═══════════════ -->
-        <div
-            id="loanCalculatorWidget"
-            class="mb-10 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
-        >
-            <!-- Widget header -->
-            <div
-                class="px-6 py-4 bg-alba-navy flex items-center justify-between"
-            >
-                <div>
-                    <h2
-                        class="text-lg font-semibold text-white flex items-center gap-2"
-                    >
-                        <svg
-                            class="w-5 h-5 text-alba-orange"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                            />
-                        </svg>
-                        Loan Calculator
-                    </h2>
-                    <p class="text-xs text-gray-300 mt-0.5">
-                        Adjust the sliders to see your estimated repayments in
-                        real time
-                    </p>
-                </div>
-                <span
-                    id="calcBadge"
-                    class="hidden text-xs font-medium bg-alba-orange text-white px-3 py-1 rounded-full"
-                    >Live</span
-                >
+        <div class="card">
+            <div class="card-header">
+                <h3 class="section-title">Loan Details</h3>
+                <p class="section-subtitle">Fields marked * are required</p>
             </div>
 
-            <div class="p-6 grid grid-cols-1 lg:grid-cols-5 gap-8">
-                <!-- ── LEFT: controls ──────────────────────────────────────── -->
-                <div class="lg:col-span-3 space-y-7">
-                    <!-- 1. Product selector -->
-                    <div>
-                        <label
-                            class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2"
-                            >Loan Product</label
-                        >
-                        <div
-                            class="grid grid-cols-1 sm:grid-cols-3 gap-3"
-                            id="calcProductCards"
-                        >
-                            {% for product in products %}
-                            <button
-                                type="button"
-                                data-product-id="{{ product.id }}"
-                                data-min-amount="{{ product.min_amount }}"
-                                data-max-amount="{{ product.max_amount }}"
-                                data-min-tenure="{{ product.min_tenure_months }}"
-                                data-max-tenure="{{ product.max_tenure_months }}"
-                                data-name="{{ product.name }}"
-                                onclick="calcSelectProduct(this)"
-                                class="calc-product-btn text-left p-3 rounded-xl border-2 border-gray-200 hover:border-alba-orange transition-all focus:outline-none"
-                            >
-                                <div class="flex items-center gap-2 mb-1">
-                                    {% if product.category == 'SALARY_ADVANCE' %}
-                                    <span
-                                        class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100"
-                                    >
-                                        <svg
-                                            class="w-4 h-4 text-blue-600"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                            />
-                                        </svg>
-                                    </span>
-                                    {% elif product.category == 'BUSINESS_LOAN' %}
-                                    <span
-                                        class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-100"
-                                    >
-                                        <svg
-                                            class="w-4 h-4 text-green-600"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                                            />
-                                        </svg>
-                                    </span>
-                                    {% elif product.category == 'ASSET_FINANCING'%}
-                                    <span
-                                        class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-purple-100"
-                                    >
-                                        <svg
-                                            class="w-4 h-4 text-purple-600"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                                            />
-                                        </svg>
-                                    </span>
-                                    {% else %}
-                                    <span
-                                        class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-100"
-                                    >
-                                        <svg
-                                            class="w-4 h-4 text-gray-500"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-                                            />
-                                        </svg>
-                                    </span>
-                                    {% endif %}
-                                    <span
-                                        class="text-xs font-semibold text-gray-700 leading-tight"
-                                        >{{ product.name }}</span
-                                    >
-                                </div>
-                                <p class="text-xs text-gray-400 mt-0.5">
-                                    KES {{ product.min_amount|floatformat:0 }}–{{ product.max_amount|floatformat:0 }}
-                                </p>
-                                <p class="text-xs text-gray-400">
-                                    {{ product.interest_rate }}% &bull; up to {{ product.max_tenure_months}}mo
-                                </p>
-                            </button>
-                            {% endfor %}
-                        </div>
-                        <p
-                            id="calcNoProduct"
-                            class="mt-2 text-xs text-amber-600 font-medium hidden"
-                        >
-                            ⚠ Please select a loan product above to enable the
-                            calculator.
-                        </p>
-                    </div>
+            <form method="post" id="loanApplicationForm" class="card-body">
+                {% csrf_token %}
 
-                    <!-- 2. Amount slider -->
-                    <div>
-                        <div class="flex items-baseline justify-between mb-2">
-                            <label
-                                class="text-xs font-semibold text-gray-500 uppercase tracking-wide"
-                                >Loan Amount</label
-                            >
-                            <div class="flex items-center gap-1">
-                                <span class="text-xs text-gray-500 font-medium"
-                                    >KES</span
-                                >
-                                <input
-                                    id="calcAmountInput"
-                                    type="number"
-                                    class="no-spin w-28 text-right text-base font-bold text-alba-navy border-0 border-b-2 border-gray-300 focus:border-alba-orange focus:outline-none bg-transparent py-0.5 transition"
-                                    min="10000"
-                                    max="1000000"
-                                    step="1000"
-                                    value="30000"
-                                    oninput="syncSliderFromInput()"
-                                />
-                            </div>
-                        </div>
+                <!-- Loan Product -->
+                <div class="form-field">
+                    <label for="{{ form.loan_product.id_for_label }}" class="form-label">
+                        Loan Product<span class="required-star" aria-hidden="true">*</span>
+                    </label>
+                    {{ form.loan_product }}
+                    {% if form.loan_product.errors %}
+                    <p class="error-text">{{ form.loan_product.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Compact product facts — replaces the old duplicate product-card grids -->
+                <div id="productInfoStrip" class="hidden grid grid-cols-3 gap-3 mb-5">
+                    <div class="stat-chip">
+                        <span class="stat-chip-label">Rate</span>
+                        <span id="infoRate" class="stat-chip-value">—</span>
+                    </div>
+                    <div class="stat-chip">
+                        <span class="stat-chip-label">Amount Range</span>
+                        <span id="infoRange" class="stat-chip-value">—</span>
+                    </div>
+                    <div class="stat-chip">
+                        <span class="stat-chip-label">Tenure</span>
+                        <span id="infoTenure" class="stat-chip-value">—</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+                    <!-- Requested Amount -->
+                    <div class="form-field">
+                        <label for="{{ form.requested_amount.id_for_label }}" class="form-label">
+                            Requested Amount (KES)<span class="required-star" aria-hidden="true">*</span>
+                        </label>
+                        {{ form.requested_amount }}
                         <input
-                            id="calcAmountSlider"
+                            id="amountSlider"
                             type="range"
-                            class="calc-range"
+                            class="amount-range"
                             min="10000"
                             max="1000000"
                             step="1000"
                             value="30000"
-                            style="
-                                background: linear-gradient(
-                                    to right,
-                                    #ff805d 0%,
-                                    #ff805d 2%,
-                                    #e5e7eb 2%,
-                                    #e5e7eb 100%
-                                );
-                            "
-                            oninput="syncInputFromSlider()"
                         />
                         <div class="flex justify-between mt-1">
-                            <span
-                                id="calcAmountMin"
-                                class="text-xs text-gray-400"
-                                >KES 10k</span
-                            >
-                            <span
-                                id="calcAmountMax"
-                                class="text-xs text-gray-400"
-                                >KES 1M</span
-                            >
+                            <span id="amountMinLabel" class="help-text">KES 10k</span>
+                            <span id="amountMaxLabel" class="help-text">KES 1M</span>
                         </div>
-                    </div>
-
-                    <!-- 3. Tenure button group -->
-                    <div>
-                        <div class="flex items-baseline justify-between mb-2">
-                            <label
-                                class="text-xs font-semibold text-gray-500 uppercase tracking-wide"
-                                >Repayment Period</label
-                            >
-                            <span
-                                id="calcTenureLabel"
-                                class="text-base font-bold text-alba-navy"
-                                >12 months</span
-                            >
-                        </div>
-                        <div
-                            id="calcTenureButtons"
-                            class="flex flex-wrap gap-2"
-                        >
-                            <!-- populated by JS -->
-                        </div>
-                    </div>
-                </div>
-                <!-- /left col -->
-
-                <!-- ── RIGHT: results panel ────────────────────────────────── -->
-                <div class="lg:col-span-2 flex flex-col">
-                    <!-- Empty / placeholder state -->
-                    <div
-                        id="calcPlaceholder"
-                        class="flex-1 flex flex-col items-center justify-center py-10 text-center"
-                    >
-                        <svg
-                            class="w-14 h-14 text-gray-200 mb-3"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="1.5"
-                                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                            />
-                        </svg>
-                        <p class="text-sm text-gray-400 font-medium">
-                            Select a product to see<br />your payment breakdown
-                        </p>
-                    </div>
-
-                    <!-- Results panel — hidden until first successful calc -->
-                    <div id="calcResults" class="flex-1 flex flex-col hidden">
-                        <!-- Hero: monthly payment -->
-                        <div
-                            class="bg-gradient-to-br from-alba-navy to-gray-700 rounded-xl p-5 mb-4 text-center"
-                        >
-                            <p
-                                class="text-xs font-semibold text-gray-300 uppercase tracking-widest mb-1"
-                            >
-                                Monthly Payment
-                            </p>
-                            <p
-                                id="resInstallment"
-                                class="result-value text-3xl font-extrabold text-white tracking-tight"
-                            >
-                                KES —
-                            </p>
-                            <p
-                                id="resTenureLine"
-                                class="text-xs text-gray-400 mt-1"
-                            >
-                                over — months
-                            </p>
-                        </div>
-
-                        <!-- Breakdown rows -->
-                        <div class="space-y-3 mb-4 flex-1">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="w-2.5 h-2.5 rounded-full bg-alba-navy inline-block flex-shrink-0"
-                                    ></span>
-                                    <span class="text-sm text-gray-600"
-                                        >Principal</span
-                                    >
-                                </div>
-                                <span
-                                    id="resPrincipal"
-                                    class="result-value text-sm font-semibold text-gray-800"
-                                    >KES —</span
-                                >
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="w-2.5 h-2.5 rounded-full bg-alba-orange inline-block flex-shrink-0"
-                                    ></span>
-                                    <span class="text-sm text-gray-600"
-                                        >Total Interest</span
-                                    >
-                                </div>
-                                <span
-                                    id="resInterest"
-                                    class="result-value text-sm font-semibold text-gray-800"
-                                    >KES —</span
-                                >
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block flex-shrink-0"
-                                    ></span>
-                                    <span class="text-sm text-gray-600"
-                                        >Processing Fee</span
-                                    >
-                                </div>
-                                <span
-                                    id="resFees"
-                                    class="result-value text-sm font-semibold text-gray-800"
-                                    >KES —</span
-                                >
-                            </div>
-                            <div
-                                class="pt-3 border-t border-gray-200 flex items-center justify-between"
-                            >
-                                <span class="text-sm font-bold text-gray-900"
-                                    >Total Payable</span
-                                >
-                                <span
-                                    id="resTotal"
-                                    class="result-value text-base font-extrabold text-alba-orange"
-                                    >KES —</span
-                                >
-                            </div>
-                        </div>
-
-                        <!-- Stacked breakdown bar -->
-                        <div class="mb-4">
-                            <p class="text-xs text-gray-400 mb-1.5">
-                                Payment composition
-                            </p>
-                            <div class="breakdown-bar">
-                                <div
-                                    id="barPrincipal"
-                                    class="breakdown-principal"
-                                    style="width: 0%"
-                                ></div>
-                                <div
-                                    id="barInterest"
-                                    class="breakdown-interest"
-                                    style="width: 0%"
-                                ></div>
-                                <div
-                                    id="barFees"
-                                    class="breakdown-fees"
-                                    style="width: 0%"
-                                ></div>
-                            </div>
-                            <div
-                                class="flex justify-between mt-1 text-xs text-gray-400"
-                            >
-                                <span id="barPctPrincipal">—% principal</span>
-                                <span id="barPctInterest">—% interest</span>
-                                <span id="barPctFees">—% fees</span>
-                            </div>
-                        </div>
-
-                        <!-- Apply Now CTA -->
-                        <button
-                            type="button"
-                            id="applyNowBtn"
-                            onclick="applyNow()"
-                            class="btn-apply-now w-full py-3 px-4 bg-alba-orange hover:bg-opacity-90 text-white rounded-xl font-semibold text-sm shadow transition-all flex items-center justify-center gap-2"
-                        >
-                            <svg
-                                class="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M9 5l7 7-7 7"
-                                />
-                            </svg>
-                            Apply Now — Fill the Form
-                        </button>
-                    </div>
-                    <!-- /calcResults -->
-                </div>
-                <!-- /right col -->
-            </div>
-            <!-- /grid -->
-        </div>
-        <!-- /widget -->
-
-        <!-- ═══════════════ AVAILABLE LOAN PRODUCTS (detail cards) ═══════════ -->
-        <div
-            class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
-        >
-            <div class="px-6 py-4 bg-alba-navy">
-                <h3 class="text-lg font-semibold text-white">
-                    Available Loan Products
-                </h3>
-                <p class="mt-1 text-sm text-alba-orange">
-                    Full details — choose the loan type that best suits your
-                    needs
-                </p>
-            </div>
-            <div
-                class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-200"
-            >
-                {% for product in products %}
-                <div
-                    class="p-6 hover:bg-gray-50 transition cursor-pointer loan-product-card"
-                    onclick="selectLoanProduct({{ product.id }})"
-                    id="product-card-{{ product.id }}"
-                >
-                    <div class="flex items-center mb-4">
-                        <div class="flex-shrink-0">
-                            {% if product.category == 'SALARY_ADVANCE' %}
-                            <svg
-                                class="h-8 w-8 text-blue-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                            </svg>
-                            {% elif product.category == 'BUSINESS_LOAN' %}
-                            <svg
-                                class="h-8 w-8 text-green-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                                />
-                            </svg>
-                            {% elif product.category == 'ASSET_FINANCING' %}
-                            <svg
-                                class="h-8 w-8 text-purple-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                                />
-                            </svg>
-                            {% endif %}
-                        </div>
-                        <div class="ml-4">
-                            <h4 class="text-lg font-semibold text-gray-900">
-                                {{ product.name }}
-                            </h4>
-                            <p class="text-sm text-gray-600">
-                                {{ product.get_category_display }}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600"
-                                >Amount Range:</span
-                            >
-                            <span class="text-sm font-medium text-gray-900"
-                                >KES {{ product.min_amount|floatformat:0 }}–{{ product.max_amount|floatformat:0}}</span
-                            >
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600"
-                                >Interest Rate:</span
-                            >
-                            <span class="text-sm font-medium text-gray-900"
-                                >{{ product.interest_rate }}% {{ product.get_interest_method_display}}</span
-                            >
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">Tenure:</span>
-                            <span class="text-sm font-medium text-gray-900"
-                                >{{ product.min_tenure_months }}–{{ product.max_tenure_months}} months</span
-                            >
-                        </div>
-                        {% if product.description %}
-                        <div class="mt-3 pt-3 border-t border-gray-200">
-                            <p class="text-sm text-gray-600">
-                                {{ product.description|truncatechars:100 }}
-                            </p>
-                        </div>
+                        {% if form.requested_amount.errors %}
+                        <p class="error-text">{{ form.requested_amount.errors.0 }}</p>
                         {% endif %}
-                        <div class="mt-4">
-                            <button
-                                type="button"
-                                onclick="selectLoanProduct({{ product.id }})"
-                                class="w-full px-4 py-2 bg-alba-orange text-white rounded-md hover:bg-alba-navy transition text-sm font-medium"
-                            >
-                                Select This Loan
-                            </button>
+                    </div>
+
+                    <!-- Tenure -->
+                    <div class="form-field">
+                        <label for="{{ form.tenure_months.id_for_label }}" class="form-label">
+                            Loan Tenure (Months)<span class="required-star" aria-hidden="true">*</span>
+                        </label>
+                        {{ form.tenure_months }}
+                        <div id="tenureChips" class="flex flex-wrap gap-2 mt-3">
+                            <!-- populated by JS once a product is picked -->
                         </div>
+                        {% if form.tenure_months.errors %}
+                        <p class="error-text">{{ form.tenure_months.errors.0 }}</p>
+                        {% endif %}
                     </div>
                 </div>
-                {% endfor %}
-            </div>
-        </div>
 
-        <!-- ═══════════════════════ APPLICATION FORM ═════════════════════════ -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Form (2/3 width) -->
-            <div class="lg:col-span-2">
-                <div
-                    class="bg-white shadow rounded-lg overflow-hidden"
-                    id="applicationFormSection"
-                >
-                    <div
-                        class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between"
-                    >
+                <!-- Repayment Frequency -->
+                <div class="form-field">
+                    <label for="{{ form.repayment_frequency.id_for_label }}" class="form-label">
+                        Repayment Frequency<span class="required-star" aria-hidden="true">*</span>
+                    </label>
+                    {{ form.repayment_frequency }}
+                    {% if form.repayment_frequency.errors %}
+                    <p class="error-text">{{ form.repayment_frequency.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Live repayment preview -->
+                <div id="livePreview" class="hidden rounded-lg border border-gray-200 bg-gray-50 p-4 mb-5">
+                    <p class="help-text mb-3" style="margin-top: 0">Estimated repayment</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">
-                                Loan Application Form
-                            </h3>
-                            <p class="text-sm text-gray-500 mt-1">Complete your application details</p>
+                            <p class="text-xs text-gray-500">Monthly Payment</p>
+                            <p id="prevMonthly" class="text-lg font-bold" style="color: var(--navy)">—</p>
                         </div>
-                        <span
-                            id="formPrefillBadge"
-                            class="hidden text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full flex items-center gap-1"
-                        >
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                            </svg>
-                            Pre-filled from calculator
-                        </span>
-                    </div>
-
-                    <form method="post" id="loanApplicationForm" class="p-6">
-                        {% csrf_token %}
-                        <div class="space-y-6">
-                            <!-- Loan Product -->
-                            <div>
-                                <label
-                                    for="{{ form.loan_product.id_for_label }}"
-                                    class="block text-sm font-medium text-gray-700"
-                                    >Select Loan Product *</label
-                                >
-                                <div class="mt-1">{{ form.loan_product }}</div>
-                                {% if form.loan_product.errors %}
-                                <p class="mt-1 text-sm text-red-600">
-                                    {{ form.loan_product.errors.0 }}
-                                </p>
-                                {% else %}
-                                <div class="mt-2 p-3 bg-blue-50 rounded-md">
-                                    <div class="flex">
-                                        <svg
-                                            class="h-5 w-5 text-blue-400 flex-shrink-0"
-                                            viewBox="0 0 20 20"
-                                            fill="currentColor"
-                                        >
-                                            <path
-                                                fill-rule="evenodd"
-                                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                                clip-rule="evenodd"
-                                            />
-                                        </svg>
-                                        <p class="ml-3 text-sm text-blue-800">
-                                            <strong
-                                                >Choose the type of loan you
-                                                need.</strong
-                                            >
-                                            Each product has different terms,
-                                            interest rates, and amounts.
-                                        </p>
-                                    </div>
-                                </div>
-                                {% endif %}
-                            </div>
-
-                            <!-- Requested Amount -->
-                            <div>
-                                <label
-                                    for="{{ form.requested_amount.id_for_label }}"
-                                    class="block text-sm font-medium text-gray-700"
-                                    >Requested Amount (KES) *</label
-                                >
-                                <div class="mt-1 relative">
-                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <span class="text-gray-500 sm:text-sm">KES</span>
-                                    </div>
-                                    {{ form.requested_amount }}
-                                </div>
-                                {% if form.requested_amount.errors%}
-                                <p class="mt-1 text-sm text-red-600">
-                                    {{ form.requested_amount.errors.0 }}
-                                </p>
-                                {% else %}
-                                <p class="mt-1 text-xs text-gray-500">
-                                    Enter the amount you wish to borrow
-                                </p>
-                                {% endif %}
-                            </div>
-
-                            <!-- Tenure -->
-                            <div>
-                                <label
-                                    for="{{ form.tenure_months.id_for_label }}"
-                                    class="block text-sm font-medium text-gray-700"
-                                    >Loan Tenure (Months) *</label
-                                >
-                                <div class="mt-1 relative">
-                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <span class="text-gray-500 sm:text-sm">Months</span>
-                                    </div>
-                                    {{ form.tenure_months }}
-                                </div>
-                                {% if form.tenure_months.errors%}
-                                <p class="mt-1 text-sm text-red-600">
-                                    {{ form.tenure_months.errors.0 }}
-                                </p>
-                                {% else %}
-                                <p class="mt-1 text-xs text-gray-500">
-                                    How many months to repay
-                                </p>
-                                {% endif %}
-                            </div>
-
-                            <!-- Repayment Frequency -->
-                            <div>
-                                <label
-                                    for="{{ form.repayment_frequency.id_for_label }}"
-                                    class="block text-sm font-medium text-gray-700"
-                                    >Repayment Frequency *</label
-                                >
-                                <div class="mt-1">{{ form.repayment_frequency }}</div>
-                                {% if form.repayment_frequency.errors%}
-                                <p class="mt-1 text-sm text-red-600">
-                                    {{ form.repayment_frequency.errors.0 }}
-                                </p>
-                                {% else %}
-                                <p class="mt-1 text-xs text-gray-500">
-                                    Choose how often you want to make payments
-                                </p>
-                                {% endif %}
-                            </div>
-
-                            <!-- Purpose -->
-                            <div>
-                                <label
-                                    for="{{ form.purpose.id_for_label }}"
-                                    class="block text-sm font-medium text-gray-700"
-                                    >Loan Purpose *</label
-                                >
-                                <div class="mt-1">{{ form.purpose }}</div>
-                                {% if form.purpose.errors %}
-                                <p class="mt-1 text-sm text-red-600">
-                                    {{ form.purpose.errors.0 }}
-                                </p>
-                                {% else %}
-                                <p class="mt-1 text-xs text-gray-500">
-                                    Briefly describe how you will use this loan
-                                </p>
-                                {% endif %}
-                            </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Total Interest</p>
+                            <p id="prevInterest" class="text-sm font-semibold text-gray-800">—</p>
                         </div>
-
-                        <!-- Form actions -->
-                        <div
-                            class="mt-8 pt-6 border-t border-gray-200 flex justify-between"
-                        >
-                            <a
-                                href="{% url 'loans:customer_dashboard' %}"
-                                class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition flex items-center gap-2"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                                </svg>
-                                Cancel
-                            </a>
-                            <button
-                                type="submit"
-                                class="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-alba-orange hover:bg-opacity-90 transition flex items-center gap-2"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                                Save &amp; Upload Documents →
-                            </button>
+                        <div>
+                            <p class="text-xs text-gray-500">Processing Fee</p>
+                            <p id="prevFees" class="text-sm font-semibold text-gray-800">—</p>
                         </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Sidebar summary (1/3 width) -->
-            <div class="lg:col-span-1">
-                <div
-                    class="bg-white shadow rounded-lg overflow-hidden sticky top-8"
-                >
-                    <div class="px-6 py-4 bg-alba-navy">
-                        <h3 class="text-lg font-semibold text-white">
-                            Your Selection
-                        </h3>
-                    </div>
-                    <div id="formSidebarSummary" class="p-6">
-                        <!-- Placeholder (shown until calculator is used) -->
-                        <div
-                            id="sidebarPlaceholder"
-                            class="text-center py-6 text-gray-400"
-                        >
-                            <svg
-                                class="mx-auto h-10 w-10 text-gray-300 mb-2"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="1.5"
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                                />
-                            </svg>
-                            <p class="text-sm">
-                                Use the calculator above to build your loan,
-                                then click <strong>Apply Now</strong>.
-                            </p>
-                        </div>
-                        <!-- Data rows (populated by JS after calculation) -->
-                        <div id="formSidebarData" class="hidden space-y-3">
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-500">Product</span>
-                                <span
-                                    id="sbProduct"
-                                    class="font-medium text-gray-800 text-right max-w-[55%] truncate"
-                                ></span>
-                            </div>
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-500">Amount</span>
-                                <span
-                                    id="sbAmount"
-                                    class="font-medium text-gray-800"
-                                ></span>
-                            </div>
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-500">Tenure</span>
-                                <span
-                                    id="sbTenure"
-                                    class="font-medium text-gray-800"
-                                ></span>
-                            </div>
-                            <div
-                                class="pt-3 border-t border-gray-200 flex justify-between text-sm"
-                            >
-                                <span class="text-gray-600 font-medium"
-                                    >Monthly</span
-                                >
-                                <span
-                                    id="sbMonthly"
-                                    class="font-bold text-alba-navy text-base"
-                                ></span>
-                            </div>
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-600 font-medium"
-                                    >Total Payable</span
-                                >
-                                <span
-                                    id="sbTotal"
-                                    class="font-bold text-alba-orange text-base"
-                                ></span>
-                            </div>
-                            <div class="pt-3">
-                                <button
-                                    type="button"
-                                    onclick="applyNow()"
-                                    class="w-full py-2 bg-alba-orange text-white rounded-md text-sm font-semibold hover:bg-opacity-90 transition"
-                                >
-                                    Apply Now
-                                </button>
-                            </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Total Payable</p>
+                            <p id="prevTotal" class="text-sm font-bold" style="color: var(--orange)">—</p>
                         </div>
                     </div>
                 </div>
-            </div>
+
+                <!-- Purpose -->
+                <div class="form-field">
+                    <label for="{{ form.purpose.id_for_label }}" class="form-label">
+                        Loan Purpose<span class="required-star" aria-hidden="true">*</span>
+                    </label>
+                    {{ form.purpose }}
+                    {% if form.purpose.errors %}
+                    <p class="error-text">{{ form.purpose.errors.0 }}</p>
+                    {% else %}
+                    <p class="help-text">Briefly describe how you will use this loan</p>
+                    {% endif %}
+                </div>
+
+                <!-- Form actions -->
+                <div class="flex justify-between pt-4 border-t border-gray-200">
+                    <a href="{% url 'loans:customer_dashboard' %}" class="btn btn-secondary">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        Save &amp; Upload Documents →
+                    </button>
+                </div>
+            </form>
         </div>
-        <!-- /form grid -->
 
-        <!-- ═══════════════════════ INFORMATION CARD ═════════════════════════ -->
-        <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <div class="flex">
-                <svg
-                    class="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                >
-                    <path
-                        fill-rule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
-                <div class="ml-3 flex-1">
-                    <h3 class="text-sm font-medium text-blue-800">
-                        What happens after submission?
-                    </h3>
-                    <ul
-                        class="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1"
-                    >
-                        <li>
-                            Your application will be reviewed by our credit team
-                        </li>
-                        <li>
-                            We'll perform a credit analysis and may contact your
-                            employer
-                        </li>
-                        <li>
-                            You'll be notified of the decision within 24–48
-                            hours
-                        </li>
-                        <li>
-                            Approved loans are typically disbursed within 3
-                            business days
-                        </li>
-                    </ul>
-                </div>
+        <!-- What happens next -->
+        <div class="alert alert-info mt-6">
+            <svg class="alert-icon w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+                <h4 class="text-sm font-semibold mb-1">What happens after submission?</h4>
+                <ul class="text-sm list-disc list-inside space-y-1">
+                    <li>Your application will be reviewed by our credit team</li>
+                    <li>We'll perform a credit analysis and may contact your employer</li>
+                    <li>You'll be notified of the decision within 24–48 hours</li>
+                    <li>Approved loans are typically disbursed within 3 business days</li>
+                </ul>
             </div>
         </div>
     </main>
 </div>
-<!-- /min-h-screen -->
 
-<!-- ═══════════════════════════════════════════════════════════════════════
-     JAVASCRIPT — INTERACTIVE CALCULATOR
-═══════════════════════════════════════════════════════════════════════ -->
 <script>
-    // ─────────────────────────────────────────────────────────────────────────────
-    // State object — single source of truth for the calculator
-    // ─────────────────────────────────────────────────────────────────────────────
-    const CALC = {
-        productId: null,
-        minAmount: 10000,
-        maxAmount: 1000000,
-        minTenure: 1,
-        maxTenure: 12,
-        amount: 30000,
-        tenure: 12,
-        productName: "",
-        lastResult: null,
-        debounceTimer: null,
+    // Product data needed by the live calculator — replaces the old
+    // 400-line duplicated card-grid markup with one small lookup table.
+    const PRODUCTS = {
+        {% for product in products %}
+        {{ product.id }}: {
+            name: "{{ product.name|escapejs }}",
+            minAmount: {{ product.min_amount }},
+            maxAmount: {{ product.max_amount }},
+            minTenure: {{ product.min_tenure_months }},
+            maxTenure: {{ product.max_tenure_months }},
+            rate: {{ product.interest_rate }}
+        },
+        {% endfor %}
     };
-
-    // Ordered set of discrete tenure options to show as buttons.
-    // Any option outside the active product's [minTenure, maxTenure] will be disabled.
     const TENURE_OPTIONS = [1, 3, 6, 12, 18, 24, 36, 48];
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Formatting helpers
-    // ─────────────────────────────────────────────────────────────────────────────
-    function fmtKES(val) {
-        return (
-            "KES " +
-            parseFloat(val).toLocaleString("en-KE", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            })
-        );
-    }
+    const productSelect = document.getElementById("{{ form.loan_product.id_for_label }}");
+    const amountInput = document.getElementById("{{ form.requested_amount.id_for_label }}");
+    const amountSlider = document.getElementById("amountSlider");
+    const tenureInput = document.getElementById("{{ form.tenure_months.id_for_label }}");
+    const tenureChips = document.getElementById("tenureChips");
+    const infoStrip = document.getElementById("productInfoStrip");
+    const livePreview = document.getElementById("livePreview");
 
+    let debounceTimer = null;
+
+    function fmtKES(val) {
+        return "KES " + parseFloat(val).toLocaleString("en-KE", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    }
     function fmtKESShort(val) {
         const n = parseFloat(val);
         if (n >= 1_000_000) return "KES " + (n / 1_000_000).toFixed(1) + "M";
         if (n >= 1_000) return "KES " + (n / 1_000).toFixed(0) + "k";
         return "KES " + n.toFixed(0);
     }
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Slider fill gradient (paints the track to the left of the thumb)
-    // ─────────────────────────────────────────────────────────────────────────────
-    function updateSliderFill(slider) {
-        const min = parseFloat(slider.min);
-        const max = parseFloat(slider.max);
-        const val = parseFloat(slider.value);
-        const pct = ((val - min) / (max - min)) * 100;
-        slider.style.background = `linear-gradient(to right, #ff805d 0%, #ff805d ${pct}%, #e5e7eb ${pct}%, #e5e7eb 100%)`;
+    function currentProduct() {
+        return PRODUCTS[productSelect.value] || null;
+    }
+    function updateSliderFill() {
+        const min = parseFloat(amountSlider.min);
+        const max = parseFloat(amountSlider.max);
+        const val = parseFloat(amountSlider.value);
+        const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+        amountSlider.style.background =
+            "linear-gradient(to right, var(--orange) 0%, var(--orange) " + pct +
+            "%, #e5e7eb " + pct + "%, #e5e7eb 100%)";
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Amount slider ↔ numeric input — keep them in sync
-    // ─────────────────────────────────────────────────────────────────────────────
-    function syncInputFromSlider() {
-        const slider = document.getElementById("calcAmountSlider");
-        const input = document.getElementById("calcAmountInput");
-        CALC.amount = parseInt(slider.value, 10);
-        input.value = CALC.amount;
-        updateSliderFill(slider);
-        scheduleCalc();
-    }
-
-    function syncSliderFromInput() {
-        const slider = document.getElementById("calcAmountSlider");
-        const input = document.getElementById("calcAmountInput");
-        let v = parseInt(input.value, 10);
-        if (isNaN(v)) return;
-        v = Math.max(CALC.minAmount, Math.min(CALC.maxAmount, v));
-        CALC.amount = v;
-        slider.value = v;
-        updateSliderFill(slider);
-        scheduleCalc();
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Tenure button group — build / rebuild whenever a product is selected
-    // ─────────────────────────────────────────────────────────────────────────────
-    function buildTenureButtons() {
-        const container = document.getElementById("calcTenureButtons");
-        container.innerHTML = "";
-
-        TENURE_OPTIONS.forEach(function (mo) {
+    function buildTenureChips(product, active) {
+        tenureChips.innerHTML = "";
+        TENURE_OPTIONS.filter(function (mo) {
+            return mo >= product.minTenure && mo <= product.maxTenure;
+        }).forEach(function (mo) {
             const btn = document.createElement("button");
             btn.type = "button";
             btn.dataset.tenure = mo;
-            btn.classList.add("tenure-btn");
-
-            // Label: show "1yr" for 12 months, otherwise "Xmo"
+            btn.className = "tenure-chip" + (mo === active ? " active" : "");
             btn.textContent = mo === 12 ? "1yr" : mo + "mo";
-
-            const inRange = mo >= CALC.minTenure && mo <= CALC.maxTenure;
-            if (!inRange) {
-                btn.disabled = true;
-            } else if (mo === CALC.tenure) {
-                btn.classList.add("active");
-            }
-
             btn.addEventListener("click", function () {
-                if (this.disabled) return;
-                CALC.tenure = mo;
-                updateTenureLabel();
-                document.querySelectorAll(".tenure-btn").forEach(function (b) {
+                tenureInput.value = mo;
+                tenureChips.querySelectorAll(".tenure-chip").forEach(function (b) {
                     b.classList.remove("active");
                 });
-                this.classList.add("active");
+                btn.classList.add("active");
                 scheduleCalc();
             });
-
-            container.appendChild(btn);
+            tenureChips.appendChild(btn);
         });
     }
 
-    function updateTenureLabel() {
-        document.getElementById("calcTenureLabel").textContent =
-            CALC.tenure === 1 ? "1 month" : CALC.tenure + " months";
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Product selection — called when a calculator widget product button is clicked
-    // ─────────────────────────────────────────────────────────────────────────────
-    function calcSelectProduct(btn) {
-        CALC.productId = btn.dataset.productId;
-        CALC.minAmount = parseFloat(btn.dataset.minAmount);
-        CALC.maxAmount = parseFloat(btn.dataset.maxAmount);
-        CALC.minTenure = parseInt(btn.dataset.minTenure, 10);
-        CALC.maxTenure = parseInt(btn.dataset.maxTenure, 10);
-        CALC.productName = btn.dataset.name;
-
-        // Clamp amount to new product's bounds
-        CALC.amount = Math.max(
-            CALC.minAmount,
-            Math.min(CALC.maxAmount, CALC.amount),
-        );
-
-        // Clamp/snap tenure to a valid option for this product
-        if (CALC.tenure < CALC.minTenure) {
-            var firstValid = TENURE_OPTIONS.find(function (m) {
-                return m >= CALC.minTenure && m <= CALC.maxTenure;
-            });
-            CALC.tenure =
-                firstValid !== undefined ? firstValid : CALC.minTenure;
-        } else if (CALC.tenure > CALC.maxTenure) {
-            var opts = TENURE_OPTIONS.slice().reverse();
-            var lastValid = opts.find(function (m) {
-                return m <= CALC.maxTenure && m >= CALC.minTenure;
-            });
-            CALC.tenure = lastValid !== undefined ? lastValid : CALC.maxTenure;
+    function onProductChange() {
+        const p = currentProduct();
+        if (!p) {
+            infoStrip.classList.add("hidden");
+            tenureChips.innerHTML = "";
+            hidePreview();
+            return;
         }
+        infoStrip.classList.remove("hidden");
+        document.getElementById("infoRate").textContent = p.rate + "% p.m.";
+        document.getElementById("infoRange").textContent =
+            fmtKESShort(p.minAmount) + "–" + fmtKESShort(p.maxAmount);
+        document.getElementById("infoTenure").textContent =
+            p.minTenure + "–" + p.maxTenure + " mo";
 
-        // Update slider bounds
-        var slider = document.getElementById("calcAmountSlider");
-        var input = document.getElementById("calcAmountInput");
-        var rawStep =
-            Math.floor((CALC.maxAmount - CALC.minAmount) / 100 / 1000) * 1000;
-        var step = Math.max(1000, rawStep || 1000);
+        // Clamp amount into the new product's bounds
+        let amt = parseFloat(amountInput.value) || p.minAmount;
+        amt = Math.max(p.minAmount, Math.min(p.maxAmount, amt));
+        amountInput.min = p.minAmount;
+        amountInput.max = p.maxAmount;
+        amountInput.value = amt;
+        amountSlider.min = p.minAmount;
+        amountSlider.max = p.maxAmount;
+        amountSlider.step = Math.max(1000, Math.floor((p.maxAmount - p.minAmount) / 100 / 1000) * 1000);
+        amountSlider.value = amt;
+        updateSliderFill();
+        document.getElementById("amountMinLabel").textContent = fmtKESShort(p.minAmount);
+        document.getElementById("amountMaxLabel").textContent = fmtKESShort(p.maxAmount);
 
-        slider.min = CALC.minAmount;
-        slider.max = CALC.maxAmount;
-        slider.step = step;
-        slider.value = CALC.amount;
-        input.min = CALC.minAmount;
-        input.max = CALC.maxAmount;
-        input.value = CALC.amount;
-        updateSliderFill(slider);
+        // Clamp tenure and rebuild the quick-pick chips
+        let ten = parseInt(tenureInput.value, 10) || p.minTenure;
+        ten = Math.max(p.minTenure, Math.min(p.maxTenure, ten));
+        tenureInput.value = ten;
+        tenureInput.min = p.minTenure;
+        tenureInput.max = p.maxTenure;
+        buildTenureChips(p, ten);
 
-        // Update range labels
-        document.getElementById("calcAmountMin").textContent = fmtKESShort(
-            CALC.minAmount,
-        );
-        document.getElementById("calcAmountMax").textContent = fmtKESShort(
-            CALC.maxAmount,
-        );
-
-        // Rebuild tenure buttons for new range
-        buildTenureButtons();
-        updateTenureLabel();
-
-        // Highlight selected product button in widget
-        document.querySelectorAll(".calc-product-btn").forEach(function (b) {
-            b.classList.remove("calc-active");
-        });
-        btn.classList.add("calc-active");
-
-        // Hide the "please select a product" warning
-        document.getElementById("calcNoProduct").classList.add("hidden");
-
-        // Show the "Live" badge
-        document.getElementById("calcBadge").classList.remove("hidden");
-
-        // Fire calculation
         scheduleCalc();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // "Select This Loan" from the detail product cards — syncs everything
-    // ─────────────────────────────────────────────────────────────────────────────
-    window.selectLoanProduct = function (productId) {
-        // Trigger the matching widget button
-        var calcBtn = document.querySelector(
-            '.calc-product-btn[data-product-id="' + productId + '"]',
-        );
-        if (calcBtn) calcBtn.click();
-
-        // Highlight the detail card
-        document.querySelectorAll(".loan-product-card").forEach(function (c) {
-            c.classList.remove("selected");
-        });
-        var card = document.getElementById("product-card-" + productId);
-        if (card) card.classList.add("selected");
-
-        // Sync form <select>
-        var formSelect = document.getElementById(
-            "{{ form.loan_product.id_for_label }}",
-        );
-        if (formSelect) {
-            formSelect.value = productId;
-            formSelect.dispatchEvent(new Event("change", { bubbles: true }));
-            formSelect.classList.add(
-                "ring-2",
-                "ring-offset-2",
-                "field-highlighted",
-            );
-            setTimeout(function () {
-                formSelect.classList.remove(
-                    "ring-2",
-                    "ring-offset-2",
-                    "field-highlighted",
-                );
-            }, 2000);
-        }
-
-        // Scroll to calculator
-        document
-            .getElementById("loanCalculatorWidget")
-            .scrollIntoView({ behavior: "smooth", block: "start" });
-    };
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Debounced API call (500 ms)
-    // ─────────────────────────────────────────────────────────────────────────────
     function scheduleCalc() {
-        clearTimeout(CALC.debounceTimer);
-        if (!CALC.productId) return;
-
-        // Immediately dim figures to signal a pending update
-        document.querySelectorAll(".result-value").forEach(function (el) {
-            el.classList.add("updating");
-        });
-
-        CALC.debounceTimer = setTimeout(fetchCalc, 500);
+        clearTimeout(debounceTimer);
+        if (!currentProduct()) return;
+        debounceTimer = setTimeout(fetchCalc, 400);
     }
 
     function fetchCalc() {
-        if (!CALC.productId) return;
-
-        var url =
-            '{% url "loans:calculate_loan" %}' +
-            "?product_id=" +
-            encodeURIComponent(CALC.productId) +
-            "&amount=" +
-            encodeURIComponent(CALC.amount) +
-            "&tenure=" +
-            encodeURIComponent(CALC.tenure);
+        const p = currentProduct();
+        if (!p) return;
+        const url = "{% url 'loans:calculate_loan' %}" +
+            "?product_id=" + encodeURIComponent(productSelect.value) +
+            "&amount=" + encodeURIComponent(amountInput.value) +
+            "&tenure=" + encodeURIComponent(tenureInput.value);
 
         fetch(url)
-            .then(function (r) {
-                if (!r.ok) throw new Error("HTTP " + r.status);
-                return r.json();
-            })
+            .then(function (r) { return r.json(); })
             .then(function (data) {
-                if (data.error) throw new Error(data.error);
-                CALC.lastResult = data;
-                renderResults(data);
+                if (data.error) { hidePreview(); return; }
+                renderPreview(data);
             })
             .catch(function (err) {
                 console.error("[Calculator] fetch error:", err);
-                renderError(err.message);
+                hidePreview();
             });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Render helpers
-    // ─────────────────────────────────────────────────────────────────────────────
-    function renderResults(data) {
-        var principal = parseFloat(data.principal);
-        var interest = parseFloat(data.interest);
-        var fees = parseFloat(data.fees);
-        var total = parseFloat(data.total);
-        var installment = parseFloat(data.installment);
-
-        // Show results, hide placeholder
-        document.getElementById("calcPlaceholder").classList.add("hidden");
-        document.getElementById("calcResults").classList.remove("hidden");
-
-        // Hero
-        document.getElementById("resInstallment").textContent =
-            fmtKES(installment);
-        document.getElementById("resTenureLine").textContent =
-            "over " + CALC.tenure + " month" + (CALC.tenure === 1 ? "" : "s");
-
-        // Rows
-        document.getElementById("resPrincipal").textContent = fmtKES(principal);
-        document.getElementById("resInterest").textContent = fmtKES(interest);
-        document.getElementById("resFees").textContent = fmtKES(fees);
-        document.getElementById("resTotal").textContent = fmtKES(total);
-
-        // Stacked bar percentages
-        var pctPrincipal = total > 0 ? (principal / total) * 100 : 0;
-        var pctInterest = total > 0 ? (interest / total) * 100 : 0;
-        var pctFees = total > 0 ? (fees / total) * 100 : 0;
-
-        document.getElementById("barPrincipal").style.width =
-            pctPrincipal.toFixed(1) + "%";
-        document.getElementById("barInterest").style.width =
-            pctInterest.toFixed(1) + "%";
-        document.getElementById("barFees").style.width =
-            pctFees.toFixed(1) + "%";
-
-        document.getElementById("barPctPrincipal").textContent =
-            pctPrincipal.toFixed(0) + "% principal";
-        document.getElementById("barPctInterest").textContent =
-            pctInterest.toFixed(0) + "% interest";
-        document.getElementById("barPctFees").textContent =
-            pctFees.toFixed(0) + "% fees";
-
-        // Restore opacity
-        document.querySelectorAll(".result-value").forEach(function (el) {
-            el.classList.remove("updating");
-        });
-
-        // Update sidebar summary
-        updateSidebar(installment, total);
+    function renderPreview(data) {
+        livePreview.classList.remove("hidden");
+        document.getElementById("prevMonthly").textContent = fmtKES(data.installment);
+        document.getElementById("prevInterest").textContent = fmtKES(data.interest);
+        document.getElementById("prevFees").textContent = fmtKES(data.fees);
+        document.getElementById("prevTotal").textContent = fmtKES(data.total);
     }
 
-    function renderError(msg) {
-        document.querySelectorAll(".result-value").forEach(function (el) {
-            el.classList.remove("updating");
-            el.textContent = "—";
-        });
-        var tenureLine = document.getElementById("resTenureLine");
-        if (tenureLine) tenureLine.textContent = msg || "Calculation error";
-        console.warn("[Calculator]", msg);
+    function hidePreview() {
+        livePreview.classList.add("hidden");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Sidebar summary (beside the form)
-    // ─────────────────────────────────────────────────────────────────────────────
-    function updateSidebar(installment, total) {
-        document.getElementById("sbProduct").textContent = CALC.productName;
-        document.getElementById("sbAmount").textContent = fmtKES(CALC.amount);
-        document.getElementById("sbTenure").textContent =
-            CALC.tenure + " months";
-        document.getElementById("sbMonthly").textContent = fmtKES(installment);
-        document.getElementById("sbTotal").textContent = fmtKES(total);
-
-        document.getElementById("sidebarPlaceholder").classList.add("hidden");
-        document.getElementById("formSidebarData").classList.remove("hidden");
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // "Apply Now" — pre-fill form fields and scroll down
-    // ─────────────────────────────────────────────────────────────────────────────
-    window.applyNow = function () {
-        if (!CALC.productId) {
-            document.getElementById("calcNoProduct").classList.remove("hidden");
-            document
-                .getElementById("loanCalculatorWidget")
-                .scrollIntoView({ behavior: "smooth", block: "start" });
-            return;
+    productSelect.addEventListener("change", onProductChange);
+    amountSlider.addEventListener("input", function () {
+        amountInput.value = amountSlider.value;
+        updateSliderFill();
+        scheduleCalc();
+    });
+    amountInput.addEventListener("input", function () {
+        const p = currentProduct();
+        if (p) {
+            const v = parseFloat(amountInput.value);
+            if (!isNaN(v)) {
+                amountSlider.value = Math.max(p.minAmount, Math.min(p.maxAmount, v));
+                updateSliderFill();
+            }
         }
-
-        // Pre-fill product
-        var formProduct = document.getElementById(
-            "{{ form.loan_product.id_for_label }}",
-        );
-        if (formProduct) {
-            formProduct.value = CALC.productId;
-            formProduct.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-
-        // Pre-fill amount
-        var formAmount = document.getElementById(
-            "{{ form.requested_amount.id_for_label }}",
-        );
-        if (formAmount) formAmount.value = CALC.amount;
-
-        // Pre-fill tenure
-        var formTenure = document.getElementById(
-            "{{ form.tenure_months.id_for_label }}",
-        );
-        if (formTenure) formTenure.value = CALC.tenure;
-
-        // Flash the "pre-filled" badge in the form header
-        var badge = document.getElementById("formPrefillBadge");
-        badge.classList.remove("hidden");
-        setTimeout(function () {
-            badge.classList.add("hidden");
-        }, 4000);
-
-        // Briefly highlight all filled fields
-        [formProduct, formAmount, formTenure].forEach(function (field) {
-            if (!field) return;
-            field.classList.add("field-highlighted");
-            setTimeout(function () {
-                field.classList.remove("field-highlighted");
-            }, 2000);
+        scheduleCalc();
+    });
+    tenureInput.addEventListener("input", function () {
+        const v = parseInt(tenureInput.value, 10);
+        tenureChips.querySelectorAll(".tenure-chip").forEach(function (b) {
+            b.classList.toggle("active", parseInt(b.dataset.tenure, 10) === v);
         });
+        scheduleCalc();
+    });
 
-        // Highlight the product detail card
-        document.querySelectorAll(".loan-product-card").forEach(function (c) {
-            c.classList.remove("selected");
-        });
-        var card = document.getElementById("product-card-" + CALC.productId);
-        if (card) card.classList.add("selected");
-
-        // Scroll to form
-        document
-            .getElementById("applicationFormSection")
-            .scrollIntoView({ behavior: "smooth", block: "start" });
-    };
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Bootstrap on page load
-    // ─────────────────────────────────────────────────────────────────────────────
     document.addEventListener("DOMContentLoaded", function () {
-        // Draw initial (no-product) tenure buttons
-        buildTenureButtons();
-        updateTenureLabel();
-
-        // Auto-select Salary Advance as default product
-        var defaultProductId = {{ default_product_id|default:'null' }};
-        var formProduct = document.getElementById(
-            "{{ form.loan_product.id_for_label }}",
-        );
-        
-        // Priority: 1) Form value if set, 2) Default Salary Advance product
-        var productToSelect = null;
-        if (formProduct && formProduct.value) {
-            productToSelect = formProduct.value;
-        } else if (defaultProductId) {
-            productToSelect = defaultProductId;
-            // Also set the form select to default
-            if (formProduct) formProduct.value = defaultProductId;
+        if (!productSelect.value) {
+            const defaultId = {{ default_product_id|default:'null' }};
+            if (defaultId && PRODUCTS[defaultId]) {
+                productSelect.value = defaultId;
+            }
         }
-        
-        if (productToSelect) {
-            var preBtn = document.querySelector(
-                '.calc-product-btn[data-product-id="' + productToSelect + '"]',
-            );
-            if (preBtn) preBtn.click();
-        }
-
-        // Keep the form's <select> in sync with manual changes made inside the form
-        if (formProduct) {
-            formProduct.addEventListener("change", function () {
-                var id = this.value;
-                if (id && id !== CALC.productId) {
-                    var btn = document.querySelector(
-                        '.calc-product-btn[data-product-id="' + id + '"]',
-                    );
-                    if (btn) btn.click();
-                }
-            });
-        }
-
-        // Sync form amount → calculator
-        var formAmount = document.getElementById(
-            "{{ form.requested_amount.id_for_label }}",
-        );
-        if (formAmount) {
-            formAmount.addEventListener("input", function () {
-                var v = parseFloat(this.value);
-                if (isNaN(v) || !CALC.productId) return;
-                var clamped = Math.max(
-                    CALC.minAmount,
-                    Math.min(CALC.maxAmount, v),
-                );
-                CALC.amount = clamped;
-                var slider = document.getElementById("calcAmountSlider");
-                var input = document.getElementById("calcAmountInput");
-                slider.value = clamped;
-                input.value = clamped;
-                updateSliderFill(slider);
-                scheduleCalc();
-            });
-        }
-
-        // Sync form tenure → calculator
-        var formTenure = document.getElementById(
-            "{{ form.tenure_months.id_for_label }}",
-        );
-        if (formTenure) {
-            formTenure.addEventListener("input", function () {
-                var v = parseInt(this.value, 10);
-                if (isNaN(v) || v <= 0 || !CALC.productId) return;
-                var clamped = Math.max(
-                    CALC.minTenure,
-                    Math.min(CALC.maxTenure, v),
-                );
-                CALC.tenure = clamped;
-                document.querySelectorAll(".tenure-btn").forEach(function (b) {
-                    b.classList.toggle(
-                        "active",
-                        parseInt(b.dataset.tenure, 10) === clamped,
-                    );
-                });
-                updateTenureLabel();
-                scheduleCalc();
-            });
-        }
+        if (productSelect.value) onProductChange();
     });
 </script>
 {% endblock %}

@@ -1321,10 +1321,21 @@ def mark_all_notifications_read(request):
 def download_statement(request, loan_pk):
     """
     Generate and stream a PDF loan statement — SRS Section 3.5
-    Uses ReportLab; covers the full repayment history for the loan.
+
+    Layout mirrors the "Loan Statement" QWeb report in the Odoo backend
+    (odoo_addons/alba_loans/report/loan_statement_template.xml) so a
+    customer's portal statement and a loan officer's Odoo-printed
+    statement show the same sections, columns, and status colors.
+    Built with ReportLab (no per-installment opening/closing balance or
+    fee-per-repayment fields exist in the Django schema, so those are
+    computed here rather than stored).
     """
     customer, _ = Customer.objects.get_or_create(user=request.user)
-    loan = get_object_or_404(Loan, pk=loan_pk, customer=customer)
+    loan = get_object_or_404(
+        Loan.objects.select_related("customer__user", "loan_product"),
+        pk=loan_pk,
+        customer=customer,
+    )
     repayments = loan.repayments.order_by("payment_date")
     schedule = RepaymentSchedule.objects.filter(loan=loan).order_by(
         "installment_number"
@@ -1336,6 +1347,7 @@ def download_statement(request, loan_pk):
         from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
         from reportlab.lib.units import mm
         from reportlab.platypus import (
+            Image,
             Paragraph,
             SimpleDocTemplate,
             Spacer,
@@ -1348,6 +1360,8 @@ def download_statement(request, loan_pk):
             status=500,
         )
 
+    from django.conf import settings as dj_settings
+
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -1359,211 +1373,303 @@ def download_statement(request, loan_pk):
     )
 
     styles = getSampleStyleSheet()
-    NAVY = colors.HexColor("#1e3a5f")
-    LIGHT_GRAY = colors.HexColor("#f3f4f6")
+    PRIMARY = colors.HexColor("#0d6efd")
+    MUTED = colors.HexColor("#6b7280")
+    BORDER = colors.HexColor("#dee2e6")
+    # Exact colors Odoo's QWeb template hardcodes for status badges/tints,
+    # kept literal here for the same reason: they aren't theme-dependent.
+    STATUS_COLOR = {
+        "paid": colors.HexColor("#28a745"),
+        "overdue": colors.HexColor("#dc3545"),
+        "partial": colors.HexColor("#ffc107"),
+        "pending": colors.HexColor("#17a2b8"),
+    }
+    ROW_TINT = {
+        "overdue": colors.HexColor("#ffe6e6"),
+        "paid": colors.HexColor("#e6ffe6"),
+        "partial": colors.HexColor("#fffbe6"),
+        "pending": colors.white,
+    }
+    SYNC_BADGE = {
+        "posted": (colors.HexColor("#28a745"), "POSTED"),
+        "pending": (colors.HexColor("#ffc107"), "PENDING SYNC"),
+        "failed": (colors.HexColor("#dc3545"), "SYNC FAILED"),
+    }
+    TABLE_PRIMARY_HEAD = colors.HexColor("#b8daff")
+    TABLE_SUCCESS_HEAD = colors.HexColor("#c3e6cb")
+    TABLE_SECONDARY = colors.HexColor("#d6d8db")
+    TABLE_LIGHT = colors.HexColor("#fdfdfe")
 
     title_style = ParagraphStyle(
-        "Title",
-        parent=styles["Heading1"],
-        textColor=NAVY,
-        fontSize=18,
-        spaceAfter=4,
+        "Title", parent=styles["Heading1"], textColor=PRIMARY, fontSize=16, spaceAfter=2,
     )
-    sub_style = ParagraphStyle(
-        "Sub",
-        parent=styles["Normal"],
-        textColor=colors.HexColor("#6b7280"),
-        fontSize=9,
-        spaceAfter=2,
+    subtitle_style = ParagraphStyle(
+        "Subtitle", parent=styles["Normal"], fontSize=12, spaceAfter=2,
+    )
+    company_style = ParagraphStyle(
+        "Company", parent=styles["Normal"], fontSize=9, alignment=2, leading=12,
     )
     section_style = ParagraphStyle(
-        "Section",
-        parent=styles["Heading2"],
-        textColor=NAVY,
-        fontSize=11,
-        spaceBefore=8,
-        spaceAfter=4,
+        "Section", parent=styles["Heading2"], fontSize=11, spaceBefore=6, spaceAfter=4,
     )
-    normal = styles["Normal"]
-    normal.fontSize = 9
+    normal = ParagraphStyle("NormalSm", parent=styles["Normal"], fontSize=8)
+    footer_style = ParagraphStyle(
+        "Footer", parent=normal, textColor=MUTED, fontSize=7,
+    )
+
+    def kv_table(rows, col_widths):
+        """Borderless label/value table, matching Odoo's table-borderless blocks."""
+        t = Table(rows, colWidths=col_widths)
+        t.setStyle(TableStyle([
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        return t
 
     elements = []
 
-    # ── Header ──────────────────────────────────────────────────────────────
-    elements.append(Paragraph("Alba Capital", title_style))
-    elements.append(Paragraph("Loan Statement", sub_style))
-    elements.append(
+    # ── Header — logo + title on the left, company block on the right ───────
+    logo_path = dj_settings.BASE_DIR / "static" / "logo.png"
+    logo_cell = [Image(str(logo_path), width=28 * mm, height=14 * mm, kind="proportional")] if logo_path.exists() else []
+    left_cell = [
+        *logo_cell,
+        Paragraph("<b>LOAN STATEMENT</b>", title_style),
+        Paragraph(loan.loan_number, subtitle_style),
+    ]
+    right_cell = [
         Paragraph(
-            f"Generated: {timezone.now().strftime('%d %B %Y, %H:%M')}",
-            sub_style,
+            "<b>Alba Capital Limited</b><br/>Nairobi, Kenya<br/>info@albacapital.co.ke<br/>"
+            f"<i>Statement Generated: {timezone.now().strftime('%d %B %Y %H:%M')}</i>",
+            company_style,
         )
-    )
-    elements.append(Spacer(1, 6 * mm))
+    ]
+    header_table = Table([[left_cell, right_cell]], colWidths=[90 * mm, 90 * mm])
+    header_table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 2 * mm))
+    hr = Table([[""]], colWidths=[180 * mm])
+    hr.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, 0), 0.75, colors.black)]))
+    elements.append(hr)
+    elements.append(Spacer(1, 4 * mm))
 
-    # ── Loan Summary ────────────────────────────────────────────────────────
-    elements.append(Paragraph("Loan Summary", section_style))
-    summary_data = [
-        ["Loan Number", loan.loan_number, "Status", loan.get_status_display()],
-        ["Product", loan.loan_product.name, "Tenure", f"{loan.tenure_months} months"],
+    # ── Customer Information + Loan Details (side by side) ───────────────────
+    user = loan.customer.user
+    customer_rows = [
+        [Paragraph("<b>Name</b>", normal), Paragraph(user.get_full_name() or "—", normal)],
+        [Paragraph("<b>ID Number</b>", normal), Paragraph(loan.customer.id_number or "—", normal)],
+        [Paragraph("<b>Phone</b>", normal), Paragraph(user.phone or "—", normal)],
+        [Paragraph("<b>Email</b>", normal), Paragraph(user.email or "—", normal)],
+    ]
+    loan_details_rows = [
+        [Paragraph("<b>Loan Number</b>", normal), Paragraph(loan.loan_number, normal)],
+        [Paragraph("<b>Product</b>", normal), Paragraph(loan.loan_product.name, normal)],
+        [Paragraph("<b>Principal</b>", normal), Paragraph(f"KES {loan.principal_amount:,.2f}", normal)],
+        [Paragraph("<b>Interest Rate</b>", normal), Paragraph(f"{loan.loan_product.interest_rate:.2f}% p.m.", normal)],
+        [Paragraph("<b>Interest Method</b>", normal), Paragraph(loan.loan_product.get_interest_method_display(), normal)],
+        [Paragraph("<b>Tenure</b>", normal), Paragraph(f"{loan.tenure_months} months", normal)],
+        [Paragraph("<b>Disbursement Date</b>", normal), Paragraph(loan.disbursement_date.strftime("%d %B %Y"), normal)],
+        [Paragraph("<b>Maturity Date</b>", normal), Paragraph(loan.maturity_date.strftime("%d %B %Y"), normal)],
+        [Paragraph("<b>Status</b>", normal), Paragraph(loan.get_odoo_status_label(), normal)],
+    ]
+    elements.append(Paragraph("Customer Information", section_style))
+    two_col = Table(
+        [[
+            kv_table(customer_rows, [30 * mm, 55 * mm]),
+            kv_table(loan_details_rows, [38 * mm, 47 * mm]),
+        ]],
+        colWidths=[90 * mm, 90 * mm],
+    )
+    two_col.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    elements.append(two_col)
+    elements.append(Spacer(1, 4 * mm))
+
+    # ── Account Summary ───────────────────────────────────────────────────────
+    today = timezone.now().date()
+    total_paid = loan.total_amount - loan.outstanding_balance
+    arrears_amount = sum(
+        (s.balance for s in schedule if s.due_date < today and s.balance > 0),
+        Decimal("0"),
+    )
+    elements.append(Paragraph("Account Summary", section_style))
+    summary_rows = [
         [
-            "Principal",
-            f"KES {loan.principal_amount:,.2f}",
-            "Interest",
-            f"KES {loan.interest_amount:,.2f}",
+            Paragraph("<b>Total Repayable</b>", normal),
+            Paragraph(f"KES {loan.total_amount:,.2f}", normal),
+            Paragraph("<b>Total Paid to Date</b>", normal),
+            Paragraph(f"KES {total_paid:,.2f}", normal),
         ],
         [
-            "Total Payable",
-            f"KES {loan.total_amount:,.2f}",
-            "Outstanding",
-            f"KES {loan.outstanding_balance:,.2f}",
-        ],
-        [
-            "Disbursement Date",
-            loan.disbursement_date.strftime("%d %b %Y"),
-            "Maturity Date",
-            loan.maturity_date.strftime("%d %b %Y"),
-        ],
-        [
-            "Next Payment",
-            loan.next_payment_date.strftime("%d %b %Y")
-            if loan.next_payment_date
-            else "—",
-            "Installment",
-            f"KES {loan.installment_amount:,.2f}",
+            Paragraph("<b>Outstanding Balance</b>", normal),
+            Paragraph(f"<b>KES {loan.outstanding_balance:,.2f}</b>", normal),
+            Paragraph("<b>Arrears Amount</b>", normal),
+            Paragraph(
+                f"KES {arrears_amount:,.2f}",
+                ParagraphStyle("Arrears", parent=normal, textColor=colors.red if arrears_amount > 0 else colors.black),
+            ),
         ],
     ]
-    summary_table = Table(summary_data, colWidths=[45 * mm, 55 * mm, 40 * mm, 45 * mm])
-    summary_table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, -1), LIGHT_GRAY),
-                ("BACKGROUND", (0, 0), (0, -1), NAVY),
-                ("BACKGROUND", (2, 0), (2, -1), NAVY),
-                ("TEXTCOLOR", (0, 0), (0, -1), colors.white),
-                ("TEXTCOLOR", (2, 0), (2, -1), colors.white),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("PADDING", (0, 0), (-1, -1), 4),
-                ("GRID", (0, 0), (-1, -1), 0.3, colors.white),
-                ("ROWBACKGROUNDS", (1, 0), (1, -1), [colors.white, LIGHT_GRAY]),
-                ("ROWBACKGROUNDS", (3, 0), (3, -1), [colors.white, LIGHT_GRAY]),
-            ]
-        )
-    )
+    summary_style = [
+        ("BACKGROUND", (0, 0), (-1, -1), TABLE_LIGHT),
+        ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("PADDING", (0, 0), (-1, -1), 4),
+    ]
+    if loan.days_overdue > 0:
+        summary_rows.append([
+            Paragraph("<b>Days in Arrears</b>", normal), "",
+            Paragraph(f"<b>{loan.days_overdue} days</b>", normal), "",
+        ])
+        last_row = len(summary_rows) - 1
+        summary_style += [
+            ("SPAN", (0, last_row), (1, last_row)),
+            ("SPAN", (2, last_row), (3, last_row)),
+            ("BACKGROUND", (0, last_row), (-1, last_row), colors.HexColor("#f5c6cb")),
+        ]
+    summary_table = Table(summary_rows, colWidths=[42 * mm, 48 * mm, 42 * mm, 48 * mm])
+    summary_table.setStyle(TableStyle(summary_style))
     elements.append(summary_table)
-    elements.append(Spacer(1, 6 * mm))
+    elements.append(Spacer(1, 5 * mm))
 
-    # ── Repayment Schedule ──────────────────────────────────────────────────
+    # ── Repayment Schedule ─────────────────────────────────────────────────
     if schedule.exists():
         elements.append(Paragraph("Repayment Schedule", section_style))
         sched_headers = [
-            "#",
-            "Due Date",
-            "Principal",
-            "Interest",
-            "Total Due",
-            "Paid",
-            "Balance",
-            "Status",
+            "#", "Due Date", "Opening Bal.", "Principal", "Interest",
+            "Total Due", "Total Paid", "Balance Due", "Closing Bal.", "Status",
         ]
         sched_rows = [sched_headers]
-        for row in schedule:
-            sched_rows.append(
-                [
-                    str(row.installment_number),
-                    row.due_date.strftime("%d %b %Y"),
-                    f"{row.principal_due:,.2f}",
-                    f"{row.interest_due:,.2f}",
-                    f"{row.total_due:,.2f}",
-                    f"{row.amount_paid:,.2f}",
-                    f"{row.balance:,.2f}",
-                    "Overdue" if row.due_date < timezone.now().date() else "Pending",
-                ],
-            )
+        row_styles = [
+            ("BACKGROUND", (0, 0), (-1, 0), TABLE_PRIMARY_HEAD),
+            ("FONTSIZE", (0, 0), (-1, -1), 6.5),
+            ("PADDING", (0, 0), (-1, -1), 2.5),
+            ("GRID", (0, 0), (-1, -1), 0.3, BORDER),
+            ("ALIGN", (2, 0), (-1, -2), "RIGHT"),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (-1, 0), (-1, -1), "CENTER"),
+        ]
+        running_balance = loan.principal_amount
+        for i, row in enumerate(schedule, start=1):
+            opening_balance = running_balance
+            closing_balance = opening_balance - row.principal_due
+            running_balance = closing_balance
+            if row.is_paid or row.amount_paid >= row.total_due:
+                status = "paid"
+            elif row.amount_paid > 0:
+                status = "partial"
+            elif row.due_date < today:
+                status = "overdue"
+            else:
+                status = "pending"
+            sched_rows.append([
+                str(row.installment_number),
+                row.due_date.strftime("%d/%m/%Y"),
+                f"{opening_balance:,.2f}",
+                f"{row.principal_due:,.2f}",
+                f"{row.interest_due:,.2f}",
+                f"{row.total_due:,.2f}",
+                f"{row.amount_paid:,.2f}",
+                f"{row.balance:,.2f}",
+                f"{closing_balance:,.2f}",
+                status.upper(),
+            ])
+            row_styles.append(("BACKGROUND", (0, i), (-2, i), ROW_TINT[status]))
+            row_styles.append(("BACKGROUND", (-1, i), (-1, i), STATUS_COLOR[status]))
+            row_styles.append(("TEXTCOLOR", (-1, i), (-1, i), colors.white))
+            if status == "overdue" and row.balance > 0:
+                row_styles.append(("TEXTCOLOR", (-2, i), (-2, i), colors.red))
+        totals_row = len(sched_rows)
+        sched_rows.append([
+            "Totals", "", "",
+            f"{sum(s.principal_due for s in schedule):,.2f}",
+            f"{sum(s.interest_due for s in schedule):,.2f}",
+            f"{sum(s.total_due for s in schedule):,.2f}",
+            f"{sum(s.amount_paid for s in schedule):,.2f}",
+            f"{sum(s.balance for s in schedule):,.2f}",
+            "", "",
+        ])
+        row_styles += [
+            ("SPAN", (0, totals_row), (2, totals_row)),
+            ("SPAN", (8, totals_row), (9, totals_row)),
+            ("BACKGROUND", (0, totals_row), (-1, totals_row), TABLE_SECONDARY),
+            ("FONTNAME", (0, totals_row), (-1, totals_row), "Helvetica-Bold"),
+        ]
         sched_table = Table(
             sched_rows,
-            colWidths=[
-                15 * mm,
-                25 * mm,
-                25 * mm,
-                25 * mm,
-                25 * mm,
-                25 * mm,
-                25 * mm,
-                25 * mm,
-            ],
+            colWidths=[9 * mm, 18 * mm, 19 * mm, 18 * mm, 17 * mm, 19 * mm, 19 * mm, 19 * mm, 19 * mm, 23 * mm],
+            repeatRows=1,
         )
-        sched_table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), NAVY),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("FONTSIZE", (0, 0), (-1, -1), 7.5),
-                    ("PADDING", (0, 0), (-1, -1), 3),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT_GRAY]),
-                    ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#e5e7eb")),
-                    ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
-                ]
-            )
-        )
+        sched_table.setStyle(TableStyle(row_styles))
         elements.append(sched_table)
-        elements.append(Spacer(1, 6 * mm))
+        elements.append(Spacer(1, 5 * mm))
 
-    # ── Payment History ──────────────────────────────────────────────────────
+    # ── Payment History ────────────────────────────────────────────────────
     elements.append(Paragraph("Payment History", section_style))
     if repayments.exists():
         pay_headers = [
-            "Receipt #",
-            "Date",
-            "Method",
-            "Amount Paid",
-            "Principal",
-            "Interest",
-            "Penalty",
+            "Reference", "Date", "Method", "Amount Paid", "Principal", "Interest", "TXN ID", "Status",
         ]
         pay_rows = [pay_headers]
-        for p in repayments:
-            pay_rows.append(
-                [
-                    p.receipt_number,
-                    p.payment_date.strftime("%d %b %Y"),
-                    p.get_payment_method_display(),
-                    f"KES {p.amount:,.2f}",
-                    f"{p.principal_paid:,.2f}",
-                    f"{p.interest_paid:,.2f}",
-                    f"{p.penalty_paid:,.2f}",
-                ]
-            )
-        col_w2 = [32 * mm, 22 * mm, 22 * mm, 28 * mm, 22 * mm, 22 * mm, 22 * mm]
-        pay_table = Table(pay_rows, colWidths=col_w2, repeatRows=1)
-        pay_table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), NAVY),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("FONTSIZE", (0, 0), (-1, -1), 7.5),
-                    ("PADDING", (0, 0), (-1, -1), 3),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT_GRAY]),
-                    ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#e5e7eb")),
-                    ("ALIGN", (3, 0), (-1, -1), "RIGHT"),
-                ]
-            )
+        pay_styles = [
+            ("BACKGROUND", (0, 0), (-1, 0), TABLE_SUCCESS_HEAD),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("PADDING", (0, 0), (-1, -1), 3),
+            ("GRID", (0, 0), (-1, -1), 0.3, BORDER),
+            ("ALIGN", (3, 0), (5, -1), "RIGHT"),
+            ("ALIGN", (-1, 0), (-1, -1), "CENTER"),
+        ]
+        for i, p in enumerate(repayments, start=1):
+            pay_rows.append([
+                p.receipt_number,
+                p.payment_date.strftime("%d/%m/%Y"),
+                p.get_payment_method_display(),
+                f"{p.amount:,.2f}",
+                f"{p.principal_paid:,.2f}",
+                f"{p.interest_paid:,.2f}",
+                p.reference_number or "—",
+                (SYNC_BADGE.get(p.sync_status) or (MUTED, p.sync_status.upper()))[1],
+            ])
+            badge_color = (SYNC_BADGE.get(p.sync_status) or (MUTED, ""))[0]
+            pay_styles.append(("BACKGROUND", (-1, i), (-1, i), badge_color))
+            pay_styles.append(("TEXTCOLOR", (-1, i), (-1, i), colors.white))
+        totals_row = len(pay_rows)
+        pay_rows.append([
+            "Total Paid", "", "",
+            f"{sum(p.amount for p in repayments):,.2f}",
+            f"{sum(p.principal_paid for p in repayments):,.2f}",
+            f"{sum(p.interest_paid for p in repayments):,.2f}",
+            "", "",
+        ])
+        pay_styles += [
+            ("SPAN", (0, totals_row), (2, totals_row)),
+            ("SPAN", (6, totals_row), (7, totals_row)),
+            ("BACKGROUND", (0, totals_row), (-1, totals_row), TABLE_SECONDARY),
+            ("FONTNAME", (0, totals_row), (-1, totals_row), "Helvetica-Bold"),
+        ]
+        pay_table = Table(
+            pay_rows,
+            colWidths=[24 * mm, 20 * mm, 20 * mm, 24 * mm, 20 * mm, 20 * mm, 28 * mm, 24 * mm],
+            repeatRows=1,
         )
+        pay_table.setStyle(TableStyle(pay_styles))
         elements.append(pay_table)
     else:
         elements.append(Paragraph("No payments recorded yet.", normal))
 
-    # ── Footer ───────────────────────────────────────────────────────────────
-    elements.append(Spacer(1, 8 * mm))
+    # ── Footer ─────────────────────────────────────────────────────────────
+    elements.append(Spacer(1, 6 * mm))
+    footer_hr = Table([[""]], colWidths=[180 * mm])
+    footer_hr.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, 0), 0.75, colors.black)]))
+    elements.append(footer_hr)
+    elements.append(Spacer(1, 2 * mm))
     elements.append(
         Paragraph(
-            "This statement is generated automatically by the Alba Capital Customer Portal. "
-            "For queries, please contact your Alba Capital account manager.",
-            ParagraphStyle(
-                "Footer",
-                parent=normal,
-                textColor=colors.HexColor("#9ca3af"),
-                fontSize=7,
-            ),
+            "This statement is generated automatically by Alba Capital's loan management system "
+            "and is valid as of the date of generation. For queries, contact your loan officer "
+            "or email <i>info@albacapital.co.ke</i>. "
+            "Alba Capital Limited is regulated by the Central Bank of Kenya.",
+            footer_style,
         )
     )
 

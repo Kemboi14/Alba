@@ -534,56 +534,28 @@ class LoanApplicationForm(forms.ModelForm):
         ]
         widgets = {
             "loan_product": forms.Select(
-                attrs={
-                    "class": (
-                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3"
-                    ),
-                    "onchange": "updateLoanCalculator()",
-                    "required": True,
-                }
+                attrs={"class": "form-input", "id": "id_loan_product", "required": True}
             ),
             "requested_amount": forms.NumberInput(
                 attrs={
-                    "class": (
-                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3 pl-12"
-                    ),
+                    "class": "form-input no-spin",
+                    "id": "id_requested_amount",
                     "placeholder": "e.g. 50,000",
                     "step": "0.01",
-                    "onchange": "updateLoanCalculator()",
                 }
             ),
             "tenure_months": forms.NumberInput(
                 attrs={
-                    "class": (
-                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3 pl-14"
-                    ),
+                    "class": "form-input no-spin",
+                    "id": "id_tenure_months",
                     "placeholder": "e.g. 12",
-                    "onchange": "updateLoanCalculator()",
                 }
             ),
-            "repayment_frequency": forms.Select(
-                attrs={
-                    "class": (
-                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3"
-                    ),
-                }
-            ),
+            "repayment_frequency": forms.Select(attrs={"class": "form-input"}),
             "purpose": forms.Textarea(
                 attrs={
-                    "rows": 5,
-                    "class": (
-                        "mt-1 block w-full rounded-lg border-gray-300 shadow-sm "
-                        "focus:border-alba-orange focus:ring-alba-orange "
-                        "text-base px-4 py-3"
-                    ),
+                    "rows": 4,
+                    "class": "form-input",
                     "placeholder": "Briefly describe the purpose of this loan",
                 }
             ),
@@ -619,15 +591,12 @@ class LoanApplicationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Build descriptive labels for each active product
-        choices = [("", "---------")]
+        # Short, scannable labels — full details (amount range, tenure) are
+        # shown in the info strip that appears once a product is picked, so
+        # the dropdown itself doesn't need to repeat them.
+        choices = [("", "Select a loan product…")]
         for product in LoanProduct.objects.filter(is_active=True):
-            label = (
-                f"{product.name} — {product.get_category_display()} "
-                f"| KES {product.min_amount:,.0f}–{product.max_amount:,.0f} "
-                f"| {product.interest_rate}% p.a."
-            )
-            choices.append((product.pk, label))
+            choices.append((product.pk, f"{product.name} — {product.interest_rate}% p.m."))
         self.fields["loan_product"].choices = choices
         
         # Populate employer choices (Odoo Alignment)
