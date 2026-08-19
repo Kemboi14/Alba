@@ -406,7 +406,26 @@ class AlbaLoanCollateral(models.Model):
     def _compute_margin_call(self):
         for rec in self:
             rec.margin_call_triggered = rec.ltv_ratio > rec.margin_call_threshold
-    
+
+    # =========================================================================
+    # Constraints
+    # =========================================================================
+
+    @api.constrains("collateral_id", "status")
+    def _check_collateral_not_double_pledged(self):
+        for rec in self:
+            if rec.status == "pledged" and rec.collateral_id:
+                other = self.search([
+                    ("collateral_id", "=", rec.collateral_id.id),
+                    ("status", "=", "pledged"),
+                    ("id", "!=", rec.id),
+                ])
+                if other:
+                    raise ValidationError(_(
+                        "Collateral '%s' is already pledged to another active loan assignment "
+                        "and cannot be pledged again."
+                    ) % rec.collateral_id.name)
+
     # =========================================================================
     # Actions
     # =========================================================================
@@ -433,7 +452,7 @@ class AlbaLoanCollateral(models.Model):
         """Release collateral from this loan"""
         for rec in self:
             # Check if collateral still needed (loan not closed)
-            if rec.loan_id.state not in ["closed", "written_off"]:
+            if rec.loan_id.state not in ["draft", "closed", "written_off"]:
                 # Check if this is the only collateral
                 other_collateral = self.search([
                     ("loan_id", "=", rec.loan_id.id),

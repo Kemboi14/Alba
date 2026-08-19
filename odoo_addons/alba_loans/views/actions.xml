@@ -217,7 +217,7 @@
             <field name="name">Portfolio at Risk (Live)</field>
             <field name="res_model">alba.loan</field>
             <field name="view_mode">list,pivot,graph,form</field>
-            <field name="domain">[('state', 'not in', ('closed', 'written_off'))]</field>
+            <field name="domain">[('state', 'not in', ('draft', 'closed', 'written_off'))]</field>
             <field name="context">{'search_default_at_risk': 1}</field>
         </record>
 

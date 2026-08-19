@@ -27,7 +27,7 @@ class AlbaLoanPaymentHoliday(models.Model):
         string="Loan",
         required=True,
         ondelete="restrict",
-        domain="[('state', 'not in', ['closed', 'written_off'])]",
+        domain="[('state', 'not in', ['draft', 'closed', 'written_off'])]",
     )
     customer_id = fields.Many2one(
         "alba.customer",
@@ -249,7 +249,7 @@ class AlbaLoanPaymentHoliday(models.Model):
             loan = rec.loan_id
             
             # Check loan state
-            if loan.state in ("closed", "written_off"):
+            if loan.state in ("draft", "closed", "written_off"):
                 warnings.append("❌ Loan must be in an active status")
             
             # Check arrears
@@ -321,6 +321,18 @@ class AlbaLoanPaymentHoliday(models.Model):
     def action_approve(self):
         """Approve holiday request"""
         for rec in self:
+            # Eligibility (loan state, arrears, other active/pending holidays)
+            # was only checked at submit time. Time passes between submit and
+            # approve — the loan can fall into arrears or another holiday can
+            # be approved in the meantime — so re-check it here before
+            # granting approval.
+            rec._compute_eligibility()
+            if not rec.is_eligible:
+                raise UserError(_(
+                    "This loan is no longer eligible for a payment holiday — "
+                    "arrears/state have changed since submission.\n%s"
+                ) % rec.eligibility_warnings)
+
             # Longer holidays need higher approval
             if rec.holiday_months > 3:
                 if not self.env.user.has_group("alba_loans.group_operations_manager"):
@@ -342,9 +354,31 @@ class AlbaLoanPaymentHoliday(models.Model):
     def action_activate(self):
         """Activate the holiday and modify schedule"""
         for rec in self:
+            # Eligibility can have changed since submit/approve (loan fell
+            # further into arrears, state changed, another holiday was
+            # approved in the meantime) — re-check before actually deferring
+            # instalments.
+            rec._compute_eligibility()
+            if not rec.is_eligible:
+                raise UserError(_(
+                    "This loan is no longer eligible for a payment holiday — "
+                    "arrears/state have changed since submission.\n%s"
+                ) % rec.eligibility_warnings)
+
             if rec.state != "approved":
                 raise UserError(_("Holiday must be approved before activation."))
-            
+
+            # Lock the loan row for the rest of this transaction so two
+            # concurrent activations against the same loan (e.g. two
+            # near-simultaneous clicks, or a race with another modification)
+            # can't both read the same pre-activation schedule and clobber
+            # each other's deferral/shift. The second activator blocks here
+            # until the first one commits.
+            self.env.cr.execute(
+                "SELECT id FROM alba_loan WHERE id = %s FOR UPDATE",
+                (rec.loan_id.id,),
+            )
+
             # Find affected installments
             affected = self.env["alba.repayment.schedule"].search([
                 ("loan_id", "=", rec.loan_id.id),

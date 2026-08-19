@@ -5,7 +5,7 @@ Merge 2-5 customer loans into single loan with blended rate
 Fee: 1% of total outstanding
 """
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from markupsafe import Markup
 
 
@@ -260,7 +260,15 @@ class AlbaLoanConsolidation(models.Model):
     # Compute Methods
     # =========================================================================
     
-    @api.depends("customer_id", "loan_ids")
+    @api.depends(
+        "customer_id",
+        "loan_ids",
+        "loan_ids.outstanding_balance",
+        "loan_ids.principal_amount",
+        "loan_ids.arrears_amount",
+        "loan_ids.days_in_arrears",
+        "loan_ids.installment_amount",
+    )
     def _compute_loan_details(self):
         for rec in self:
             if not rec.loan_ids:
@@ -291,7 +299,21 @@ class AlbaLoanConsolidation(models.Model):
             else:
                 rec.weighted_avg_rate = 0
     
-    @api.depends("consolidation_type", "weighted_avg_rate")
+    @api.constrains("loan_ids")
+    def _check_loan_ids_currency(self):
+        for rec in self:
+            if len(rec.loan_ids.mapped("currency_id")) > 1:
+                raise ValidationError(_(
+                    "All loans being consolidated must use the same currency."
+                ))
+
+    @api.depends(
+        "consolidation_type",
+        "weighted_avg_rate",
+        "consolidated_amount",
+        "new_interest_rate",
+        "new_tenure_months",
+    )
     def _compute_new_terms(self):
         for rec in self:
             if rec.consolidation_type == "blend":
@@ -370,10 +392,10 @@ class AlbaLoanConsolidation(models.Model):
                 warnings.append("❌ All loans must belong to the selected customer")
             
             # Check loan states — explicitly block terminal and loss-classified loans
-            inactive_state = rec.loan_ids.filtered(lambda l: l.state in ["closed", "written_off"])
+            inactive_state = rec.loan_ids.filtered(lambda l: l.state in ["draft", "closed", "written_off"])
             if inactive_state:
                 loan_refs = ", ".join(l.loan_number or str(l.id) for l in inactive_state)
-                warnings.append("❌ Cannot consolidate Closed or Written-Off loans: %s" % loan_refs)
+                warnings.append("❌ Cannot consolidate Draft, Closed, or Written-Off loans: %s" % loan_refs)
 
             loss_loans = rec.loan_ids.filtered(lambda l: l.state == "loss")
             if loss_loans:

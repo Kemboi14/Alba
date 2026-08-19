@@ -18,11 +18,12 @@
                     <button name="action_post_interest_accrual_entry" string="Post Interest Accrual" type="object" class="btn-secondary" invisible="is_accrual_pending" groups="account.group_account_manager"/>
                     <button name="action_close" string="Close Loan" type="object" class="btn-success" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')" groups="alba_loans.group_loan_manager"/>
                     <button name="action_write_off" string="Write Off" type="object" class="btn-danger" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')" groups="alba_loans.group_loan_manager"/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object" class="btn-secondary" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')" groups="alba_loans.group_loan_manager" confirm="This will reverse every posted journal entry for this loan (disbursement, provisioning, accruals) and reset it to Draft. This cannot be undone. Continue?"/>
                     <button name="action_full_repayment" string="Full Repayment" type="object" class="btn-success" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss') or outstanding_balance &lt;= 0" groups="alba_loans.group_loan_officer"/>
                     <button name="action_request_topup" string="Refinance / Top-Up" type="object" class="btn-primary" invisible="not can_request_topup" groups="alba_loans.group_loan_officer"/>
                     <button name="action_calculate_partial_payoff" string="Calculate Partial Payoff" type="object" class="btn-primary" invisible="state not in ('normal', 'watch', 'substandard', 'doubtful', 'loss')" groups="alba_loans.group_loan_officer"/>
                     <button name="action_sync_loan_currency_to_accounting" string="Sync Currency" type="object" class="btn-info" groups="alba_loans.group_loan_manager"/>
-                    <field name="state" widget="statusbar" statusbar_visible="normal,watch,substandard,doubtful,loss,closed,written_off"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,normal,watch,substandard,doubtful,loss,closed,written_off"/>
                 </header>
 
                 <field name="is_accrual_pending" invisible="1"/>
@@ -146,7 +147,7 @@
                     </div>
 
                     <!-- ── Next Repayment Info ────────────────────────── -->
-                    <div class="row mb-4 px-3" invisible="state in ('closed', 'written_off')">
+                    <div class="row mb-4 px-3" invisible="state in ('draft', 'closed', 'written_off')">
                         <div class="col-12 border border-primary rounded p-2 bg-white d-flex align-items-center justify-content-between">
                             <div>
                                 <i class="fa fa-clock-o text-primary me-2"/>
@@ -347,8 +348,9 @@
                 <field name="loan_date"/>
                 <field name="disbursement_date"/>
                 <field name="next_payment_due_date"/>
-                <filter string="Active Loans" name="active" domain="[('state','not in',('closed','written_off'))]"/>
+                <filter string="Active Loans" name="active" domain="[('state','not in',('draft','closed','written_off'))]"/>
                 <separator/>
+                <filter string="Draft" name="draft" domain="[('state','=','draft')]"/>
                 <filter string="Normal" name="normal" domain="[('state','=','normal')]"/>
                 <filter string="Watch" name="watch" domain="[('state','=','watch')]"/>
                 <filter string="Substandard" name="substandard" domain="[('state','=','substandard')]"/>

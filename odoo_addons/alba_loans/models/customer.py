@@ -453,7 +453,11 @@ class AlbaCustomer(models.Model):
             order=order,
         )
 
-    @api.depends("county_id", "sub_county_id", "ward_id")
+    @api.depends(
+        "county_id", "county_id.name",
+        "sub_county_id", "sub_county_id.name",
+        "ward_id", "ward_id.name",
+    )
     def _compute_location_display(self):
         for rec in self:
             parts = []

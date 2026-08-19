@@ -274,7 +274,7 @@ class AlbaCreditScore(models.Model):
                 
                 elif rule.rule_type == "collateral":
                     # Check if collateral provided
-                    collateral_count = len(application.loan_guarantor_ids)  # Simplified check
+                    collateral_count = len(application.loan_collateral_ids)
                     if collateral_count > 0:
                         points = rule.points
                 

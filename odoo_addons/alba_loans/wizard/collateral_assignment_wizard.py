@@ -64,10 +64,15 @@ class AlbaCollateralAssignmentWizard(models.TransientModel):
     
     def action_assign(self):
         self.ensure_one()
-        
+
         if not self.collateral_id:
             raise UserError(_("Please select collateral."))
-        
+
+        if self.collateral_id.status == "pledged":
+            raise UserError(_(
+                "This collateral is already pledged to another loan and cannot be assigned again."
+            ))
+
         if self.ltv_status == "exceeded":
             raise UserError(_("LTV ratio exceeds limit. Please select different collateral or add more."))
         

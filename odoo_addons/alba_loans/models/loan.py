@@ -142,6 +142,7 @@ class AlbaLoan(models.Model):
     # ── State ─────────────────────────────────────────────────────────────────
     state = fields.Selection(
         selection=[
+            ("draft", "Draft"),
             ("normal", "Normal"),
             ("watch", "Watch (1-30 days)"),
             ("substandard", "Substandard (31-60 days)"),
@@ -173,11 +174,11 @@ class AlbaLoan(models.Model):
     @api.depends("days_in_arrears", "outstanding_balance", "loan_product_id.provision_rate")
     def _compute_state(self):
         for rec in self:
-            if rec.state in ("closed", "written_off"):
+            if rec.state in ("draft", "closed", "written_off"):
                 rec.provision_rate = 0.0
                 rec.provision_amount = 0.0
                 continue
-            
+
             if rec.outstanding_balance <= 0.01 and rec.disbursement_move_id and rec.total_paid > 0:
                 rec.state = "closed"
                 rec.provision_rate = 0.0
@@ -651,6 +652,17 @@ class AlbaLoan(models.Model):
         "Principal amount must be greater than zero.",
     )
 
+    # Deliberately a Python constraint, not a SQL CHECK like
+    # _principal_positive above: a SQL CHECK is validated against every
+    # existing row the moment this module upgrades, and any legacy/imported
+    # loan already sitting at tenure_months=0 would then hard-fail the
+    # migration. This validates only new creates/writes going forward.
+    @api.constrains("tenure_months")
+    def _check_tenure_months_positive(self):
+        for rec in self:
+            if rec.tenure_months <= 0:
+                raise ValidationError(_("Tenure (months) must be greater than zero."))
+
     # =========================================================================
     # Compute Methods
     # =========================================================================
@@ -682,7 +694,7 @@ class AlbaLoan(models.Model):
     )
     def _compute_financial_totals(self):
         for rec in self:
-            if rec.state == "written_off":
+            if rec.state in ("draft", "written_off"):
                 rec.total_repayable = 0.0
                 rec.total_paid = 0.0
                 rec.outstanding_balance = 0.0
@@ -731,7 +743,7 @@ class AlbaLoan(models.Model):
         """
         today = fields.Date.today()
         for rec in self:
-            if rec.state in ("written_off", "closed"):
+            if rec.state in ("draft", "written_off", "closed"):
                 # Mirror _compute_financial_totals' written_off short-circuit:
                 # a written-off/closed loan must not keep showing stale
                 # arrears from schedule lines that were never settled on the
@@ -771,7 +783,7 @@ class AlbaLoan(models.Model):
     def _compute_days_past_maturity(self):
         today = fields.Date.today()
         for rec in self:
-            if rec.maturity_date and rec.state not in ("closed", "written_off") and rec.outstanding_balance > 0.01:
+            if rec.maturity_date and rec.state not in ("draft", "closed", "written_off") and rec.outstanding_balance > 0.01:
                 if today > rec.maturity_date:
                     rec.days_past_maturity = (today - rec.maturity_date).days
                 else:
@@ -782,7 +794,7 @@ class AlbaLoan(models.Model):
     @api.depends("state", "days_in_arrears", "days_past_maturity", "loan_product_id.write_off_grace_days")
     def _compute_is_write_off_candidate(self):
         for rec in self:
-            if rec.state in ("closed", "written_off"):
+            if rec.state in ("draft", "closed", "written_off"):
                 rec.is_write_off_candidate = False
                 continue
             grace = rec.loan_product_id.write_off_grace_days if (rec.loan_product_id and rec.loan_product_id.write_off_grace_days) else 180
@@ -1041,8 +1053,21 @@ class AlbaLoan(models.Model):
     def _inverse_noop(self):
         pass
 
+    @api.depends(
+        "repayment_schedule_ids",
+        "repayment_schedule_ids.batch_id",
+        "repayment_schedule_ids.batch_id.state",
+    )
     def _compute_current_repayment_schedule(self):
-        """Compute the active repayment schedule lines for the loan (latest active batch)."""
+        """Compute the active repayment schedule lines for the loan (latest active batch).
+
+        This has no stored dependency on its own search results, so without
+        @api.depends Odoo has no trigger to invalidate/recompute it at all —
+        it would be computed once per environment and then silently serve a
+        stale schedule to every other compute that reads it (financial
+        totals, PAR, next-payment-due, write-off entries, and more) after a
+        restructure/top-up archives the old batch and generates a new one.
+        """
         for rec in self:
             Batch = self.env["alba.repayment.schedule.batch"]
             batch = Batch.search([("loan_id", "=", rec.id), ("state", "=", "active")], limit=1, order="generated_on desc")
@@ -1103,6 +1128,11 @@ class AlbaLoan(models.Model):
         making settled installments look wrongly under/over-paid.
         """
         for rec in self:
+            if rec.state in ("closed", "written_off"):
+                raise UserError(
+                    _("Cannot generate a repayment schedule for a %s loan.")
+                    % rec.state.replace("_", " ")
+                )
             if rec.schedule_generated:
                 raise UserError(
                     _(
@@ -1114,6 +1144,10 @@ class AlbaLoan(models.Model):
             if not rec.disbursement_date:
                 raise UserError(
                     _("Please set a disbursement date before generating the schedule.")
+                )
+            if rec.tenure_months <= 0:
+                raise UserError(
+                    _("Tenure (months) must be greater than zero before generating a schedule.")
                 )
 
             product = rec.loan_product_id
@@ -1381,6 +1415,11 @@ class AlbaLoan(models.Model):
         and post only the difference.
         """
         self.ensure_one()
+        # Lock the loan row so a double-click or cron-vs-button collision
+        # can't both read the same "already posted" total and both post the
+        # same delta, double-booking interest income (same protection
+        # loan_repayment.action_post() already takes for repayment postings).
+        self.env.cr.execute("SELECT id FROM alba_loan WHERE id = %s FOR UPDATE", (self.id,))
         product = self.loan_product_id
         if not product.account_interest_receivable_id:
             raise UserError(_("Please configure Interest Receivable account on product '%s'.") % product.name)
@@ -1465,6 +1504,7 @@ class AlbaLoan(models.Model):
         cash movement.
         """
         self.ensure_one()
+        self.env.cr.execute("SELECT id FROM alba_loan WHERE id = %s FOR UPDATE", (self.id,))
         product = self.loan_product_id
         # Use penalty receivable account if configured, otherwise fall back to interest receivable
         penalty_receivable_account = product.account_penalty_receivable_id or product.account_interest_receivable_id
@@ -1569,6 +1609,7 @@ class AlbaLoan(models.Model):
         and posts an adjusting journal entry for the difference.
         """
         self.ensure_one()
+        self.env.cr.execute("SELECT id FROM alba_loan WHERE id = %s FOR UPDATE", (self.id,))
         product = self.loan_product_id
         if not product.account_provision_id or not product.account_provision_expense_id:
             return False
@@ -1792,6 +1833,59 @@ class AlbaLoan(models.Model):
 
         self.message_post(body=Markup(_("Loan has been <b>Written Off</b> as per policy (Loss classification).")))
 
+    def action_reset_to_draft(self):
+        """Reset an active loan back to Draft to correct setup mistakes
+        (e.g. wrong dates), reversing every posted journal entry linked to
+        it via alba_loan_id (disbursement, provisioning, interest/penalty
+        accrual). Blocked once the loan has any repayment, top-up, payoff,
+        insurance, or disbursement-split activity, since those represent
+        real transactions a mechanical reversal cannot safely unwind.
+        """
+        self.ensure_one()
+        if self.state not in ("normal", "watch", "substandard", "doubtful", "loss"):
+            raise UserError(_("Only active loans can be reset to draft."))
+        if (
+            self.repayment_ids
+            or self.topup_ids
+            or self.partial_payoff_ids
+            or self.credit_life_insurance_ids
+            or self.disbursement_split_ids
+        ):
+            raise UserError(
+                _(
+                    "Loan %s cannot be reset to draft — it already has repayment, "
+                    "top-up, payoff, insurance, or disbursement-split activity "
+                    "recorded against it."
+                )
+                % self.loan_number
+            )
+
+        moves = self.env["account.move"].search([
+            ("alba_loan_id", "=", self.id),
+            ("state", "=", "posted"),
+        ])
+        for move in moves:
+            reversal = move._reverse_moves([{
+                "date": fields.Date.today(),
+                "journal_id": move.journal_id.id,
+                "ref": _("Reversal of %s (loan reset to draft)") % (move.ref or move.name),
+            }])
+            reversal.action_post()
+
+        self.repayment_schedule_ids.unlink()
+        self.write({
+            "state": "draft",
+            "disbursement_move_id": False,
+            "provision_move_id": False,
+            "schedule_generated": False,
+        })
+        self.message_post(
+            body=Markup(_(
+                "Loan reset to <b>Draft</b> — %d posted journal entry(ies) reversed."
+            ))
+            % len(moves)
+        )
+
     def action_close(self):
         self.ensure_one()
         if self.outstanding_balance > 0.01:
@@ -1896,7 +1990,7 @@ class AlbaLoan(models.Model):
     def action_quick_payment(self):
         """Open quick payment wizard for manual partial payments."""
         self.ensure_one()
-        if self.state in ("closed", "written_off"):
+        if self.state in ("draft", "closed", "written_off"):
             raise UserError(_("Payments are only allowed on active loans."))
         return {
             "type": "ir.actions.act_window",
@@ -1910,7 +2004,7 @@ class AlbaLoan(models.Model):
     def action_full_repayment(self):
         """Open payment wizard prefilled to settle outstanding balance."""
         self.ensure_one()
-        if self.state in ("closed", "written_off"):
+        if self.state in ("draft", "closed", "written_off"):
             raise UserError(_("Full repayment is only allowed for active loans."))
         if self.outstanding_balance <= 0.0:
             raise UserError(_("Loan has no outstanding balance to repay."))
@@ -1926,7 +2020,7 @@ class AlbaLoan(models.Model):
     def action_calculate_partial_payoff(self):
         """Open wizard to calculate partial payoff"""
         self.ensure_one()
-        if self.state in ("closed", "written_off"):
+        if self.state in ("draft", "closed", "written_off"):
             raise UserError(_("Partial payoff is only available for active loans."))
         
         return {

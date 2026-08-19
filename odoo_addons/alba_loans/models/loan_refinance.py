@@ -26,7 +26,7 @@ class AlbaLoanRefinance(models.Model):
         string="Original Loan",
         required=True,
         ondelete="restrict",
-        domain="[('state', 'not in', ['closed', 'written_off'])]",
+        domain="[('state', 'not in', ['draft', 'closed', 'written_off'])]",
     )
     customer_id = fields.Many2one(
         "alba.customer",
@@ -93,6 +93,20 @@ class AlbaLoanRefinance(models.Model):
         for rec in self:
             if rec.new_principal <= 0.0:
                 raise ValidationError(_("New Principal Amount must be greater than 0.00 and is mandatory."))
+
+    @api.constrains("original_loan_id")
+    def _check_original_loan_state(self):
+        # The domain=... on original_loan_id above is only a client-side UI
+        # filter — it does not stop the field being set via the wizard's
+        # programmatic create(), direct RPC, or an import. Enforce the same
+        # restriction server-side so a refinance can never be attached to a
+        # loan that isn't actually refinanceable, regardless of how the
+        # field got set.
+        for rec in self:
+            if rec.original_loan_id.state in ("draft", "closed", "written_off"):
+                raise ValidationError(_(
+                    "Cannot refinance a loan that is Draft, Closed, or Written Off."
+                ))
 
     @api.constrains("is_topup", "original_loan_id")
     def _check_topup_eligibility(self):
@@ -571,6 +585,15 @@ class AlbaLoanRefinance(models.Model):
             if rec.state != "approved":
                 raise UserError(_("Refinance must be approved first."))
 
+            # Lock the original loan row for the rest of this transaction so
+            # a concurrent action against the same loan (another repayment,
+            # a payment holiday, a second settlement attempt) can't read the
+            # same pre-settlement balance and race with this write-off/close.
+            self.env.cr.execute(
+                "SELECT id FROM alba_loan WHERE id = %s FOR UPDATE",
+                (rec.original_loan_id.id,),
+            )
+
             product = rec.original_loan_id.loan_product_id
             if not product.account_clearing_id:
                 raise UserError(_(
@@ -722,6 +745,15 @@ class AlbaLoanRefinance(models.Model):
                     "Please select a Settlement Journal — it is used for the "
                     "net cashback/top-up payment to the customer, if any."
                 ))
+
+            # Lock the original loan row for the rest of this transaction so
+            # a concurrent action against it can't race with the accounting
+            # entries below (the new loan doesn't exist yet at this point,
+            # so there is nothing to lock for it until after it is created).
+            self.env.cr.execute(
+                "SELECT id FROM alba_loan WHERE id = %s FOR UPDATE",
+                (rec.original_loan_id.id,),
+            )
 
             # Create new loan application
             application = self.env["alba.loan.application"].create({

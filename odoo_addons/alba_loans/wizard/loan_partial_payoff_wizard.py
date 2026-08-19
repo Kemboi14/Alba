@@ -3,6 +3,8 @@
 Alba Capital Loan Partial Payoff Wizard
 Quick interface for calculating and processing partial payoffs
 """
+import math
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
@@ -198,7 +200,13 @@ class AlbaLoanPartialPayoffWizard(models.TransientModel):
                         else:
                             rec.new_tenure = n
                     else:
-                        rec.new_tenure = int(rec.new_outstanding / loan.installment_amount)
+                        # Round up: paying off in "1.2 installments" still
+                        # requires 2 installments, not 1 — truncating would
+                        # understate the remaining tenure (same fix as the
+                        # real model in loan_partial_payoff.py).
+                        rec.new_tenure = int(
+                            math.ceil(rec.new_outstanding / loan.installment_amount)
+                        )
                 else:
                     rec.new_tenure = 0
                 rec.emi_reduction = 0

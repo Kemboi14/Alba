@@ -58,7 +58,7 @@ class AlbaLoanInterestCron(models.Model):
         today = fields.Date.today()
 
         overdue_loans = self.env["alba.loan"].search(
-            [("state", "not in", ["closed", "written_off"]), ("days_in_arrears", ">", 0)]
+            [("state", "not in", ["draft", "closed", "written_off"]), ("days_in_arrears", ">", 0)]
         )
 
         loans_processed = 0

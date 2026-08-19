@@ -716,8 +716,11 @@ class AlbaLoanApplication(models.Model):
                         ) % (score.total_score, threshold))
                         
                         # We must bypass the UI transition checks, so we call action_under_review, etc.
+                        # Also bypass the manual approval-authority/second-approval gate below —
+                        # this branch already re-derives its own authority from the credit
+                        # score threshold, KYC, and blocker checks above, not from a human approver.
                         rec.write({"state": "pending_approval"})
-                        rec.action_approve()
+                        rec.with_context(alba_auto_decision=True).action_approve()
         return True
 
     def _send_automated_employer_email(self):
@@ -927,30 +930,42 @@ class AlbaLoanApplication(models.Model):
             )
             if not phone:
                 raise UserError(_("Customer has no phone number configured for M-Pesa."))
-                
-            response = config.b2c_payment(
-                phone_number=phone,
-                amount=amount,
-                occasion=f"Loan {rec.application_number}",
-                remarks="Loan Disbursement",
-                command_id="BusinessPayment"
-            )
-            
-            # Create pending transaction
-            self.env["alba.mpesa.transaction"].create({
+
+            # ── Create pending transaction record BEFORE calling Daraja ──
+            # Mirrors mpesa_stk_push_wizard.py: this guarantees we have a
+            # record to reconcile against even if the process crashes or is
+            # interrupted right after Daraja accepts the payout but before
+            # we finish processing the response — real cash must never be
+            # able to leave the business account with zero Odoo record.
+            txn = self.env["alba.mpesa.transaction"].create({
                 "transaction_type": "b2c",
                 "status": "pending",
                 "amount": amount,
                 "phone_number": phone,
-                "conversation_id": response.get("ConversationID"),
-                "originator_conversation_id": response.get("OriginatorConversationID"),
                 "account_reference": rec.application_number,
                 "description": f"Loan Disbursement to {rec.customer_id.display_name}",
                 "config_id": config.id,
                 "company_id": rec.company_id.id,
                 # We link it to the application by saving the app ID in a new field or using account_reference
             })
-            
+
+            try:
+                response = config.b2c_payment(
+                    phone_number=phone,
+                    amount=amount,
+                    occasion=f"Loan {rec.application_number}",
+                    remarks="Loan Disbursement",
+                    command_id="BusinessPayment"
+                )
+            except UserError as exc:
+                txn.write({"status": "failed", "failure_reason": str(exc)})
+                raise
+
+            txn.write({
+                "conversation_id": response.get("ConversationID"),
+                "originator_conversation_id": response.get("OriginatorConversationID"),
+            })
+
             rec.message_post(body=Markup(_("🚀 <b>Zero-Touch Disbursement Initiated</b><br/>M-Pesa B2C Request sent. Awaiting Daraja confirmation.")))
 
     def action_employer_verification(self):

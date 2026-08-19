@@ -68,14 +68,9 @@ class AlbaLoanStatusReason(models.Model):
                 [("status_reason_id", "=", rec.id)]
             )
 
-    class Meta:
-        db_table = "alba_loan_status_reason"
-
-    def __str__(self):
-        return f"{self.get_category_display()} - {self.name}"
-
     @api.constrains('name', 'category')
     def _check_name_category_unique(self):
         """Ensure reason name is unique within each category"""
-        if self.search([('name', '=', self.name), ('category', '=', self.category), ('id', '!=', self.id)]):
-            raise ValidationError(_("Reason name must be unique within each category!"))
+        for rec in self:
+            if self.search([('name', '=', rec.name), ('category', '=', rec.category), ('id', '!=', rec.id)]):
+                raise ValidationError(_("Reason name must be unique within each category!"))

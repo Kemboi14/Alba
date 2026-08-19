@@ -27,7 +27,7 @@ class AlbaLoanTopup(models.Model):
         required=True,
         ondelete="restrict",
         index=True,
-        domain="[('state', 'not in', ['closed', 'written_off'])]",
+        domain="[('state', 'not in', ['draft', 'closed', 'written_off'])]",
     )
     customer_id = fields.Many2one(
         "alba.customer",
@@ -273,7 +273,7 @@ class AlbaLoanTopup(models.Model):
             loan = rec.loan_id
             
             # Check loan state
-            if loan.state in ("closed", "written_off"):
+            if loan.state in ("draft", "closed", "written_off"):
                 eligible = False
                 warnings.append("Loan must be in an active status (not %s)" % loan.state)
             
@@ -370,9 +370,20 @@ class AlbaLoanTopup(models.Model):
         for rec in self:
             if rec.state != "approved":
                 raise UserError(_("Top-up must be approved before disbursement."))
-            
+
             loan = rec.loan_id
-            
+
+            # Lock the loan row for the rest of this transaction so two
+            # concurrent disbursements (or a disbursement racing another
+            # modification) against the same loan can't both read the same
+            # pre-disbursement principal/schedule and clobber each other's
+            # update. The second disburser blocks here until the first one
+            # commits.
+            self.env.cr.execute(
+                "SELECT id FROM alba_loan WHERE id = %s FOR UPDATE",
+                (loan.id,),
+            )
+
             # Post disbursement entry
             rec._post_disbursement_entry()
             

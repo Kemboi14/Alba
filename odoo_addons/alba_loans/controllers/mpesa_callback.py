@@ -203,7 +203,7 @@ class AlbaMpesaCallbackController(http.Controller):
                 .search(
                     [
                         ("loan_number", "=", bill_ref),
-                        ("state", "not in", ("closed", "written_off")),
+                        ("state", "not in", ("draft", "closed", "written_off")),
                     ],
                     limit=1,
                 )

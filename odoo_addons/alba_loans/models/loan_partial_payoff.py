@@ -27,7 +27,7 @@ class AlbaLoanPartialPayoff(models.Model):
         string="Loan",
         required=True,
         ondelete="restrict",
-        domain="[('state', 'not in', ['closed', 'written_off'])]",
+        domain="[('state', 'not in', ['draft', 'closed', 'written_off'])]",
     )
     customer_id = fields.Many2one(
         "alba.customer",
@@ -460,12 +460,29 @@ class AlbaLoanPartialPayoff(models.Model):
         for rec in self:
             if rec.state not in ["quoted", "accepted"]:
                 raise UserError(_("Payoff must be quoted and accepted before application."))
-            
+
             # Check if quote expired
             if fields.Date.today() > rec.quote_valid_until:
                 rec.state = "expired"
                 raise UserError(_("Quote has expired. Please generate a new quote."))
-            
+
+            # Lock the loan row for the rest of this transaction so a
+            # concurrent repayment/holiday/another payoff on the same loan
+            # can't slip in between the quote and this apply.
+            self.env.cr.execute(
+                "SELECT id FROM alba_loan WHERE id = %s FOR UPDATE",
+                (rec.loan_id.id,),
+            )
+
+            # payoff_amount was only validated against outstanding_balance
+            # at quote time (action_generate_quote). Time may have passed
+            # since then — another repayment posted, a payment holiday
+            # capitalized interest — so re-validate against the loan's LIVE
+            # outstanding balance before actually applying it.
+            outstanding_balance = rec.loan_id.outstanding_balance
+            if rec.payoff_amount >= outstanding_balance:
+                raise UserError(_("Payoff amount must be less than outstanding balance. Use Early Settlement for full payoff."))
+
             loan = rec.loan_id
 
             # Auto-select journal if not set

@@ -139,6 +139,8 @@ class AlbaLoanRestructure(models.Model):
         for rec in self:
             if rec.state != "approved":
                 raise UserError(_("Restructure must be approved before applying."))
+            if rec.new_tenure_months <= 0:
+                raise UserError(_("New Tenure (Months) must be greater than zero."))
 
             loan = rec.loan_id
 
@@ -305,8 +307,11 @@ class AlbaLoanEarlySettlement(models.Model):
             days_to_settlement = (rec.settlement_date - loan.disbursement_date).days
             
             if loan.interest_method == "flat_rate":
-                daily_interest = loan.interest_amount / (loan.tenure_months * 30)
-                rec.accrued_interest = daily_interest * days_to_settlement
+                if loan.tenure_months > 0:
+                    daily_interest = loan.interest_amount / (loan.tenure_months * 30)
+                    rec.accrued_interest = daily_interest * days_to_settlement
+                else:
+                    rec.accrued_interest = 0.0
             else:
                 # Reducing balance - complex calculation
                 rec.accrued_interest = loan.accrued_interest
@@ -517,33 +522,12 @@ class AlbaLoan(models.Model):
             rec.total_fees_charged = sum(rec.fee_ids.mapped("amount"))
 
 
-# CRON JOB: Continue interest during default
-class AlbaLoanInterestCron(models.Model):
-    """Handle default interest continuation"""
-    
-    _name = "alba.loan.interest.cron"
-    _description = "Default Interest Continuation"
-    
-    @api.model
-    def cron_continue_default_interest(self):
-        """Daily cron to continue accruing interest for defaulted loans"""
-        
-        defaulted_loans = self.env["alba.loan"].search([
-            ("state", "in", ["substandard", "doubtful", "loss"]),
-            ("default_interest_continue", "=", True),
-        ])
-        
-        for loan in defaulted_loans:
-            # Continue interest accrual
-            if loan.interest_method == "flat_rate":
-                # Flat rate - interest continues on original principal
-                daily_interest = loan.interest_amount / (loan.tenure_months * 30)
-                loan.accrued_interest += daily_interest
-            else:
-                # Reducing balance - recalculate
-                monthly_rate = loan.interest_rate / 100 / 12
-                daily_rate = monthly_rate / 30
-                loan.accrued_interest += loan.outstanding_balance * daily_rate
-            
-            # Log
-            loan.message_post(body=_("Default interest accrued: KES %s") % loan.accrued_interest)
+# NOTE: "alba.loan.interest.cron" / cron_continue_default_interest() used to
+# also be defined here, duplicating models/loan_interest_cron.py under the
+# same _name with no _inherit. Odoo silently merges same-named model classes
+# and lets the later-imported module's methods win — this copy wrote
+# straight to `accrued_interest`, a non-stored compute field with no inverse
+# (guaranteed to raise), and divided by `tenure_months * 30` with no zero
+# guard. It only "worked" by accident of import order always favouring
+# loan_interest_cron.py's real implementation; removed to stop it being a
+# latent bomb the moment that order ever changes.

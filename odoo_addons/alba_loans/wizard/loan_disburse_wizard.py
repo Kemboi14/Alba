@@ -479,10 +479,23 @@ class AlbaLoanDisburseWizard(models.TransientModel):
 
         # ── Pre-flight validation (outside savepoint — raise before any writes) ─
         application = self.application_id.with_env(self.env).sudo().browse(self.application_id.id)
-        application.env.cr.execute(
-            "SELECT id FROM alba_loan_application WHERE id = %s FOR UPDATE NOWAIT",
-            (application.id,)
-        )
+        try:
+            application.env.cr.execute(
+                "SELECT id FROM alba_loan_application WHERE id = %s FOR UPDATE NOWAIT",
+                (application.id,)
+            )
+        except Exception:
+            # NOWAIT raises immediately (psycopg2.errors.LockNotAvailable) if
+            # another disbursement request already holds this row's lock —
+            # surface a clean, actionable message instead of a raw DB
+            # traceback / 500 to whoever loses the race.
+            application.env.cr.rollback()
+            raise UserError(
+                _(
+                    "Application %s is currently being disbursed by another user. "
+                    "Please wait a moment and try again."
+                ) % application.application_number
+            )
         application.invalidate_recordset()
 
         if application.state not in ("approved", "employer_verification", "guarantor_confirmation"):

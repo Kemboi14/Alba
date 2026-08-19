@@ -44,10 +44,18 @@ class ResPartner(models.Model):
     )
 
     # ── Alba Links ────────────────────────────────────────────────────────────
-    # IMPORT-EXPORT FIX: stored computed Booleans get no-op inverses so import can map them
-    is_alba_customer = fields.Boolean(string="Is Alba Customer", compute="_compute_alba_links", inverse="_inverse_alba_links", store=True)
-    is_alba_guarantor = fields.Boolean(string="Is Alba Guarantor", compute="_compute_alba_links", inverse="_inverse_alba_links", store=True)
-    is_alba_investor = fields.Boolean(string="Is Alba Investor", compute="_compute_alba_links", inverse="_inverse_alba_links", store=True)
+    # NOTE: intentionally NOT stored. This compute searches related models
+    # (alba.customer/alba.guarantor/alba.investor) rather than reading a
+    # direct relational field on res.partner, so there is no field-level
+    # @api.depends path that would let a *stored* version of these booleans
+    # get invalidated when a customer/guarantor/investor is linked to this
+    # partner after the partner record already exists. Keeping them
+    # non-stored means they are recomputed fresh on every read instead of
+    # silently going stale. The no-op inverses are kept so the import tool
+    # can still map values onto these fields without erroring.
+    is_alba_customer = fields.Boolean(string="Is Alba Customer", compute="_compute_alba_links", inverse="_inverse_alba_links")
+    is_alba_guarantor = fields.Boolean(string="Is Alba Guarantor", compute="_compute_alba_links", inverse="_inverse_alba_links")
+    is_alba_investor = fields.Boolean(string="Is Alba Investor", compute="_compute_alba_links", inverse="_inverse_alba_links")
 
     def _compute_alba_links(self):
         for rec in self:

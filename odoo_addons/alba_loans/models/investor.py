@@ -261,6 +261,8 @@ class AlbaInvestor(models.Model):
     def action_calculate_maturity(self):
         """Calculate and process maturity payout."""
         for rec in self:
+            if not rec.maturity_date:
+                continue
             if rec.state == "active" and fields.Date.today() >= rec.maturity_date:
                 total_payout = rec.principal_amount + rec.accrued_interest
                 self.env["alba.investor.transaction"].create({
@@ -277,9 +279,14 @@ class AlbaInvestor(models.Model):
         self.ensure_one()
         if amount > self.balance:
             raise UserError(_("Withdrawal amount exceeds available balance."))
-        
+
         # Calculate prorated interest
-        prorated_interest = self.accrued_interest * (amount / self.balance)
+        if self.balance <= 0:
+            if amount > 0:
+                raise UserError(_("This investor has no remaining balance to withdraw."))
+            prorated_interest = 0.0
+        else:
+            prorated_interest = self.accrued_interest * (amount / self.balance)
         
         withdrawal = self.env["alba.investor.withdrawal"].create({
             "investor_id": self.id,

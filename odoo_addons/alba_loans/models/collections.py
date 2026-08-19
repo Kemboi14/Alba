@@ -240,7 +240,7 @@ class AlbaLoanCollectionCron(models.Model):
 
         # Fix: correct field is days_in_arrears (days_overdue does not exist)
         overdue_loans = self.env["alba.loan"].search([
-            ("state", "not in", ["closed", "written_off"]),
+            ("state", "not in", ["draft", "closed", "written_off"]),
             ("days_in_arrears", ">", 0),
         ])
 

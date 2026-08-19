@@ -120,6 +120,7 @@ class AlbaLoanRepayment(models.Model):
             ("cash", "Cash"),
             ("cheque", "Cheque"),
             ("rtgs", "RTGS / EFT"),
+            ("insurance", "Credit Life Insurance Settlement"),
         ],
         string="Payment Method",
         required=True,
@@ -584,7 +585,7 @@ class AlbaLoanRepayment(models.Model):
                 )
             if not rec.loan_id:
                 raise UserError(_("A loan must be linked before posting a repayment."))
-            if rec.loan_id.state in ("written_off", "closed"):
+            if rec.loan_id.state in ("draft", "written_off", "closed"):
                 raise UserError(
                     _("Cannot post a repayment against a %s loan.")
                     % rec.loan_id.state.replace("_", " ")
@@ -966,6 +967,16 @@ class AlbaLoanRepayment(models.Model):
         for rec, vals in zip(records, vals_list):
             if vals.get("state") != "posted":
                 continue
+            if rec.loan_id:
+                # Same protection action_post() takes: block until any other
+                # concurrent poster against this loan (another bulk insert,
+                # a wizard action_post()) commits, so two writers can't read
+                # the same pre-payment schedule baseline and clobber each
+                # other's allocation.
+                self.env.cr.execute(
+                    "SELECT id FROM alba_loan WHERE id = %s FOR UPDATE",
+                    (rec.loan_id.id,),
+                )
             total_comp = (
                 rec.principal_component
                 + rec.interest_component

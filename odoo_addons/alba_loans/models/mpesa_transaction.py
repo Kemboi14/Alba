@@ -683,6 +683,16 @@ class AlbaMpesaTransaction(models.Model):
                     "raw_response": json.dumps(data),
                 }
             )
+            # No account_reference exists to auto-match against (Safaricom's
+            # STK callback body never carries it back) — leave a clear
+            # breadcrumb on the record itself so whoever works the
+            # "Needs Attention" queue has the full picture without having to
+            # dig through raw_response.
+            txn.message_post(body=_(
+                "⚠️ Orphan STK callback: no pending transaction was found for "
+                "CheckoutRequestID %s. This payment could not be auto-matched "
+                "to a loan/repayment and needs manual reconciliation."
+            ) % (checkout_id or "—"))
         else:
             # Validate that the transaction has an active M-Pesa config
             if not txn.config_id or not txn.config_id.is_active:
@@ -706,8 +716,36 @@ class AlbaMpesaTransaction(models.Model):
             meta = {item.get("Name"): item.get("Value") for item in items}
 
             mpesa_code = str(meta.get("MpesaReceiptNumber") or "").strip()
-            amount = float(meta.get("Amount") or txn.amount)
             phone = str(meta.get("PhoneNumber") or txn.phone_number or "").strip()
+            callback_amount = meta.get("Amount")
+
+            if txn.amount > 0:
+                # SECURITY: for a genuine pending STK Push, WE set the amount
+                # when initiating the request and Safaricom does not let the
+                # customer change it on their handset — so txn.amount
+                # (recorded before this callback ever arrives) is the
+                # authoritative figure, not whatever this public,
+                # unauthenticated callback claims. Trusting the callback's
+                # "Amount" here would let anyone who obtains/guesses a valid
+                # CheckoutRequestID post a forged callback with an inflated
+                # amount and have it silently accepted.
+                amount = txn.amount
+                if callback_amount is not None and abs(float(callback_amount) - txn.amount) > 0.01:
+                    _logger.error(
+                        "STK callback amount mismatch for checkout_id=%s: expected %.2f, "
+                        "callback claims %.2f — keeping the originally requested amount "
+                        "and flagging for manual review.",
+                        checkout_id, txn.amount, float(callback_amount),
+                    )
+                    update_vals["failure_reason"] = (
+                        f"Amount mismatch: requested {txn.amount:.2f}, callback claimed {float(callback_amount):.2f}"
+                    )
+            else:
+                # Orphan record — there is no expected amount on file to
+                # cross-check against, so the callback's figure is the only
+                # information we have (same trust model C2B confirmations
+                # already rely on for unregistered inbound payments).
+                amount = float(callback_amount or 0.0)
 
             update_vals.update(
                 {
@@ -800,10 +838,38 @@ class AlbaMpesaTransaction(models.Model):
             limit=1,
         )
         if not txn:
-            _logger.warning(
-                "B2C result for unknown ConversationID '%s' / OriginatorID '%s'.",
+            # This is money that LEFT the business account with no matching
+            # pending record — the create-before-call fix in
+            # action_auto_disburse() should prevent this going forward, but
+            # if it ever happens anyway the payout must not vanish silently.
+            _logger.error(
+                "B2C result for unknown ConversationID '%s' / OriginatorID '%s' — "
+                "creating orphan record for manual reconciliation.",
                 conversation_id,
                 originator_id,
+            )
+            txn = self.sudo().create({
+                "transaction_type": "b2c_result",
+                "status": "pending",
+                "amount": 0.0,
+                "conversation_id": conversation_id or False,
+                "originator_conversation_id": originator_id or False,
+                "raw_response": json.dumps(data),
+            })
+            txn.message_post(body=_(
+                "🛑 Orphan B2C result: no pending transaction was found for this "
+                "payout confirmation. Funds may have left the business account "
+                "with no tracking record — please reconcile manually against "
+                "the M-Pesa statement."
+            ))
+        elif not txn.config_id or not txn.config_id.is_active:
+            # Same defense process_stk_callback already applies: a result
+            # tied to a transaction whose M-Pesa config is missing/inactive
+            # is not one we should keep processing (config was deactivated,
+            # or the ConversationID match is coincidental).
+            _logger.warning(
+                "B2C result for ConversationID '%s' rejected: transaction has no active M-Pesa config.",
+                conversation_id,
             )
             return self.browse()
 
@@ -852,49 +918,94 @@ class AlbaMpesaTransaction(models.Model):
                 ("application_number", "=", txn.account_reference),
                 ("state", "in", ("approved", "employer_verification", "guarantor_confirmation"))
             ], limit=1)
-            
-            if app and not app.loan_id:
-                _logger.info("Auto-Disbursing Loan for Application %s", app.application_number)
-                
-                # Default to a bank journal for disbursement (first available)
-                journal = self.env["account.journal"].search([("type", "in", ["bank", "cash"])], limit=1)
-                
-                # 1. Create the loan
-                loan = self.env["alba.loan"].sudo().create({
-                    "application_id": app.id,
-                    "principal_amount": app.approved_amount or app.requested_amount,
-                    "interest_rate": app.loan_product_id.interest_rate,
-                    "interest_method": app.loan_product_id.interest_method,
-                    "tenure_months": app.tenure_months,
-                    "repayment_frequency": app.repayment_frequency,
-                    "disbursement_date": fields.Date.today(),
-                    "journal_id": journal.id if journal else False,
-                    "state": "normal",
-                    "notes": f"Auto-disbursed via M-Pesa B2C (Txn: {mpesa_code})",
-                })
-                
-                # 2. Post accounting entry and generate schedule
-                if journal:
-                    loan.action_post_disbursement_entry()
-                loan.action_generate_schedule()
-                
-                # 3. Finalize application
-                app.write({
-                    "state": "disbursed",
-                    "disbursed_date": fields.Datetime.now(),
-                    "loan_id": loan.id,
-                })
-                
-                app.message_post(body=_(
-                    "✅ <b>Auto-Disbursement Successful</b><br/>"
-                    "Funds delivered to M-Pesa wallet. Loan <b>%s</b> activated."
-                ) % loan.loan_number)
 
-                # 🚀 PHASE 5: Omnichannel (Email - Disbursed)
-                template = self.env.ref("alba_loans.email_template_loan_disbursed", raise_if_not_found=False)
-                if template and app.customer_id.email:
-                    template.send_mail(app.id, force_send=False)
-                    app.message_post(body=_("📧 Automated disbursement email sent to %s") % app.customer_id.email)
+            if app:
+                # Lock the application row so a duplicate/retried Safaricom
+                # callback for the same payout can't race this block and
+                # create a second loan before this transaction commits.
+                try:
+                    self.env.cr.execute(
+                        "SELECT id FROM alba_loan_application WHERE id = %s FOR UPDATE NOWAIT",
+                        (app.id,),
+                    )
+                except Exception:
+                    _logger.warning(
+                        "B2C auto-disburse: application %s is locked by a concurrent "
+                        "request — skipping this callback, it will not be retried automatically.",
+                        app.application_number,
+                    )
+                    app = self.browse()  # fall through without touching it
+
+            if app and not app.loan_id:
+                journal = (
+                    app.journal_id
+                    if app.journal_id and app.journal_id.type in ("bank", "cash")
+                    else self.env["account.journal"].search(
+                        [("type", "in", ["bank", "cash"]), ("company_id", "=", app.company_id.id)],
+                        limit=1,
+                    )
+                )
+                if not journal:
+                    _logger.error(
+                        "B2C auto-disburse: no bank/cash journal configured for company %s — "
+                        "application %s needs manual disbursement.",
+                        app.company_id.name, app.application_number,
+                    )
+                    app.message_post(body=_(
+                        "⚠️ M-Pesa B2C payout confirmed (Txn: %s) but no Disbursement Journal "
+                        "is configured for %s. Please complete disbursement manually via "
+                        "'Manual Disburse' — do not resend funds."
+                    ) % (mpesa_code or "—", app.company_id.name))
+                else:
+                    _logger.info("Auto-Disbursing Loan for Application %s", app.application_number)
+                    try:
+                        with self.env.cr.savepoint():
+                            # 1. Create the loan
+                            loan = self.env["alba.loan"].sudo().create({
+                                "application_id": app.id,
+                                "principal_amount": app.approved_amount or app.requested_amount,
+                                "interest_rate": app.loan_product_id.interest_rate,
+                                "interest_method": app.loan_product_id.interest_method,
+                                "tenure_months": app.tenure_months,
+                                "repayment_frequency": app.repayment_frequency,
+                                "disbursement_date": fields.Date.today(),
+                                "journal_id": journal.id,
+                                "state": "normal",
+                                "notes": f"Auto-disbursed via M-Pesa B2C (Txn: {mpesa_code})",
+                            })
+
+                            # 2. Post accounting entry and generate schedule
+                            loan.action_post_disbursement_entry()
+                            loan.action_generate_schedule()
+
+                            # 3. Finalize application
+                            app.write({
+                                "state": "disbursed",
+                                "disbursed_date": fields.Datetime.now(),
+                                "loan_id": loan.id,
+                            })
+                    except Exception:
+                        _logger.exception(
+                            "B2C auto-disburse: payout for application %s succeeded but loan "
+                            "setup failed — rolled back, leaving application for manual disbursement.",
+                            app.application_number,
+                        )
+                        app.message_post(body=_(
+                            "⚠️ M-Pesa B2C payout confirmed (Txn: %s) but automatic loan setup "
+                            "failed. Please complete disbursement manually via 'Manual Disburse' "
+                            "— do not resend funds."
+                        ) % (mpesa_code or "—"))
+                    else:
+                        app.message_post(body=_(
+                            "✅ <b>Auto-Disbursement Successful</b><br/>"
+                            "Funds delivered to M-Pesa wallet. Loan <b>%s</b> activated."
+                        ) % loan.loan_number)
+
+                        # 🚀 PHASE 5: Omnichannel (Email - Disbursed)
+                        template = self.env.ref("alba_loans.email_template_loan_disbursed", raise_if_not_found=False)
+                        if template and app.customer_id.email:
+                            template.send_mail(app.id, force_send=False)
+                            app.message_post(body=_("📧 Automated disbursement email sent to %s") % app.customer_id.email)
 
         return txn
 
@@ -1034,7 +1145,7 @@ class AlbaMpesaTransaction(models.Model):
                 continue
 
             # Skip loans in terminal states
-            if txn.loan_id.state in ("closed", "written_off"):
+            if txn.loan_id.state in ("draft", "closed", "written_off"):
                 _logger.debug(
                     "cron_auto_reconcile: loan %s is %s — skipping txn %s.",
                     txn.loan_id.loan_number,

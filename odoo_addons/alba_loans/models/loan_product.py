@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 
 
 class AlbaLoanCategory(models.Model):
@@ -369,6 +369,8 @@ class AlbaLoanProduct(models.Model):
         Returns a list of dicts: [{installment, principal_due, interest_due, balance}, ...]
         """
         self.ensure_one()
+        if months <= 0:
+            raise UserError(_("Tenure (months) must be greater than zero to build a repayment schedule."))
         monthly_rate = self.interest_rate / 100
         if monthly_rate == 0:
             equal_principal = round(principal / months, 2)

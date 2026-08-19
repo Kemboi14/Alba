@@ -151,6 +151,7 @@
                 (4, ref('group_finance_admin')),
                 (4, ref('group_director'))
             ]"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
             <field name="perm_read" eval="1"/>
             <field name="perm_write" eval="1"/>
             <field name="perm_create" eval="1"/>
@@ -170,6 +171,31 @@
                 (4, ref('group_trade_finance_officer')),
                 (4, ref('group_business_dev_officer'))
             ]"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="0"/>
+        </record>
+
+        <!-- Active Loan Module Access — rule_loan_access above only covers
+             alba.loan.application; alba.loan (the post-disbursement active
+             loan, holding real principal/outstanding balances) had no
+             row-level rule at all until this one, meaning any user in an
+             allowed group could read/write every branch's active loans. -->
+        <record id="rule_active_loan_access" model="ir.rule">
+            <field name="name">Active Loans: Officers, Ops, Finance, Director</field>
+            <field name="model_id" ref="model_alba_loan"/>
+            <field name="groups" eval="[
+                (4, ref('group_relationship_officer')),
+                (4, ref('group_loan_officer')),
+                (4, ref('group_operations_manager')),
+                (4, ref('group_finance_admin')),
+                (4, ref('group_director')),
+                (4, ref('group_trade_finance_officer')),
+                (4, ref('group_business_dev_officer'))
+            ]"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
             <field name="perm_read" eval="1"/>
             <field name="perm_write" eval="1"/>
             <field name="perm_create" eval="1"/>
@@ -186,6 +212,12 @@
                 (4, ref('group_operations_manager')),
                 (4, ref('group_director'))
             ]"/>
+            <!-- No domain_force here: unlike alba.loan.application / account.move
+                 / alba.loan.document, alba.investor has no company_id field at
+                 all (verified in models/investor.py) — investors are a single
+                 shared pool, not per-branch/company records. Adding a
+                 company_id-based domain here would raise on every read/search
+                 instead of scoping anything. -->
             <field name="perm_read" eval="1"/>
             <field name="perm_write" eval="1"/>
             <field name="perm_create" eval="1"/>
@@ -205,6 +237,7 @@
                 (4, ref('group_trade_finance_officer')),
                 (4, ref('group_business_dev_officer'))
             ]"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
             <field name="perm_read" eval="1"/>
             <field name="perm_write" eval="1"/>
             <field name="perm_create" eval="1"/>

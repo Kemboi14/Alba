@@ -173,12 +173,6 @@ class AlbaCreditLifeInsurance(models.Model):
         vals['updated_at'] = fields.Datetime.now()
         return super().write(vals)
 
-    class Meta:
-        db_table = "alba_credit_life_insurance"
-
-    def __str__(self):
-        return self.insurance_number
-
     @api.model_create_multi
     def create(self, vals_list):
         """Generate insurance number on creation"""
@@ -214,16 +208,41 @@ class AlbaCreditLifeInsurance(models.Model):
         })
 
     def action_approve(self):
-        """Approve the claim and create journal entry"""
+        """Approve the claim, post the settlement journal entry, and apply
+        the payout to the loan itself. Previously this only booked Insurance
+        Receivable/Income and never touched the loan's outstanding balance
+        or schedule — the loan kept aging into arrears/write-off candidacy
+        as if untouched while the books already showed it "compensated",
+        double-counting the settlement.
+        """
+        self.ensure_one()
         if self.state not in ["submitted", "under_review"]:
             raise UserError(_("Only submitted claims can be approved."))
-        
+
+        loan = self.loan_id
+        settlement = min(self.compensation_amount, max(loan.outstanding_balance, 0.0))
+
         # Create journal entry for compensation
         if not self.move_id:
-            move_vals = self._prepare_journal_entry()
+            move_vals = self._prepare_journal_entry(settlement)
             move = self.env["account.move"].create(move_vals)
             move.action_post()
             self.move_id = move.id
+
+        if settlement > 0.01:
+            # Record it as an already-posted, zero-cash repayment so it goes
+            # through the exact same allocation/schedule-sync/close pipeline
+            # a cash repayment does (see loan_repayment.py's create() override)
+            # — the accounting side is already handled by the move above, so
+            # no second journal entry is created here.
+            self.env["alba.loan.repayment"].create({
+                "loan_id": loan.id,
+                "payment_date": fields.Date.today(),
+                "amount_paid": settlement,
+                "payment_method": "insurance",
+                "payment_reference": self.insurance_number,
+                "state": "posted",
+            })
 
         self.write({
             "state": "approved",
@@ -255,10 +274,23 @@ class AlbaCreditLifeInsurance(models.Model):
             raise UserError(_("Cannot cancel a compensated claim."))
         self.write({"state": "cancelled"})
 
-    def _prepare_journal_entry(self):
-        """Prepare journal entry for insurance compensation"""
+    def _prepare_journal_entry(self, settlement=0.0):
+        """Prepare the settlement journal entry for insurance compensation.
+
+        DR Insurance Receivable          compensation_amount (owed by insurer)
+        CR Loan/Interest/Penalty Receivable   settlement (clears the customer's
+            actual debt, waterfalled penalty -> interest -> principal, same
+            priority order used everywhere else in the module)
+        CR Insurance Income               compensation_amount - settlement
+            (only the genuine excess over what was owed is P&L income — the
+            portion that pays down real debt is a balance-sheet reclass, not
+            income, otherwise the loan's discharge would be double-counted:
+            once as "insurance income" and once (never, previously) as debt
+            actually cleared).
+        """
         self.ensure_one()
-        product = self.loan_id.loan_product_id
+        loan = self.loan_id
+        product = loan.loan_product_id
         product._ensure_accounting_defaults()
         receivable_account = product.account_insurance_receivable_id
         income_account = product.account_insurance_income_id
@@ -282,6 +314,7 @@ class AlbaCreditLifeInsurance(models.Model):
                 _("No General journal found for company '%s'.") % self.company_id.name
             )
 
+        partner_id = self.customer_id.partner_id.id
         lines = [
             (
                 0,
@@ -291,21 +324,68 @@ class AlbaCreditLifeInsurance(models.Model):
                     "debit": self.compensation_amount,
                     "credit": 0,
                     "name": f"Insurance Compensation - {self.loan_number}",
-                    "partner_id": self.customer_id.partner_id.id,
-                },
-            ),
-            (
-                0,
-                0,
-                {
-                    "account_id": income_account.id,
-                    "debit": 0,
-                    "credit": self.compensation_amount,
-                    "name": f"Insurance Income - {self.loan_number}",
-                    "partner_id": self.customer_id.partner_id.id,
+                    "partner_id": partner_id,
                 },
             ),
         ]
+
+        remaining = settlement
+        if remaining > 0.01:
+            if not product.account_loan_receivable_id or not product.account_interest_receivable_id:
+                raise UserError(
+                    _(
+                        "Please configure Loan Receivable and Interest Receivable accounts "
+                        "on loan product '%s' before settling a claim against the loan."
+                    )
+                    % product.name
+                )
+            schedule = loan.current_repayment_schedule_ids or loan.repayment_schedule_ids
+            penalty_owed = sum(max(l.penalty_due - l.penalty_paid, 0.0) for l in schedule)
+            interest_owed = sum(max(l.interest_due - l.interest_paid, 0.0) for l in schedule)
+            principal_owed = sum(max(l.principal_due - l.principal_paid, 0.0) for l in schedule)
+
+            pay_penalty = min(remaining, penalty_owed)
+            remaining -= pay_penalty
+            pay_interest = min(remaining, interest_owed)
+            remaining -= pay_interest
+            pay_principal = min(remaining, principal_owed)
+            remaining -= pay_principal
+
+            if pay_penalty > 0.01:
+                penalty_account = product.account_penalty_receivable_id or product.account_interest_receivable_id
+                lines.append((0, 0, {
+                    "account_id": penalty_account.id,
+                    "debit": 0,
+                    "credit": round(pay_penalty, 2),
+                    "name": f"Insurance Settlement — Penalty — {self.loan_number}",
+                    "partner_id": partner_id,
+                }))
+            if pay_interest > 0.01:
+                lines.append((0, 0, {
+                    "account_id": product.account_interest_receivable_id.id,
+                    "debit": 0,
+                    "credit": round(pay_interest, 2),
+                    "name": f"Insurance Settlement — Interest — {self.loan_number}",
+                    "partner_id": partner_id,
+                }))
+            if pay_principal > 0.01:
+                lines.append((0, 0, {
+                    "account_id": product.account_loan_receivable_id.id,
+                    "debit": 0,
+                    "credit": round(pay_principal, 2),
+                    "name": f"Insurance Settlement — Principal — {self.loan_number}",
+                    "partner_id": partner_id,
+                }))
+
+        excess = self.compensation_amount - settlement
+        if excess > 0.01:
+            lines.append((0, 0, {
+                "account_id": income_account.id,
+                "debit": 0,
+                "credit": round(excess, 2),
+                "name": f"Insurance Income - {self.loan_number}",
+                "partner_id": partner_id,
+            }))
 
         return {
             "journal_id": journal.id,
@@ -313,7 +393,7 @@ class AlbaCreditLifeInsurance(models.Model):
             "line_ids": lines,
             "ref": self.insurance_number,
             "company_id": self.company_id.id,
-            "alba_loan_id": self.loan_id.id,
+            "alba_loan_id": loan.id,
         }
 
     def action_view_journal_entry(self):

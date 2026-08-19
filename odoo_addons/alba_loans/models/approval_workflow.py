@@ -206,52 +206,126 @@ class AlbaLoanApplication(models.Model):
     submitted_by_role_id = fields.Many2one("res.groups", string="Submitter Role", readonly=True, copy=False)
     
     def action_submit(self):
-        """Submit application with SoD tracking"""
+        """Extend the base action_submit (state transition, KYC, credit score,
+        auto-decisioning — see loan_application.py) with SoD submitter tracking.
+        Must call super(): a same-named override with no super() call silently
+        replaces the base method instead of extending it, which previously
+        skipped every one of those checks whenever action_submit() was called.
+        """
         for rec in self:
             rec.submitted_by_user_id = self.env.user
-            rec.write({
-                "state": "submitted",
-                "submitted_date": fields.Datetime.now(),
-            })
-    
+        return super().action_submit()
+
+    def _user_has_role(self, group):
+        """True if the current user belongs to `group` (a res.groups record)."""
+        if not group:
+            return False
+        external_ids = group.get_external_id()
+        group_xml_id = external_ids.get(group.id, "")
+        if not group_xml_id:
+            return bool(self.env["res.groups"].search(
+                [("id", "=", group.id), ("users", "in", self.env.user.id)]
+            ))
+        return self.env.user.has_group(group_xml_id)
+
     def action_approve(self):
-        """Approve with validation checks"""
+        """Extend the base action_approve (state transition, collateral/
+        guarantor checks, next-step routing — see loan_application.py) with
+        approval-authority enforcement, Segregation-of-Duties, and a real
+        second-approval gate. Must call super() for the same reason as
+        action_submit() above.
+        """
         for rec in self:
-            # Check SoD - approver cannot be submitter (only when rule is configured)
-            sod_rule = self.env["alba.segregation.of.duties"].search(
-                [("process_type", "=", "loan"), ("active", "=", True)], limit=1
-            )
-            if sod_rule and sod_rule.enforce_different_user:
-                if rec.submitted_by_user_id and rec.submitted_by_user_id == self.env.user:
-                    # Allow bypass for privileged groups (e.g. Director, Loan Manager Full)
-                    user_group_ids = self.env.user.group_ids.ids
-                    bypass_ids = sod_rule.bypass_group_ids.ids
-                    if not (bypass_ids and any(g in user_group_ids for g in bypass_ids)):
-                        raise UserError(
-                            _("Segregation of Duties: You cannot approve a loan you submitted.")
-                        )
+            amount = rec.approved_amount or rec.requested_amount
             limit = self.env["alba.approval.limit"].get_approver_for_amount(
-                "loan_application", rec.requested_amount
+                "loan_application", amount
             )
+            # The auto-decisioning engine (loan_application.py action_submit)
+            # already gates on credit score + KYC + collateral/guarantor
+            # blockers before calling this; it isn't a human approval at all,
+            # so the manual authority/SoD/dual-sign-off checks don't apply.
+            # Directors/system admins get the same admin-override bypass the
+            # base action_approve() already grants for collateral/guarantor.
+            bypass = rec.env.context.get("alba_auto_decision") or rec._has_admin_override()
+
+            if not bypass and not self.env.user.has_approval_authority("loan_application", amount):
+                raise UserError(
+                    _(
+                        "You do not have approval authority for %(currency)s %(amount)s. "
+                        "This amount requires approval from: %(role)s."
+                    )
+                    % {
+                        "currency": rec.currency_id.name,
+                        "amount": f"{amount:,.2f}",
+                        "role": limit.approver_group_id.name if limit and limit.approver_group_id else _("a higher role"),
+                    }
+                )
+
+            if not bypass:
+                sod_rule = self.env["alba.segregation.of.duties"].search(
+                    [("process_type", "=", "loan"), ("active", "=", True)], limit=1
+                )
+                if sod_rule and sod_rule.enforce_different_user:
+                    if rec.submitted_by_user_id and rec.submitted_by_user_id == self.env.user:
+                        # Allow bypass for privileged groups (e.g. Director, Loan Manager Full)
+                        user_group_ids = self.env.user.group_ids.ids
+                        bypass_ids = sod_rule.bypass_group_ids.ids
+                        if not (bypass_ids and any(g in user_group_ids for g in bypass_ids)):
+                            raise UserError(
+                                _("Segregation of Duties: You cannot approve a loan you submitted.")
+                            )
+
+            if not bypass and limit and limit.require_second_approval and not rec.second_approved_by_user_id:
+                if not rec.approved_by_user_id:
+                    # First leg: record the first approval and hold — do NOT
+                    # run the base transition yet, so the application stays
+                    # out of the "approved" state until a second, different
+                    # approver signs off.
+                    rec.write({
+                        "approved_amount": amount,
+                        "approved_by_user_id": self.env.user.id,
+                        "approved_by_role_id": limit.approver_group_id.id if limit.approver_group_id else False,
+                    })
+                    rec.message_post(body=_(
+                        "First approval recorded by %(user)s. A second approval from "
+                        "%(role)s is required before this application can move to Approved."
+                    ) % {
+                        "user": self.env.user.name,
+                        "role": limit.second_approver_group_id.name if limit.second_approver_group_id else _("another approver"),
+                    })
+                    continue
+
+                if rec.approved_by_user_id == self.env.user:
+                    raise UserError(
+                        _("This application requires a second approval from a different approver.")
+                    )
+                second_group = limit.second_approver_group_id
+                if second_group and not self._user_has_role(second_group):
+                    raise UserError(
+                        _("Second approval must come from role '%s'.") % second_group.name
+                    )
+                rec.write({
+                    "second_approved_by_user_id": self.env.user.id,
+                    "second_approved_by_role_id": second_group.id if second_group else False,
+                })
+            elif not rec.approved_by_user_id:
+                # No dual-approval requirement (or auto-decision bypass) —
+                # record the sole approval directly.
+                rec.write({
+                    "approved_by_user_id": self.env.user.id,
+                    "approved_by_role_id": limit.approver_group_id.id if limit and limit.approver_group_id else False,
+                })
+
             if not rec.approved_amount:
-                rec.approved_amount = rec.requested_amount
-            rec.write({
-                "state": "approved",
-                "approved_date": fields.Datetime.now(),
-                "approved_by_user_id": self.env.user.id,
-                "approved_by_role_id": limit.approver_group_id.id if limit else False,
-            })
-            
+                rec.approved_amount = amount
+
+            super(AlbaLoanApplication, rec).action_approve()
+
             rec.message_post(
                 body=Markup(_("Application <b>approved</b> for %s %s by %s."))
                 % (rec.currency_id.name, rec.approved_amount, self.env.user.name)
             )
-            if limit and limit.require_second_approval:
-                rec.message_post(
-                    body=_("First approval by %s. Second approval required from %s.") % (
-                        self.env.user.name, limit.second_approver_group_id.name
-                    )
-                )
+        return True
 
 
 class AccountMove(models.Model):
