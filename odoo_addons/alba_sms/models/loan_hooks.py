@@ -8,7 +8,7 @@ All hooks call super() first then add SMS.  Zero changes to alba_loans core.
 import logging
 from datetime import timedelta
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 
 _logger = logging.getLogger(__name__)
 

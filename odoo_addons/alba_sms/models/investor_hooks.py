@@ -10,7 +10,7 @@ Zero changes to alba_investors core — purely additive via _inherit.
 
 import logging
 
-from odoo import models
+from odoo import _, models
 
 _logger = logging.getLogger(__name__)
 
