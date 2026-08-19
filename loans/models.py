@@ -2776,6 +2776,15 @@ class Loan(models.Model):
             return (paid / self.total_amount) * 100
         return 0
 
+    # Statuses that can no longer take a repayment — single source of truth
+    # shared by the "Make a Payment" template check and the initiate_repayment
+    # view's validation.
+    NON_PAYABLE_STATUSES = (PAID, WRITTEN_OFF, DEFAULTED)
+
+    @property
+    def is_payable(self):
+        return self.status not in self.NON_PAYABLE_STATUSES
+
     def get_odoo_state(self):
         """Return the canonical Odoo-style state slug for this loan."""
         mapping = {

@@ -1269,44 +1269,48 @@ class OdooSyncService:
 
     def record_payment(
         self,
-        odoo_loan_id: int,
-        amount: float,
+        loan_number: str,
+        amount_paid: float,
         payment_date: str,
         payment_method: str = "mpesa",
         mpesa_transaction_id: str = "",
         payment_reference: str = "",
         django_payment_id: int = 0,
-        notes: str = "",
+        django_customer_id: int = 0,
     ) -> dict:
         """
         Record a repayment in Odoo against a loan.
 
         Args:
-            odoo_loan_id:          Odoo ID of the ``alba.loan`` record.
-            amount:                Payment amount (KES).
+            loan_number:           The ``alba.loan.loan_number`` value Odoo
+                                   uses to look up the loan (required by the
+                                   endpoint — it does not accept an Odoo id).
+            amount_paid:           Payment amount (KES).
             payment_date:          ISO-8601 date string, e.g. ``"2024-06-15"``.
             payment_method:        One of: ``mpesa``, ``bank_transfer``,
-                                   ``cash``, ``cheque``, ``rtgs``.
+                                   ``cash``, ``cheque``, ``direct_debit``.
             mpesa_transaction_id:  M-Pesa receipt code (for mpesa payments).
             payment_reference:     Generic payment reference / bank ref.
-            django_payment_id:     Primary key of the Django repayment record.
-            notes:                 Optional remarks.
+            django_payment_id:     Primary key of the Django repayment record
+                                   — required; Odoo uses it for idempotency.
+            django_customer_id:    Primary key of the Django Customer record.
 
         Returns:
             dict: Response body containing:
                 ``odoo_repayment_id`` (int),
-                ``status`` ("posted"),
+                ``status`` ("posted" | "already_exists"),
                 ``principal_applied`` (float),
                 ``interest_applied`` (float).
 
         Raises:
-            OdooNotFoundError:   When the loan ID is not found.
+            OdooNotFoundError:   When the loan number is not found.
             OdooValidationError: When the payment cannot be posted.
             OdooSyncError:       On any other failure.
         """
         payload: dict[str, Any] = {
-            "odoo_loan_id": odoo_loan_id,
-            "amount": amount,
+            "django_payment_id": django_payment_id,
+            "loan_number": loan_number,
+            "amount_paid": amount_paid,
             "payment_date": payment_date,
             "payment_method": payment_method,
         }
@@ -1314,15 +1318,13 @@ class OdooSyncService:
             payload["mpesa_transaction_id"] = mpesa_transaction_id
         if payment_reference:
             payload["payment_reference"] = payment_reference
-        if django_payment_id:
-            payload["django_payment_id"] = django_payment_id
-        if notes:
-            payload["notes"] = notes
+        if django_customer_id:
+            payload["django_customer_id"] = django_customer_id
 
         logger.info(
-            "Recording payment in Odoo: loan_id=%d amount=%.2f method=%s",
-            odoo_loan_id,
-            amount,
+            "Recording payment in Odoo: loan_number=%s amount=%.2f method=%s",
+            loan_number,
+            amount_paid,
             payment_method,
         )
         result = self._post("/alba/api/v1/payments", payload, retry=False)

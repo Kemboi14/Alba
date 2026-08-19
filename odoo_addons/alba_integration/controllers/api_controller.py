@@ -2340,6 +2340,11 @@ class AlbaApiController(http.Controller):
                     "principal_applied": principal_applied,
                     "interest_applied": interest_applied,
                     "receipt_number": getattr(repayment, "receipt_number", "") or "",
+                    # Without this, Django's payment.matched handler (which
+                    # unconditionally does Loan.objects.update(outstanding_
+                    # balance=<this value>)) defaults a missing key to 0.0 and
+                    # zeroes out the customer's balance on every payment.
+                    "outstanding_balance": self._safe_float(loan.outstanding_balance),
                 },
             )
 
@@ -2380,6 +2385,328 @@ class AlbaApiController(http.Controller):
                 "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
                 int((time.monotonic() - start_time) * 1000), "Payment",
                 event_type="payment.matched",
+            )
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 7b. M-Pesa STK Push proxy — initiate
+    # -------------------------------------------------------------------------
+
+    @http.route(
+        "/alba/api/v1/mpesa/stk-push",
+        type="http",
+        auth="public",
+        methods=["POST"],
+        csrf=False,
+    )
+    def mpesa_stk_push(self, **kwargs):
+        """
+        Proxy an M-Pesa STK Push (Lipa Na M-Pesa Online) request from the
+        Django portal through to Daraja via ``alba.mpesa.config.stk_push()``.
+
+        A tracking ``alba.mpesa.transaction`` record is created BEFORE the
+        Daraja call is made (same ordering as ``action_auto_disburse`` on
+        ``alba.loan.application`` — money/a customer prompt must never be
+        able to go out with zero record of it). Safaricom's result callback
+        continues to land on the existing, unchanged
+        ``/alba/mpesa/stk/callback`` route, which updates this same
+        transaction record — this endpoint never receives that callback
+        directly.
+
+        Authentication
+        --------------
+        Requires ``X-Alba-API-Key`` header.
+
+        Request body (JSON)
+        -------------------
+        Required: ``phone_number``, ``amount``, ``account_reference``
+
+        Optional: ``transaction_desc``, ``odoo_loan_id``
+
+        Response 200
+        ------------
+        .. code-block:: json
+
+            {
+                "response_code": "0",
+                "response_desc": "Success. Request accepted for processing",
+                "checkout_request_id": "ws_CO_...",
+                "merchant_request_id": "..."
+            }
+        """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        data = None
+
+        try:
+            api_key = self._authenticate()
+            data = self._parse_json_body()
+
+            missing = self._validate_required(
+                data, ["phone_number", "amount", "account_reference"]
+            )
+            if missing:
+                detail = f"Missing required fields: {', '.join(missing)}"
+                _log_inbound_sync(
+                    api_key, "create", "alba.mpesa.transaction", 0, 0,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "MpesaStkPush",
+                )
+                return self._error_response(detail, 400)
+
+            amount = self._safe_float(data["amount"])
+            if amount <= 0:
+                detail = f"amount must be greater than zero (got {amount})."
+                _log_inbound_sync(
+                    api_key, "create", "alba.mpesa.transaction", 0, 0,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "MpesaStkPush",
+                )
+                return self._error_response(detail, 400)
+
+            account_reference = str(data["account_reference"]).strip()
+            phone_number = str(data["phone_number"]).strip()
+            transaction_desc = str(data.get("transaction_desc") or "Loan Repayment").strip()
+
+            config = (
+                request.env["alba.mpesa.config"]
+                .sudo()
+                .search(
+                    [("is_active", "=", True), ("company_id", "=", api_key.company_id.id)],
+                    limit=1,
+                )
+            )
+            if not config:
+                detail = f"No active M-Pesa configuration for company '{api_key.company_id.name}'."
+                _log_inbound_sync(
+                    api_key, "create", "alba.mpesa.transaction", 0, 0,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "MpesaStkPush",
+                )
+                return self._error_response(detail, 400)
+
+            # Resolve the loan (best-effort — used only to link the tracking
+            # record; stk_push() itself doesn't need it).
+            loan = request.env["alba.loan"].browse()
+            odoo_loan_id = self._safe_int(data.get("odoo_loan_id"))
+            if odoo_loan_id:
+                loan = request.env["alba.loan"].sudo().browse(odoo_loan_id).exists()
+            if not loan and account_reference:
+                loan = (
+                    request.env["alba.loan"]
+                    .sudo()
+                    .search(
+                        [
+                            ("loan_number", "=", account_reference),
+                            ("company_id", "=", api_key.company_id.id),
+                        ],
+                        limit=1,
+                    )
+                )
+
+            # --- Create the tracking record BEFORE calling Daraja ------------
+            Txn = request.env["alba.mpesa.transaction"].sudo()
+            txn = Txn.create({
+                "transaction_type": "stk_push",
+                "status": "pending",
+                "amount": amount,
+                "phone_number": phone_number,
+                "account_reference": account_reference,
+                "loan_id": loan.id if loan else False,
+                "config_id": config.id,
+                "company_id": api_key.company_id.id,
+            })
+
+            try:
+                result = config.stk_push(
+                    phone_number=phone_number,
+                    amount=amount,
+                    account_reference=account_reference,
+                    transaction_desc=transaction_desc,
+                )
+            except odoo_exceptions.UserError as exc:
+                txn.write({"status": "failed", "failure_reason": str(exc)})
+                _log_inbound_sync(
+                    api_key, "create", "alba.mpesa.transaction", 0, txn.id,
+                    "failure", str(exc), data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "MpesaStkPush",
+                )
+                return self._error_response(str(exc), 400)
+
+            response_code = str(result.get("ResponseCode", "-1"))
+            checkout_request_id = result.get("CheckoutRequestID") or ""
+            merchant_request_id = result.get("MerchantRequestID") or ""
+
+            if response_code != "0":
+                txn.write({
+                    "status": "failed",
+                    "failure_reason": result.get("ResponseDescription", "Daraja rejected the request."),
+                })
+            else:
+                txn.write({
+                    "checkout_request_id": checkout_request_id,
+                    "merchant_request_id": merchant_request_id,
+                })
+
+            response_data = {
+                "response_code": response_code,
+                "response_desc": result.get("ResponseDescription", ""),
+                "checkout_request_id": checkout_request_id,
+                "merchant_request_id": merchant_request_id,
+            }
+            _log_inbound_sync(
+                api_key, "create", "alba.mpesa.transaction", 0, txn.id,
+                "success" if response_code == "0" else "failure",
+                "", data, response_data, 200, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "MpesaStkPush",
+            )
+            return self._json_response(response_data, status=200)
+
+        except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.mpesa.transaction", 0, 0,
+                "failure", str(exc), data, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "MpesaStkPush",
+            )
+            return self._error_response(str(exc), 403)
+        except odoo_exceptions.UserError as exc:
+            _log_inbound_sync(
+                api_key, "create", "alba.mpesa.transaction", 0, 0,
+                "failure", str(exc), data, None, 400, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "MpesaStkPush",
+            )
+            return self._error_response(str(exc), 400)
+        except Exception as exc:
+            _logger.exception("mpesa_stk_push: unexpected error — %s", exc)
+            _log_inbound_sync(
+                api_key, "create", "alba.mpesa.transaction", 0, 0,
+                "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "MpesaStkPush",
+            )
+            return self._error_response("Internal server error.", 500)
+
+    # -------------------------------------------------------------------------
+    # 7c. M-Pesa STK Push proxy — status query
+    # -------------------------------------------------------------------------
+
+    @http.route(
+        "/alba/api/v1/mpesa/stk-status",
+        type="http",
+        auth="public",
+        methods=["POST"],
+        csrf=False,
+    )
+    def mpesa_stk_status(self, **kwargs):
+        """
+        Report the current status of a previously initiated STK Push.
+
+        Purely read-only against the ``alba.mpesa.transaction`` record that
+        the existing, unchanged ``/alba/mpesa/stk/callback`` route already
+        updates once Safaricom confirms or declines the payment — this
+        endpoint does not itself talk to Daraja.
+
+        Authentication
+        --------------
+        Requires ``X-Alba-API-Key`` header.
+
+        Request body (JSON)
+        -------------------
+        Required: ``checkout_request_id``
+
+        Response 200
+        ------------
+        .. code-block:: json
+
+            {
+                "checkout_request_id": "ws_CO_...",
+                "result_code": "0",
+                "result_desc": "The service request is processed successfully.",
+                "status": "completed",
+                "mpesa_code": "QGH7Y...",
+                "amount": 500.0
+            }
+        """
+        start_time = time.monotonic()
+        remote_ip, user_agent = self._get_request_metadata()
+        api_key = None
+        data = None
+
+        # alba.mpesa.transaction.status values that don't map 1:1 onto the
+        # four states Django's client understands (pending/completed/failed/
+        # cancelled) — "processing" is still in-flight from the caller's
+        # point of view.
+        _STATUS_MAP = {
+            "pending": "pending",
+            "processing": "pending",
+            "completed": "completed",
+            "failed": "failed",
+            "cancelled": "cancelled",
+            "reversed": "failed",
+        }
+
+        try:
+            api_key = self._authenticate()
+            data = self._parse_json_body()
+
+            checkout_request_id = str(data.get("checkout_request_id") or "").strip()
+            if not checkout_request_id:
+                detail = "checkout_request_id is required."
+                _log_inbound_sync(
+                    api_key, "read", "alba.mpesa.transaction", 0, 0,
+                    "failure", detail, data, None, 400, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "MpesaStkStatus",
+                )
+                return self._error_response(detail, 400)
+
+            txn = (
+                request.env["alba.mpesa.transaction"]
+                .sudo()
+                .search(
+                    [
+                        ("checkout_request_id", "=", checkout_request_id),
+                        ("company_id", "=", api_key.company_id.id),
+                    ],
+                    limit=1,
+                )
+            )
+            if not txn:
+                detail = f"Unknown checkout_request_id '{checkout_request_id}'."
+                _log_inbound_sync(
+                    api_key, "read", "alba.mpesa.transaction", 0, 0,
+                    "failure", detail, data, None, 404, remote_ip, user_agent,
+                    int((time.monotonic() - start_time) * 1000), "MpesaStkStatus",
+                )
+                return self._error_response(detail, 404)
+
+            response_data = {
+                "checkout_request_id": checkout_request_id,
+                "result_code": txn.result_code or "",
+                "result_desc": txn.result_desc or txn.failure_reason or "",
+                "status": _STATUS_MAP.get(txn.status, txn.status),
+                "mpesa_code": txn.mpesa_code or "",
+                "amount": self._safe_float(txn.amount),
+            }
+            _log_inbound_sync(
+                api_key, "read", "alba.mpesa.transaction", 0, txn.id,
+                "success", "", data, response_data, 200, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "MpesaStkStatus",
+            )
+            return self._json_response(response_data, status=200)
+
+        except odoo_exceptions.AccessDenied as exc:
+            _log_inbound_sync(
+                api_key, "read", "alba.mpesa.transaction", 0, 0,
+                "failure", str(exc), data, None, 403, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "MpesaStkStatus",
+            )
+            return self._error_response(str(exc), 403)
+        except Exception as exc:
+            _logger.exception("mpesa_stk_status: unexpected error — %s", exc)
+            _log_inbound_sync(
+                api_key, "read", "alba.mpesa.transaction", 0, 0,
+                "failure", f"Unexpected error: {exc}", data, None, 500, remote_ip, user_agent,
+                int((time.monotonic() - start_time) * 1000), "MpesaStkStatus",
             )
             return self._error_response("Internal server error.", 500)
 

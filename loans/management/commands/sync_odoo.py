@@ -12,12 +12,13 @@ Usage:
     python manage.py sync_odoo products     # Sync loan products from Odoo
     python manage.py sync_odoo customers    # Sync all customers to Odoo
     python manage.py sync_odoo applications # Sync failed applications
+    python manage.py sync_odoo repayments   # Retry repayments that failed to post
     python manage.py sync_odoo status       # Check sync status
 """
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from loans.models import Customer, LoanApplication, LoanProduct
+from loans.models import Customer, LoanApplication, LoanProduct, LoanRepayment
 
 
 class Command(BaseCommand):
@@ -27,8 +28,8 @@ class Command(BaseCommand):
         parser.add_argument(
             'action',
             type=str,
-            choices=['products', 'customers', 'applications', 'status'],
-            help='Action to perform: products, customers, applications, or status'
+            choices=['products', 'customers', 'applications', 'repayments', 'status'],
+            help='Action to perform: products, customers, applications, repayments, or status'
         )
         parser.add_argument(
             '--force',
@@ -52,6 +53,8 @@ class Command(BaseCommand):
             self.sync_customers(force, dry_run)
         elif action == 'applications':
             self.sync_applications(force, dry_run)
+        elif action == 'repayments':
+            self.sync_repayments(force, dry_run)
         elif action == 'status':
             self.show_status()
 
@@ -200,6 +203,75 @@ class Command(BaseCommand):
             
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Application sync failed: {str(e)}'))
+
+    def sync_repayments(self, force, dry_run):
+        """
+        Retry repayments that were recorded locally (e.g. a confirmed M-Pesa
+        STK Push) but failed to post in Odoo — the synchronous call in
+        check_repayment_status() can fail if Odoo was briefly unreachable or
+        rejected the request. Never touches repayments already posted:
+        Odoo's /alba/api/v1/payments endpoint is idempotent on
+        django_payment_id, so a re-send would be harmless, but there is no
+        reason to make it.
+        """
+        self.stdout.write(self.style.SUCCESS('Retrying failed/pending repayment syncs to Odoo...'))
+
+        try:
+            from core.services.odoo_sync import OdooSyncService, OdooSyncError
+
+            service = OdooSyncService()
+            if not service.is_reachable():
+                self.stdout.write(self.style.ERROR('Odoo is not reachable. Check configuration.'))
+                return
+
+            repayments = LoanRepayment.objects.filter(
+                sync_status__in=['pending', 'failed']
+            ).select_related('loan')
+
+            self.stdout.write(f'Found {repayments.count()} repayment(s) to sync')
+
+            if dry_run:
+                self.stdout.write('Dry run mode - would retry the following repayments')
+                for repayment in repayments:
+                    self.stdout.write(f"  - {repayment.receipt_number} (loan {repayment.loan.loan_number})")
+                return
+
+            synced = 0
+            failed = 0
+
+            for repayment in repayments:
+                try:
+                    result = service.record_payment(
+                        loan_number=repayment.loan.loan_number,
+                        amount_paid=float(repayment.amount),
+                        payment_date=str(repayment.payment_date),
+                        payment_method='mpesa',
+                        mpesa_transaction_id=repayment.reference_number or '',
+                        payment_reference=repayment.reference_number or '',
+                        django_payment_id=repayment.pk,
+                    )
+                    repayment.sync_status = 'posted'
+                    repayment.odoo_repayment_id = result.get('odoo_repayment_id') or None
+                    repayment.principal_applied = result.get('principal_applied')
+                    repayment.interest_applied = result.get('interest_applied')
+                    repayment.save(update_fields=[
+                        'sync_status', 'odoo_repayment_id', 'principal_applied', 'interest_applied',
+                    ])
+                    synced += 1
+                    self.stdout.write(f"  ✓ Synced {repayment.receipt_number}")
+                except OdooSyncError as e:
+                    failed += 1
+                    repayment.sync_status = 'failed'
+                    repayment.notes = f"Odoo posting failed: {e}"[:1000]
+                    repayment.save(update_fields=['sync_status', 'notes'])
+                    self.stdout.write(self.style.ERROR(f"  ✗ Failed {repayment.receipt_number}: {e}"))
+
+            self.stdout.write(self.style.SUCCESS(
+                f'Repayment sync completed: {synced} synced, {failed} failed'
+            ))
+
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'Repayment sync failed: {str(e)}'))
 
     def show_status(self):
         """Show sync status summary"""

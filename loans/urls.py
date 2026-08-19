@@ -42,6 +42,17 @@ urlpatterns = [
     # Active loans
     path("my-loans/", views.my_loans, name="my_loans"),
     path("loan/<int:pk>/", views.loan_detail, name="loan_detail"),
+    # Repayment (M-Pesa STK Push)
+    path(
+        "loan/<int:loan_pk>/repay/",
+        views.initiate_repayment,
+        name="initiate_repayment",
+    ),
+    path(
+        "loan/<int:loan_pk>/repay/status/",
+        views.check_repayment_status,
+        name="check_repayment_status",
+    ),
     # Repayment schedule
     path(
         "loan/<int:loan_pk>/schedule/",

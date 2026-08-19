@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Integration",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Technical",
     "summary": "REST API bridge, M-Pesa callbacks, webhook retry queue and sync audit log for the Django portal",
     "description": """

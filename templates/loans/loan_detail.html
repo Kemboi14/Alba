@@ -412,14 +412,25 @@ Capital{% endblock %} {% block body %}
                         </h3>
                     </div>
                     <div class="p-6 space-y-3">
-                        <!-- Make a Payment — handled via Odoo paybill/M-Pesa; placeholder -->
+                        <!-- Make a Payment — live M-Pesa STK Push, posts to Odoo automatically -->
+                        {% if not loan.is_payable %}
                         <button
                             disabled
-                            title="Payments are processed via M-Pesa paybill. Details on your loan agreement."
+                            title="This loan is {{ loan.get_status_display }} and cannot take a repayment."
                             class="w-full px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-alba-orange opacity-60 cursor-not-allowed"
                         >
                             Make a Payment
                         </button>
+                        {% else %}
+                        <button
+                            type="button"
+                            id="payNowBtn"
+                            onclick="openPaymentModal()"
+                            class="w-full px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-alba-orange hover:bg-opacity-90 transition"
+                        >
+                            Make a Payment
+                        </button>
+                        {% endif %}
                         <a
                             href="{% url 'loans:repayment_schedule' loan.pk %}"
                             class="block w-full px-4 py-2 text-center border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition"
@@ -595,4 +606,188 @@ Capital{% endblock %} {% block body %}
         </div>
     </main>
 </div>
+
+{% if loan.is_payable %}
+<!-- ═══════════════════════ PAY NOW MODAL ═══════════════════════ -->
+<div
+    id="paymentModal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4"
+>
+    <div class="card w-full max-w-md">
+        <div class="card-header flex items-center justify-between">
+            <h3 class="section-title">Make a Payment</h3>
+            <button type="button" onclick="closePaymentModal()" class="text-gray-400 hover:text-gray-600" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="card-body">
+
+            <!-- Step 1: enter amount -->
+            <div id="payStepAmount">
+                <div class="form-field">
+                    <label for="payAmountInput" class="form-label">Amount (KES)</label>
+                    <input
+                        id="payAmountInput"
+                        type="number"
+                        class="form-input"
+                        min="1"
+                        step="0.01"
+                        max="{{ loan.outstanding_balance }}"
+                        value="{{ loan.outstanding_balance|floatformat:2 }}"
+                    />
+                    <p class="help-text">Outstanding balance: KES {{ loan.outstanding_balance|floatformat:2 }}</p>
+                </div>
+                <div id="payAmountError" class="error-text hidden"></div>
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-2">
+                    <button type="button" onclick="closePaymentModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="button" id="payNowSubmitBtn" onclick="submitPayment()" class="btn btn-primary">Pay Now</button>
+                </div>
+            </div>
+
+            <!-- Step 2: waiting for STK confirmation -->
+            <div id="payStepWaiting" class="hidden text-center py-6">
+                <div class="btn-spinner mx-auto" style="border-top-color: var(--orange); border-color: #e5e7eb; width: 2rem; height: 2rem;"></div>
+                <p class="mt-4 font-medium">Check your phone</p>
+                <p class="help-text mt-1">Enter your M-Pesa PIN to complete the payment.</p>
+                <button type="button" onclick="closePaymentModal()" class="btn btn-secondary mt-4">Cancel</button>
+            </div>
+
+            <!-- Step 3: result -->
+            <div id="payStepResult" class="hidden">
+                <div id="payResultAlert" class="alert"></div>
+                <div class="flex justify-end pt-4">
+                    <button type="button" onclick="closePaymentModal()" class="btn btn-primary">Close</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    const PAY_LOAN_PK = {{ loan.pk }};
+    const PAY_INITIATE_URL = "{% url 'loans:initiate_repayment' loan.pk %}";
+    const PAY_STATUS_URL = "{% url 'loans:check_repayment_status' loan.pk %}";
+    const PAY_CSRF_TOKEN = "{{ csrf_token }}";
+
+    let payPollTimer = null;
+    let payPollAttempts = 0;
+    const PAY_POLL_MAX_ATTEMPTS = 30; // ~90s at 3s intervals
+
+    function showPayStep(step) {
+        ["payStepAmount", "payStepWaiting", "payStepResult"].forEach(function (id) {
+            document.getElementById(id).classList.toggle("hidden", id !== step);
+        });
+    }
+
+    function openPaymentModal() {
+        document.getElementById("payAmountError").classList.add("hidden");
+        showPayStep("payStepAmount");
+        document.getElementById("paymentModal").classList.remove("hidden");
+    }
+
+    function closePaymentModal() {
+        clearTimeout(payPollTimer);
+        payPollAttempts = 0;
+        document.getElementById("paymentModal").classList.add("hidden");
+        // Reflect any posted payment immediately.
+        if (document.getElementById("payStepResult").dataset.success === "1") {
+            window.location.reload();
+        }
+    }
+
+    function showPayError(message) {
+        const el = document.getElementById("payAmountError");
+        el.textContent = message;
+        el.classList.remove("hidden");
+    }
+
+    function showPayResult(success, message) {
+        showPayStep("payStepResult");
+        const alertEl = document.getElementById("payResultAlert");
+        alertEl.className = "alert " + (success ? "alert-success" : "alert-warning");
+        alertEl.textContent = message;
+        document.getElementById("payStepResult").dataset.success = success ? "1" : "0";
+    }
+
+    function submitPayment() {
+        const amountInput = document.getElementById("payAmountInput");
+        const amount = parseFloat(amountInput.value);
+        if (isNaN(amount) || amount <= 0) {
+            showPayError("Please enter a valid amount.");
+            return;
+        }
+
+        const btn = document.getElementById("payNowSubmitBtn");
+        btn.disabled = true;
+
+        const body = new URLSearchParams();
+        body.set("amount", amount.toFixed(2));
+
+        fetch(PAY_INITIATE_URL, {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": PAY_CSRF_TOKEN,
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: body.toString(),
+        })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function ({ ok, data }) {
+                btn.disabled = false;
+                if (!ok) {
+                    showPayError(data.error || "Could not start the payment.");
+                    return;
+                }
+                showPayStep("payStepWaiting");
+                payPollAttempts = 0;
+                pollPaymentStatus(data.checkout_request_id);
+            })
+            .catch(function () {
+                btn.disabled = false;
+                showPayError("A network error occurred. Please try again.");
+            });
+    }
+
+    function pollPaymentStatus(checkoutRequestId) {
+        payPollAttempts += 1;
+        if (payPollAttempts > PAY_POLL_MAX_ATTEMPTS) {
+            showPayResult(
+                false,
+                "This is taking longer than expected. If you completed the payment on your " +
+                "phone, it will still be processed and will appear on your account shortly."
+            );
+            return;
+        }
+
+        const url = PAY_STATUS_URL + "?checkout_request_id=" + encodeURIComponent(checkoutRequestId);
+        fetch(url)
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function ({ ok, data }) {
+                if (!ok) {
+                    showPayResult(false, data.error || "Could not check payment status.");
+                    return;
+                }
+                if (data.status === "pending") {
+                    payPollTimer = setTimeout(function () { pollPaymentStatus(checkoutRequestId); }, 3000);
+                    return;
+                }
+                if (data.status === "failed") {
+                    showPayResult(false, data.message || "The payment was not completed.");
+                    return;
+                }
+                // completed
+                showPayResult(
+                    true,
+                    data.message || ("Payment of KES " + data.amount + " received. Receipt: " + data.receipt_number)
+                );
+            })
+            .catch(function () {
+                payPollTimer = setTimeout(function () { pollPaymentStatus(checkoutRequestId); }, 3000);
+            });
+    }
+</script>
+{% endif %}
 {% endblock %}

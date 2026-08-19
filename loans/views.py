@@ -15,6 +15,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import F
+from django.db.models.functions import Greatest
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -38,11 +40,21 @@ from .models import (
     LoanApplication,
     LoanDocument,
     LoanProduct,
+    LoanRepayment,
     Notification,
     RepaymentSchedule,
 )
 
 from core.services.odoo_sync import OdooSyncService, OdooSyncError
+from core.services.mpesa import (
+    MpesaService,
+    MpesaError,
+    MpesaAuthError,
+    MpesaValidationError,
+    MpesaAPIError,
+    MpesaTimeoutError,
+    MpesaConnectionError,
+)
 
 # ---------------------------------------------------------------------------
 # Customer dashboard
@@ -878,6 +890,237 @@ def loan_detail(request, pk):
         request,
         "loans/loan_detail.html",
         {"loan": loan, "repayments": repayments},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Repayment (M-Pesa STK Push) — AJAX
+# ---------------------------------------------------------------------------
+
+@login_required
+def initiate_repayment(request, loan_pk):
+    """
+    AJAX endpoint — trigger a live M-Pesa STK Push for a repayment.
+
+    Does not create a LoanRepayment yet: only once the customer actually
+    confirms the payment on their phone (checked via check_repayment_status)
+    is anything persisted, so a cancelled/ignored prompt leaves no trace.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    customer, _ = Customer.objects.get_or_create(user=request.user)
+    loan = get_object_or_404(Loan, pk=loan_pk, customer=customer)
+
+    if not loan.is_payable:
+        return JsonResponse(
+            {"error": f"This loan is {loan.get_status_display()} and cannot take a repayment."},
+            status=400,
+        )
+
+    try:
+        amount = Decimal(str(request.POST.get("amount", "0")))
+    except (InvalidOperation, ValueError, TypeError):
+        return JsonResponse({"error": "Invalid amount."}, status=400)
+
+    if amount <= 0:
+        return JsonResponse({"error": "Amount must be greater than zero."}, status=400)
+    if amount > loan.outstanding_balance:
+        return JsonResponse(
+            {
+                "error": (
+                    f"Amount cannot exceed the outstanding balance of "
+                    f"KES {loan.outstanding_balance:,.2f}."
+                )
+            },
+            status=400,
+        )
+
+    phone = (customer.mpesa_number or customer.user.phone or "").strip()
+    if not phone:
+        return JsonResponse(
+            {"error": "Please add an M-Pesa number to your profile before paying."},
+            status=400,
+        )
+
+    try:
+        result = MpesaService().stk_push(
+            phone_number=phone,
+            amount=float(amount),
+            account_reference=loan.loan_number,
+            transaction_desc="Loan Repayment",
+            odoo_loan_id=loan.odoo_loan_id or 0,
+        )
+    except MpesaValidationError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    except MpesaAuthError as exc:
+        logger.error("initiate_repayment: M-Pesa auth error: %s", exc)
+        return JsonResponse({"error": "Payment service is temporarily unavailable. Please try again shortly."}, status=502)
+    except MpesaAPIError as exc:
+        return JsonResponse({"error": str(exc) or "M-Pesa declined the request."}, status=400)
+    except MpesaTimeoutError:
+        return JsonResponse({"error": "The payment request timed out. Please try again."}, status=504)
+    except MpesaConnectionError as exc:
+        logger.error("initiate_repayment: cannot reach M-Pesa/Odoo: %s", exc)
+        return JsonResponse({"error": "Payment service is temporarily unavailable. Please try again shortly."}, status=502)
+    except MpesaError as exc:
+        logger.exception("initiate_repayment: unexpected M-Pesa error")
+        return JsonResponse({"error": str(exc) or "Could not initiate payment."}, status=500)
+
+    checkout_request_id = result.get("checkout_request_id") or result.get("CheckoutRequestID")
+    if not checkout_request_id:
+        return JsonResponse({"error": "M-Pesa did not return a request reference. Please try again."}, status=502)
+
+    return JsonResponse(
+        {
+            "checkout_request_id": checkout_request_id,
+            "message": "Check your phone and enter your M-Pesa PIN to complete the payment.",
+        }
+    )
+
+
+@login_required
+def check_repayment_status(request, loan_pk):
+    """
+    AJAX endpoint — polled by the frontend after initiate_repayment.
+
+    Once the STK Push is confirmed by Safaricom (status == "completed"),
+    creates the local LoanRepayment and posts it to Odoo synchronously via
+    OdooSyncService.record_payment() — the same, already-working, immediately-
+    posting endpoint used everywhere else in this codebase for payments.
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405)
+
+    customer, _ = Customer.objects.get_or_create(user=request.user)
+    loan = get_object_or_404(Loan, pk=loan_pk, customer=customer)
+
+    checkout_request_id = (request.GET.get("checkout_request_id") or "").strip()
+    if not checkout_request_id:
+        return JsonResponse({"error": "checkout_request_id is required."}, status=400)
+
+    try:
+        result = MpesaService().query_stk_status(checkout_request_id)
+    except MpesaConnectionError as exc:
+        logger.error("check_repayment_status: cannot reach M-Pesa/Odoo: %s", exc)
+        return JsonResponse({"error": "Payment service is temporarily unavailable."}, status=502)
+    except MpesaTimeoutError:
+        return JsonResponse({"error": "Status check timed out."}, status=504)
+    except MpesaError as exc:
+        logger.exception("check_repayment_status: unexpected M-Pesa error")
+        return JsonResponse({"error": str(exc) or "Could not check payment status."}, status=500)
+
+    status = result.get("status", "pending")
+
+    if status == "pending":
+        return JsonResponse({"status": "pending"})
+
+    if status in ("failed", "cancelled"):
+        return JsonResponse(
+            {
+                "status": "failed",
+                "message": result.get("result_desc") or "The payment was not completed.",
+            }
+        )
+
+    # status == "completed"
+    mpesa_code = (result.get("mpesa_code") or "").strip()
+    amount = Decimal(str(result.get("amount") or "0"))
+    if amount <= 0:
+        # Fall back to whatever the customer originally requested rather
+        # than persist a zero-amount repayment.
+        amount = loan.outstanding_balance
+
+    repayment, created = LoanRepayment.objects.get_or_create(
+        reference_number=mpesa_code or f"STK-{checkout_request_id}",
+        defaults={
+            "loan": loan,
+            "payment_date": timezone.now().date(),
+            "amount": amount,
+            "payment_type": LoanRepayment.REGULAR_PAYMENT,
+            "payment_method": LoanRepayment.M_PESA,
+            "sync_status": "pending",
+        },
+    )
+
+    if not created and repayment.sync_status == "posted":
+        # Already fully processed by an earlier poll — nothing left to do.
+        return JsonResponse(
+            {
+                "status": "completed",
+                "receipt_number": repayment.receipt_number,
+                "amount": str(repayment.amount),
+            }
+        )
+
+    try:
+        odoo_result = OdooSyncService().record_payment(
+            loan_number=loan.loan_number,
+            amount_paid=float(repayment.amount),
+            payment_date=str(repayment.payment_date),
+            payment_method="mpesa",
+            mpesa_transaction_id=mpesa_code,
+            payment_reference=mpesa_code,
+            django_payment_id=repayment.pk,
+            django_customer_id=customer.user_id,
+        )
+    except OdooSyncError as exc:
+        logger.error(
+            "check_repayment_status: Odoo posting failed for repayment %d — %s",
+            repayment.pk,
+            exc,
+        )
+        repayment.sync_status = "failed"
+        repayment.notes = f"Odoo posting failed: {exc}"
+        repayment.save(update_fields=["sync_status", "notes"])
+        # The M-Pesa payment itself succeeded — only the ledger posting is
+        # delayed. Tell the customer the truth: paid, processing.
+        return JsonResponse(
+            {
+                "status": "completed",
+                "pending_sync": True,
+                "receipt_number": repayment.receipt_number,
+                "amount": str(repayment.amount),
+                "message": "Payment received and is being processed. It will reflect on your account shortly.",
+            }
+        )
+
+    repayment.sync_status = "posted"
+    repayment.odoo_repayment_id = odoo_result.get("odoo_repayment_id") or None
+    repayment.principal_applied = odoo_result.get("principal_applied")
+    repayment.interest_applied = odoo_result.get("interest_applied")
+    repayment.save(
+        update_fields=[
+            "sync_status",
+            "odoo_repayment_id",
+            "principal_applied",
+            "interest_applied",
+        ]
+    )
+
+    # Atomic decrement — avoids a lost update if a concurrent request (e.g.
+    # the payment.matched webhook, or a duplicate poll) writes the balance
+    # around the same time. The webhook still overwrites this afterward with
+    # Odoo's authoritative absolute value; this is only for instant UI
+    # feedback before that webhook lands.
+    Loan.objects.filter(pk=loan.pk).update(
+        outstanding_balance=Greatest(F("outstanding_balance") - amount, Decimal("0"))
+    )
+
+    create_audit_log(
+        request.user,
+        "CREATE",
+        "LoanRepayment",
+        repayment.pk,
+        f"M-Pesa repayment of KES {repayment.amount} posted for loan {loan.loan_number}",
+    )
+
+    return JsonResponse(
+        {
+            "status": "completed",
+            "receipt_number": repayment.receipt_number,
+            "amount": str(repayment.amount),
+        }
     )
 
 
