@@ -98,6 +98,7 @@ class AlbaLoanConsolidation(models.Model):
         string="Consolidated Principal",
         currency_field="currency_id",
         required=True,
+        default=0,
         help="Can include top-up amount",
     )
     new_interest_rate = fields.Float(
