@@ -536,7 +536,16 @@ class AlbaLoanRepayment(models.Model):
         # Application fees are recognised at disbursement only and are not
         # collected again on repayments. Do not allocate fees during repayment.
 
-        # 3. Allocate to interest across all instalments (oldest first)
+        # 3+4. Allocate to interest then principal, per instalment, oldest
+        # first — each instalment's own interest is settled before its own
+        # principal, and the next instalment is only reached once the
+        # current one is fully covered. This must NOT be split into two
+        # separate full passes (interest across every instalment, then
+        # principal across every instalment): doing so pays off interest on
+        # every remaining instalment before any of them ever receives a
+        # principal reduction, which both fails to match standard
+        # amortization and marks every instalment as "history" the moment a
+        # single repayment exceeds the loan's total remaining interest.
         for entry in schedule:
             if remaining <= 0:
                 break
@@ -545,9 +554,6 @@ class AlbaLoanRepayment(models.Model):
                 pay_interest = min(remaining, interest_owed)
                 interest += pay_interest
                 remaining -= pay_interest
-
-        # 4. Allocate to principal across all instalments (oldest first)
-        for entry in schedule:
             if remaining <= 0:
                 break
             principal_owed = entry.principal_due - entry.principal_paid

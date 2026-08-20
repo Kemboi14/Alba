@@ -104,10 +104,12 @@ class AlbaLoanConsolidation(models.Model):
         string="New Interest Rate (% p.m.)",
         digits=(5, 2),
         required=True,
+        default=0,
     )
     new_tenure_months = fields.Integer(
         string="New Tenure (Months)",
         required=True,
+        default=0,
     )
     new_repayment_frequency = fields.Selection([
         ("weekly", "Weekly"),

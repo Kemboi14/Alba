@@ -461,6 +461,19 @@ class AlbaLoanPartialPayoff(models.Model):
             if rec.state not in ["quoted", "accepted"]:
                 raise UserError(_("Payoff must be quoted and accepted before application."))
 
+            # A single-instalment loan (e.g. Salary Advance) has no future
+            # instalment left to regenerate once this payoff's own repayment
+            # marks its one-and-only schedule line as history — regenerating
+            # a shorter-than-history schedule always fails in that case (see
+            # action_generate_schedule's future_count guard). There's no
+            # partial-payoff concept on a loan that only ever had one
+            # instalment; direct the user to full/early settlement instead.
+            if rec.loan_id.tenure_months <= 1:
+                raise UserError(_(
+                    "Partial payoff is not available on single-instalment loans "
+                    "(tenure = %d month). Use Early Settlement or a full repayment instead."
+                ) % rec.loan_id.tenure_months)
+
             # Check if quote expired
             if fields.Date.today() > rec.quote_valid_until:
                 rec.state = "expired"

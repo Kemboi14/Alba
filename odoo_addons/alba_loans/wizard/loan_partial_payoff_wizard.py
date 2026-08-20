@@ -220,7 +220,12 @@ class AlbaLoanPartialPayoffWizard(models.TransientModel):
                 rec.is_valid = False
                 rec.validation_message = "❌ Loan must be active (currently: %s)" % rec.loan_id.state
                 return
-            
+
+            if rec.loan_id.tenure_months <= 1:
+                rec.is_valid = False
+                rec.validation_message = "❌ Partial payoff is not available on single-instalment loans"
+                return
+
             if rec.payoff_amount <= 0:
                 rec.is_valid = False
                 rec.validation_message = "Payoff amount must be positive"
