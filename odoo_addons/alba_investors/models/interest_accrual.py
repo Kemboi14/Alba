@@ -694,7 +694,7 @@ class AlbaInterestAccrual(models.Model):
                     {
                         "date": fields.Date.today(),
                         "journal_id": self.move_id.journal_id.id,
-                        "ref": "REVERSAL/%s — %s" % (
+                        "ref": "REV/%s — %s" % (
                             self.move_id.name or self.investment_id.investment_number,
                             self.reversal_reason,
                         ),

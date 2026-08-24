@@ -242,7 +242,7 @@ class AlbaInterestPayout(models.Model):
             reversal = self.payment_id.move_id._reverse_moves([{
                 "date": fields.Date.today(),
                 "journal_id": self.payment_id.move_id.journal_id.id,
-                "ref": "REVERSAL/%s — %s" % (self.payment_id.name, self.reversal_reason),
+                "ref": "REV/%s — %s" % (self.payment_id.name, self.reversal_reason),
             }])
             reversal.action_post()
 
@@ -250,7 +250,7 @@ class AlbaInterestPayout(models.Model):
             wht_reversal = self.wht_move_id._reverse_moves([{
                 "date": fields.Date.today(),
                 "journal_id": self.wht_move_id.journal_id.id,
-                "ref": "REVERSAL/%s — %s" % (self.wht_move_id.name or "WHT", self.reversal_reason),
+                "ref": "REV/%s — %s" % (self.wht_move_id.name or "WHT", self.reversal_reason),
             }])
             wht_reversal.action_post()
 
