@@ -155,12 +155,13 @@ class AccrualBackfillTests(unittest.TestCase):
         self.assertEqual(res, 30000.0)  # 2 x 15,000, not 15,000 * 61/30
 
     def test_split_period_by_topups_two_topups(self):
-        # 2 top-ups: Feb 1-28. Opening 1,000,000, 36% p.a. (3% monthly).
+        # 2 top-ups: Feb 1-28 (28 days - flattens to a whole month on its
+        # own). Opening 1,000,000, 36% p.a. (3% monthly).
         # Topup 1: Feb 10 (200k), Topup 2: Feb 20 (300k).
-        # Sub1 (Feb 1-10, 10d @ 1.0M): 10,000.00
-        # Sub2 (Feb 11-20, 10d @ 1.2M): 12,000.00
-        # Sub3 (Feb 21-28, 8d @ 1.5M): 12,000.00
-        # Expected total: 34,000.00
+        # Base (whole period, flat since 28 days is within tolerance): 30,000.00
+        # Topup1: 200,000 * 3% * min(18, 28)/30 = 3,600.00
+        # Topup2: 300,000 * 3% * min(8, 28)/30 = 2,400.00
+        # Expected total: 36,000.00
         res = split_period_by_topups(
             opening_balance=1000000.0,
             annual_rate=36.0,
@@ -171,53 +172,60 @@ class AccrualBackfillTests(unittest.TestCase):
                 {"date": date(2026, 2, 20), "amount": 300000.0},
             ],
         )
-        self.assertEqual(res, 34000.0)
+        self.assertEqual(res, 36000.0)
 
-    def test_strict_prorate_disables_flat_month_tolerance(self):
-        # A 31-day cycle normally flattens to one month (see
-        # test_monthly_interest_31_day_cycle_stays_flat), but strict_prorate=True
-        # must always prorate instead, regardless of proximity to 30 days.
-        res = compute_accrual_interest(
-            opening_balance=600000.0,
-            annual_rate=30.0,
-            period_start=date(2025, 12, 29),
-            period_end=date(2026, 1, 28),
-            strict_prorate=True,
-        )
-        self.assertEqual(res, 15500.0)  # 15,000 * 31/30, not flat 15,000
-
-    def test_split_period_by_topups_fragment_near_30_days_is_not_flattened(self):
-        # Regression: a top-up landing near the start of a period leaves a
-        # trailing fragment of ~27-33 days - close enough to a flat month
-        # that compute_accrual_interest would flatten it if called without
-        # strict_prorate. split_period_by_topups must never let that happen:
-        # a fragment is never a genuine whole cycle, so it's always prorated
-        # by its actual days, even when that count lands in the tolerance
-        # window by coincidence of when the top-up occurred.
-        # Opening 553,210.80, 36% p.a. (3% monthly), period Jun29-Jul28 (30d).
-        # Topup Jul1 (200,000) leaves a 27-day trailing fragment on 753,210.80.
-        # Sub1 (Jun29-Jul1, 3d @ 553,210.80): 1,659.63
-        # Sub2 (Jul2-Jul28, 27d @ 753,210.80): 753,210.80 * 3% * 27/30 = 20,336.69
-        #   (NOT the flat 753,210.80 * 3% = 22,596.32 a 27-day fragment would
-        #   get if mistaken for a whole cycle)
-        # Expected total: 21,996.32
+    def test_split_period_by_topups_caps_topup_window_at_28_days(self):
+        # Regression, confirmed against real accountant figures for IM-0478:
+        # a top-up landing early in a 31-day period must never earn more
+        # than 28 of that period's days, even though the actual calendar
+        # gap to period_end is longer (29 days here) - every period's own
+        # natural end is the 28th, and a top-up can't exceed that.
+        # Opening 100,300.00, 36% p.a. (3% monthly), period May29-Jun28 (31d).
+        # Topup1 May30 (50,000): raw gap to period_end is 29 days, capped to 28.
+        # Topup2 Jun22 (50,000): raw gap is 6 days, well under the cap.
+        # Base (31 days, flat): 100,300 * 3% = 3,009.00
+        # Topup1: 50,000 * 3% * 28/30 = 1,400.00 (NOT 50,000 * 3% * 29/30 = 1,450.00)
+        # Topup2: 50,000 * 3% * 6/30 = 300.00
+        # Expected total: 4,709.00
         res = split_period_by_topups(
-            opening_balance=553210.80,
+            opening_balance=100300.0,
             annual_rate=36.0,
-            period_start=date(2026, 6, 29),
-            period_end=date(2026, 7, 28),
-            topups=[{"date": date(2026, 7, 1), "amount": 200000.0}],
+            period_start=date(2026, 5, 29),
+            period_end=date(2026, 6, 28),
+            topups=[
+                {"date": date(2026, 5, 30), "amount": 50000.0},
+                {"date": date(2026, 6, 22), "amount": 50000.0},
+            ],
         )
-        self.assertEqual(res, 21996.32)
+        self.assertEqual(res, 4709.0)
+
+    def test_split_period_by_topups_single_topup_under_cap_unaffected(self):
+        # Confirmed against real accountant figures for IM-0442: a single
+        # top-up whose own window is already under 28 days is completely
+        # unaffected by the cap.
+        # Opening 409,477.01, 36% p.a. (3% monthly), period May29-Jun28 (31d).
+        # Topup Jun20 (130,000): gap to period_end is 8 days, under the cap.
+        # Base (31 days, flat): 409,477.01 * 3% = 12,284.31
+        # Topup: 130,000 * 3% * 8/30 = 1,040.00
+        # Expected total: 13,324.31
+        res = split_period_by_topups(
+            opening_balance=409477.01,
+            annual_rate=36.0,
+            period_start=date(2026, 5, 29),
+            period_end=date(2026, 6, 28),
+            topups=[{"date": date(2026, 6, 20), "amount": 130000.0}],
+        )
+        self.assertEqual(res, 13324.31)
 
     def test_split_period_by_topups_three_topups(self):
-        # 3 top-ups: Feb 1-28. Opening 1,000,000, 36% p.a. (3% monthly).
+        # 3 top-ups: Feb 1-28 (28 days - flattens to a whole month on its
+        # own). Opening 1,000,000, 36% p.a. (3% monthly).
         # Topup 1: Feb 5 (100k), Topup 2: Feb 15 (200k), Topup 3: Feb 25 (300k).
-        # Sub1 (Feb 1-5, 5d @ 1.0M): 5,000.00
-        # Sub2 (Feb 6-15, 10d @ 1.1M): 11,000.00
-        # Sub3 (Feb 16-25, 10d @ 1.3M): 13,000.00
-        # Sub4 (Feb 26-28, 3d @ 1.6M): 4,800.00
-        # Expected total: 33,800.00
+        # Base (whole period, flat): 30,000.00
+        # Topup1: 100,000 * 3% * min(23, 28)/30 = 2,300.00
+        # Topup2: 200,000 * 3% * min(13, 28)/30 = 2,600.00
+        # Topup3: 300,000 * 3% * min(3, 28)/30 = 900.00
+        # Expected total: 35,800.00
         res = split_period_by_topups(
             opening_balance=1000000.0,
             annual_rate=36.0,
@@ -229,6 +237,6 @@ class AccrualBackfillTests(unittest.TestCase):
                 {"date": date(2026, 2, 25), "amount": 300000.0},
             ],
         )
-        self.assertEqual(res, 33800.0)
+        self.assertEqual(res, 35800.0)
 
 
