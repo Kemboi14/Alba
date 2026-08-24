@@ -121,32 +121,31 @@ class AccrualBackfillTests(unittest.TestCase):
 
     def test_monthly_interest_30_percent_annual_rate_on_600k(self):
         # 30% per annum on 600,000 balance = 600,000 * 30% / 12 = 15,000.00 for a
-        # full 30-day month. Feb 1-28, 2026 is only 28 days (an ordinary single
-        # cycle, not a Rule-3 combined one), so it's prorated: 15,000 * 28/30 = 14,000.00.
+        # full month. Feb 1-28, 2026 is only 28 days but is an ordinary single
+        # cycle, so it charges a flat one month's interest regardless: 15,000.00.
         res = compute_accrual_interest(
             opening_balance=600000.0,
             annual_rate=30.0,
             period_start=date(2026, 2, 1),
             period_end=date(2026, 2, 28),
         )
-        self.assertEqual(res, 14000.0)
+        self.assertEqual(res, 15000.0)
 
-    def test_monthly_interest_31_day_cycle_is_prorated_not_flat(self):
-        # An ordinary 31-day single cycle (e.g. Dec 29 - Jan 28) must earn
-        # 31/30 of a month, not be capped at a flat one month: this is the
-        # regression this fix targets (months >= 2, not months >= 1).
+    def test_monthly_interest_31_day_cycle_stays_flat(self):
+        # An ordinary 31-day single cycle (e.g. Dec 29 - Jan 28) still earns
+        # exactly one flat month's interest, not 31/30 of a month.
         res = compute_accrual_interest(
             opening_balance=600000.0,
             annual_rate=30.0,
             period_start=date(2025, 12, 29),
             period_end=date(2026, 1, 28),
         )
-        self.assertEqual(res, 15500.0)  # 15,000 * 31/30
+        self.assertEqual(res, 15000.0)  # flat one month, not 15,000 * 31/30
 
     def test_monthly_interest_genuine_two_month_combined_cycle_stays_flat(self):
         # A genuine Rule-3 deferred cycle combining two calendar months
-        # (~60 days) must still collapse to a flat 2-month rate, not prorate
-        # by actual_days/30 - that's the one case months >= 2 preserves.
+        # (~60 days) collapses to a flat 2-month rate, not prorated
+        # by actual_days/30.
         res = compute_accrual_interest(
             opening_balance=600000.0,
             annual_rate=30.0,

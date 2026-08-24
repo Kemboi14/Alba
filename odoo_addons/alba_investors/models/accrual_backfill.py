@@ -127,14 +127,14 @@ def compute_accrual_interest(opening_balance, annual_rate, period_start, period_
     Uses monthly rate formula: principal × (annual_rate/100) × days/30
 
     Every ordinary single-cycle period (28-31 days, per the 29th-to-28th
-    calendar rule) is prorated by its actual day count against the 30-day
-    baseline implied by annual_rate/12 — a 28-day cycle earns 28/30 of a
-    month, a 31-day cycle earns 31/30. Only a genuine multi-month cycle
-    (Rule 3 payment deferral combining two or more calendar months into one
-    accrual, ~58+ days) collapses to a flat N-month rate: requiring
-    months >= 2 keeps that shortcut from ever swallowing an ordinary
-    single-month cycle, which round(actual_days/30) alone cannot tell apart
-    from a combined one.
+    calendar rule) charges a flat one month's interest regardless of the
+    actual day count — a 28-day cycle and a 31-day cycle both earn exactly
+    one month at annual_rate/12. A genuine multi-month cycle (Rule 3 payment
+    deferral combining two or more calendar months into one accrual, ~58+
+    days) collapses the same way to a flat N-month rate. Only a genuine
+    partial/stub period that doesn't round to a whole month (e.g. the
+    Day-0-exclusion first period, which can be under 30 days) is prorated
+    by actual_days/30.
     """
     if not opening_balance or not annual_rate or not period_start or not period_end:
         return 0.00
@@ -145,7 +145,7 @@ def compute_accrual_interest(opening_balance, annual_rate, period_start, period_
     actual_days = (period_end - period_start).days + 1
 
     months = round(actual_days / 30.0)
-    if months >= 2 and abs(actual_days - months * 30) <= 3:
+    if months >= 1 and abs(actual_days - months * 30) <= 3:
         return round(months * full_month_interest, 2)
     else:
         return round(full_month_interest * actual_days / 30.0, 2)
