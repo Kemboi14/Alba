@@ -121,7 +121,7 @@ def split_period_for_payout_cutoff(period_start, period_end, interest_amount=Non
     return eligible_amount, deferred_amount
 
 
-def compute_accrual_interest(opening_balance, annual_rate, period_start, period_end):
+def compute_accrual_interest(opening_balance, annual_rate, period_start, period_end, strict_prorate=False):
     """
     Compute interest amount for an accrual period.
     Uses monthly rate formula: principal × (annual_rate/100) × days/30
@@ -135,6 +135,15 @@ def compute_accrual_interest(opening_balance, annual_rate, period_start, period_
     partial/stub period that doesn't round to a whole month (e.g. the
     Day-0-exclusion first period, which can be under 30 days) is prorated
     by actual_days/30.
+
+    strict_prorate=True disables the flat-month tolerance entirely, always
+    prorating by actual_days/30 regardless of how close that is to a
+    30-day multiple. split_period_by_topups() passes this for every
+    sub-period fragment it evaluates around a top-up date — a fragment is
+    never a genuine whole accrual cycle, so it must never be flattened to
+    "one full month" just because it happens to land in the 27-33 day
+    window by coincidence of when the top-up occurred; that would charge a
+    full month's interest on a balance that wasn't held for the full month.
     """
     if not opening_balance or not annual_rate or not period_start or not period_end:
         return 0.00
@@ -145,13 +154,13 @@ def compute_accrual_interest(opening_balance, annual_rate, period_start, period_
     actual_days = (period_end - period_start).days + 1
 
     months = round(actual_days / 30.0)
-    if months >= 1 and abs(actual_days - months * 30) <= 3:
+    if not strict_prorate and months >= 1 and abs(actual_days - months * 30) <= 3:
         return round(months * full_month_interest, 2)
     else:
         return round(full_month_interest * actual_days / 30.0, 2)
 
 
-def compute_annual_accrual_interest(opening_balance, annual_rate, period_start, period_end):
+def compute_annual_accrual_interest(opening_balance, annual_rate, period_start, period_end, strict_prorate=False):
     """
     Compute interest amount for an annually-compounding accrual period.
 
@@ -163,6 +172,10 @@ def compute_annual_accrual_interest(opening_balance, annual_rate, period_start, 
     days of either is treated as exactly one year, mirroring the ±3-day
     tolerance compute_accrual_interest uses to treat 28-31 day periods as
     one full month.
+
+    strict_prorate=True disables that tolerance — see compute_accrual_interest
+    for why split_period_by_topups() always passes this for sub-period
+    fragments around a top-up date.
     """
     if not opening_balance or not annual_rate or not period_start or not period_end:
         return 0.00
@@ -170,7 +183,7 @@ def compute_annual_accrual_interest(opening_balance, annual_rate, period_start, 
     full_year_interest = opening_balance * (annual_rate / 100.0)
     actual_days = (period_end - period_start).days + 1
 
-    if abs(actual_days - 365) <= 3 or abs(actual_days - 366) <= 3:
+    if not strict_prorate and (abs(actual_days - 365) <= 3 or abs(actual_days - 366) <= 3):
         return round(full_year_interest, 2)
     return round(full_year_interest * actual_days / 365.0, 2)
 
@@ -233,7 +246,11 @@ def split_period_by_topups(opening_balance, annual_rate, period_start, period_en
                      compute_annual_accrual_interest for annually-compounding
                      investments — the top-up-splitting logic itself (Day-0
                      exclusion per top-up, no intra-period compounding) is
-                     identical regardless of cadence.
+                     identical regardless of cadence. Must accept a
+                     strict_prorate keyword — every fragment call below
+                     passes strict_prorate=True so a sub-period that happens
+                     to land near a 30-day (or 365-day) boundary is never
+                     mistaken for a genuine whole cycle and flattened.
 
     Returns:
         float: Total rounded interest for the period.
@@ -260,13 +277,13 @@ def split_period_by_topups(opening_balance, annual_rate, period_start, period_en
 
     for topup_date in sorted_dates:
         sub_end = topup_date
-        sub_interest = interest_fn(current_balance, annual_rate, current_start, sub_end)
+        sub_interest = interest_fn(current_balance, annual_rate, current_start, sub_end, strict_prorate=True)
         total_interest += sub_interest
         current_balance += topups_by_date[topup_date]  # Only topup principal, no interest compounding
         current_start = topup_date + timedelta(days=1)
 
     if current_start <= period_end:
-        sub_interest = interest_fn(current_balance, annual_rate, current_start, period_end)
+        sub_interest = interest_fn(current_balance, annual_rate, current_start, period_end, strict_prorate=True)
         total_interest += sub_interest
 
     return round(total_interest, 2)

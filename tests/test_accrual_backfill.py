@@ -173,6 +173,43 @@ class AccrualBackfillTests(unittest.TestCase):
         )
         self.assertEqual(res, 34000.0)
 
+    def test_strict_prorate_disables_flat_month_tolerance(self):
+        # A 31-day cycle normally flattens to one month (see
+        # test_monthly_interest_31_day_cycle_stays_flat), but strict_prorate=True
+        # must always prorate instead, regardless of proximity to 30 days.
+        res = compute_accrual_interest(
+            opening_balance=600000.0,
+            annual_rate=30.0,
+            period_start=date(2025, 12, 29),
+            period_end=date(2026, 1, 28),
+            strict_prorate=True,
+        )
+        self.assertEqual(res, 15500.0)  # 15,000 * 31/30, not flat 15,000
+
+    def test_split_period_by_topups_fragment_near_30_days_is_not_flattened(self):
+        # Regression: a top-up landing near the start of a period leaves a
+        # trailing fragment of ~27-33 days - close enough to a flat month
+        # that compute_accrual_interest would flatten it if called without
+        # strict_prorate. split_period_by_topups must never let that happen:
+        # a fragment is never a genuine whole cycle, so it's always prorated
+        # by its actual days, even when that count lands in the tolerance
+        # window by coincidence of when the top-up occurred.
+        # Opening 553,210.80, 36% p.a. (3% monthly), period Jun29-Jul28 (30d).
+        # Topup Jul1 (200,000) leaves a 27-day trailing fragment on 753,210.80.
+        # Sub1 (Jun29-Jul1, 3d @ 553,210.80): 1,659.63
+        # Sub2 (Jul2-Jul28, 27d @ 753,210.80): 753,210.80 * 3% * 27/30 = 20,336.69
+        #   (NOT the flat 753,210.80 * 3% = 22,596.32 a 27-day fragment would
+        #   get if mistaken for a whole cycle)
+        # Expected total: 21,996.32
+        res = split_period_by_topups(
+            opening_balance=553210.80,
+            annual_rate=36.0,
+            period_start=date(2026, 6, 29),
+            period_end=date(2026, 7, 28),
+            topups=[{"date": date(2026, 7, 1), "amount": 200000.0}],
+        )
+        self.assertEqual(res, 21996.32)
+
     def test_split_period_by_topups_three_topups(self):
         # 3 top-ups: Feb 1-28. Opening 1,000,000, 36% p.a. (3% monthly).
         # Topup 1: Feb 5 (100k), Topup 2: Feb 15 (200k), Topup 3: Feb 25 (300k).
