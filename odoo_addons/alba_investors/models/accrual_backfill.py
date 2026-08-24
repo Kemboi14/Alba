@@ -121,6 +121,26 @@ def split_period_for_payout_cutoff(period_start, period_end, interest_amount=Non
     return eligible_amount, deferred_amount
 
 
+def _accrual_interest_raw(opening_balance, annual_rate, period_start, period_end):
+    """Unrounded core of compute_accrual_interest — see that function for the
+    business rule. Kept separate so split_period_by_topups() can sum the base
+    and every top-up's contribution unrounded, rounding only once at the end;
+    rounding this intermediate value first introduces up to a 0.01 drift."""
+    if not opening_balance or not annual_rate or not period_start or not period_end:
+        return 0.0
+
+    monthly_rate = annual_rate / 100.0 / 12.0  # Monthly rate (e.g., 36% p.a. -> 3% = 0.03, 30% p.a. -> 2.5% = 0.025)
+    full_month_interest = opening_balance * monthly_rate
+
+    actual_days = (period_end - period_start).days + 1
+
+    months = round(actual_days / 30.0)
+    if months >= 1 and abs(actual_days - months * 30) <= 3:
+        return months * full_month_interest
+    else:
+        return full_month_interest * actual_days / 30.0
+
+
 def compute_accrual_interest(opening_balance, annual_rate, period_start, period_end):
     """
     Compute interest amount for an accrual period.
@@ -140,19 +160,24 @@ def compute_accrual_interest(opening_balance, annual_rate, period_start, period_
     split_period_by_topups(), which no longer fragments the base balance
     at all).
     """
+    return round(_accrual_interest_raw(opening_balance, annual_rate, period_start, period_end), 2)
+
+
+compute_accrual_interest.raw = _accrual_interest_raw
+
+
+def _annual_accrual_interest_raw(opening_balance, annual_rate, period_start, period_end):
+    """Unrounded core of compute_annual_accrual_interest — see that function
+    for the business rule and why split_period_by_topups() needs this."""
     if not opening_balance or not annual_rate or not period_start or not period_end:
-        return 0.00
+        return 0.0
 
-    monthly_rate = annual_rate / 100.0 / 12.0  # Monthly rate (e.g., 36% p.a. -> 3% = 0.03, 30% p.a. -> 2.5% = 0.025)
-    full_month_interest = opening_balance * monthly_rate
-
+    full_year_interest = opening_balance * (annual_rate / 100.0)
     actual_days = (period_end - period_start).days + 1
 
-    months = round(actual_days / 30.0)
-    if months >= 1 and abs(actual_days - months * 30) <= 3:
-        return round(months * full_month_interest, 2)
-    else:
-        return round(full_month_interest * actual_days / 30.0, 2)
+    if abs(actual_days - 365) <= 3 or abs(actual_days - 366) <= 3:
+        return full_year_interest
+    return full_year_interest * actual_days / 365.0
 
 
 def compute_annual_accrual_interest(opening_balance, annual_rate, period_start, period_end):
@@ -168,15 +193,10 @@ def compute_annual_accrual_interest(opening_balance, annual_rate, period_start, 
     tolerance compute_accrual_interest uses to treat 28-31 day periods as
     one full month.
     """
-    if not opening_balance or not annual_rate or not period_start or not period_end:
-        return 0.00
+    return round(_annual_accrual_interest_raw(opening_balance, annual_rate, period_start, period_end), 2)
 
-    full_year_interest = opening_balance * (annual_rate / 100.0)
-    actual_days = (period_end - period_start).days + 1
 
-    if abs(actual_days - 365) <= 3 or abs(actual_days - 366) <= 3:
-        return round(full_year_interest, 2)
-    return round(full_year_interest * actual_days / 365.0, 2)
+compute_annual_accrual_interest.raw = _annual_accrual_interest_raw
 
 
 def get_annual_period_bounds(investment_start, cycle_index):
@@ -256,6 +276,11 @@ def split_period_by_topups(opening_balance, annual_rate, period_start, period_en
         return 0.00
 
     interest_fn = interest_fn or compute_accrual_interest
+    # Use the unrounded core for the base so it can be summed with each
+    # top-up's contribution before rounding once at the end — rounding the
+    # base first (e.g. via the public compute_accrual_interest) introduces
+    # up to a 0.01 drift relative to the confirmed figures.
+    raw_interest_fn = getattr(interest_fn, "raw", interest_fn)
 
     topups_by_date = {}
     for t in (topups or []):
@@ -264,13 +289,11 @@ def split_period_by_topups(opening_balance, annual_rate, period_start, period_en
         if t_date and period_start <= t_date <= period_end:
             topups_by_date[t_date] = topups_by_date.get(t_date, 0.0) + t_amount
 
-    base_interest = interest_fn(opening_balance, annual_rate, period_start, period_end)
-
     if not topups_by_date:
-        return base_interest
+        return interest_fn(opening_balance, annual_rate, period_start, period_end)
 
     monthly_rate = annual_rate / 100.0 / 12.0
-    total_interest = base_interest
+    total_interest = raw_interest_fn(opening_balance, annual_rate, period_start, period_end)
 
     for topup_date, topup_amount in topups_by_date.items():
         days = min((period_end - topup_date).days, 28)

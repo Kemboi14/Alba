@@ -217,6 +217,26 @@ class AccrualBackfillTests(unittest.TestCase):
         )
         self.assertEqual(res, 13324.31)
 
+    def test_split_period_by_topups_rounds_only_once_at_the_end(self):
+        # Regression: rounding the base's interest before adding a top-up's
+        # contribution can drift the total by 0.01 versus summing everything
+        # unrounded and rounding once at the very end. Confirmed against
+        # real accountant figures for IM-0302's first period.
+        # Opening 50,000, 30% p.a. (2.5% monthly), period Feb4-28 (25 days,
+        # prorated - not near a 30-day boundary). Topup Feb27 (35,000).
+        # Base (unrounded): 50,000 * 2.5% * 25/30 = 1,041.666...
+        # Topup: 35,000 * 2.5% * min(1, 28)/30 = 29.166...
+        # Unrounded total 1,070.8333... rounds to 1,070.83 - NOT 1,070.84,
+        # which is what you'd get by rounding the base to 1,041.67 first.
+        res = split_period_by_topups(
+            opening_balance=50000.0,
+            annual_rate=30.0,
+            period_start=date(2026, 2, 4),
+            period_end=date(2026, 2, 28),
+            topups=[{"date": date(2026, 2, 27), "amount": 35000.0}],
+        )
+        self.assertEqual(res, 1070.83)
+
     def test_split_period_by_topups_three_topups(self):
         # 3 top-ups: Feb 1-28 (28 days - flattens to a whole month on its
         # own). Opening 1,000,000, 36% p.a. (3% monthly).
