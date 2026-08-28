@@ -59,10 +59,18 @@
                                domain="[('investment_id', '=', investment_id), ('state', '=', 'posted')]"/>
                     </group>
 
-                    <!-- Selected accrual detail table -->
+                    <!-- Pay Oldest N Months: month count (only for 'oldest_n' mode) -->
+                    <group string="Pay Oldest N Months"
+                           invisible="payout_mode != 'oldest_n'">
+                        <field name="period_months"
+                               string="Number of Months"
+                               help="e.g. 2 for bi-monthly, 3 for quarterly, 6 for semi-annual"/>
+                    </group>
+
+                    <!-- Selected accrual detail table (auto-filled for 'oldest_n', manual for 'select') -->
                     <field name="selected_accrual_ids"
                            mode="list"
-                           invisible="payout_mode != 'select'"
+                           invisible="payout_mode not in ('select', 'oldest_n')"
                            nolabel="1"
                            string="Accruals to Pay in Full">
                         <list string="Accruals to Pay">

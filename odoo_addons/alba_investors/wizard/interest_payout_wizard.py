@@ -26,6 +26,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         selection=[
             ("all", "Pay All Outstanding Accruals"),
             ("select", "Select Specific Months"),
+            ("oldest_n", "Pay Oldest N Months"),
             ("partial", "Custom Partial Amount"),
         ],
         string="Payout Mode",
@@ -33,7 +34,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         required=True,
     )
 
-    # ── Accrual Selection (for 'select' mode) ─────────────────────────────────
+    # ── Accrual Selection (for 'select' and 'oldest_n' modes) ──────────────────
     selected_accrual_ids = fields.Many2many(
         "alba.interest.accrual",
         "alba_interest_payout_wizard_accrual_rel",
@@ -42,6 +43,14 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         string="Accruals to Pay",
         domain="[('investment_id', '=', investment_id), ('state', '=', 'posted')]",
         help="Select one or more monthly accruals to pay in full.",
+    )
+
+    # ── Month Count (for 'oldest_n' mode) ───────────────────────────────────────
+    period_months = fields.Integer(
+        string="Number of Months",
+        default=2,
+        help="Pay the N oldest outstanding accrual months in full — e.g. 2 for "
+             "bi-monthly, 3 for quarterly, 6 for semi-annual payout schedules.",
     )
 
     # ── Custom Amount (for 'partial' mode) ────────────────────────────────────
@@ -116,7 +125,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                 gross = sum(
                     (self._get_accrual_cutoff_breakdown(accrual)[0] for accrual in posted_accruals)
                 )
-            elif wiz.payout_mode == "select":
+            elif wiz.payout_mode in ("select", "oldest_n"):
                 gross = sum(
                     self._get_accrual_cutoff_breakdown(accrual)[0]
                     for accrual in wiz.selected_accrual_ids.filtered(lambda a: a.state == "posted")
@@ -134,13 +143,19 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             wiz.wht_amount = wht
             wiz.net_interest_payable = gross - wht
 
-    @api.onchange("payout_mode", "investment_id")
+    @api.onchange("payout_mode", "investment_id", "period_months")
     def _onchange_payout_mode(self):
         if self.payout_mode == "select":
             posted = self.investment_id.accrual_ids.filtered(
                 lambda a: a.state == "posted"
             )
             self.selected_accrual_ids = [(6, 0, posted.ids)]
+        elif self.payout_mode == "oldest_n":
+            posted = self.investment_id.accrual_ids.filtered(
+                lambda a: a.state == "posted"
+            ).sorted("period_start")
+            n = max(self.period_months or 0, 0)
+            self.selected_accrual_ids = [(6, 0, posted[:n].ids)]
         else:
             self.selected_accrual_ids = False
 
@@ -244,6 +259,12 @@ class AlbaInterestPayoutWizard(models.TransientModel):
             (investment.id,),
         )
 
+        # ── Validate month count (Pay Oldest N Months mode) ────────────────────
+        if self.payout_mode == "oldest_n" and (self.period_months or 0) <= 0:
+            raise UserError(_(
+                "Please enter a number of months greater than zero."
+            ))
+
         # ── Validate gross amount ──────────────────────────────────────────────
         if self.gross_interest <= 0:
             raise UserError(_(
@@ -268,7 +289,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         # month while earlier ones are deliberately left unpaid would still
         # cascade-delete everything after it, which is surprising rather
         # than silently doing the "right" thing.
-        if self.payout_mode == "select" and self.selected_accrual_ids:
+        if self.payout_mode in ("select", "oldest_n") and self.selected_accrual_ids:
             selected = self.selected_accrual_ids.filtered(lambda a: a.state == "posted")
             if selected:
                 earliest_selected_start = min(selected.mapped("period_start"))
@@ -375,7 +396,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         accrued_candidates = self.env["alba.interest.accrual"]
         if self.payout_mode == "all":
             accrued_candidates = investment.accrual_ids.filtered(lambda a: a.state == "posted")
-        elif self.payout_mode == "select":
+        elif self.payout_mode in ("select", "oldest_n"):
             accrued_candidates = self.selected_accrual_ids.filtered(lambda a: a.state == "posted")
         else:  # partial/custom payout
             accrued_candidates = investment.accrual_ids.filtered(lambda a: a.state == "posted")
@@ -385,7 +406,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
         # and potentially produce a different result if any rounding occurred).
         breakdown_cache = {}  # accrual.id -> (payable_now, deferred_amount)
 
-        if self.payout_mode in ("all", "select"):
+        if self.payout_mode in ("all", "select", "oldest_n"):
             for accrual in accrued_candidates:
                 payable_now, deferred_amount = self._get_accrual_cutoff_breakdown(accrual)
                 breakdown_cache[accrual.id] = (payable_now, deferred_amount)
@@ -552,7 +573,7 @@ class AlbaInterestPayoutWizard(models.TransientModel):
                         stale_posted.unlink()
 
             else:
-                # all / select mode — confirmed working, byte-for-byte unchanged.
+                # all / select / oldest_n mode — confirmed working, byte-for-byte unchanged.
                 paid_in_this_payout = payout_accruals.filtered(lambda a: a.state == "paid")
                 if paid_in_this_payout:
                     first_paid_period_start = min(paid_in_this_payout.mapped("period_start"))

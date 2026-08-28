@@ -550,7 +550,11 @@ class AlbaInvestment(models.Model):
     @api.depends("withdrawal_notice_date", "investment_product_id.early_withdrawal_notice_days")
     def _compute_earliest_withdrawal_date(self):
         for rec in self:
-            notice_days = rec.investment_product_id.early_withdrawal_notice_days or 60
+            notice_days = rec.investment_product_id.early_withdrawal_notice_days
+            if not notice_days:
+                notice_days = self.env["alba.investment.product"].default_get(
+                    ["early_withdrawal_notice_days"]
+                ).get("early_withdrawal_notice_days", 0)
             rec.earliest_withdrawal_date = (
                 rec.withdrawal_notice_date + timedelta(days=notice_days)
                 if rec.withdrawal_notice_date
