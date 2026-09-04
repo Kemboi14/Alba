@@ -102,6 +102,24 @@ class srAccountPaymentRegister(models.TransientModel):
             return result
 
     # V19 code
+    # When the wizard is NOT in "edit mode" (i.e. multiple invoices are paid in the
+    # same run without "Group Payments"), Odoo core builds each payment after the
+    # first one through _create_payment_vals_from_batch instead of
+    # _create_payment_vals_from_wizard. That method was not overridden here, so
+    # those payments never received the manual currency fields and silently fell
+    # back to the standard currency table (recording the foreign amount 1:1 in
+    # company currency). Carry the same wizard-level manual currency vals onto
+    # every payment created this way.
+    def _create_payment_vals_from_batch(self, batch_result):
+        payment_vals = super()._create_payment_vals_from_batch(batch_result)
+        payment_vals.update({
+            'apply_manual_currency_exchange': self.apply_manual_currency_exchange,
+            'manual_currency_exchange_rate': self.manual_currency_exchange_rate,
+            'active_manual_currency_rate': self.active_manual_currency_rate,
+        })
+        return payment_vals
+
+    # V19 code
     def _create_payment_vals_from_wizard(self, batch_result):
         payment_vals = {
             'date': self.payment_date,
