@@ -17,7 +17,7 @@ class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
 
     apply_manual_currency_exchange = fields.Boolean(string='Apply Manual Currency Exchange')
-    manual_currency_exchange_rate = fields.Float(string='Manual Currency Exchange Rate')
+    manual_currency_exchange_rate = fields.Float(string='Manual Currency Exchange Rate', digits=(12, 6))
     active_manual_currency_rate = fields.Boolean('active Manual Currency', default=False)
 
     # V19  Code

@@ -16,6 +16,7 @@
                         invisible="active_manual_currency_rate == False"
                         readonly="state in ['sale', 'done']" />
                     <field name="manual_currency_exchange_rate"
+                        digits="[12,6]"
                         invisible="apply_manual_currency_exchange == False or active_manual_currency_rate == False"
                         required="apply_manual_currency_exchange == True"
                         readonly="state in ['sale', 'done']" />

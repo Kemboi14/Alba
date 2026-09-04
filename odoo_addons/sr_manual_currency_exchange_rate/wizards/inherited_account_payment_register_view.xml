@@ -9,7 +9,7 @@
                 <field name="journal_id" position="after">
                     <field name="active_manual_currency_rate" invisible="1"/>
                     <field name="apply_manual_currency_exchange" invisible="active_manual_currency_rate == False" />
-                    <field name="manual_currency_exchange_rate" invisible="apply_manual_currency_exchange == False or active_manual_currency_rate == False" required="apply_manual_currency_exchange == True" />
+                    <field name="manual_currency_exchange_rate" digits="[12,6]" invisible="apply_manual_currency_exchange == False or active_manual_currency_rate == False" required="apply_manual_currency_exchange == True" />
                 </field>
             </field>
         </record>
