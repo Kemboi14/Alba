@@ -64,13 +64,36 @@ class AccountPayment(models.Model):
 
         for payment in self:
 
+            destination_currency = payment.destination_journal_id.currency_id or payment.destination_journal_id.company_id.currency_id
+            if destination_currency == payment.currency_id:
+                # Same currency on both journals: no conversion needed.
+                paired_amount = payment.amount
+            else:
+                # Cross-currency transfer: reuse the amount actually booked in company
+                # currency (which already reflects any manual exchange rate applied on
+                # this payment) instead of copying the raw source-currency amount as-is.
+                company_currency = payment.company_id.currency_id
+                liquidity_line = payment.move_id.line_ids.filtered(
+                    lambda l: l.account_id == payment.outstanding_account_id
+                )
+                amount_company_currency = abs(sum(liquidity_line.mapped('balance')))
+                if destination_currency == company_currency:
+                    paired_amount = amount_company_currency
+                else:
+                    paired_amount = company_currency._convert(
+                        amount_company_currency,
+                        destination_currency,
+                        payment.company_id,
+                        payment.date,
+                    )
+
             paired_payment = self.env['account.payment'].create({
                 'journal_id': payment.destination_journal_id.id,
                 'destination_journal_id': payment.journal_id.id,
                 'payment_type': payment.payment_type == 'outbound' and 'inbound' or 'outbound',
                 'move_id': None,
                 'memo': payment.memo,
-                'amount': payment.amount,
+                'amount': paired_amount,
                 'paired_internal_transfer_payment_id': payment.id,
                 'is_internal_transfer': True,
                 'date': payment.date,
