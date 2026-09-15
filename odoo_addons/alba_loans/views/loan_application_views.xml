@@ -319,7 +319,7 @@
                     <field name="loan_product_id"/>
                     <field name="customer_id"/>
                 </group>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="Relationship Officer" name="group_officer" context="{'group_by': 'relationship_officer_id'}"/>
                     <filter string="Loan Product" name="group_product" context="{'group_by': 'loan_product_id'}"/>
                     <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
