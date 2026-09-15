@@ -6,6 +6,18 @@ class ResPartner(models.Model):
 
     # ── Identity ──────────────────────────────────────────────────────────────
     id_number = fields.Char(string="ID / Passport Number", index=True)
+    alba_customer_number = fields.Char(
+        string="Alba Capital Customer Number",
+        copy=False,
+        index=True,
+        readonly=True,
+        help=(
+            "Unique bank-style Alba Capital customer identifier, shared across "
+            "all products (loans, investments, ...) held by this person. "
+            "Assigned once, the first time this partner becomes an Alba "
+            "customer or investor."
+        ),
+    )
     id_type = fields.Selection(
         selection=[
             ("national_id", "National ID"),
@@ -81,3 +93,60 @@ class ResPartner(models.Model):
         # IMPORT-EXPORT FIX: no-op inverse — these flags are derived from linked records;
         # importing a True/False value does not create/remove the linked record.
         pass
+
+    # ── SQL Constraints ───────────────────────────────────────────────────────
+    _alba_customer_number_unique = models.Constraint(
+        "UNIQUE(alba_customer_number)",
+        "This Alba Capital Customer Number is already assigned to another partner.",
+    )
+
+    # ── Alba Capital Customer Number ──────────────────────────────────────────
+    @staticmethod
+    def _luhn_check_digit(body):
+        """
+        Compute the Luhn (mod-10) check digit for a numeric string, the same
+        checksum algorithm used to validate bank card/account numbers. This
+        lets staff catch a transcription error when the customer number is
+        typed into a physical file label or re-keyed manually.
+        """
+        digits = [int(ch) for ch in body]
+        # Double every second digit counting from the rightmost digit of `body`.
+        for i in range(len(digits) - 1, -1, -2):
+            doubled = digits[i] * 2
+            digits[i] = doubled - 9 if doubled > 9 else doubled
+        total = sum(digits)
+        return str((10 - (total % 10)) % 10)
+
+    def _assign_alba_customer_number(self, origin_code):
+        """
+        Assign this partner's Alba Capital Customer Number if it doesn't have
+        one yet. Safe to call from both `alba.customer` and `alba.investor`
+        `create()` — whichever model reaches a shared partner first wins;
+        the other reuses the existing number instead of minting a second one.
+
+        Format (11 digits, no punctuation):
+            [2-digit branch code][1-digit origin code][7-digit sequence][1 Luhn check digit]
+
+        `origin_code` is "1" for a loan customer, "2" for an investor — it
+        just records which product line first created this identity and
+        never changes afterwards.
+        """
+        self.ensure_one()
+        if self.alba_customer_number:
+            return self.alba_customer_number
+
+        branch_code = (
+            self.env["ir.config_parameter"].sudo().get_param("alba_loans.branch_code", "01")
+        )
+        branch_code = str(branch_code).zfill(2)[:2]
+        sequence = self.env["ir.sequence"].next_by_code("alba.customer.number.seq")
+        if not sequence:
+            raise ValueError(
+                "Sequence 'alba.customer.number.seq' is not configured — "
+                "cannot assign an Alba Capital Customer Number."
+            )
+        body = "%s%s%s" % (branch_code, origin_code, sequence.zfill(7))
+        check_digit = self._luhn_check_digit(body)
+        number = body + check_digit
+        self.alba_customer_number = number
+        return number

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- ================================================================
+             Alba Capital Customer Number — shared sequence
+             ================================================================
+             Used by both alba.customer and alba.investor (via
+             res.partner._assign_alba_customer_number) so the same counter
+             issues the 7-digit body regardless of which product line a
+             partner joins under first. No prefix/suffix: the branch code,
+             origin digit and check digit are assembled in code, not by the
+             sequence itself. -->
+        <record id="seq_alba_customer_number" model="ir.sequence">
+            <field name="name">Alba Capital Customer Number</field>
+            <field name="code">alba.customer.number.seq</field>
+            <field name="prefix"></field>
+            <field name="suffix"></field>
+            <field name="padding">7</field>
+            <field name="number_increment">1</field>
+            <field name="number_next">1</field>
+            <field name="use_date_range">False</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+    </data>
+</odoo>

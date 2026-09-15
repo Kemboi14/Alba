@@ -615,6 +615,7 @@ class AlbaLoanConsolidation(models.Model):
                 "state": "approved",
                 "approved_date": fields.Datetime.now(),
                 "approved_by": self.env.uid,
+                "relationship_officer_id": rec.loan_ids[0].relationship_officer_id.id,
             })
 
             rec.write({"new_loan_application_id": application.id})

@@ -129,6 +129,15 @@
                                        widget="statinfo"
                                        string="Active Loans"/>
                             </button>
+                            <button name="action_view_investments"
+                                    type="object"
+                                    class="oe_stat_button"
+                                    icon="fa-line-chart"
+                                    invisible="investment_count == 0">
+                                <field name="investment_count"
+                                       widget="statinfo"
+                                       string="Investments"/>
+                            </button>
                             <button name="action_view_loans"
                                     type="object"
                                     class="oe_stat_button"
@@ -167,6 +176,7 @@
 
                         <group>
                             <group>
+                                <field name="customer_number" readonly="1"/>
                                 <field name="id_type"/>
                                 <field name="id_number" required="1"/>
                                 <field name="date_of_birth"/>
@@ -354,6 +364,7 @@
                       decoration-danger="blacklisted == True"
                       decoration-muted="active == False">
                     <field name="partner_id" string="Name"/>
+                    <field name="customer_number" optional="show"/>
                     <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}" optional="show"/>
                     <field name="id_type" optional="hide"/>
                     <field name="id_number"/>

@@ -132,7 +132,11 @@ class AccountStatementReportMixin(models.AbstractModel):
     @api.model
     def _desc_payout(self, payout, investment):
         """
-        Clear description for an interest payout — shows which accrual periods are covered.
+        Clear description for an interest payout — shows which accrual periods
+        are covered, plus the actual narration Alba wrote on the payment
+        (the payout's editable `memo`, freely settable by whoever processed
+        the payout) so the statement reflects what the investor was actually
+        told, not just a generated summary.
         """
         ref = payout.name or ""
         inv_num = getattr(investment, "investment_number", "") or ""
@@ -143,17 +147,31 @@ class AccountStatementReportMixin(models.AbstractModel):
                 self._format_stmt_date(linked_accruals[0].period_start),
                 self._format_stmt_date(linked_accruals[-1].period_end),
             )
-            return "Interest Payout — %s / Inv. %s (Covers: %s)" % (ref, inv_num, accrual_range)
-        return "Interest Payout — %s / Inv. %s" % (ref, inv_num)
+            description = "Interest Payout — %s / Inv. %s (Covers: %s)" % (ref, inv_num, accrual_range)
+        else:
+            description = "Interest Payout — %s / Inv. %s" % (ref, inv_num)
+        memo = (getattr(payout, "memo", None) or getattr(payout, "payment_memo", None) or "").strip()
+        if memo:
+            description = "%s — %s" % (description, memo)
+        return description
 
     @api.model
     def _desc_withdrawal(self, investment):
-        """Clear description for a principal withdrawal / investment payoff."""
+        """
+        Clear description for a principal withdrawal / investment payoff,
+        plus the actual narration Alba wrote on the withdrawal payment (its
+        editable memo) so the statement reflects what was actually told to
+        the investor when they were paid.
+        """
         inv_num = getattr(investment, "investment_number", "") or ""
         pay_ref = ""
         if getattr(investment, "withdrawal_payment_id", None) and investment.withdrawal_payment_id.name:
             pay_ref = " / Payment: %s" % investment.withdrawal_payment_id.name
-        return "Investment Withdrawal — Inv. %s (Principal + Outstanding Interest Payoff%s)" % (inv_num, pay_ref)
+        description = "Investment Withdrawal — Inv. %s (Principal + Outstanding Interest Payoff%s)" % (inv_num, pay_ref)
+        memo = (getattr(investment, "withdrawal_payment_memo", None) or "").strip()
+        if memo:
+            description = "%s — %s" % (description, memo)
+        return description
 
     # =========================================================================
     # Core event collector

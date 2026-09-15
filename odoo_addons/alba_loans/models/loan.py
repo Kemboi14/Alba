@@ -86,6 +86,18 @@ class AlbaLoan(models.Model):
         string="Employer",
         ondelete="restrict",
     )
+    relationship_officer_id = fields.Many2one(
+        "hr.employee",
+        string="Relationship Officer",
+        tracking=True,
+        index=True,
+        help=(
+            "Relationship Officer responsible for this loan's portfolio. "
+            "Copied from the application's Relationship Officer when the loan "
+            "is created, but editable afterwards (e.g. on portfolio handover) — "
+            "independent of the (now closed) application record."
+        ),
+    )
 
     # ── Loan Terms ────────────────────────────────────────────────────────────
     principal_amount = fields.Monetary(
@@ -1091,6 +1103,15 @@ class AlbaLoan(models.Model):
         for vals in vals_list:
             if not vals.get("loan_number") or vals["loan_number"] == "New":
                 vals["loan_number"] = seq.next_by_code("alba.loan.seq") or "New"
+            # Default the Relationship Officer from the source application —
+            # covers disbursement, refinance and consolidation, which all
+            # create a new alba.loan from an alba.loan.application. A plain
+            # copy (not a related field) so it can be reassigned later
+            # (portfolio handover) independently of the application.
+            if not vals.get("relationship_officer_id") and vals.get("application_id"):
+                application = self.env["alba.loan.application"].browse(vals["application_id"])
+                if application.relationship_officer_id:
+                    vals["relationship_officer_id"] = application.relationship_officer_id.id
         return super().create(vals_list)
 
     def _recompute_schedule_paid_amounts(self):

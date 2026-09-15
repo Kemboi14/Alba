@@ -767,6 +767,7 @@ class AlbaLoanRefinance(models.Model):
                 "state": "approved",
                 "approved_date": fields.Datetime.now(),
                 "approved_by": self.env.uid,
+                "relationship_officer_id": rec.original_loan_id.relationship_officer_id.id,
             })
 
             rec.write({

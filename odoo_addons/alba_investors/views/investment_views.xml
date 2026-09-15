@@ -369,6 +369,7 @@
                 <field name="investment_number"/>
                 <field name="investor_id"/>
                 <field name="investment_product_id"/>
+                <field name="relationship_officer_id"/>
                 <separator/>
                 <filter string="Draft"     name="draft"     domain="[('state','=','draft')]"/>
                 <filter string="Active"    name="active"    domain="[('state','=','active')]"/>
@@ -382,6 +383,7 @@
                         domain="[('maturity_date','&gt;=', (context_today()).strftime('%Y-%m-01')), ('maturity_date','&lt;=', (context_today() + relativedelta(day=31)).strftime('%Y-%m-%d'))]"/>
                 <group>
                     <filter string="Investor" name="group_investor" context="{'group_by': 'investor_id'}"/>
+                    <filter string="Relationship Officer" name="group_officer" context="{'group_by': 'relationship_officer_id'}"/>
                     <filter string="Product" name="group_product" context="{'group_by': 'investment_product_id'}"/>
                     <filter string="Type" name="group_type" context="{'group_by': 'investment_type'}"/>
                     <filter string="Status" name="group_status" context="{'group_by': 'state'}"/>

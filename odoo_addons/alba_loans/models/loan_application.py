@@ -880,6 +880,11 @@ class AlbaLoanApplication(models.Model):
                 if rec.guarantor_count < min_g:
                     raise UserError(_("This product requires at least %d guarantor(s). Current count: %d") % (min_g, rec.guarantor_count))
 
+            # Enforce Relationship Officer assignment before approval, so new
+            # business never goes out unassigned to a portfolio owner.
+            if not rec.relationship_officer_id and not admin_override:
+                raise UserError(_("Please assign a Relationship Officer before approving this application."))
+
             if not rec.approved_amount:
                 rec.approved_amount = rec.requested_amount
             rec.write(

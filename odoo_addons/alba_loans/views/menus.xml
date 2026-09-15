@@ -162,6 +162,15 @@
             groups="alba_loans.group_loan_officer"
         />
 
+    <menuitem
+            id="menu_alba_report_portfolio_by_officer"
+            name="Portfolio by Relationship Officer"
+            parent="menu_alba_reports_root"
+            action="action_alba_loan_portfolio_by_officer"
+            sequence="30"
+            groups="alba_loans.group_loan_officer"
+        />
+
     <!-- ================================================================
          Reports
          ================================================================ -->

@@ -108,7 +108,8 @@
                             <field name="approved_amount" readonly="state not in ('pending_approval','approved','employer_verification','guarantor_confirmation')" groups="alba_loans.group_loan_manager"/>
                             <field name="net_disbursement_amount" widget="monetary" string="Net Payout" class="oe_subtotal_footer_separator"/>
                             <field name="repayment_frequency" readonly="state != 'draft'"/>
-                            <field name="relationship_officer_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                            <field name="relationship_officer_id" options="{'no_create': True}"
+                                   readonly="state in ('approved','employer_verification','guarantor_confirmation','disbursed','declined','rejected','cancelled')"/>
                         </group>
                     </group>
 
@@ -303,18 +304,25 @@
                 <field name="application_number"/>
                 <field name="customer_id"/>
                 <field name="loan_product_id"/>
+                <field name="relationship_officer_id"/>
                 <filter string="In Progress" name="in_progress" domain="[('state','not in',['disbursed','rejected','cancelled'])]"/>
                 <filter string="Pending Approval" name="pending_approval" domain="[('state','=','pending_approval')]"/>
                 <filter string="Deferred" name="deferred" domain="[('state','=','deferred')]"/>
                 <filter string="Declined" name="declined" domain="[('state','=','declined')]"/>
                 <separator/>
                 <filter string="Large Loans (> 1M)" name="high_value" domain="[('requested_amount','>',1000000)]"/>
+                <filter string="Unassigned (No Relationship Officer)" name="unassigned_officer" domain="[('relationship_officer_id','=',False)]"/>
                 <separator/>
                 <group>
                     <field name="state"/>
                     <field name="status_reason_id"/>
                     <field name="loan_product_id"/>
                     <field name="customer_id"/>
+                </group>
+                <group expand="0" string="Group By">
+                    <filter string="Relationship Officer" name="group_officer" context="{'group_by': 'relationship_officer_id'}"/>
+                    <filter string="Loan Product" name="group_product" context="{'group_by': 'loan_product_id'}"/>
+                    <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
                 </group>
             </search>
         </field>

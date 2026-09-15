@@ -69,6 +69,7 @@
                         <group string="Payment Parameters">
                             <field name="journal_id" options="{'no_create': True}"/>
                             <field name="payment_date"/>
+                            <field name="memo" placeholder="Enter a memo or narration for this withdrawal…"/>
                             <field name="earliest_withdrawal_date" readonly="1"
                                    invisible="not earliest_withdrawal_date"/>
                             <field name="days_to_withdrawal" readonly="1"

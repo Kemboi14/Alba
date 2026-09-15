@@ -27,6 +27,14 @@ class InvestmentWithdrawWizard(models.TransientModel):
         required=True,
         default=fields.Date.context_today,
     )
+    memo = fields.Char(
+        string="Payment Memo",
+        help=(
+            "Editable memo that will be stored on the payment and shown on "
+            "the investor statement as this withdrawal's narration. Leave "
+            "blank to use the default narration."
+        ),
+    )
     earliest_withdrawal_date = fields.Date(related="investment_id.earliest_withdrawal_date")
     days_to_withdrawal = fields.Integer(related="investment_id.days_to_withdrawal")
 
@@ -209,6 +217,10 @@ class InvestmentWithdrawWizard(models.TransientModel):
                 accrual.action_reverse()
 
         # ── Create the outbound payment (principal + top-ups + net interest) ──
+        default_memo = "Withdrawal - %s%s" % (
+            safe_investment_reference(investment),
+            _(" (Premature)") if self.is_premature else "",
+        )
         payment_vals = {
             "date": self.payment_date,
             "amount": self.amount,
@@ -217,10 +229,7 @@ class InvestmentWithdrawWizard(models.TransientModel):
             "partner_id": investment.investor_id.partner_id.id,
             "journal_id": self.journal_id.id,
             "currency_id": self.currency_id.id,
-            "memo": "Withdrawal - %s%s" % (
-                safe_investment_reference(investment),
-                _(" (Premature)") if self.is_premature else "",
-            ),
+            "memo": self.memo or default_memo,
             "destination_account_id": investment.account_investment_liability_id.id,
         }
         payment = self.env["account.payment"].create(payment_vals)

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Loans",
-    "version": "19.0.1.8.9",
+    "version": "19.0.1.9.0",
     "category": "Finance",
     "summary": "Core loan management: products, applications, disbursements, repayments, M-Pesa integration and accounting automation",
     "description": """
@@ -62,6 +62,7 @@ Accounting
         "security/security_groups.xml",
         # ── Master data / sequences ──────────────────────────────────────────
         "data/sequence_data.xml",
+        "data/customer_number_sequence.xml",
         "data/loan_modification_sequences.xml",
         "data/fee_product_data.xml",
         "data/loan_product_data.xml",

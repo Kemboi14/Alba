@@ -33,6 +33,13 @@ class AlbaInvestorPro(models.Model):
         index=True,
         default=lambda self: _("New"),
     )
+    customer_number = fields.Char(
+        related="partner_id.alba_customer_number",
+        store=True,
+        readonly=True,
+        string="Alba Customer Number",
+        help="Unique bank-style Alba Capital customer identifier, shared with this person's loan customer record (if any).",
+    )
 
     # ── Django sync ───────────────────────────────────────────────────────────
     django_investor_id = fields.Integer(
@@ -600,6 +607,38 @@ class AlbaInvestorPro(models.Model):
             "context": {"default_investor_id": self.id},
         }
 
+    # ── Customer 360 — cross-link to this partner's loan customer record ────
+    loan_count = fields.Integer(
+        string="Loan Count",
+        compute="_compute_loan_count",
+    )
+
+    def _compute_loan_count(self):
+        # Investor Officers may not hold any alba_loans security group — degrade
+        # to 0 rather than blow up the investor form if they lack read access
+        # to alba.loan.
+        Loan = self.env["alba.loan"].sudo()
+        for rec in self:
+            rec.loan_count = 0
+            if rec.partner_id:
+                try:
+                    rec.loan_count = Loan.search_count(
+                        [("customer_id.partner_id", "=", rec.partner_id.id)]
+                    )
+                except Exception:
+                    rec.loan_count = 0
+
+    def action_view_loans(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Loans — %s") % self.investor_name,
+            "res_model": "alba.loan",
+            "view_mode": "list,form",
+            "domain": [("customer_id.partner_id", "=", self.partner_id.id)],
+            "context": {},
+        }
+
     # =========================================================================
     # ORM overrides
     # =========================================================================
@@ -612,7 +651,11 @@ class AlbaInvestorPro(models.Model):
                 vals["investor_number"] = seq.next_by_code("alba.investor.seq") or _(
                     "New"
                 )
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        for record in records:
+            if record.partner_id:
+                record.partner_id._assign_alba_customer_number("2")
+        return records
 
     def _get_default_list_export_fields(self):
         fields = super()._get_default_list_export_fields()

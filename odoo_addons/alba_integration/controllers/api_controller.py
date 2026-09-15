@@ -801,6 +801,7 @@ class AlbaApiController(http.Controller):
             response_data = {
                 "odoo_customer_id": customer.id,
                 "odoo_partner_id": partner.id,
+                "customer_number": customer.customer_number or "",
                 "status": operation_status,
             }
             _log_inbound_sync(

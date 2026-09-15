@@ -43,6 +43,13 @@ class AlbaCustomer(models.Model):
     image_1920 = fields.Image(related="partner_id.image_1920", string="Image", readonly=False)
     avatar_128 = fields.Image(related="partner_id.avatar_128", string="Avatar", readonly=False)
     id_number = fields.Char(related="partner_id.id_number", store=True, readonly=False, required=True)
+    customer_number = fields.Char(
+        related="partner_id.alba_customer_number",
+        store=True,
+        readonly=True,
+        string="Alba Customer Number",
+        help="Unique bank-style Alba Capital customer identifier, shared with this person's investor record (if any).",
+    )
     id_type = fields.Selection(related="partner_id.id_type", store=True, readonly=False)
     phone = fields.Char(related="partner_id.phone", store=True, readonly=False)
     email = fields.Char(related="partner_id.email", store=True, readonly=False)
@@ -613,6 +620,45 @@ class AlbaCustomer(models.Model):
             "context": {"default_customer_id": self.id},
         }
 
+    # ── Customer 360 — cross-link to this partner's investor record ─────────
+    investment_count = fields.Integer(
+        string="Investment Count",
+        compute="_compute_investment_count",
+    )
+
+    def _compute_investment_count(self):
+        # alba_investors is an optional downstream module — alba_loans must
+        # keep working standalone if it isn't installed, so guard the same
+        # way res_partner.py's _compute_alba_links does. Loan Officers may
+        # also not hold any alba_investors security group — degrade to 0
+        # rather than blow up the customer form if they lack read access.
+        registry = self.env.registry
+        has_investor_model = "alba.investor" in registry.models
+        for rec in self:
+            rec.investment_count = 0
+            if rec.partner_id and has_investor_model:
+                try:
+                    investors = self.env["alba.investor"].sudo().search(
+                        [("partner_id", "=", rec.partner_id.id)]
+                    )
+                    rec.investment_count = len(investors.investment_ids)
+                except Exception:
+                    rec.investment_count = 0
+
+    def action_view_investments(self):
+        self.ensure_one()
+        if "alba.investor" not in self.env.registry.models:
+            raise UserError(_("The Investors module is not installed."))
+        investors = self.env["alba.investor"].search([("partner_id", "=", self.partner_id.id)])
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Investments — %s") % self.display_name,
+            "res_model": "alba.investment",
+            "view_mode": "list,form",
+            "domain": [("investor_id", "in", investors.ids)],
+            "context": {},
+        }
+
     # =========================================================================
     # ORM overrides
     # =========================================================================
@@ -624,6 +670,9 @@ class AlbaCustomer(models.Model):
             if vals.get("partner_id"):
                 pass  # partner already supplied
         records = super().create(vals_list)
+        for record in records:
+            if record.partner_id:
+                record.partner_id._assign_alba_customer_number("1")
         return records
 
     @api.model

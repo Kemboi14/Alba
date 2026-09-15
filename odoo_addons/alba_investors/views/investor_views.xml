@@ -142,6 +142,15 @@
                                 <span class="o_stat_text">Statement</span>
                             </div>
                         </button>
+                        <button name="action_view_loans"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-money"
+                                invisible="loan_count == 0">
+                            <field name="loan_count"
+                                   widget="statinfo"
+                                   string="Loans"/>
+                        </button>
                     </div>
 
                     <widget name="web_ribbon" title="Blacklisted" bg_color="bg-danger" invisible="state != 'blacklisted'"/>
@@ -163,6 +172,7 @@
                                 </h1>
                                 <div class="o_row">
                                     <field name="investor_number" readonly="1" class="text-muted"/>
+                                    <field name="customer_number" readonly="1" class="text-muted"/>
                                     <field name="is_high_value" invisible="1"/>
                                     <span class="badge text-bg-warning rounded-pill" invisible="not is_high_value">
                                         <i class="fa fa-star"/> High Value
@@ -315,6 +325,7 @@
                   decoration-warning="state == 'suspended'"
                   decoration-muted="active == False">
                 <field name="investor_number"/>
+                <field name="customer_number" optional="show"/>
                 <field name="investor_name" string="Name"/>
                 <field name="id_number" optional="show"/>
                 <field name="date_of_birth" optional="hide"/>
@@ -428,6 +439,7 @@
             <search>
                 <field name="partner_id"/>
                 <field name="investor_number"/>
+                <field name="customer_number"/>
                 <field name="id_number"/>
                 <separator/>
                 <filter string="KYC Pending"  name="kyc_pending"  domain="[('kyc_status','=','pending')]"/>

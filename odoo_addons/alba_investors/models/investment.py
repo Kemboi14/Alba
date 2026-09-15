@@ -343,6 +343,11 @@ class AlbaInvestment(models.Model):
         readonly=True,
         copy=False,
     )
+    withdrawal_payment_memo = fields.Char(
+        related="withdrawal_payment_id.memo",
+        string="Withdrawal Payment Memo",
+        help="The actual narration written on the withdrawal payment — shown on the investor statement.",
+    )
     withdrawal_notice_date = fields.Date(
         string="Early Withdrawal Notice Date",
         readonly=True,
