@@ -191,10 +191,13 @@ class AlbaLoanRepayment(models.Model):
 
     def _fire_repayment_webhook(self, event_type):
         """Fire a webhook to Django when a repayment is posted or reversed."""
+        # alba.api.key is defined in alba_integration, which may not be installed.
+        if "alba.api.key" not in self.env:
+            return
         api_key = self.env["alba.api.key"].sudo().search([("is_active", "=", True)], limit=1)
         if not api_key:
             return
-        
+
         payload = {
             "odoo_payment_id": self.id,
             "payment_reference": self.payment_reference,
